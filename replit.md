@@ -1,36 +1,57 @@
-# [Project name]
+# obtv-ai
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A fully local AI-powered media intelligence and semantic video search platform. Users place video files into a watched media folder; the system automatically discovers, processes, transcribes, indexes, and makes the content searchable from a browser — with timecode-precise playback, speaker diarization, face clustering, scene detection, and a local AI Q&A agent.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the Node.js mock API server (Replit preview)
+- `pnpm --filter @workspace/frontend run dev` — run the React frontend (Replit preview)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- **Frontend:** React + Vite + Tailwind CSS (dark-mode, broadcast-grade UI)
+- **Production backend:** FastAPI (Python) + Celery workers
+- **Databases:** PostgreSQL + Drizzle ORM (Node.js), SQLAlchemy (Python)
+- **Vector search:** Qdrant
+- **Queue:** Redis + Celery
+- **AI:** faster-whisper (transcription), pyannote.audio (diarization), CLIP (visual embeddings), FaceNet (face clustering), sentence-transformers (text embeddings), Llama 3.2 (Q&A)
+- **Media processing:** FFmpeg, ffprobe, PySceneDetect
+- **Deployment:** Docker Compose (NVIDIA GPU support)
+- **API codegen:** Orval (from OpenAPI spec)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — Single source of truth for all API contracts
+- `lib/api-client-react/src/generated/` — Generated React Query hooks
+- `artifacts/frontend/src/` — React frontend (pages, components)
+- `artifacts/api-server/src/routes/mock.ts` — Mock API data for Replit preview
+- `services/api/` — FastAPI backend (production)
+- `services/worker/tasks/` — Celery processing tasks (transcribe, diarize, scene detect, embed, etc.)
+- `services/watcher/` — File system watcher for auto-ingest
+- `docker-compose.yml` — Full production deployment stack
+- `.env.example` — Environment variable reference
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- OpenAPI-first contract: spec gates both the React Query client and the Zod validators on the server
+- Replit hosts the UI/development environment; production runs entirely via Docker Compose on a local GPU server
+- The Node.js API server in Replit serves mock data so the UI can be previewed without GPU hardware
+- Source media is mounted read-only; no source files are ever modified or deleted
+- All AI inference is local — no cloud APIs, no data leaves the network after initial model downloads
+- Processing jobs are tracked individually with status/progress/logs/retry support
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Media library:** Browse all indexed video assets with status, duration, codec info
+- **Asset detail:** Video player with timecode deep-linking, scene timeline, full transcript with speaker labels, face clusters, processing job history
+- **Semantic search:** Natural language search across transcripts and visual scene content; results link directly to the matching timecode in the video player
+- **Processing pipeline:** Real-time job monitoring with progress bars, logs, retry/cancel
+- **AI Q&A:** Ask questions about the video library; answers cite source files and timecodes
+- **Clip lists:** Build named clip lists from search results, export as EDL/CSV/JSON
 
 ## User preferences
 
@@ -38,8 +59,13 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Always restart the API server workflow after changing `src/routes/mock.ts`
+- Re-run codegen after any OpenAPI spec change: `pnpm --filter @workspace/api-spec run codegen`
+- The production stack requires a HuggingFace token for pyannote speaker diarization — see `.env.example`
+- Docker Compose GPU workers require NVIDIA Container Toolkit on the host
+- `BASE_PATH` env var must be set when running `pnpm build` manually (handled automatically by workflows)
 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See `README.md` for full production deployment instructions

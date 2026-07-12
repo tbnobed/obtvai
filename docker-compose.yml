@@ -1,0 +1,170 @@
+version: "3.9"
+
+# ─── Shared environment for all Python services ───────────────────────────────
+x-python-env: &python-env
+  DATABASE_URL: "postgresql+asyncpg://obtv:obtv@postgres:5432/obtv"
+  DATABASE_URL_SYNC: "postgresql://obtv:obtv@postgres:5432/obtv"
+  REDIS_URL: "redis://redis:6379/0"
+  QDRANT_URL: "http://qdrant:6333"
+  MEDIA_ROOT: "/media"
+  ARTIFACTS_ROOT: "/artifacts"
+  PROXIES_DIR: "/artifacts/proxies"
+  THUMBNAILS_DIR: "/artifacts/thumbnails"
+  AUDIO_DIR: "/artifacts/audio"
+  WHISPER_MODEL: "${WHISPER_MODEL:-medium}"
+  EMBEDDINGS_MODEL: "${EMBEDDINGS_MODEL:-sentence-transformers/all-MiniLM-L6-v2}"
+  VISION_MODEL: "${VISION_MODEL:-openai/clip-vit-base-patch32}"
+  HF_TOKEN: "${HF_TOKEN:-}"
+
+# ─── Volume definitions ───────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  qdrant_data:
+  redis_data:
+  artifacts_data:
+
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: obtv
+      POSTGRES_PASSWORD: obtv
+      POSTGRES_DB: obtv
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obtv"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "6333:6333"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Celery monitoring ────────────────────────────────────────────────────────
+  flower:
+    build:
+      context: ./services/worker
+    restart: unless-stopped
+    environment:
+      <<: *python-env
+    command: celery -A app flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ── FastAPI ──────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    environment:
+      <<: *python-env
+    volumes:
+      - "${MEDIA_PATH:-./sample_media}:/media:ro"
+      - artifacts_data:/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Workers ──────────────────────────────────────────────────────────────────
+  worker-gpu:
+    build:
+      context: ./services/worker
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      <<: *python-env
+    volumes:
+      - "${MEDIA_PATH:-./sample_media}:/media:ro"
+      - artifacts_data:/artifacts
+    command: celery -A app worker --queues=gpu --concurrency=1 --loglevel=info
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  worker-cpu:
+    build:
+      context: ./services/worker
+    restart: unless-stopped
+    environment:
+      <<: *python-env
+    volumes:
+      - "${MEDIA_PATH:-./sample_media}:/media:ro"
+      - artifacts_data:/artifacts
+    command: celery -A app worker --queues=cpu,ingest --concurrency=4 --loglevel=info
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ── File watcher ─────────────────────────────────────────────────────────────
+  watcher:
+    build:
+      context: ./services/watcher
+    restart: unless-stopped
+    environment:
+      <<: *python-env
+      API_URL: "http://api:8000/api"
+    volumes:
+      - "${MEDIA_PATH:-./sample_media}:/media:ro"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ── Frontend + nginx ─────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./artifacts/frontend
+      dockerfile: Dockerfile.production
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy

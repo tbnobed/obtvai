@@ -3,20 +3,31 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: obtv-ai media intelligence platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: media
+    description: Media library management
+  - name: search
+    description: Semantic search
+  - name: jobs
+    description: Processing jobs
+  - name: player
+    description: Playback and scene data
+  - name: ai
+    description: AI Q&A
+  - name: clips
+    description: Clip lists
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +35,431 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Media ──────────────────────────────────────────────────────────────────
+  /media:
+    get:
+      operationId: listMedia
+      tags: [media]
+      summary: List all media assets
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaListResponse"
+    post:
+      operationId: ingestMedia
+      tags: [media]
+      summary: Queue a media file for ingestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaIngestInput"
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAsset"
+
+  /media/{id}:
+    get:
+      operationId: getMedia
+      tags: [media]
+      summary: Get media asset details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAsset"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteMedia
+      tags: [media]
+      summary: Remove media from the library
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /media/{id}/scenes:
+    get:
+      operationId: getMediaScenes
+      tags: [player]
+      summary: Get detected scenes for a media asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Scene"
+
+  /media/{id}/transcript:
+    get:
+      operationId: getMediaTranscript
+      tags: [player]
+      summary: Get transcript segments for a media asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TranscriptSegment"
+
+  /media/{id}/faces:
+    get:
+      operationId: getMediaFaces
+      tags: [player]
+      summary: Get detected face clusters for a media asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FaceCluster"
+
+  # ── Stats ────────────────────────────────────────────────────────────────
+  /media/stats/summary:
+    get:
+      operationId: getLibraryStats
+      tags: [media]
+      summary: Library-wide stats (counts, totals, status breakdown)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryStats"
+
+  # ── Search ────────────────────────────────────────────────────────────────
+  /search:
+    post:
+      operationId: semanticSearch
+      tags: [search]
+      summary: Semantic search across indexed media
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchQuery"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+
+  /search/history:
+    get:
+      operationId: getSearchHistory
+      tags: [search]
+      summary: Recent searches
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchHistoryItem"
+
+  # ── Jobs ──────────────────────────────────────────────────────────────────
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List processing jobs
+      parameters:
+        - name: media_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcessingJob"
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job details including logs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+
+  /jobs/{id}/retry:
+    post:
+      operationId: retryJob
+      tags: [jobs]
+      summary: Retry a failed job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Retrying
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+
+  /jobs/{id}/cancel:
+    post:
+      operationId: cancelJob
+      tags: [jobs]
+      summary: Cancel a pending or running job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+
+  # ── AI Q&A ────────────────────────────────────────────────────────────────
+  /ai/ask:
+    post:
+      operationId: askAI
+      tags: [ai]
+      summary: Ask the AI a question about indexed media
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AIQuestion"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIAnswer"
+
+  /ai/conversations:
+    get:
+      operationId: listConversations
+      tags: [ai]
+      summary: List AI conversation history
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Conversation"
+
+  # ── Clips ─────────────────────────────────────────────────────────────────
+  /clips:
+    get:
+      operationId: listClipLists
+      tags: [clips]
+      summary: List all clip lists
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClipList"
+    post:
+      operationId: createClipList
+      tags: [clips]
+      summary: Create a new clip list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClipListInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipList"
+
+  /clips/{id}:
+    get:
+      operationId: getClipList
+      tags: [clips]
+      summary: Get a clip list with its clips
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipList"
+    patch:
+      operationId: updateClipList
+      tags: [clips]
+      summary: Update a clip list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClipListUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipList"
+    delete:
+      operationId: deleteClipList
+      tags: [clips]
+      summary: Delete a clip list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /clips/{id}/export:
+    post:
+      operationId: exportClipList
+      tags: [clips]
+      summary: Export a clip list (EDL/CSV/JSON)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClipExportInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipExportResult"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +467,408 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    # ── Media ────────────────────────────────────────────────────────────────
+    MediaAsset:
+      type: object
+      required: [id, filename, status, created_at]
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        original_path:
+          type: ["string", "null"]
+        proxy_path:
+          type: ["string", "null"]
+        thumbnail_url:
+          type: ["string", "null"]
+        duration_seconds:
+          type: ["number", "null"]
+        width:
+          type: ["integer", "null"]
+        height:
+          type: ["integer", "null"]
+        fps:
+          type: ["number", "null"]
+        codec:
+          type: ["string", "null"]
+        file_size_bytes:
+          type: ["integer", "null"]
+        status:
+          type: string
+          description: "pending | processing | ready | error"
+        processing_stage:
+          type: ["string", "null"]
+          description: Current processing stage name
+        processing_progress:
+          type: ["number", "null"]
+          description: 0-100 percent
+        scene_count:
+          type: ["integer", "null"]
+        speaker_count:
+          type: ["integer", "null"]
+        created_at:
+          type: string
+        updated_at:
+          type: ["string", "null"]
+
+    MediaListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaAsset"
+        total:
+          type: integer
+
+    MediaIngestInput:
+      type: object
+      required: [file_path]
+      properties:
+        file_path:
+          type: string
+          description: Absolute path to the source media file on the server
+        title:
+          type: string
+
+    LibraryStats:
+      type: object
+      required: [total_assets, total_duration_seconds, status_counts, storage_bytes]
+      properties:
+        total_assets:
+          type: integer
+        total_duration_seconds:
+          type: number
+        status_counts:
+          type: object
+          additionalProperties:
+            type: integer
+        storage_bytes:
+          type: integer
+        recent_activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaAsset"
+
+    Scene:
+      type: object
+      required: [id, media_id, start_time, end_time]
+      properties:
+        id:
+          type: string
+        media_id:
+          type: string
+        start_time:
+          type: number
+          description: Seconds
+        end_time:
+          type: number
+          description: Seconds
+        thumbnail_url:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        embedding_id:
+          type: ["string", "null"]
+
+    TranscriptSegment:
+      type: object
+      required: [id, media_id, start_time, end_time, text]
+      properties:
+        id:
+          type: string
+        media_id:
+          type: string
+        start_time:
+          type: number
+        end_time:
+          type: number
+        text:
+          type: string
+        speaker:
+          type: ["string", "null"]
+        confidence:
+          type: ["number", "null"]
+
+    FaceCluster:
+      type: object
+      required: [cluster_id, media_id, appearances]
+      properties:
+        cluster_id:
+          type: string
+        media_id:
+          type: string
+        label:
+          type: ["string", "null"]
+        thumbnail_url:
+          type: ["string", "null"]
+        appearances:
+          type: array
+          items:
+            type: object
+            required: [start_time, end_time]
+            properties:
+              start_time:
+                type: number
+              end_time:
+                type: number
+
+    # ── Search ────────────────────────────────────────────────────────────────
+    SearchQuery:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+        media_id:
+          type: ["string", "null"]
+          description: Restrict search to a specific asset
+        search_type:
+          type: string
+          description: "transcript | visual | combined"
+          default: combined
+        limit:
+          type: integer
+          default: 20
+
+    SearchResult:
+      type: object
+      required: [media_id, filename, start_time, end_time, score, match_type]
+      properties:
+        media_id:
+          type: string
+        filename:
+          type: string
+        thumbnail_url:
+          type: ["string", "null"]
+        start_time:
+          type: number
+        end_time:
+          type: number
+        score:
+          type: number
+        match_type:
+          type: string
+          description: "transcript | visual"
+        snippet:
+          type: ["string", "null"]
+          description: Matching transcript text
+
+    SearchResponse:
+      type: object
+      required: [results, query, took_ms]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        query:
+          type: string
+        took_ms:
+          type: number
+
+    SearchHistoryItem:
+      type: object
+      required: [id, query, result_count, searched_at]
+      properties:
+        id:
+          type: string
+        query:
+          type: string
+        result_count:
+          type: integer
+        searched_at:
+          type: string
+
+    # ── Jobs ─────────────────────────────────────────────────────────────────
+    ProcessingJob:
+      type: object
+      required: [id, media_id, job_type, status, created_at]
+      properties:
+        id:
+          type: string
+        media_id:
+          type: string
+        filename:
+          type: ["string", "null"]
+        job_type:
+          type: string
+          description: "ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index"
+        status:
+          type: string
+          description: "pending | running | success | error | cancelled"
+        progress:
+          type: ["number", "null"]
+          description: 0-100
+        error_message:
+          type: ["string", "null"]
+        logs:
+          type: array
+          items:
+            type: string
+        retry_count:
+          type: integer
+        created_at:
+          type: string
+        started_at:
+          type: ["string", "null"]
+        finished_at:
+          type: ["string", "null"]
+
+    # ── AI ───────────────────────────────────────────────────────────────────
+    AIQuestion:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+        conversation_id:
+          type: ["string", "null"]
+        media_id:
+          type: ["string", "null"]
+
+    AICitation:
+      type: object
+      required: [media_id, filename, start_time, end_time]
+      properties:
+        media_id:
+          type: string
+        filename:
+          type: string
+        start_time:
+          type: number
+        end_time:
+          type: number
+        snippet:
+          type: ["string", "null"]
+
+    AIAnswer:
+      type: object
+      required: [answer, conversation_id, citations]
+      properties:
+        answer:
+          type: string
+        conversation_id:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AICitation"
+
+    Conversation:
+      type: object
+      required: [id, created_at, message_count]
+      properties:
+        id:
+          type: string
+        title:
+          type: ["string", "null"]
+        created_at:
+          type: string
+        message_count:
+          type: integer
+
+    # ── Clips ─────────────────────────────────────────────────────────────────
+    Clip:
+      type: object
+      required: [id, media_id, start_time, end_time]
+      properties:
+        id:
+          type: string
+        media_id:
+          type: string
+        filename:
+          type: ["string", "null"]
+        start_time:
+          type: number
+        end_time:
+          type: number
+        label:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    ClipList:
+      type: object
+      required: [id, name, created_at, clips]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        created_at:
+          type: string
+        clips:
+          type: array
+          items:
+            $ref: "#/components/schemas/Clip"
+
+    ClipListInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        clips:
+          type: array
+          items:
+            type: object
+            required: [media_id, start_time, end_time]
+            properties:
+              media_id:
+                type: string
+              start_time:
+                type: number
+              end_time:
+                type: number
+              label:
+                type: string
+
+    ClipListUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        clips:
+          type: array
+          items:
+            type: object
+            required: [media_id, start_time, end_time]
+            properties:
+              media_id:
+                type: string
+              start_time:
+                type: number
+              end_time:
+                type: number
+              label:
+                type: string
+
+    ClipExportInput:
+      type: object
+      required: [format]
+      properties:
+        format:
+          type: string
+          description: "edl | csv | json"
+
+    ClipExportResult:
+      type: object
+      required: [format, content]
+      properties:
+        format:
+          type: string
+        content:
+          type: string
+        filename:
+          type: string
