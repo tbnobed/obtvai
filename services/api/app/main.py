@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights
+from .routers import media, search, jobs, ai, clips, people, insights, renders
 
 
 # Columns created as `json` by earlier versions must become `jsonb` so workers
@@ -101,6 +101,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.proxies_dir, exist_ok=True)
     os.makedirs(settings.thumbnails_dir, exist_ok=True)
     os.makedirs(settings.audio_dir, exist_ok=True)
+    os.makedirs(settings.renders_dir, exist_ok=True)
 
     # Warm AI models in the background so the first /ai/ask request does not
     # stall for minutes on model download + load. Non-blocking: the API serves
@@ -157,6 +158,7 @@ app.include_router(ai.router, prefix="/api")
 app.include_router(clips.router, prefix="/api")
 app.include_router(people.router, prefix="/api")
 app.include_router(insights.router, prefix="/api")
+app.include_router(renders.router, prefix="/api")
 
 
 @app.get("/api/healthz")

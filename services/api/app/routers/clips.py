@@ -11,6 +11,7 @@ from ..models import ClipList, Clip, MediaAsset
 from ..schemas import (
     ClipListOut, ClipOut, ClipListInput, ClipListUpdate,
     ClipExportInput, ClipExportResult,
+    RenderPresetInput, RenderJobOut,
 )
 
 router = APIRouter(prefix="/clips", tags=["clips"])
@@ -174,3 +175,9 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
         filename = f"{cl_out.name.replace(' ', '_')}.edl"
 
     return ClipExportResult(format=fmt, content=content, filename=filename)
+
+
+@router.post("/{id}/render", response_model=list[RenderJobOut], status_code=202)
+async def render_clip_list(id: str, body: RenderPresetInput, db: AsyncSession = Depends(get_db)):
+    from .renders import create_renders_for_clip_list
+    return await create_renders_for_clip_list(id, body.preset, body.burn_captions, db)

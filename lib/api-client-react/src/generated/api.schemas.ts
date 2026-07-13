@@ -359,6 +359,34 @@ export interface SearchResponse {
   took_ms: number;
 }
 
+export interface ScriptMatchRequest {
+  /**
+     * Script, rundown, or story outline; matched line by line
+     * @minLength 1
+     */
+  script: string;
+  /**
+     * Restrict matching to one asset
+     * @nullable
+     */
+  media_id?: string | null;
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  matches_per_line?: number;
+}
+
+export interface ScriptMatchLine {
+  line: string;
+  matches: SearchResult[];
+}
+
+export interface ScriptMatchResponse {
+  lines: ScriptMatchLine[];
+  took_ms: number;
+}
+
 export interface SearchHistoryItem {
   id: string;
   query: string;
@@ -494,6 +522,121 @@ export interface ClipListUpdate {
   clips?: ClipListUpdateClipsItem[];
 }
 
+/**
+ * original keeps source framing; vertical crops to 9:16 (1080x1920)
+ */
+export type RenderPresetInputPreset = typeof RenderPresetInputPreset[keyof typeof RenderPresetInputPreset];
+
+
+export const RenderPresetInputPreset = {
+  original: 'original',
+  vertical: 'vertical',
+} as const;
+
+export interface RenderPresetInput {
+  /** original keeps source framing; vertical crops to 9:16 (1080x1920) */
+  preset?: RenderPresetInputPreset;
+  /** Burn transcript captions into the video */
+  burn_captions?: boolean;
+}
+
+export type RenderRequestPreset = typeof RenderRequestPreset[keyof typeof RenderRequestPreset];
+
+
+export const RenderRequestPreset = {
+  original: 'original',
+  vertical: 'vertical',
+} as const;
+
+export interface RenderRequest {
+  media_id: string;
+  /** @minimum 0 */
+  start_time: number;
+  /** @minimum 0 */
+  end_time: number;
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  clip_list_id?: string | null;
+  preset?: RenderRequestPreset;
+  burn_captions?: boolean;
+}
+
+export interface RenderJob {
+  id: string;
+  media_id: string;
+  /**
+     * Source asset filename
+     * @nullable
+     */
+  filename?: string | null;
+  /** @nullable */
+  clip_list_id?: string | null;
+  /** @nullable */
+  label?: string | null;
+  start_time: number;
+  end_time: number;
+  /** original | vertical */
+  preset: string;
+  burn_captions: boolean;
+  /** pending | running | success | error */
+  status: string;
+  progress: number;
+  /**
+     * Set when status is success
+     * @nullable
+     */
+  output_url?: string | null;
+  /** @nullable */
+  error_message?: string | null;
+  /**
+     * null | pending | running | success | error
+     * @nullable
+     */
+  publish_status?: string | null;
+  /**
+     * Public URL after successful publish
+     * @nullable
+     */
+  publish_url?: string | null;
+  /** @nullable */
+  publish_error?: string | null;
+  created_at: string;
+  /** @nullable */
+  finished_at?: string | null;
+}
+
+export type PublishRequestPlatform = typeof PublishRequestPlatform[keyof typeof PublishRequestPlatform];
+
+
+export const PublishRequestPlatform = {
+  youtube: 'youtube',
+} as const;
+
+export type PublishRequestPrivacy = typeof PublishRequestPrivacy[keyof typeof PublishRequestPrivacy];
+
+
+export const PublishRequestPrivacy = {
+  public: 'public',
+  unlisted: 'unlisted',
+  private: 'private',
+} as const;
+
+export interface PublishRequest {
+  platform?: PublishRequestPlatform;
+  /** @minLength 1 */
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  tags?: string[];
+  privacy?: PublishRequestPrivacy;
+}
+
+export interface PublishPlatforms {
+  /** True when YouTube credentials are configured on the server */
+  youtube: boolean;
+}
+
 export interface ClipExportInput {
   /** edl | csv | json */
   format: string;
@@ -533,6 +676,11 @@ offset?: number;
 export type ListJobsParams = {
 media_id?: string;
 status?: string;
+limit?: number;
+};
+
+export type ListRendersParams = {
+clip_list_id?: string;
 limit?: number;
 };
 

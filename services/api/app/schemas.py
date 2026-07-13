@@ -141,6 +141,72 @@ class SearchHistoryItemOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ScriptMatchRequest(BaseModel):
+    script: str
+    media_id: Optional[str] = None
+    matches_per_line: int = 3
+
+
+class ScriptMatchLineOut(BaseModel):
+    line: str
+    matches: List[SearchResultOut] = []
+
+
+class ScriptMatchResponse(BaseModel):
+    lines: List[ScriptMatchLineOut]
+    took_ms: float
+
+
+# ── Renders & publishing ──────────────────────────────────────────────────────
+
+class RenderPresetInput(BaseModel):
+    preset: str = "original"
+    burn_captions: bool = False
+
+
+class RenderRequestIn(BaseModel):
+    media_id: str
+    start_time: float
+    end_time: float
+    label: Optional[str] = None
+    clip_list_id: Optional[str] = None
+    preset: str = "original"
+    burn_captions: bool = False
+
+
+class RenderJobOut(BaseModel):
+    id: str
+    media_id: str
+    filename: Optional[str] = None
+    clip_list_id: Optional[str] = None
+    label: Optional[str] = None
+    start_time: float
+    end_time: float
+    preset: str
+    burn_captions: bool
+    status: str
+    progress: float
+    output_url: Optional[str] = None
+    error_message: Optional[str] = None
+    publish_status: Optional[str] = None
+    publish_url: Optional[str] = None
+    publish_error: Optional[str] = None
+    created_at: datetime
+    finished_at: Optional[datetime] = None
+
+
+class PublishRequestIn(BaseModel):
+    platform: str = "youtube"
+    title: str
+    description: Optional[str] = None
+    tags: List[str] = []
+    privacy: str = "unlisted"
+
+
+class PublishPlatformsOut(BaseModel):
+    youtube: bool
+
+
 # ── Jobs ──────────────────────────────────────────────────────────────────────
 
 class ProcessingJobOut(BaseModel):

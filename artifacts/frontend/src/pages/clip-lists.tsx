@@ -1,16 +1,23 @@
 import { useState } from "react";
-import { useListClipLists, getListClipListsQueryKey, useExportClipList } from "@workspace/api-client-react";
+import { useListClipLists, getListClipListsQueryKey, useExportClipList, useRenderClipList } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Play } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Link } from "wouter";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Download, Play, Clapperboard, Smartphone, Monitor } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Link, useLocation } from "wouter";
 
 export default function ClipLists() {
+  const [, navigate] = useLocation();
   const { data: lists, isLoading } = useListClipLists({ query: { queryKey: getListClipListsQueryKey() } });
   const exportMutation = useExportClipList();
-  
+  const renderMutation = useRenderClipList();
+
   const [exportData, setExportData] = useState<string | null>(null);
+  const [renderTarget, setRenderTarget] = useState<{ id: string; name: string; clipCount: number } | null>(null);
+  const [preset, setPreset] = useState<"original" | "vertical">("original");
+  const [burnCaptions, setBurnCaptions] = useState(false);
 
   const handleExport = (listId: string, format: string) => {
     exportMutation.mutate({ id: listId, data: { format } }, {
@@ -18,6 +25,25 @@ export default function ClipLists() {
         setExportData(res.content);
       }
     });
+  };
+
+  const openRender = (list: { id: string; name: string; clips: unknown[] }) => {
+    setPreset("original");
+    setBurnCaptions(false);
+    setRenderTarget({ id: list.id, name: list.name, clipCount: list.clips.length });
+  };
+
+  const submitRender = () => {
+    if (!renderTarget) return;
+    renderMutation.mutate(
+      { id: renderTarget.id, data: { preset, burn_captions: burnCaptions } },
+      {
+        onSuccess: () => {
+          setRenderTarget(null);
+          navigate("/exports");
+        },
+      },
+    );
   };
 
   return (
@@ -39,6 +65,64 @@ export default function ClipLists() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!renderTarget} onOpenChange={(open) => !open && setRenderTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clapperboard className="h-5 w-5" /> Render "{renderTarget?.name}"
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5">
+            <p className="text-sm text-muted-foreground">
+              Renders {renderTarget?.clipCount} clip{renderTarget?.clipCount === 1 ? "" : "s"} to standalone MP4 files.
+            </p>
+            <div className="space-y-2">
+              <Label>Format</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPreset("original")}
+                  className={`flex flex-col items-center gap-2 rounded-lg border p-4 text-sm transition-colors ${
+                    preset === "original" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Monitor className="h-6 w-6" />
+                  <span className="font-medium">Original</span>
+                  <span className="text-xs">Keeps source framing</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreset("vertical")}
+                  className={`flex flex-col items-center gap-2 rounded-lg border p-4 text-sm transition-colors ${
+                    preset === "vertical" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Smartphone className="h-6 w-6" />
+                  <span className="font-medium">Vertical 9:16</span>
+                  <span className="text-xs">1080×1920, center crop</span>
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div>
+                <Label htmlFor="burn-captions" className="font-medium">Burn in captions</Label>
+                <p className="text-xs text-muted-foreground mt-1">Overlays transcript text onto the video</p>
+              </div>
+              <Switch id="burn-captions" checked={burnCaptions} onCheckedChange={setBurnCaptions} />
+            </div>
+            {renderMutation.isError && (
+              <p className="text-sm text-red-400">Render request failed — is the list empty?</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenderTarget(null)}>Cancel</Button>
+            <Button onClick={submitRender} disabled={renderMutation.isPending}>
+              {renderMutation.isPending ? "Starting..." : "Start Render"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {isLoading ? (
         <div className="grid gap-6 md:grid-cols-2">
           {[...Array(2)].map((_, i) => <Card key={i} className="animate-pulse h-48 bg-muted" />)}
@@ -55,6 +139,9 @@ export default function ClipLists() {
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => handleExport(list.id, "edl")}>
                     <Download className="h-4 w-4 mr-2" /> EDL
+                  </Button>
+                  <Button size="sm" onClick={() => openRender(list)} disabled={!list.clips.length}>
+                    <Clapperboard className="h-4 w-4 mr-2" /> Render
                   </Button>
                 </div>
               </CardHeader>

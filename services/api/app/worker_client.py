@@ -56,3 +56,13 @@ async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: d
         payload.update(extra)
     await _publish(queue, task_name, payload, str(uuid.uuid4()))
     return job_id
+
+
+async def enqueue_render(render_id: str) -> str:
+    await _publish("cpu", "tasks.render.render_clip", {"render_id": render_id}, str(uuid.uuid4()))
+    return render_id
+
+
+async def enqueue_publish(render_id: str) -> str:
+    await _publish("cpu", "tasks.publish.publish_render", {"render_id": render_id}, str(uuid.uuid4()))
+    return render_id

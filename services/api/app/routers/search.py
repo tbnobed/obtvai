@@ -6,7 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
 from ..models import MediaAsset, TranscriptSegment, Scene, SearchHistory
-from ..schemas import SearchQuery, SearchResponse, SearchResultOut, SearchHistoryItemOut
+from ..schemas import (
+    SearchQuery, SearchResponse, SearchResultOut, SearchHistoryItemOut,
+    ScriptMatchRequest, ScriptMatchLineOut, ScriptMatchResponse,
+)
 from ..config import settings
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -129,6 +132,78 @@ async def _fallback_text_search(body: SearchQuery, db: AsyncSession) -> list[Sea
         )
         for seg, asset in rows
     ]
+
+
+_MAX_SCRIPT_LINES = 50
+
+
+def _split_script(script: str) -> list[str]:
+    """Split a script into matchable lines: non-empty lines, long ones kept whole."""
+    lines = [ln.strip() for ln in script.splitlines()]
+    return [ln for ln in lines if len(ln) >= 3][:_MAX_SCRIPT_LINES]
+
+
+@router.post("/script-match", response_model=ScriptMatchResponse)
+async def script_match(body: ScriptMatchRequest, db: AsyncSession = Depends(get_db)):
+    t0 = time.time()
+    lines = _split_script(body.script)
+    if not lines:
+        return ScriptMatchResponse(lines=[], took_ms=0.0)
+    per_line = min(max(body.matches_per_line, 1), 10)
+
+    out_lines: list[ScriptMatchLineOut] = []
+    embed_ok = True
+    try:
+        from ..services.embedding import get_text_embedding
+        from ..services.qdrant_client import search_vectors
+    except Exception:
+        embed_ok = False
+
+    for line in lines:
+        matches: list[SearchResultOut] = []
+        if embed_ok:
+            try:
+                vec = await get_text_embedding(line)
+                hits = await search_vectors(
+                    collection="transcripts",
+                    vector=vec,
+                    limit=per_line,
+                    media_id=body.media_id,
+                )
+                for hit in hits:
+                    seg_id = hit.payload.get("segment_id")
+                    row = (await db.execute(
+                        select(TranscriptSegment, MediaAsset)
+                        .join(MediaAsset, TranscriptSegment.media_id == MediaAsset.id)
+                        .where(TranscriptSegment.id == seg_id)
+                    )).first()
+                    if row:
+                        seg, asset = row
+                        matches.append(SearchResultOut(
+                            media_id=asset.id,
+                            filename=asset.filename,
+                            thumbnail_url=asset.thumbnail_url,
+                            start_time=seg.start_time,
+                            end_time=seg.end_time,
+                            score=hit.score,
+                            match_type="transcript",
+                            snippet=seg.text,
+                        ))
+            except Exception:
+                import logging
+                logging.getLogger("obtv.search").exception(
+                    "Script-match vector search failed for line %r", line[:80]
+                )
+        if not matches:
+            fallback_query = SearchQuery(
+                query=line, media_id=body.media_id,
+                search_type="transcript", limit=per_line,
+            )
+            matches = await _fallback_text_search(fallback_query, db)
+        out_lines.append(ScriptMatchLineOut(line=line, matches=matches))
+
+    took_ms = (time.time() - t0) * 1000
+    return ScriptMatchResponse(lines=out_lines, took_ms=took_ms)
 
 
 @router.get("/history", response_model=list[SearchHistoryItemOut])

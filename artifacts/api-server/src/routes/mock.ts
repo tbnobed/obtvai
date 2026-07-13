@@ -810,6 +810,197 @@ router.post("/clips/:id/export", (req, res) => {
   res.json({ format: fmt, content, filename: `${cl.name.replace(/ /g, "_")}.${fmt}` });
 });
 
+// ── Renders & publishing ─────────────────────────────────────────────────────
+
+type MockRender = {
+  id: string; media_id: string; filename: string | null; clip_list_id: string | null;
+  label: string | null; start_time: number; end_time: number;
+  preset: string; burn_captions: boolean; status: string; progress: number;
+  output_url: string | null; error_message: string | null;
+  publish_status: string | null; publish_url: string | null; publish_error: string | null;
+  created_at: string; finished_at: string | null;
+  _startedAt: number; _publishStartedAt: number | null;
+};
+
+const renders: MockRender[] = [];
+
+function makeRender(mediaId: string, start: number, end: number, preset: string, burnCaptions: boolean, label: string | null, clipListId: string | null): MockRender {
+  return {
+    id: `render-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    media_id: mediaId,
+    filename: assets.find((a) => a.id === mediaId)?.filename || null,
+    clip_list_id: clipListId,
+    label,
+    start_time: start,
+    end_time: end,
+    preset,
+    burn_captions: burnCaptions,
+    status: "pending",
+    progress: 0,
+    output_url: null,
+    error_message: null,
+    publish_status: null,
+    publish_url: null,
+    publish_error: null,
+    created_at: new Date().toISOString(),
+    finished_at: null,
+    _startedAt: Date.now(),
+    _publishStartedAt: null,
+  };
+}
+
+// Simulate render + publish progress based on elapsed time.
+function tickRender(r: MockRender) {
+  if (r.status === "pending" || r.status === "running") {
+    const elapsed = (Date.now() - r._startedAt) / 1000;
+    if (elapsed < 1.5) {
+      r.status = "pending";
+    } else if (elapsed < 10) {
+      r.status = "running";
+      r.progress = Math.min(99, Math.round(((elapsed - 1.5) / 8.5) * 100));
+    } else {
+      r.status = "success";
+      r.progress = 100;
+      r.finished_at = new Date().toISOString();
+      r.output_url = `/api/renders/${r.id}/download`;
+    }
+  }
+  if (r.publish_status === "pending" || r.publish_status === "running") {
+    const elapsed = (Date.now() - (r._publishStartedAt || Date.now())) / 1000;
+    if (elapsed < 1) {
+      r.publish_status = "pending";
+    } else if (elapsed < 6) {
+      r.publish_status = "running";
+    } else {
+      r.publish_status = "success";
+      r.publish_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    }
+  }
+}
+
+function renderOut(r: MockRender) {
+  const { _startedAt, _publishStartedAt, ...out } = r;
+  return out;
+}
+
+router.post("/clips/:id/render", (req, res) => {
+  const cl = clipLists.find((c) => c.id === req.params.id);
+  if (!cl) { res.status(404).json({ detail: "Clip list not found" }); return; }
+  if (!cl.clips.length) { res.status(400).json({ detail: "Clip list has no clips" }); return; }
+  const preset = req.body.preset || "original";
+  const burn = !!req.body.burn_captions;
+  const created = cl.clips.map((c) => makeRender(c.media_id, c.start_time, c.end_time, preset, burn, c.label, cl.id));
+  renders.unshift(...created);
+  res.status(202).json(created.map(renderOut));
+});
+
+router.get("/renders", (req, res) => {
+  renders.forEach(tickRender);
+  let out = renders;
+  if (req.query.clip_list_id) out = out.filter((r) => r.clip_list_id === req.query.clip_list_id);
+  res.json(out.map(renderOut));
+});
+
+router.post("/renders", (req, res) => {
+  const asset = assets.find((a) => a.id === req.body.media_id);
+  if (!asset) { res.status(404).json({ detail: "Media not found" }); return; }
+  const r = makeRender(
+    req.body.media_id, req.body.start_time, req.body.end_time,
+    req.body.preset || "original", !!req.body.burn_captions,
+    req.body.label || null, req.body.clip_list_id || null,
+  );
+  renders.unshift(r);
+  res.status(202).json(renderOut(r));
+});
+
+router.get("/renders/publish/platforms", (_req, res) => {
+  res.json({ youtube: true });
+});
+
+router.get("/renders/:id", (req, res) => {
+  const r = renders.find((x) => x.id === req.params.id);
+  if (!r) { res.status(404).json({ detail: "Render not found" }); return; }
+  tickRender(r);
+  res.json(renderOut(r));
+});
+
+router.delete("/renders/:id", (req, res) => {
+  const idx = renders.findIndex((x) => x.id === req.params.id);
+  if (idx === -1) { res.status(404).json({ detail: "Render not found" }); return; }
+  renders.splice(idx, 1);
+  res.status(204).send();
+});
+
+router.get("/renders/:id/download", (req, res) => {
+  const r = renders.find((x) => x.id === req.params.id);
+  if (!r) { res.status(404).json({ detail: "Render not found" }); return; }
+  tickRender(r);
+  if (r.status !== "success") { res.status(404).json({ detail: "Render output not available" }); return; }
+  // Tiny placeholder payload; the production API streams the real MP4.
+  const name = `${(r.label || "clip").replace(/ /g, "_")}_${r.id.slice(-8)}.mp4`;
+  res.setHeader("Content-Type", "video/mp4");
+  res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+  res.send(Buffer.from("mock mp4 output — real file is produced by the production render worker"));
+});
+
+router.post("/renders/:id/publish", (req, res) => {
+  const r = renders.find((x) => x.id === req.params.id);
+  if (!r) { res.status(404).json({ detail: "Render not found" }); return; }
+  tickRender(r);
+  if (r.status !== "success") { res.status(400).json({ detail: "Render is not finished yet" }); return; }
+  if (r.publish_status === "pending" || r.publish_status === "running") {
+    res.status(400).json({ detail: "Publish already in progress" });
+    return;
+  }
+  r.publish_status = "pending";
+  r.publish_url = null;
+  r.publish_error = null;
+  r._publishStartedAt = Date.now();
+  res.status(202).json(renderOut(r));
+});
+
+// ── Script match ─────────────────────────────────────────────────────────────
+
+router.post("/search/script-match", (req, res) => {
+  const script: string = req.body.script || "";
+  const perLine = Math.min(Math.max(req.body.matches_per_line || 3, 1), 10);
+  const lines = script
+    .split("\n")
+    .map((l: string) => l.trim())
+    .filter((l: string) => l.length >= 3)
+    .slice(0, 50);
+
+  const out = lines.map((line: string) => {
+    const words = line.toLowerCase().split(/\W+/).filter((w: string) => w.length > 3);
+    const scored = transcript
+      .map((seg) => {
+        const text = seg.text.toLowerCase();
+        const hits = words.filter((w: string) => text.includes(w)).length;
+        return { seg, score: words.length ? hits / words.length : 0 };
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, perLine);
+    const matches = (scored.length ? scored : transcript.slice(0, 1).map((seg) => ({ seg, score: 0.42 })))
+      .map(({ seg, score }) => {
+        const asset = assets.find((a) => a.id === seg.media_id);
+        return {
+          media_id: seg.media_id,
+          filename: asset?.filename || "unknown",
+          thumbnail_url: null,
+          start_time: seg.start_time,
+          end_time: seg.end_time,
+          score: Math.round((0.5 + score / 2) * 100) / 100,
+          match_type: "transcript",
+          snippet: seg.text,
+        };
+      });
+    return { line, matches };
+  });
+
+  res.json({ lines: out, took_ms: 42 });
+});
+
 // ── People & Insights ────────────────────────────────────────────────────────
 
 const people = [

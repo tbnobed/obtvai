@@ -22,6 +22,7 @@ tags:
     description: AI Q&A
   - name: clips
     description: Clip lists
+  - name: renders
   - name: people
     description: Cross-asset person identities
   - name: insights
@@ -830,6 +831,201 @@ paths:
               schema:
                 $ref: "#/components/schemas/ClipExportResult"
 
+  /clips/{id}/render:
+    post:
+      operationId: renderClipList
+      tags: [renders]
+      summary: Render every clip in a clip list to MP4 files
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenderPresetInput"
+      responses:
+        "202":
+          description: Render jobs queued
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RenderJob"
+        "404":
+          description: Not found
+
+  # ── Renders ────────────────────────────────────────────────────────────────
+  /renders:
+    get:
+      operationId: listRenders
+      tags: [renders]
+      summary: List render jobs, newest first
+      parameters:
+        - name: clip_list_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RenderJob"
+    post:
+      operationId: createRender
+      tags: [renders]
+      summary: Render a single clip to an MP4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenderRequest"
+      responses:
+        "202":
+          description: Render job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderJob"
+        "404":
+          description: Media not found
+
+  /renders/{id}:
+    get:
+      operationId: getRender
+      tags: [renders]
+      summary: Get a render job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderJob"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteRender
+      tags: [renders]
+      summary: Delete a render job and its output file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /renders/{id}/download:
+    get:
+      operationId: downloadRender
+      tags: [renders]
+      summary: Download the rendered MP4
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: MP4 file
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found or not finished
+
+  /renders/{id}/publish:
+    post:
+      operationId: publishRender
+      tags: [renders]
+      summary: Publish a finished render to a third-party platform (YouTube)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishRequest"
+      responses:
+        "202":
+          description: Publish queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderJob"
+        "400":
+          description: Platform not configured or render not finished
+        "404":
+          description: Not found
+
+  /renders/publish/platforms:
+    get:
+      operationId: getPublishPlatforms
+      tags: [renders]
+      summary: Which publish platforms are configured
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishPlatforms"
+
+  /search/script-match:
+    post:
+      operationId: scriptMatch
+      tags: [search]
+      summary: Match each line of a script or rundown to moments in the library
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScriptMatchRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScriptMatchResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -1334,6 +1530,45 @@ components:
         took_ms:
           type: number
 
+    ScriptMatchRequest:
+      type: object
+      required: [script]
+      properties:
+        script:
+          type: string
+          minLength: 1
+          description: Script, rundown, or story outline; matched line by line
+        media_id:
+          type: ["string", "null"]
+          description: Restrict matching to one asset
+        matches_per_line:
+          type: integer
+          default: 3
+          minimum: 1
+          maximum: 10
+
+    ScriptMatchLine:
+      type: object
+      required: [line, matches]
+      properties:
+        line:
+          type: string
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+
+    ScriptMatchResponse:
+      type: object
+      required: [lines, took_ms]
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScriptMatchLine"
+        took_ms:
+          type: number
+
     SearchHistoryItem:
       type: object
       required: [id, query, result_count, searched_at]
@@ -1553,6 +1788,124 @@ components:
                 type: number
               label:
                 type: string
+
+    # ── Renders & publishing ──────────────────────────────────────────────────
+    RenderPresetInput:
+      type: object
+      properties:
+        preset:
+          type: string
+          enum: [original, vertical]
+          default: original
+          description: original keeps source framing; vertical crops to 9:16 (1080x1920)
+        burn_captions:
+          type: boolean
+          default: false
+          description: Burn transcript captions into the video
+
+    RenderRequest:
+      type: object
+      required: [media_id, start_time, end_time]
+      properties:
+        media_id:
+          type: string
+        start_time:
+          type: number
+          minimum: 0
+        end_time:
+          type: number
+          minimum: 0
+        label:
+          type: ["string", "null"]
+        clip_list_id:
+          type: ["string", "null"]
+        preset:
+          type: string
+          enum: [original, vertical]
+          default: original
+        burn_captions:
+          type: boolean
+          default: false
+
+    RenderJob:
+      type: object
+      required: [id, media_id, start_time, end_time, preset, burn_captions, status, progress, created_at]
+      properties:
+        id:
+          type: string
+        media_id:
+          type: string
+        filename:
+          type: ["string", "null"]
+          description: Source asset filename
+        clip_list_id:
+          type: ["string", "null"]
+        label:
+          type: ["string", "null"]
+        start_time:
+          type: number
+        end_time:
+          type: number
+        preset:
+          type: string
+          description: original | vertical
+        burn_captions:
+          type: boolean
+        status:
+          type: string
+          description: pending | running | success | error
+        progress:
+          type: number
+        output_url:
+          type: ["string", "null"]
+          description: Set when status is success
+        error_message:
+          type: ["string", "null"]
+        publish_status:
+          type: ["string", "null"]
+          description: null | pending | running | success | error
+        publish_url:
+          type: ["string", "null"]
+          description: Public URL after successful publish
+        publish_error:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: ["string", "null"]
+          format: date-time
+
+    PublishRequest:
+      type: object
+      required: [title]
+      properties:
+        platform:
+          type: string
+          enum: [youtube]
+          default: youtube
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+        privacy:
+          type: string
+          enum: [public, unlisted, private]
+          default: unlisted
+
+    PublishPlatforms:
+      type: object
+      required: [youtube]
+      properties:
+        youtube:
+          type: boolean
+          description: True when YouTube credentials are configured on the server
 
     ClipExportInput:
       type: object

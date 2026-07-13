@@ -22,6 +22,8 @@ celery_app = Celery(
         "tasks.dub",
         "tasks.identify",
         "tasks.insights",
+        "tasks.render",
+        "tasks.publish",
     ],
 )
 celery_app.config_from_object("celeryconfig")

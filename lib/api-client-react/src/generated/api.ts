@@ -40,6 +40,7 @@ import type {
   ListJobsParams,
   ListMediaParams,
   ListPeopleParams,
+  ListRendersParams,
   MediaAsset,
   MediaIngestInput,
   MediaListResponse,
@@ -51,8 +52,15 @@ import type {
   PersonSplitRequest,
   PersonUpdate,
   ProcessingJob,
+  PublishPlatforms,
+  PublishRequest,
   ReanalyzeResult,
+  RenderJob,
+  RenderPresetInput,
+  RenderRequest,
   Scene,
+  ScriptMatchRequest,
+  ScriptMatchResponse,
   SearchHistoryItem,
   SearchQuery,
   SearchResponse,
@@ -3012,5 +3020,677 @@ export const useExportClipList = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getExportClipListMutationOptions(options));
+    }
+
+export const getRenderClipListUrl = (id: string,) => {
+
+
+
+
+  return `/api/clips/${id}/render`
+}
+
+/**
+ * @summary Render every clip in a clip list to MP4 files
+ */
+export const renderClipList = async (id: string,
+    renderPresetInput: RenderPresetInput, options?: RequestInit): Promise<RenderJob[]> => {
+
+  return customFetch<RenderJob[]>(getRenderClipListUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(renderPresetInput)
+  }
+);}
+
+
+
+
+
+export const getRenderClipListMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renderClipList>>, TError,{id: string;data: BodyType<RenderPresetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renderClipList>>, TError,{id: string;data: BodyType<RenderPresetInput>}, TContext> => {
+
+const mutationKey = ['renderClipList'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renderClipList>>, {id: string;data: BodyType<RenderPresetInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  renderClipList(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenderClipListMutationResult = NonNullable<Awaited<ReturnType<typeof renderClipList>>>
+    export type RenderClipListMutationBody = BodyType<RenderPresetInput>
+    export type RenderClipListMutationError = ErrorType<void>
+
+    /**
+ * @summary Render every clip in a clip list to MP4 files
+ */
+export const useRenderClipList = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renderClipList>>, TError,{id: string;data: BodyType<RenderPresetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof renderClipList>>,
+        TError,
+        {id: string;data: BodyType<RenderPresetInput>},
+        TContext
+      > => {
+      return useMutation(getRenderClipListMutationOptions(options));
+    }
+
+export const getListRendersUrl = (params?: ListRendersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/renders?${stringifiedParams}` : `/api/renders`
+}
+
+/**
+ * @summary List render jobs, newest first
+ */
+export const listRenders = async (params?: ListRendersParams, options?: RequestInit): Promise<RenderJob[]> => {
+
+  return customFetch<RenderJob[]>(getListRendersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRendersQueryKey = (params?: ListRendersParams,) => {
+    return [
+    `/api/renders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListRendersQueryOptions = <TData = Awaited<ReturnType<typeof listRenders>>, TError = ErrorType<unknown>>(params?: ListRendersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRenders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRendersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRenders>>> = ({ signal }) => listRenders(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRenders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRendersQueryResult = NonNullable<Awaited<ReturnType<typeof listRenders>>>
+export type ListRendersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List render jobs, newest first
+ */
+
+export function useListRenders<TData = Awaited<ReturnType<typeof listRenders>>, TError = ErrorType<unknown>>(
+ params?: ListRendersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRenders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRendersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateRenderUrl = () => {
+
+
+
+
+  return `/api/renders`
+}
+
+/**
+ * @summary Render a single clip to an MP4
+ */
+export const createRender = async (renderRequest: RenderRequest, options?: RequestInit): Promise<RenderJob> => {
+
+  return customFetch<RenderJob>(getCreateRenderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(renderRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateRenderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRender>>, TError,{data: BodyType<RenderRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRender>>, TError,{data: BodyType<RenderRequest>}, TContext> => {
+
+const mutationKey = ['createRender'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRender>>, {data: BodyType<RenderRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRender(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRenderMutationResult = NonNullable<Awaited<ReturnType<typeof createRender>>>
+    export type CreateRenderMutationBody = BodyType<RenderRequest>
+    export type CreateRenderMutationError = ErrorType<void>
+
+    /**
+ * @summary Render a single clip to an MP4
+ */
+export const useCreateRender = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRender>>, TError,{data: BodyType<RenderRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRender>>,
+        TError,
+        {data: BodyType<RenderRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateRenderMutationOptions(options));
+    }
+
+export const getGetRenderUrl = (id: string,) => {
+
+
+
+
+  return `/api/renders/${id}`
+}
+
+/**
+ * @summary Get a render job
+ */
+export const getRender = async (id: string, options?: RequestInit): Promise<RenderJob> => {
+
+  return customFetch<RenderJob>(getGetRenderUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRenderQueryKey = (id: string,) => {
+    return [
+    `/api/renders/${id}`
+    ] as const;
+    }
+
+
+export const getGetRenderQueryOptions = <TData = Awaited<ReturnType<typeof getRender>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRender>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRenderQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRender>>> = ({ signal }) => getRender(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRender>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRenderQueryResult = NonNullable<Awaited<ReturnType<typeof getRender>>>
+export type GetRenderQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a render job
+ */
+
+export function useGetRender<TData = Awaited<ReturnType<typeof getRender>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRender>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRenderQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteRenderUrl = (id: string,) => {
+
+
+
+
+  return `/api/renders/${id}`
+}
+
+/**
+ * @summary Delete a render job and its output file
+ */
+export const deleteRender = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteRenderUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteRenderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRender>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRender>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteRender'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRender>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteRender(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRenderMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRender>>>
+
+    export type DeleteRenderMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a render job and its output file
+ */
+export const useDeleteRender = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRender>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRender>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteRenderMutationOptions(options));
+    }
+
+export const getDownloadRenderUrl = (id: string,) => {
+
+
+
+
+  return `/api/renders/${id}/download`
+}
+
+/**
+ * @summary Download the rendered MP4
+ */
+export const downloadRender = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadRenderUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadRenderQueryKey = (id: string,) => {
+    return [
+    `/api/renders/${id}/download`
+    ] as const;
+    }
+
+
+export const getDownloadRenderQueryOptions = <TData = Awaited<ReturnType<typeof downloadRender>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadRender>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadRenderQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadRender>>> = ({ signal }) => downloadRender(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadRender>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadRenderQueryResult = NonNullable<Awaited<ReturnType<typeof downloadRender>>>
+export type DownloadRenderQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download the rendered MP4
+ */
+
+export function useDownloadRender<TData = Awaited<ReturnType<typeof downloadRender>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadRender>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadRenderQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPublishRenderUrl = (id: string,) => {
+
+
+
+
+  return `/api/renders/${id}/publish`
+}
+
+/**
+ * @summary Publish a finished render to a third-party platform (YouTube)
+ */
+export const publishRender = async (id: string,
+    publishRequest: PublishRequest, options?: RequestInit): Promise<RenderJob> => {
+
+  return customFetch<RenderJob>(getPublishRenderUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(publishRequest)
+  }
+);}
+
+
+
+
+
+export const getPublishRenderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishRender>>, TError,{id: string;data: BodyType<PublishRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof publishRender>>, TError,{id: string;data: BodyType<PublishRequest>}, TContext> => {
+
+const mutationKey = ['publishRender'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishRender>>, {id: string;data: BodyType<PublishRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  publishRender(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PublishRenderMutationResult = NonNullable<Awaited<ReturnType<typeof publishRender>>>
+    export type PublishRenderMutationBody = BodyType<PublishRequest>
+    export type PublishRenderMutationError = ErrorType<void>
+
+    /**
+ * @summary Publish a finished render to a third-party platform (YouTube)
+ */
+export const usePublishRender = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishRender>>, TError,{id: string;data: BodyType<PublishRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof publishRender>>,
+        TError,
+        {id: string;data: BodyType<PublishRequest>},
+        TContext
+      > => {
+      return useMutation(getPublishRenderMutationOptions(options));
+    }
+
+export const getGetPublishPlatformsUrl = () => {
+
+
+
+
+  return `/api/renders/publish/platforms`
+}
+
+/**
+ * @summary Which publish platforms are configured
+ */
+export const getPublishPlatforms = async ( options?: RequestInit): Promise<PublishPlatforms> => {
+
+  return customFetch<PublishPlatforms>(getGetPublishPlatformsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublishPlatformsQueryKey = () => {
+    return [
+    `/api/renders/publish/platforms`
+    ] as const;
+    }
+
+
+export const getGetPublishPlatformsQueryOptions = <TData = Awaited<ReturnType<typeof getPublishPlatforms>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublishPlatforms>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublishPlatformsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublishPlatforms>>> = ({ signal }) => getPublishPlatforms({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublishPlatforms>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublishPlatformsQueryResult = NonNullable<Awaited<ReturnType<typeof getPublishPlatforms>>>
+export type GetPublishPlatformsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Which publish platforms are configured
+ */
+
+export function useGetPublishPlatforms<TData = Awaited<ReturnType<typeof getPublishPlatforms>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublishPlatforms>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublishPlatformsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getScriptMatchUrl = () => {
+
+
+
+
+  return `/api/search/script-match`
+}
+
+/**
+ * @summary Match each line of a script or rundown to moments in the library
+ */
+export const scriptMatch = async (scriptMatchRequest: ScriptMatchRequest, options?: RequestInit): Promise<ScriptMatchResponse> => {
+
+  return customFetch<ScriptMatchResponse>(getScriptMatchUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(scriptMatchRequest)
+  }
+);}
+
+
+
+
+
+export const getScriptMatchMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scriptMatch>>, TError,{data: BodyType<ScriptMatchRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scriptMatch>>, TError,{data: BodyType<ScriptMatchRequest>}, TContext> => {
+
+const mutationKey = ['scriptMatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scriptMatch>>, {data: BodyType<ScriptMatchRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  scriptMatch(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScriptMatchMutationResult = NonNullable<Awaited<ReturnType<typeof scriptMatch>>>
+    export type ScriptMatchMutationBody = BodyType<ScriptMatchRequest>
+    export type ScriptMatchMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Match each line of a script or rundown to moments in the library
+ */
+export const useScriptMatch = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scriptMatch>>, TError,{data: BodyType<ScriptMatchRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scriptMatch>>,
+        TError,
+        {data: BodyType<ScriptMatchRequest>},
+        TContext
+      > => {
+      return useMutation(getScriptMatchMutationOptions(options));
     }
 

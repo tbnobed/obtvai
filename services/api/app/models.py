@@ -154,6 +154,30 @@ class ProcessingJob(Base):
     asset: Mapped["MediaAsset"] = relationship("MediaAsset", back_populates="jobs")
 
 
+class RenderJob(Base):
+    __tablename__ = "render_jobs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    media_id: Mapped[str] = mapped_column(String, ForeignKey("media_assets.id"), nullable=False)
+    clip_list_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    label: Mapped[str | None] = mapped_column(String, nullable=True)
+    start_time: Mapped[float] = mapped_column(Float, nullable=False)
+    end_time: Mapped[float] = mapped_column(Float, nullable=False)
+    preset: Mapped[str] = mapped_column(String, default="original")
+    burn_captions: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String, default="pending")
+    progress: Mapped[float] = mapped_column(Float, default=0.0)
+    output_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    publish_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    publish_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    publish_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    asset: Mapped["MediaAsset"] = relationship("MediaAsset")
+
+
 class SearchHistory(Base):
     __tablename__ = "search_history"
 

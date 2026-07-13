@@ -1008,3 +1008,247 @@ export const ExportClipListResponse = zod.object({
 })
 
 
+/**
+ * @summary Render every clip in a clip list to MP4 files
+ */
+export const RenderClipListParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const renderClipListBodyPresetDefault = `original`;
+export const renderClipListBodyBurnCaptionsDefault = false;
+
+export const RenderClipListBody = zod.object({
+  "preset": zod.enum(['original', 'vertical']).default(renderClipListBodyPresetDefault).describe('original keeps source framing; vertical crops to 9:16 (1080x1920)'),
+  "burn_captions": zod.boolean().default(renderClipListBodyBurnCaptionsDefault).describe('Burn transcript captions into the video')
+})
+
+export const RenderClipListResponseItem = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "filename": zod.string().nullish().describe('Source asset filename'),
+  "clip_list_id": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
+  "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
+  "publish_error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+export const RenderClipListResponse = zod.array(RenderClipListResponseItem)
+
+
+/**
+ * @summary List render jobs, newest first
+ */
+export const listRendersQueryLimitDefault = 100;
+
+export const ListRendersQueryParams = zod.object({
+  "clip_list_id": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().default(listRendersQueryLimitDefault)
+})
+
+export const ListRendersResponseItem = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "filename": zod.string().nullish().describe('Source asset filename'),
+  "clip_list_id": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
+  "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
+  "publish_error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+export const ListRendersResponse = zod.array(ListRendersResponseItem)
+
+
+/**
+ * @summary Render a single clip to an MP4
+ */
+export const createRenderBodyStartTimeMin = 0;
+
+export const createRenderBodyEndTimeMin = 0;
+
+export const createRenderBodyPresetDefault = `original`;
+export const createRenderBodyBurnCaptionsDefault = false;
+
+export const CreateRenderBody = zod.object({
+  "media_id": zod.string(),
+  "start_time": zod.number().min(createRenderBodyStartTimeMin),
+  "end_time": zod.number().min(createRenderBodyEndTimeMin),
+  "label": zod.string().nullish(),
+  "clip_list_id": zod.string().nullish(),
+  "preset": zod.enum(['original', 'vertical']).default(createRenderBodyPresetDefault),
+  "burn_captions": zod.boolean().default(createRenderBodyBurnCaptionsDefault)
+})
+
+export const CreateRenderResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "filename": zod.string().nullish().describe('Source asset filename'),
+  "clip_list_id": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
+  "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
+  "publish_error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Get a render job
+ */
+export const GetRenderParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetRenderResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "filename": zod.string().nullish().describe('Source asset filename'),
+  "clip_list_id": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
+  "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
+  "publish_error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Delete a render job and its output file
+ */
+export const DeleteRenderParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteRenderResponse = zod.void()
+
+
+/**
+ * @summary Download the rendered MP4
+ */
+export const DownloadRenderParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DownloadRenderResponse = zod.unknown()
+
+
+/**
+ * @summary Publish a finished render to a third-party platform (YouTube)
+ */
+export const PublishRenderParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const publishRenderBodyPlatformDefault = `youtube`;
+export const publishRenderBodyTagsDefault = [];
+export const publishRenderBodyPrivacyDefault = `unlisted`;
+
+export const PublishRenderBody = zod.object({
+  "platform": zod.enum(['youtube']).default(publishRenderBodyPlatformDefault),
+  "title": zod.string().min(1),
+  "description": zod.string().nullish(),
+  "tags": zod.array(zod.string()).default(publishRenderBodyTagsDefault),
+  "privacy": zod.enum(['public', 'unlisted', 'private']).default(publishRenderBodyPrivacyDefault)
+})
+
+export const PublishRenderResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "filename": zod.string().nullish().describe('Source asset filename'),
+  "clip_list_id": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
+  "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
+  "publish_error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Which publish platforms are configured
+ */
+export const GetPublishPlatformsResponse = zod.object({
+  "youtube": zod.boolean().describe('True when YouTube credentials are configured on the server')
+})
+
+
+/**
+ * @summary Match each line of a script or rundown to moments in the library
+ */
+
+export const scriptMatchBodyMatchesPerLineDefault = 3;
+export const scriptMatchBodyMatchesPerLineMax = 10;
+
+
+
+export const ScriptMatchBody = zod.object({
+  "script": zod.string().min(1).describe('Script, rundown, or story outline; matched line by line'),
+  "media_id": zod.string().nullish().describe('Restrict matching to one asset'),
+  "matches_per_line": zod.number().min(1).max(scriptMatchBodyMatchesPerLineMax).default(scriptMatchBodyMatchesPerLineDefault)
+})
+
+export const ScriptMatchResponse = zod.object({
+  "lines": zod.array(zod.object({
+  "line": zod.string(),
+  "matches": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "score": zod.number(),
+  "match_type": zod.string().describe('transcript | visual'),
+  "snippet": zod.string().nullish().describe('Matching transcript text')
+}))
+})),
+  "took_ms": zod.number()
+})
+
+
