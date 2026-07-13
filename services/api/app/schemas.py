@@ -179,6 +179,17 @@ class ConversationOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AIMessageOut(BaseModel):
+    id: str
+    conversation_id: str
+    role: str
+    content: str
+    citations: Optional[List[AICitationOut]] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # ── Clips ──────────────────────────────────────────────────────────────────────
 
 class ClipOut(BaseModel):

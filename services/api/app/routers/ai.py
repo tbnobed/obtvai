@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from ..database import get_db
 from ..models import AIConversation, AIMessage, MediaAsset, TranscriptSegment
-from ..schemas import AIQuestion, AIAnswerOut, AICitationOut, ConversationOut
+from ..schemas import AIQuestion, AIAnswerOut, AICitationOut, ConversationOut, AIMessageOut
 from ..config import settings
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -130,6 +130,19 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
         conversation_id=conv_id,
         citations=citations,
     )
+
+
+@router.get("/conversations/{id}/messages", response_model=list[AIMessageOut])
+async def get_conversation_messages(id: str, db: AsyncSession = Depends(get_db)):
+    conv_result = await db.execute(select(AIConversation).where(AIConversation.id == id))
+    if not conv_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    result = await db.execute(
+        select(AIMessage)
+        .where(AIMessage.conversation_id == id)
+        .order_by(AIMessage.created_at)
+    )
+    return [AIMessageOut.model_validate(m) for m in result.scalars().all()]
 
 
 @router.get("/conversations", response_model=list[ConversationOut])

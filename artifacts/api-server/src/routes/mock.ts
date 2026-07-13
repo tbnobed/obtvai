@@ -386,27 +386,56 @@ router.post("/jobs/:id/cancel", (req, res) => {
 });
 
 // ── AI ────────────────────────────────────────────────────────────────────────
+const conversationMessages: Record<string, any[]> = {
+  "conv-001": [
+    { id: "msg-001", conversation_id: "conv-001", role: "user", content: "What did Sarah Chen say about cloud infrastructure?", citations: null, created_at: new Date(Date.now() - 3600000).toISOString() },
+    { id: "msg-002", conversation_id: "conv-001", role: "assistant", content: "Sarah Chen argued that cloud infrastructure is not required for petabyte-scale video processing. She noted: \"With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput.\"", citations: [{ media_id: "asset-001", filename: "interview_sarah_chen.mp4", start_time: 50.0, end_time: 71.3, snippet: "With modern GPU hardware and the right software architecture..." }], created_at: new Date(Date.now() - 3590000).toISOString() },
+  ],
+};
+
 router.post("/ai/ask", (req, res) => {
   const convId = req.body.conversation_id || `conv-${Date.now()}`;
-  setTimeout(() => {
-    res.json({
-      answer: `Based on the indexed transcripts, I found relevant content related to your question: "${req.body.question}"\n\nIn the interview with Sarah Chen (interview_sarah_chen.mp4), she discusses this topic extensively starting around 50 seconds in, noting: "With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput."\n\nThis appears to be the most relevant passage in the current library.`,
-      conversation_id: convId,
-      citations: [
-        {
-          media_id: "asset-001",
-          filename: "interview_sarah_chen.mp4",
-          start_time: 50.0,
-          end_time: 71.3,
-          snippet: "With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput.",
-        },
-      ],
+  if (!conversations.find(c => c.id === convId)) {
+    conversations.unshift({
+      id: convId,
+      title: String(req.body.question || "").slice(0, 80),
+      created_at: new Date().toISOString(),
+      message_count: 0,
     });
+  }
+  const answer = `Based on the indexed transcripts, I found relevant content related to your question: "${req.body.question}"\n\nIn the interview with Sarah Chen (interview_sarah_chen.mp4), she discusses this topic extensively starting around 50 seconds in, noting: "With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput."\n\nThis appears to be the most relevant passage in the current library.`;
+  const citations = [
+    {
+      media_id: "asset-001",
+      filename: "interview_sarah_chen.mp4",
+      start_time: 50.0,
+      end_time: 71.3,
+      snippet: "With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput.",
+    },
+  ];
+  const msgs = conversationMessages[convId] || (conversationMessages[convId] = []);
+  msgs.push(
+    { id: `msg-${Date.now()}-u`, conversation_id: convId, role: "user", content: req.body.question, citations: null, created_at: new Date().toISOString() },
+    { id: `msg-${Date.now()}-a`, conversation_id: convId, role: "assistant", content: answer, citations, created_at: new Date().toISOString() },
+  );
+  const conv = conversations.find(c => c.id === convId);
+  if (conv) conv.message_count = msgs.length;
+  setTimeout(() => {
+    res.json({ answer, conversation_id: convId, citations });
   }, 800);
 });
 
 router.get("/ai/conversations", (_req, res) => {
   res.json(conversations);
+});
+
+router.get("/ai/conversations/:id/messages", (req, res) => {
+  const msgs = conversationMessages[req.params.id];
+  if (!msgs) {
+    res.status(404).json({ detail: "Conversation not found" });
+    return;
+  }
+  res.json(msgs);
 });
 
 // ── Clips ─────────────────────────────────────────────────────────────────────

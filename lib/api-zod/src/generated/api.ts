@@ -444,6 +444,30 @@ export const ListConversationsResponse = zod.array(ListConversationsResponseItem
 
 
 /**
+ * @summary Get all messages in a conversation
+ */
+export const GetConversationMessagesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetConversationMessagesResponseItem = zod.object({
+  "id": zod.string(),
+  "conversation_id": zod.string(),
+  "role": zod.string().describe('user | assistant'),
+  "content": zod.string(),
+  "citations": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish()
+})).nullish(),
+  "created_at": zod.string()
+})
+export const GetConversationMessagesResponse = zod.array(GetConversationMessagesResponseItem)
+
+
+/**
  * @summary List all clip lists
  */
 export const ListClipListsResponseItem = zod.object({

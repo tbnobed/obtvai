@@ -368,6 +368,29 @@ paths:
                 items:
                   $ref: "#/components/schemas/Conversation"
 
+  /ai/conversations/{id}/messages:
+    get:
+      operationId: getConversationMessages
+      tags: [ai]
+      summary: Get all messages in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AIMessage"
+        "404":
+          description: Conversation not found
+
   # ── Clips ─────────────────────────────────────────────────────────────────
   /clips:
     get:
@@ -827,6 +850,26 @@ components:
           type: string
         message_count:
           type: integer
+
+    AIMessage:
+      type: object
+      required: [id, conversation_id, role, content, created_at]
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        role:
+          type: string
+          description: "user | assistant"
+        content:
+          type: string
+        citations:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/AICitation"
+        created_at:
+          type: string
 
     # ── Clips ─────────────────────────────────────────────────────────────────
     Clip:

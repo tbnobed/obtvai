@@ -21,6 +21,7 @@ import type {
 
 import type {
   AIAnswer,
+  AIMessage,
   AIQuestion,
   ClipExportInput,
   ClipExportResult,
@@ -1423,6 +1424,83 @@ export function useListConversations<TData = Awaited<ReturnType<typeof listConve
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListConversationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetConversationMessagesUrl = (id: string,) => {
+
+
+
+
+  return `/api/ai/conversations/${id}/messages`
+}
+
+/**
+ * @summary Get all messages in a conversation
+ */
+export const getConversationMessages = async (id: string, options?: RequestInit): Promise<AIMessage[]> => {
+
+  return customFetch<AIMessage[]>(getGetConversationMessagesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConversationMessagesQueryKey = (id: string,) => {
+    return [
+    `/api/ai/conversations/${id}/messages`
+    ] as const;
+    }
+
+
+export const getGetConversationMessagesQueryOptions = <TData = Awaited<ReturnType<typeof getConversationMessages>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConversationMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConversationMessagesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConversationMessages>>> = ({ signal }) => getConversationMessages(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConversationMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetConversationMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof getConversationMessages>>>
+export type GetConversationMessagesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get all messages in a conversation
+ */
+
+export function useGetConversationMessages<TData = Awaited<ReturnType<typeof getConversationMessages>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConversationMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetConversationMessagesQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -240,6 +240,17 @@ export interface Conversation {
   message_count: number;
 }
 
+export interface AIMessage {
+  id: string;
+  conversation_id: string;
+  /** user | assistant */
+  role: string;
+  content: string;
+  /** @nullable */
+  citations?: AICitation[] | null;
+  created_at: string;
+}
+
 export interface Clip {
   id: string;
   media_id: string;
