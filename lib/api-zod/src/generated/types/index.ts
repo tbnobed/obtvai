@@ -21,6 +21,7 @@ export * from './conversation';
 export * from './faceCluster';
 export * from './faceClusterAppearancesItem';
 export * from './healthStatus';
+export * from './keyMoment';
 export * from './libraryStats';
 export * from './libraryStatsStatusCounts';
 export * from './listJobsParams';

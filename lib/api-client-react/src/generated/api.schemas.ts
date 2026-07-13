@@ -9,6 +9,14 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface KeyMoment {
+  /** Timecode in seconds */
+  time: number;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+}
+
 export interface MediaAsset {
   id: string;
   filename: string;
@@ -46,6 +54,21 @@ export interface MediaAsset {
   scene_count?: number | null;
   /** @nullable */
   speaker_count?: number | null;
+  /**
+     * AI-generated synopsis of the content
+     * @nullable
+     */
+  synopsis?: string | null;
+  /**
+     * AI-detected key moments with timecodes
+     * @nullable
+     */
+  key_moments?: KeyMoment[] | null;
+  /**
+     * AI-extracted topic tags
+     * @nullable
+     */
+  topics?: string[] | null;
   created_at: string;
   /** @nullable */
   updated_at?: string | null;

@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { KeyMoment } from './keyMoment';
 
 export interface MediaAsset {
   id: string;
@@ -43,6 +44,21 @@ export interface MediaAsset {
   scene_count?: number | null;
   /** @nullable */
   speaker_count?: number | null;
+  /**
+     * AI-generated synopsis of the content
+     * @nullable
+     */
+  synopsis?: string | null;
+  /**
+     * AI-detected key moments with timecodes
+     * @nullable
+     */
+  key_moments?: KeyMoment[] | null;
+  /**
+     * AI-extracted topic tags
+     * @nullable
+     */
+  topics?: string[] | null;
   created_at: string;
   /** @nullable */
   updated_at?: string | null;

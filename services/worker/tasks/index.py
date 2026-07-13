@@ -63,6 +63,13 @@ def build_index(self, media_id: str, job_id: str):
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         append_log(db, job_id, f"Indexed {len(points)} transcript segments")
 
+        # Queue AI analysis (synopsis, key moments, topics) — asset is already
+        # usable; analysis enriches it in the background on the GPU worker.
+        from tasks.base import create_job
+        analyze_job_id = create_job(db, media_id, "analyze")
+        from tasks.analyze import analyze_media
+        analyze_media.delay(media_id, analyze_job_id)
+
     except Exception as e:
         db.rollback()
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())

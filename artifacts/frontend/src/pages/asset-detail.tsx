@@ -13,7 +13,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2 } from "lucide-react";
+import { Trash2, Sparkles } from "lucide-react";
+
+function formatTimecode(seconds: number): string {
+  const total = Math.floor(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    : `${m}:${String(s).padStart(2, "0")}`;
+}
 
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -116,6 +126,49 @@ export default function AssetDetail() {
               <span>{asset.width}x{asset.height}</span>
               <span>{asset.fps} fps</span>
             </div>
+
+            {(asset.synopsis || (asset.key_moments && asset.key_moments.length > 0) || (asset.topics && asset.topics.length > 0)) && (
+              <div className="mb-6 p-4 border border-border rounded-lg bg-card space-y-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <h2 className="font-semibold">AI Analysis</h2>
+                </div>
+                {asset.synopsis && (
+                  <p className="text-sm text-muted-foreground leading-relaxed">{asset.synopsis}</p>
+                )}
+                {asset.key_moments && asset.key_moments.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Key Moments</h3>
+                    <div className="space-y-1">
+                      {asset.key_moments.map((moment, i) => (
+                        <div
+                          key={i}
+                          className="flex gap-3 items-baseline p-2 -mx-2 rounded cursor-pointer hover:bg-muted transition-colors"
+                          onClick={() => seekTo(moment.time)}
+                        >
+                          <span className="text-xs font-mono text-primary shrink-0 w-12 text-right">
+                            {formatTimecode(moment.time)}
+                          </span>
+                          <div>
+                            <div className="text-sm font-medium">{moment.title}</div>
+                            {moment.description && (
+                              <div className="text-xs text-muted-foreground">{moment.description}</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {asset.topics && asset.topics.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {asset.topics.map(topic => (
+                      <Badge key={topic} variant="secondary" className="text-xs">{topic}</Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
               <DialogContent>

@@ -15,3 +15,8 @@ Never push hand-rolled JSON to a Redis list that Celery workers consume — work
 
 # Aborted-transaction error handlers
 Worker task `except` blocks must call `db.rollback()` before writing error status, or the write fails with `InFailedSqlTransaction` and masks the real error.
+
+# Heavy model loading in worker tasks
+Cache large models (LLMs, whisper, CLIP) in a module-level global inside the task module, loaded lazily on first use — never load inside the task function body per invocation.
+**Why:** A 7B LLM load takes minutes and fragments GPU memory when repeated; worker processes are long-lived so a module cache persists across jobs.
+**How to apply:** `_model = None` + `_load()` guard at module scope (same pattern as the API's llm service). Concurrency=1 on the gpu queue keeps this safe.

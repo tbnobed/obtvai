@@ -31,6 +31,16 @@ const assets = [
     processing_progress: 100,
     scene_count: 47,
     speaker_count: 2,
+    synopsis:
+      "An in-depth interview with urban planner Sarah Chen covering the city's downtown revitalization plan. Chen discusses affordable housing targets, transit-oriented development, and pushback from local business owners, closing with her outlook on the 2026 bond measure.",
+    key_moments: [
+      { time: 45, title: "Introduction and background", description: "Sarah Chen outlines her role in the downtown revitalization task force." },
+      { time: 312, title: "Affordable housing targets", description: "Discussion of the 30% affordability requirement and developer incentives." },
+      { time: 705, title: "Transit-oriented development", description: "Chen explains the light-rail corridor rezoning proposal." },
+      { time: 1128, title: "Business owner pushback", description: "Addressing concerns from the merchants association about construction impacts." },
+      { time: 1580, title: "2026 bond measure outlook", description: "Closing thoughts on funding prospects and the November ballot." },
+    ],
+    topics: ["urban planning", "affordable housing", "public transit", "local politics", "development"],
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
     updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
   },

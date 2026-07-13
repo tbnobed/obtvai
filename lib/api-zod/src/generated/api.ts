@@ -43,6 +43,13 @@ export const ListMediaResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "key_moments": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "title": zod.string(),
+  "description": zod.string().nullish()
+})).nullish().describe('AI-detected key moments with timecodes'),
+  "topics": zod.array(zod.string()).nullish().describe('AI-extracted topic tags'),
   "created_at": zod.string(),
   "updated_at": zod.string().nullish()
 })),
@@ -75,6 +82,13 @@ export const IngestMediaResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "key_moments": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "title": zod.string(),
+  "description": zod.string().nullish()
+})).nullish().describe('AI-detected key moments with timecodes'),
+  "topics": zod.array(zod.string()).nullish().describe('AI-extracted topic tags'),
   "created_at": zod.string(),
   "updated_at": zod.string().nullish()
 })
@@ -105,6 +119,13 @@ export const UploadMediaResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "key_moments": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "title": zod.string(),
+  "description": zod.string().nullish()
+})).nullish().describe('AI-detected key moments with timecodes'),
+  "topics": zod.array(zod.string()).nullish().describe('AI-extracted topic tags'),
   "created_at": zod.string(),
   "updated_at": zod.string().nullish()
 })
@@ -134,6 +155,13 @@ export const GetMediaResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "key_moments": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "title": zod.string(),
+  "description": zod.string().nullish()
+})).nullish().describe('AI-detected key moments with timecodes'),
+  "topics": zod.array(zod.string()).nullish().describe('AI-extracted topic tags'),
   "created_at": zod.string(),
   "updated_at": zod.string().nullish()
 })
@@ -232,6 +260,13 @@ export const GetLibraryStatsResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "key_moments": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "title": zod.string(),
+  "description": zod.string().nullish()
+})).nullish().describe('AI-detected key moments with timecodes'),
+  "topics": zod.array(zod.string()).nullish().describe('AI-extracted topic tags'),
   "created_at": zod.string(),
   "updated_at": zod.string().nullish()
 })).optional()

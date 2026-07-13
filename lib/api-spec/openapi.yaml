@@ -530,9 +530,34 @@ components:
           type: ["integer", "null"]
         speaker_count:
           type: ["integer", "null"]
+        synopsis:
+          type: ["string", "null"]
+          description: AI-generated synopsis of the content
+        key_moments:
+          type: ["array", "null"]
+          description: AI-detected key moments with timecodes
+          items:
+            $ref: "#/components/schemas/KeyMoment"
+        topics:
+          type: ["array", "null"]
+          description: AI-extracted topic tags
+          items:
+            type: string
         created_at:
           type: string
         updated_at:
+          type: ["string", "null"]
+
+    KeyMoment:
+      type: object
+      required: [time, title]
+      properties:
+        time:
+          type: number
+          description: Timecode in seconds
+        title:
+          type: string
+        description:
           type: ["string", "null"]
 
     MediaListResponse:

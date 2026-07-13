@@ -17,12 +17,24 @@ _JSONB_MIGRATIONS = [
 ]
 
 
+# Columns added after initial release; create_all does not alter existing tables.
+_COLUMN_MIGRATIONS = [
+    ("media_assets", "synopsis", "TEXT"),
+    ("media_assets", "key_moments", "JSONB"),
+    ("media_assets", "topics", "JSONB"),
+]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from sqlalchemy import text
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        for table, column, coltype in _COLUMN_MIGRATIONS:
+            await conn.execute(text(
+                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {coltype}"
+            ))
         for table, column in _JSONB_MIGRATIONS:
             await conn.execute(text(
                 f"""
