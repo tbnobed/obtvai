@@ -1,0 +1,82 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs -f worker-gpu
+worker-gpu-1  |
+worker-gpu-1  | ==========
+worker-gpu-1  | == CUDA ==
+worker-gpu-1  | ==========
+worker-gpu-1  |
+worker-gpu-1  | CUDA Version 12.8.1
+worker-gpu-1  |
+worker-gpu-1  | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-gpu-1  |
+worker-gpu-1  | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+worker-gpu-1  | By pulling and using the container, you accept the terms and conditions of this license:
+worker-gpu-1  | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+worker-gpu-1  |
+worker-gpu-1  | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+worker-gpu-1  |
+worker-gpu-1  | /usr/local/lib/python3.10/dist-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+worker-gpu-1  | absolutely not recommended!
+worker-gpu-1  |
+worker-gpu-1  | Please specify a different user using the --uid option.
+worker-gpu-1  |
+worker-gpu-1  | User information: uid=0 euid=0 gid=0 egid=0
+worker-gpu-1  |
+worker-gpu-1  |   warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+worker-gpu-1  |
+worker-gpu-1  |  -------------- celery@941123842b78 v5.4.0 (opalescent)
+worker-gpu-1  | --- ***** -----
+worker-gpu-1  | -- ******* ---- Linux-6.17.0-35-generic-x86_64-with-glibc2.35 2026-07-13 14:40:49
+worker-gpu-1  | - *** --- * ---
+worker-gpu-1  | - ** ---------- [config]
+worker-gpu-1  | - ** ---------- .> app:         obtv_worker:0x75ed0fae6650
+worker-gpu-1  | - ** ---------- .> transport:   redis://redis:6379/0
+worker-gpu-1  | - ** ---------- .> results:     redis://redis:6379/0
+worker-gpu-1  | - *** --- * --- .> concurrency: 1 (prefork)
+worker-gpu-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+worker-gpu-1  | --- ***** -----
+worker-gpu-1  |  -------------- [queues]
+worker-gpu-1  |                 .> gpu              exchange=gpu(direct) key=gpu
+worker-gpu-1  |
+worker-gpu-1  |
+worker-gpu-1  | [tasks]
+worker-gpu-1  |   . tasks.analyze.analyze_media
+worker-gpu-1  |   . tasks.audio.extract_audio
+worker-gpu-1  |   . tasks.diarize.run_diarization
+worker-gpu-1  |   . tasks.face_detect.detect_faces
+worker-gpu-1  |   . tasks.index.build_index
+worker-gpu-1  |   . tasks.ingest.run_ingest_pipeline
+worker-gpu-1  |   . tasks.proxy.create_proxy
+worker-gpu-1  |   . tasks.scene_detect.detect_scenes
+worker-gpu-1  |   . tasks.transcribe.transcribe_audio
+worker-gpu-1  |   . tasks.visual_embed.embed_scenes
+worker-gpu-1  |
+worker-gpu-1  | [2026-07-13 14:40:49,176: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-gpu-1  | [2026-07-13 14:40:49,177: INFO/MainProcess] mingle: searching for neighbors
+worker-gpu-1  | [2026-07-13 14:40:50,180: INFO/MainProcess] mingle: all alone
+worker-gpu-1  | [2026-07-13 14:40:50,187: INFO/MainProcess] celery@941123842b78 ready.
+worker-gpu-1  | [2026-07-13 14:40:50,597: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-gpu-1  | [2026-07-13 14:45:15,811: INFO/MainProcess] Task tasks.analyze.analyze_media[a386a057-13e8-4dcc-9f6f-c93a3c672e1e] received
+Downloading shards:   0%|          | 0/4 [00:00<?, ?it/s]lWorker-1]
+Downloading shards:  25%|##5       | 1/4 [00:42<02:08, 42.84s/it]1]
+Downloading shards:  50%|#####     | 2/4 [02:08<02:16, 68.16s/it]1]
+Downloading shards:  75%|#######5  | 3/4 [02:47<00:54, 54.66s/it]1]
+Downloading shards: 100%|##########| 4/4 [03:23<00:00, 47.25s/it]1]
+Downloading shards: 100%|##########| 4/4 [03:23<00:00, 50.80s/it]1]
+worker-gpu-1  | [2026-07-13 14:48:42,787: INFO/ForkPoolWorker-1] We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]-1]
+Loading checkpoint shards:  25%|##5       | 1/4 [00:02<00:06,  2.08s/it]
+Loading checkpoint shards:  50%|#####     | 2/4 [00:03<00:02,  1.43s/it]
+Loading checkpoint shards:  75%|#######5  | 3/4 [00:04<00:01,  1.22s/it]
+Loading checkpoint shards: 100%|##########| 4/4 [00:04<00:00,  1.10s/it]
+Loading checkpoint shards: 100%|##########| 4/4 [00:04<00:00,  1.23s/it]
+worker-gpu-1  | [2026-07-13 14:48:47,888: WARNING/ForkPoolWorker-1] /usr/local/lib/python3.10/dist-packages/transformers/generation/configuration_utils.py:628: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.7` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
+worker-gpu-1  |   warnings.warn(
+worker-gpu-1  |
+worker-gpu-1  | [2026-07-13 14:48:47,889: WARNING/ForkPoolWorker-1] /usr/local/lib/python3.10/dist-packages/transformers/generation/configuration_utils.py:633: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.8` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
+worker-gpu-1  |   warnings.warn(
+worker-gpu-1  |
+worker-gpu-1  | [2026-07-13 14:48:47,889: WARNING/ForkPoolWorker-1] /usr/local/lib/python3.10/dist-packages/transformers/generation/configuration_utils.py:650: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
+worker-gpu-1  |   warnings.warn(
+worker-gpu-1  |
+worker-gpu-1  | [2026-07-13 14:48:47,903: WARNING/ForkPoolWorker-1] The attention mask is not set and cannot be inferred from input because pad token is same as eos token. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+worker-gpu-1  | [2026-07-13 14:48:56,183: INFO/ForkPoolWorker-1] Task tasks.analyze.analyze_media[a386a057-13e8-4dcc-9f6f-c93a3c672e1e] succeeded in 220.3711065412499s: None
