@@ -62,7 +62,7 @@ def detect_scenes(self, media_id: str, job_id: str):
                     "mid": media_id,
                     "start": start_sec,
                     "end": end_sec,
-                    "thumb": f"/api/thumbnails/{thumb_name}" if os.path.exists(thumb_path) else None,
+                    "thumb": thumb_name if os.path.exists(thumb_path) else None,
                 },
             )
             inserted += 1

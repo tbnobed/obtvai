@@ -53,6 +53,18 @@ async def lifespan(app: FastAPI):
                 """
             ))
 
+        # One-time data fixup: thumbnail_url must store bare filenames; older
+        # worker versions stored them with the /api/thumbnails/ prefix, which
+        # the frontend prepends again (double prefix -> 404 broken images).
+        for table in ("scenes", "media_assets"):
+            await conn.execute(text(
+                f"""
+                UPDATE {table}
+                SET thumbnail_url = regexp_replace(thumbnail_url, '^/api/thumbnails/', '')
+                WHERE thumbnail_url LIKE '/api/thumbnails/%'
+                """
+            ))
+
     try:
         from .services.qdrant_client import ensure_collections
         await ensure_collections()

@@ -109,7 +109,7 @@ def create_proxy(self, media_id: str, job_id: str):
 
         update_asset(db, media_id,
             proxy_path=proxy_path,
-            thumbnail_url=f"/api/thumbnails/{media_id}.jpg",
+            thumbnail_url=f"{media_id}.jpg",
             processing_stage="proxy_complete",
             processing_progress=40.0,
         )
