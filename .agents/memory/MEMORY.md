@@ -2,5 +2,6 @@
 - [nginx in Docker caches upstream IPs](docker-nginx-dns.md) — static upstream blocks 502 after backend rebuilds; use resolver 127.0.0.11 + variable proxy_pass.
 - [Worker task DB/SQL binding rules](celery-redis-pitfalls.md) — cast numpy floats to Python float before SQL binds; long tasks must report throttled progress; make retries idempotent (delete prior rows first).
 - [ffmpeg progress parsing](ffmpeg-progress.md) — use -progress pipe:1 -nostats, merge stderr into stdout (single stream avoids pipe deadlock), out_time_ms is microseconds.
+- [Blackwell NVENC](blackwell-nvenc.md) — RTX 50-series needs ffmpeg >= 7.1 for NVENC; old apt ffmpeg fails "unsupported device" and silently falls back to CPU libx264.
 - [Torch stack pinning](torch-pinning.md) — torch/torchvision/torchaudio must all be pinned to the same release (+cu128); an unpinned member drifts on rebuild and breaks with undefined-symbol errors.
 - [PyTorch weights_only checkpoint loads](torch-pinning.md) — torch>=2.6 defaults torch.load weights_only=True; older checkpoints (pyannote) need a temporary patched load with weights_only=False.
