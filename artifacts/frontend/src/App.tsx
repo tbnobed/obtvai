@@ -13,6 +13,7 @@ import Jobs from "@/pages/jobs";
 import AIQA from "@/pages/ai-qa";
 import ClipLists from "@/pages/clip-lists";
 import Exports from "@/pages/exports";
+import Reels from "@/pages/reels";
 import ScriptMatch from "@/pages/script-match";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
@@ -34,6 +35,7 @@ function Router() {
         <Route path="/jobs" component={Jobs} />
         <Route path="/ai" component={AIQA} />
         <Route path="/clips" component={ClipLists} />
+        <Route path="/reels" component={Reels} />
         <Route path="/exports" component={Exports} />
         <Route path="/script-match" component={ScriptMatch} />
         <Route component={NotFound} />

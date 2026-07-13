@@ -9,3 +9,5 @@ Rule: when running ffmpeg from Python with progress reporting, use `-progress pi
 **How to apply:** any worker task wrapping ffmpeg/long subprocesses that must update job progress in the DB. Throttle DB progress writes (e.g. every 5%). Keep a bounded deque of non-progress lines for error tails since stderr is merged.
 
 - Burning SRT captions with the `subtitles=` filter: escape backslash, colon, and single-quote in the file path for the filter parser, and wrap the path in single quotes (e.g. `subtitles='/tmp/a\:b.srt':force_style=...`). Unescaped colons silently truncate the filter arg.
+
+- Concat demuxer with `-c copy`: only safe when every segment shares identical codec settings. If per-segment encoding uses an encoder-fallback list (NVENC → libx264), pin the encoder after the first successful segment and reuse it for all remaining segments in that job — mixed encoders make `-c copy` concat fail intermittently.

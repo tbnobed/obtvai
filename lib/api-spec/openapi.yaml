@@ -23,6 +23,8 @@ tags:
   - name: clips
     description: Clip lists
   - name: renders
+  - name: reels
+    description: Prompt-based highlight reels across the library
   - name: people
     description: Cross-asset person identities
   - name: insights
@@ -331,6 +333,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProcessingJob"
+
+  /media/{id}/social/cuts:
+    post:
+      operationId: createSocialCuts
+      tags: [media]
+      summary: Queue platform-ready cuts (renders) from the asset's key moments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SocialCutsRequest"
+      responses:
+        "202":
+          description: Render jobs queued
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RenderJob"
+        "400":
+          description: No key moments available
+        "404":
+          description: Media not found
 
   # ── Stats ────────────────────────────────────────────────────────────────
   /media/stats/summary:
@@ -1006,6 +1039,106 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublishPlatforms"
+
+  # ── Reels ──────────────────────────────────────────────────────────────────
+  /reels:
+    get:
+      operationId: listReels
+      tags: [reels]
+      summary: List prompt-based highlight reels, newest first
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReelJob"
+    post:
+      operationId: createReel
+      tags: [reels]
+      summary: Build a highlight reel across the library from a prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReelRequest"
+      responses:
+        "202":
+          description: Reel job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelJob"
+        "404":
+          description: No matching moments found for the prompt
+
+  /reels/{id}:
+    get:
+      operationId: getReel
+      tags: [reels]
+      summary: Get a reel job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelJob"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteReel
+      tags: [reels]
+      summary: Delete a reel job and its output file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /reels/{id}/download:
+    get:
+      operationId: downloadReel
+      tags: [reels]
+      summary: Download the finished reel MP4
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: MP4 file
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found or not finished
 
   /search/script-match:
     post:
@@ -1906,6 +2039,86 @@ components:
         youtube:
           type: boolean
           description: True when YouTube credentials are configured on the server
+
+    # ── Reels ─────────────────────────────────────────────────────────────────
+    ReelRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+          minLength: 3
+          description: 'What to highlight, e.g. "the fact about faith"'
+        preset:
+          type: string
+          enum: [original, vertical]
+          default: original
+        burn_captions:
+          type: boolean
+          default: false
+        max_clips:
+          type: integer
+          default: 6
+          minimum: 1
+          maximum: 12
+
+    ReelClip:
+      type: object
+      required: [media_id, filename, start_time, end_time]
+      properties:
+        media_id:
+          type: string
+        filename:
+          type: string
+        start_time:
+          type: number
+        end_time:
+          type: number
+        snippet:
+          type: ["string", "null"]
+          description: Transcript text that matched the prompt
+
+    ReelJob:
+      type: object
+      required: [id, prompt, preset, burn_captions, clips, status, progress, created_at]
+      properties:
+        id:
+          type: string
+        prompt:
+          type: string
+        preset:
+          type: string
+          description: original | vertical
+        burn_captions:
+          type: boolean
+        clips:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReelClip"
+        status:
+          type: string
+          description: pending | running | success | error
+        progress:
+          type: number
+        output_url:
+          type: ["string", "null"]
+          description: Set when status is success
+        error_message:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: ["string", "null"]
+          format: date-time
+
+    SocialCutsRequest:
+      type: object
+      properties:
+        platform:
+          type: ["string", "null"]
+          enum: [youtube, instagram, x, facebook, tiktok, null]
+          description: Cut for one platform, or null/omitted for all scored platforms
 
     ClipExportInput:
       type: object

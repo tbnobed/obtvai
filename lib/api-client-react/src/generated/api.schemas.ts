@@ -637,6 +637,86 @@ export interface PublishPlatforms {
   youtube: boolean;
 }
 
+export type ReelRequestPreset = typeof ReelRequestPreset[keyof typeof ReelRequestPreset];
+
+
+export const ReelRequestPreset = {
+  original: 'original',
+  vertical: 'vertical',
+} as const;
+
+export interface ReelRequest {
+  /**
+     * What to highlight, e.g. "the fact about faith"
+     * @minLength 3
+     */
+  prompt: string;
+  preset?: ReelRequestPreset;
+  burn_captions?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 12
+     */
+  max_clips?: number;
+}
+
+export interface ReelClip {
+  media_id: string;
+  filename: string;
+  start_time: number;
+  end_time: number;
+  /**
+     * Transcript text that matched the prompt
+     * @nullable
+     */
+  snippet?: string | null;
+}
+
+export interface ReelJob {
+  id: string;
+  prompt: string;
+  /** original | vertical */
+  preset: string;
+  burn_captions: boolean;
+  clips: ReelClip[];
+  /** pending | running | success | error */
+  status: string;
+  progress: number;
+  /**
+     * Set when status is success
+     * @nullable
+     */
+  output_url?: string | null;
+  /** @nullable */
+  error_message?: string | null;
+  created_at: string;
+  /** @nullable */
+  finished_at?: string | null;
+}
+
+/**
+ * Cut for one platform, or null/omitted for all scored platforms
+ * @nullable
+ */
+export type SocialCutsRequestPlatform = typeof SocialCutsRequestPlatform[keyof typeof SocialCutsRequestPlatform] | null;
+
+
+export const SocialCutsRequestPlatform = {
+  youtube: 'youtube',
+  instagram: 'instagram',
+  x: 'x',
+  facebook: 'facebook',
+  tiktok: 'tiktok',
+} as const;
+
+export interface SocialCutsRequest {
+  /**
+     * Cut for one platform, or null/omitted for all scored platforms
+     * @nullable
+     */
+  platform?: SocialCutsRequestPlatform;
+}
+
 export interface ClipExportInput {
   /** edl | csv | json */
   format: string;
@@ -681,6 +761,10 @@ limit?: number;
 
 export type ListRendersParams = {
 clip_list_id?: string;
+limit?: number;
+};
+
+export type ListReelsParams = {
 limit?: number;
 };
 

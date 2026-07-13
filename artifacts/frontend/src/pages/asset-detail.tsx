@@ -8,17 +8,18 @@ import {
   useDeleteMedia, getListMediaQueryKey,
   useCreateHighlight,
   useCreateSocialAnalysis,
+  useCreateSocialCuts,
   useCreateTranslation,
   useCreateDub
 } from "@workspace/api-client-react";
-import type { SocialScore } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AssetChat from "@/components/asset-chat";
 
@@ -131,6 +132,21 @@ export default function AssetDetail() {
         queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
       }
     });
+  };
+
+  const cutsMutation = useCreateSocialCuts();
+  const [cutsPlatform, setCutsPlatform] = useState<string | null>(null);
+
+  const startCuts = (platform: SocialCutsRequestPlatform | null) => {
+    if (!id) return;
+    setCutsPlatform(platform ?? "all");
+    cutsMutation.mutate(
+      { id, data: platform ? { platform } : {} },
+      {
+        onSuccess: () => navigate("/exports"),
+        onSettled: () => setCutsPlatform(null),
+      },
+    );
   };
 
   const translateMutation = useCreateTranslation();
@@ -452,11 +468,34 @@ export default function AssetDetail() {
                         <TrendingUp className="h-4 w-4" />
                         Predicted performance if posted (or clipped) per platform
                       </p>
-                      <Button variant="outline" size="sm" className="gap-2" onClick={startSocial}>
-                        <Share2 className="h-4 w-4" />
-                        Re-analyze
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => startCuts(null)}
+                          disabled={cutsMutation.isPending || !asset.key_moments?.length}
+                        >
+                          {cutsMutation.isPending && cutsPlatform === "all" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Scissors className="h-4 w-4" />
+                          )}
+                          Create all cuts
+                        </Button>
+                        <Button variant="outline" size="sm" className="gap-2" onClick={startSocial}>
+                          <Share2 className="h-4 w-4" />
+                          Re-analyze
+                        </Button>
+                      </div>
                     </div>
+                    {!asset.key_moments?.length && (
+                      <p className="text-xs text-muted-foreground">
+                        Cuts use AI-detected key moments — run AI analysis on the Highlights tab first.
+                      </p>
+                    )}
+                    {cutsMutation.isError && (
+                      <p className="text-xs text-destructive">Failed to create cuts. Check that key moments exist and the pipeline is running.</p>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {(asset.social_scores as SocialScore[]).map((s) => {
                         const meta = PLATFORM_META[s.platform] ?? { label: s.platform, Icon: Share2, color: "text-foreground" };
@@ -515,6 +554,20 @@ export default function AssetDetail() {
                                 ))}
                               </div>
                             )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full gap-2"
+                              onClick={() => startCuts(s.platform as SocialCutsRequestPlatform)}
+                              disabled={cutsMutation.isPending || !asset.key_moments?.length}
+                            >
+                              {cutsMutation.isPending && cutsPlatform === s.platform ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Scissors className="h-4 w-4" />
+                              )}
+                              Create cuts
+                            </Button>
                           </div>
                         );
                       })}

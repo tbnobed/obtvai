@@ -10,7 +10,8 @@ import {
   Users,
   Sparkles,
   Clapperboard,
-  FileText
+  FileText,
+  Wand2
 } from "lucide-react";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
 
@@ -31,6 +32,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/ai", label: "AI Q&A", icon: MessageSquare },
     { href: "/clips", label: "Clip Lists", icon: Scissors },
     { href: "/script-match", label: "Script Match", icon: FileText },
+    { href: "/reels", label: "Highlight Reels", icon: Wand2 },
     { href: "/exports", label: "Exports", icon: Clapperboard },
   ];
 

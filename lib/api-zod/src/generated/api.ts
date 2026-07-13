@@ -403,6 +403,40 @@ export const CreateSocialAnalysisResponse = zod.object({
 
 
 /**
+ * @summary Queue platform-ready cuts (renders) from the asset's key moments
+ */
+export const CreateSocialCutsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateSocialCutsBody = zod.object({
+  "platform": zod.union([zod.literal('youtube'),zod.literal('instagram'),zod.literal('x'),zod.literal('facebook'),zod.literal('tiktok'),zod.literal(null)]).nullish().describe('Cut for one platform, or null\/omitted for all scored platforms')
+})
+
+export const CreateSocialCutsResponseItem = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "filename": zod.string().nullish().describe('Source asset filename'),
+  "clip_list_id": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
+  "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
+  "publish_error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+export const CreateSocialCutsResponse = zod.array(CreateSocialCutsResponseItem)
+
+
+/**
  * @summary Library-wide stats (counts, totals, status breakdown)
  */
 export const GetLibraryStatsResponse = zod.object({
@@ -1217,6 +1251,125 @@ export const PublishRenderResponse = zod.object({
 export const GetPublishPlatformsResponse = zod.object({
   "youtube": zod.boolean().describe('True when YouTube credentials are configured on the server')
 })
+
+
+/**
+ * @summary List prompt-based highlight reels, newest first
+ */
+export const listReelsQueryLimitDefault = 100;
+
+export const ListReelsQueryParams = zod.object({
+  "limit": zod.coerce.number().default(listReelsQueryLimitDefault)
+})
+
+export const ListReelsResponseItem = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+})),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+export const ListReelsResponse = zod.array(ListReelsResponseItem)
+
+
+/**
+ * @summary Build a highlight reel across the library from a prompt
+ */
+export const createReelBodyPromptMin = 3;
+
+export const createReelBodyPresetDefault = `original`;
+export const createReelBodyBurnCaptionsDefault = false;
+export const createReelBodyMaxClipsDefault = 6;
+export const createReelBodyMaxClipsMax = 12;
+
+
+
+export const CreateReelBody = zod.object({
+  "prompt": zod.string().min(createReelBodyPromptMin).describe('What to highlight, e.g. \"the fact about faith\"'),
+  "preset": zod.enum(['original', 'vertical']).default(createReelBodyPresetDefault),
+  "burn_captions": zod.boolean().default(createReelBodyBurnCaptionsDefault),
+  "max_clips": zod.number().min(1).max(createReelBodyMaxClipsMax).default(createReelBodyMaxClipsDefault)
+})
+
+export const CreateReelResponse = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+})),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Get a reel job
+ */
+export const GetReelParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetReelResponse = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+})),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Delete a reel job and its output file
+ */
+export const DeleteReelParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteReelResponse = zod.void()
+
+
+/**
+ * @summary Download the finished reel MP4
+ */
+export const DownloadReelParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DownloadReelResponse = zod.unknown()
 
 
 /**

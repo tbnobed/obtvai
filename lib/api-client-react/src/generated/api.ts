@@ -40,6 +40,7 @@ import type {
   ListJobsParams,
   ListMediaParams,
   ListPeopleParams,
+  ListReelsParams,
   ListRendersParams,
   MediaAsset,
   MediaIngestInput,
@@ -55,6 +56,8 @@ import type {
   PublishPlatforms,
   PublishRequest,
   ReanalyzeResult,
+  ReelJob,
+  ReelRequest,
   RenderJob,
   RenderPresetInput,
   RenderRequest,
@@ -64,6 +67,7 @@ import type {
   SearchHistoryItem,
   SearchQuery,
   SearchResponse,
+  SocialCutsRequest,
   TranscriptSegment,
   TranslateRequest
 } from './api.schemas';
@@ -1160,6 +1164,78 @@ export const useCreateSocialAnalysis = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateSocialAnalysisMutationOptions(options));
+    }
+
+export const getCreateSocialCutsUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/social/cuts`
+}
+
+/**
+ * @summary Queue platform-ready cuts (renders) from the asset's key moments
+ */
+export const createSocialCuts = async (id: string,
+    socialCutsRequest: SocialCutsRequest, options?: RequestInit): Promise<RenderJob[]> => {
+
+  return customFetch<RenderJob[]>(getCreateSocialCutsUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(socialCutsRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateSocialCutsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSocialCuts>>, TError,{id: string;data: BodyType<SocialCutsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSocialCuts>>, TError,{id: string;data: BodyType<SocialCutsRequest>}, TContext> => {
+
+const mutationKey = ['createSocialCuts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSocialCuts>>, {id: string;data: BodyType<SocialCutsRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createSocialCuts(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSocialCutsMutationResult = NonNullable<Awaited<ReturnType<typeof createSocialCuts>>>
+    export type CreateSocialCutsMutationBody = BodyType<SocialCutsRequest>
+    export type CreateSocialCutsMutationError = ErrorType<void>
+
+    /**
+ * @summary Queue platform-ready cuts (renders) from the asset's key moments
+ */
+export const useCreateSocialCuts = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSocialCuts>>, TError,{id: string;data: BodyType<SocialCutsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSocialCuts>>,
+        TError,
+        {id: string;data: BodyType<SocialCutsRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateSocialCutsMutationOptions(options));
     }
 
 export const getGetLibraryStatsUrl = () => {
@@ -3611,6 +3687,386 @@ export function useGetPublishPlatforms<TData = Awaited<ReturnType<typeof getPubl
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPublishPlatformsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListReelsUrl = (params?: ListReelsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reels?${stringifiedParams}` : `/api/reels`
+}
+
+/**
+ * @summary List prompt-based highlight reels, newest first
+ */
+export const listReels = async (params?: ListReelsParams, options?: RequestInit): Promise<ReelJob[]> => {
+
+  return customFetch<ReelJob[]>(getListReelsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListReelsQueryKey = (params?: ListReelsParams,) => {
+    return [
+    `/api/reels`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListReelsQueryOptions = <TData = Awaited<ReturnType<typeof listReels>>, TError = ErrorType<unknown>>(params?: ListReelsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListReelsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReels>>> = ({ signal }) => listReels(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReels>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListReelsQueryResult = NonNullable<Awaited<ReturnType<typeof listReels>>>
+export type ListReelsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List prompt-based highlight reels, newest first
+ */
+
+export function useListReels<TData = Awaited<ReturnType<typeof listReels>>, TError = ErrorType<unknown>>(
+ params?: ListReelsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListReelsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateReelUrl = () => {
+
+
+
+
+  return `/api/reels`
+}
+
+/**
+ * @summary Build a highlight reel across the library from a prompt
+ */
+export const createReel = async (reelRequest: ReelRequest, options?: RequestInit): Promise<ReelJob> => {
+
+  return customFetch<ReelJob>(getCreateReelUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reelRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateReelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReel>>, TError,{data: BodyType<ReelRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createReel>>, TError,{data: BodyType<ReelRequest>}, TContext> => {
+
+const mutationKey = ['createReel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createReel>>, {data: BodyType<ReelRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createReel(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateReelMutationResult = NonNullable<Awaited<ReturnType<typeof createReel>>>
+    export type CreateReelMutationBody = BodyType<ReelRequest>
+    export type CreateReelMutationError = ErrorType<void>
+
+    /**
+ * @summary Build a highlight reel across the library from a prompt
+ */
+export const useCreateReel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReel>>, TError,{data: BodyType<ReelRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createReel>>,
+        TError,
+        {data: BodyType<ReelRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateReelMutationOptions(options));
+    }
+
+export const getGetReelUrl = (id: string,) => {
+
+
+
+
+  return `/api/reels/${id}`
+}
+
+/**
+ * @summary Get a reel job
+ */
+export const getReel = async (id: string, options?: RequestInit): Promise<ReelJob> => {
+
+  return customFetch<ReelJob>(getGetReelUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReelQueryKey = (id: string,) => {
+    return [
+    `/api/reels/${id}`
+    ] as const;
+    }
+
+
+export const getGetReelQueryOptions = <TData = Awaited<ReturnType<typeof getReel>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReelQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReel>>> = ({ signal }) => getReel(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReelQueryResult = NonNullable<Awaited<ReturnType<typeof getReel>>>
+export type GetReelQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a reel job
+ */
+
+export function useGetReel<TData = Awaited<ReturnType<typeof getReel>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetReelQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteReelUrl = (id: string,) => {
+
+
+
+
+  return `/api/reels/${id}`
+}
+
+/**
+ * @summary Delete a reel job and its output file
+ */
+export const deleteReel = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteReelUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteReelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReel>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteReel>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteReel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteReel>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteReel(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteReelMutationResult = NonNullable<Awaited<ReturnType<typeof deleteReel>>>
+
+    export type DeleteReelMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a reel job and its output file
+ */
+export const useDeleteReel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReel>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteReel>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteReelMutationOptions(options));
+    }
+
+export const getDownloadReelUrl = (id: string,) => {
+
+
+
+
+  return `/api/reels/${id}/download`
+}
+
+/**
+ * @summary Download the finished reel MP4
+ */
+export const downloadReel = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadReelUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadReelQueryKey = (id: string,) => {
+    return [
+    `/api/reels/${id}/download`
+    ] as const;
+    }
+
+
+export const getDownloadReelQueryOptions = <TData = Awaited<ReturnType<typeof downloadReel>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadReel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadReelQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadReel>>> = ({ signal }) => downloadReel(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadReel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadReelQueryResult = NonNullable<Awaited<ReturnType<typeof downloadReel>>>
+export type DownloadReelQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download the finished reel MP4
+ */
+
+export function useDownloadReel<TData = Awaited<ReturnType<typeof downloadReel>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadReel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadReelQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

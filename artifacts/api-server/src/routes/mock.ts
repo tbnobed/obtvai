@@ -959,6 +959,175 @@ router.post("/renders/:id/publish", (req, res) => {
   res.status(202).json(renderOut(r));
 });
 
+// ── Social cuts ──────────────────────────────────────────────────────────────
+
+const SOCIAL_CUT_SPECS: Record<string, { preset: string; burn: boolean; seconds: number }> = {
+  youtube: { preset: "original", burn: false, seconds: 60 },
+  facebook: { preset: "original", burn: false, seconds: 60 },
+  x: { preset: "original", burn: true, seconds: 40 },
+  instagram: { preset: "vertical", burn: true, seconds: 45 },
+  tiktok: { preset: "vertical", burn: true, seconds: 30 },
+};
+
+router.post("/media/:id/social/cuts", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ detail: "Media not found" }); return; }
+  if (!asset.key_moments || !asset.key_moments.length) {
+    res.status(400).json({ detail: "No key moments available — run AI analysis first" });
+    return;
+  }
+  const requested = req.body?.platform ?? null;
+  if (requested !== null && !SOCIAL_CUT_SPECS[requested]) {
+    res.status(400).json({ detail: `Unknown platform: ${requested}` });
+    return;
+  }
+  const platforms = requested
+    ? [requested]
+    : (asset.social_scores?.map((s: any) => s.platform).filter((p: string) => SOCIAL_CUT_SPECS[p])
+        ?? Object.keys(SOCIAL_CUT_SPECS));
+  const duration = asset.duration_seconds || 0;
+  const moments = asset.key_moments
+    .filter((m) => typeof m.time === "number" && m.time >= 0 && (!duration || m.time < duration))
+    .slice(0, 3);
+  if (!moments.length) { res.status(400).json({ detail: "Key moments did not yield any usable cuts" }); return; }
+
+  const created: MockRender[] = [];
+  for (const platform of platforms) {
+    const spec = SOCIAL_CUT_SPECS[platform];
+    for (const m of moments) {
+      const start = Math.max(0, m.time - 1);
+      const end = duration ? Math.min(start + spec.seconds, duration) : start + spec.seconds;
+      if (end - start < 3) continue;
+      created.push(makeRender(asset.id, start, end, spec.preset, spec.burn, `${platform}: ${m.title}`, null));
+    }
+  }
+  if (!created.length) { res.status(400).json({ detail: "No usable cut windows for this asset" }); return; }
+  renders.unshift(...created);
+  res.status(202).json(created.map(renderOut));
+});
+
+// ── Reels (prompt-based highlight reels) ─────────────────────────────────────
+
+type MockReel = {
+  id: string; prompt: string; preset: string; burn_captions: boolean;
+  clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null }[];
+  status: string; progress: number;
+  output_url: string | null; error_message: string | null;
+  created_at: string; finished_at: string | null;
+  _startedAt: number;
+};
+
+const reels: MockReel[] = [];
+
+function tickReel(r: MockReel) {
+  if (r.status !== "pending" && r.status !== "running") return;
+  const elapsed = (Date.now() - r._startedAt) / 1000;
+  if (elapsed < 1.5) {
+    r.status = "pending";
+  } else if (elapsed < 12) {
+    r.status = "running";
+    r.progress = Math.min(99, Math.round(((elapsed - 1.5) / 10.5) * 100));
+  } else {
+    r.status = "success";
+    r.progress = 100;
+    r.finished_at = new Date().toISOString();
+    r.output_url = `/api/reels/${r.id}/download`;
+  }
+}
+
+function reelOut(r: MockReel) {
+  const { _startedAt, ...out } = r;
+  return out;
+}
+
+router.get("/reels", (_req, res) => {
+  reels.forEach(tickReel);
+  res.json(reels.map(reelOut));
+});
+
+router.post("/reels", (req, res) => {
+  const prompt: string = (req.body.prompt || "").trim();
+  if (prompt.length < 3) { res.status(400).json({ detail: "Prompt is too short" }); return; }
+  const preset = req.body.preset || "original";
+  const burn = !!req.body.burn_captions;
+  const maxClips = Math.min(Math.max(req.body.max_clips || 6, 1), 12);
+
+  // Same keyword scoring the mock script-match uses.
+  const words = prompt.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+  const scored = transcript
+    .map((seg) => {
+      const text = seg.text.toLowerCase();
+      const hits = words.filter((w) => text.includes(w)).length;
+      return { seg, score: words.length ? hits / words.length : 0 };
+    })
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxClips);
+
+  const picked = scored.length ? scored.map((s) => s.seg) : transcript.slice(0, Math.min(maxClips, 4));
+  if (!picked.length) {
+    res.status(404).json({ detail: "No moments in the library match that prompt — try different wording" });
+    return;
+  }
+
+  const clips = picked
+    .map((seg) => {
+      const asset = assets.find((a) => a.id === seg.media_id);
+      const start = Math.max(0, seg.start_time - 1);
+      const end = Math.max(start + 6, seg.end_time);
+      return {
+        media_id: seg.media_id,
+        filename: asset?.filename || "unknown.mp4",
+        start_time: start,
+        end_time: Math.min(end, start + 30),
+        snippet: seg.text,
+      };
+    })
+    .sort((a, b) => a.media_id.localeCompare(b.media_id) || a.start_time - b.start_time);
+
+  const reel: MockReel = {
+    id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    prompt,
+    preset,
+    burn_captions: burn,
+    clips,
+    status: "pending",
+    progress: 0,
+    output_url: null,
+    error_message: null,
+    created_at: new Date().toISOString(),
+    finished_at: null,
+    _startedAt: Date.now(),
+  };
+  reels.unshift(reel);
+  res.status(202).json(reelOut(reel));
+});
+
+router.get("/reels/:id", (req, res) => {
+  const r = reels.find((x) => x.id === req.params.id);
+  if (!r) { res.status(404).json({ detail: "Reel not found" }); return; }
+  tickReel(r);
+  res.json(reelOut(r));
+});
+
+router.delete("/reels/:id", (req, res) => {
+  const idx = reels.findIndex((x) => x.id === req.params.id);
+  if (idx === -1) { res.status(404).json({ detail: "Reel not found" }); return; }
+  reels.splice(idx, 1);
+  res.status(204).send();
+});
+
+router.get("/reels/:id/download", (req, res) => {
+  const r = reels.find((x) => x.id === req.params.id);
+  if (!r) { res.status(404).json({ detail: "Reel not found" }); return; }
+  tickReel(r);
+  if (r.status !== "success") { res.status(404).json({ detail: "Reel output not available" }); return; }
+  const safe = r.prompt.slice(0, 40).replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "reel";
+  res.setHeader("Content-Type", "video/mp4");
+  res.setHeader("Content-Disposition", `attachment; filename="reel_${safe}_${r.id.slice(-8)}.mp4"`);
+  res.send(Buffer.from("mock reel mp4 — real file is produced by the production reel worker"));
+});
+
 // ── Script match ─────────────────────────────────────────────────────────────
 
 router.post("/search/script-match", (req, res) => {

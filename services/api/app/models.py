@@ -178,6 +178,22 @@ class RenderJob(Base):
     asset: Mapped["MediaAsset"] = relationship("MediaAsset")
 
 
+class ReelJob(Base):
+    __tablename__ = "reel_jobs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    preset: Mapped[str] = mapped_column(String, default="original")
+    burn_captions: Mapped[bool] = mapped_column(Boolean, default=False)
+    clips: Mapped[list] = mapped_column(JSONB, default=list)
+    status: Mapped[str] = mapped_column(String, default="pending")
+    progress: Mapped[float] = mapped_column(Float, default=0.0)
+    output_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class SearchHistory(Base):
     __tablename__ = "search_history"
 

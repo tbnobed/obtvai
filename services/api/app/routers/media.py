@@ -11,6 +11,7 @@ from ..schemas import (
     MediaAssetOut, MediaListResponse, MediaIngestInput,
     LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance,
     ProcessingJobOut, TranslateRequest, DubRequest,
+    SocialCutsRequestIn, RenderJobOut,
 )
 from ..config import settings
 import redis.asyncio as aioredis
@@ -381,6 +382,91 @@ async def create_social_analysis(id: str, db: AsyncSession = Depends(get_db)):
     out = ProcessingJobOut.model_validate(job)
     out.filename = asset.filename
     return out
+
+
+# Platform → (preset, burn_captions, cut seconds). Vertical platforms get
+# captions burned in because most viewers watch muted.
+_SOCIAL_CUT_SPECS = {
+    "youtube": ("original", False, 60.0),
+    "facebook": ("original", False, 60.0),
+    "x": ("original", True, 40.0),
+    "instagram": ("vertical", True, 45.0),
+    "tiktok": ("vertical", True, 30.0),
+}
+_CUTS_PER_PLATFORM = 3
+
+
+@router.post("/{id}/social/cuts", response_model=list[RenderJobOut], status_code=202)
+async def create_social_cuts(
+    id: str, body: SocialCutsRequestIn, db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+    if not asset.key_moments:
+        raise HTTPException(
+            status_code=400,
+            detail="No key moments available — run AI analysis first",
+        )
+
+    if body.platform is not None:
+        if body.platform not in _SOCIAL_CUT_SPECS:
+            raise HTTPException(status_code=400, detail=f"Unknown platform: {body.platform}")
+        platforms = [body.platform]
+    else:
+        scored = [
+            s.get("platform") for s in (asset.social_scores or [])
+            if isinstance(s, dict) and s.get("platform") in _SOCIAL_CUT_SPECS
+        ]
+        platforms = scored or list(_SOCIAL_CUT_SPECS)
+
+    duration = float(asset.duration_seconds or 0)
+    moments = []
+    for m in asset.key_moments:
+        if not isinstance(m, dict):
+            continue
+        try:
+            t = float(m.get("time"))
+        except (TypeError, ValueError):
+            continue
+        if t < 0 or (duration > 0 and t >= duration):
+            continue
+        moments.append((t, str(m.get("title") or "Key moment")))
+    if not moments:
+        raise HTTPException(status_code=400, detail="Key moments did not yield any usable cuts")
+    moments = moments[:_CUTS_PER_PLATFORM]
+
+    from .renders import _create_render, _mark_enqueue_failed, _to_out
+    from ..worker_client import enqueue_render
+
+    created = []
+    for platform in platforms:
+        preset, burn_captions, cut_seconds = _SOCIAL_CUT_SPECS[platform]
+        for t, title in moments:
+            start = max(0.0, t - 1.0)
+            end = start + cut_seconds
+            if duration > 0:
+                end = min(end, duration)
+            if end - start < 3.0:
+                continue
+            r = await _create_render(
+                db, id, start, end, preset, burn_captions,
+                label=f"{platform}: {title}"[:200],
+            )
+            created.append(r)
+    if not created:
+        raise HTTPException(status_code=400, detail="No usable cut windows for this asset")
+    await db.commit()
+
+    outs = []
+    for r in created:
+        try:
+            await enqueue_render(r.id)
+        except Exception as exc:
+            await _mark_enqueue_failed(db, r, exc)
+        outs.append(_to_out(r, asset.filename))
+    return outs
 
 
 SUPPORTED_TRANSLATION_LANGUAGES = {

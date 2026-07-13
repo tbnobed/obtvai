@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, List, Any
-from pydantic import BaseModel
+from typing import Optional, List, Any, Literal
+from pydantic import BaseModel, Field
 
 
 class HealthStatus(BaseModel):
@@ -205,6 +205,41 @@ class PublishRequestIn(BaseModel):
 
 class PublishPlatformsOut(BaseModel):
     youtube: bool
+
+
+# ── Reels ─────────────────────────────────────────────────────────────────────
+
+class ReelRequestIn(BaseModel):
+    prompt: str = Field(min_length=3, max_length=500)
+    preset: Literal["original", "vertical"] = "original"
+    burn_captions: bool = False
+    max_clips: int = Field(default=6, ge=1, le=12)
+
+
+class ReelClipOut(BaseModel):
+    media_id: str
+    filename: str
+    start_time: float
+    end_time: float
+    snippet: Optional[str] = None
+
+
+class ReelJobOut(BaseModel):
+    id: str
+    prompt: str
+    preset: str
+    burn_captions: bool
+    clips: List[ReelClipOut] = []
+    status: str
+    progress: float
+    output_url: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    finished_at: Optional[datetime] = None
+
+
+class SocialCutsRequestIn(BaseModel):
+    platform: Optional[Literal["youtube", "instagram", "x", "facebook", "tiktok"]] = None
 
 
 # ── Jobs ──────────────────────────────────────────────────────────────────────
