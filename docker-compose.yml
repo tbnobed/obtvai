@@ -22,6 +22,7 @@ volumes:
   qdrant_data:
   redis_data:
   artifacts_data:
+  models_cache:
 
 services:
 
@@ -129,6 +130,7 @@ services:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
       - artifacts_data:/artifacts
+      - models_cache:/root/.cache
     command: celery -A app worker --queues=gpu --concurrency=1 --loglevel=info
     depends_on:
       redis:
@@ -156,6 +158,7 @@ services:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
       - artifacts_data:/artifacts
+      - models_cache:/root/.cache
     command: celery -A app worker --queues=cpu,ingest --concurrency=4 --loglevel=info
     depends_on:
       redis:

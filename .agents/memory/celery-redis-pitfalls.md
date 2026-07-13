@@ -20,3 +20,8 @@ Worker task `except` blocks must call `db.rollback()` before writing error statu
 Cache large models (LLMs, whisper, CLIP) in a module-level global inside the task module, loaded lazily on first use — never load inside the task function body per invocation.
 **Why:** A 7B LLM load takes minutes and fragments GPU memory when repeated; worker processes are long-lived so a module cache persists across jobs.
 **How to apply:** `_model = None` + `_load()` guard at module scope (same pattern as the API's llm service). Concurrency=1 on the gpu queue keeps this safe.
+
+# Model downloads must be persisted in a volume
+Docker worker containers must mount a named volume at `/root/.cache` (HF hub, torch hub, whisper all cache there), or every `docker compose up --build` wipes the models and re-downloads tens of GB on first task.
+**Why:** container filesystems are recreated on rebuild; only named volumes survive. Bit us when Qwen 7B (~15 GB) re-downloaded after every worker rebuild.
+**How to apply:** declare `models_cache:` in top-level volumes and mount `models_cache:/root/.cache` in every worker service that loads models (workers run as root, so `/root/.cache` is the right home).
