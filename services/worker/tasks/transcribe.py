@@ -43,10 +43,10 @@ def transcribe_audio(self, media_id: str, job_id: str):
                 {
                     "id": seg_id,
                     "mid": media_id,
-                    "start": seg.start,
-                    "end": seg.end,
+                    "start": float(seg.start),
+                    "end": float(seg.end),
                     "txt": seg.text.strip(),
-                    "conf": seg.avg_logprob if hasattr(seg, "avg_logprob") else None,
+                    "conf": float(seg.avg_logprob) if getattr(seg, "avg_logprob", None) is not None else None,
                 },
             )
             inserted += 1
