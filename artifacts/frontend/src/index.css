@@ -152,9 +152,3 @@
              logo-glow 2s ease-in-out infinite;
   will-change: transform, filter;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .logo-alive {
-    animation: none;
-  }
-}
