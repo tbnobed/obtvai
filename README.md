@@ -50,7 +50,7 @@ from transformers import CLIPModel; CLIPModel.from_pretrained('openai/clip-vit-l
 docker compose up -d
 ```
 
-The app is available at **http://localhost:3000**
+The app is available at **http://localhost:5000**
 
 Celery Flower monitoring: **http://localhost:5555**
 
