@@ -312,6 +312,51 @@ async def create_highlight(id: str, db: AsyncSession = Depends(get_db)):
     return out
 
 
+@router.post("/{id}/social", response_model=ProcessingJobOut, status_code=202)
+async def create_social_analysis(id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    has_transcript = (
+        await db.execute(
+            select(func.count(TranscriptSegment.id)).where(TranscriptSegment.media_id == id)
+        )
+    ).scalar_one() > 0
+    if not has_transcript and not asset.synopsis:
+        raise HTTPException(
+            status_code=400,
+            detail="No transcript or analysis available — process the media first",
+        )
+
+    existing = (
+        await db.execute(
+            select(ProcessingJob).where(
+                ProcessingJob.media_id == id,
+                ProcessingJob.job_type == "social",
+                ProcessingJob.status.in_(("pending", "running")),
+            )
+        )
+    ).scalars().first()
+    if existing:
+        out = ProcessingJobOut.model_validate(existing)
+        out.filename = asset.filename
+        return out
+
+    job = ProcessingJob(media_id=id, job_type="social", status="pending", logs=[])
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    from ..worker_client import enqueue_job
+    await enqueue_job("social", id, job.id)
+
+    out = ProcessingJobOut.model_validate(job)
+    out.filename = asset.filename
+    return out
+
+
 @router.get("/{id}/highlight/stream")
 async def stream_highlight(id: str, db: AsyncSession = Depends(get_db)):
     from fastapi.responses import FileResponse

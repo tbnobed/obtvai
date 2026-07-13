@@ -6,16 +6,38 @@ import {
   useGetMediaTranscript, getGetMediaTranscriptQueryKey,
   useListJobs, getListJobsQueryKey,
   useDeleteMedia, getListMediaQueryKey,
-  useCreateHighlight
+  useCreateHighlight,
+  useCreateSocialAnalysis
 } from "@workspace/api-client-react";
+import type { SocialScore } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash } from "lucide-react";
 import AssetChat from "@/components/asset-chat";
+
+const PLATFORM_META: Record<string, { label: string; Icon: typeof Youtube; color: string }> = {
+  youtube: { label: "YouTube", Icon: Youtube, color: "text-red-500" },
+  instagram: { label: "Instagram", Icon: Instagram, color: "text-pink-500" },
+  x: { label: "X", Icon: Twitter, color: "text-foreground" },
+  facebook: { label: "Facebook", Icon: Facebook, color: "text-blue-500" },
+  tiktok: { label: "TikTok", Icon: Music2, color: "text-cyan-400" },
+};
+
+function scoreColor(score: number): string {
+  if (score >= 70) return "text-green-500";
+  if (score >= 45) return "text-yellow-500";
+  return "text-red-500";
+}
+
+function scoreBarColor(score: number): string {
+  if (score >= 70) return "bg-green-500";
+  if (score >= 45) return "bg-yellow-500";
+  return "bg-red-500";
+}
 
 function formatTimecode(seconds: number): string {
   const total = Math.floor(seconds);
@@ -74,14 +96,29 @@ export default function AssetDetail() {
     });
   };
 
-  // When the highlight job finishes, refresh the asset so highlight_url appears.
+  const socialMutation = useCreateSocialAnalysis();
+  const socialJob = jobs?.find(j => j.job_type === "social" && (j.status === "pending" || j.status === "running"));
+  const socialBusy = socialMutation.isPending || Boolean(socialJob);
+
+  const startSocial = () => {
+    if (!id) return;
+    socialMutation.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
+      }
+    });
+  };
+
+  // When a highlight/social job finishes, refresh the asset so results appear.
   const lastHighlightStatus = jobs?.filter(j => j.job_type === "highlight")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
+  const lastSocialStatus = jobs?.filter(j => j.job_type === "social")
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
   useEffect(() => {
-    if (lastHighlightStatus === "success" && id) {
+    if ((lastHighlightStatus === "success" || lastSocialStatus === "success") && id) {
       queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
     }
-  }, [lastHighlightStatus, id, queryClient]);
+  }, [lastHighlightStatus, lastSocialStatus, id, queryClient]);
 
   useEffect(() => {
     if (timeParam && videoRef.current && asset?.status === 'ready') {
@@ -183,6 +220,14 @@ export default function AssetDetail() {
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Analysis
                 </TabsTrigger>
+                <TabsTrigger value="highlight" className="gap-1.5">
+                  <Film className="h-3.5 w-3.5" />
+                  Highlight Reel
+                </TabsTrigger>
+                <TabsTrigger value="socials" className="gap-1.5">
+                  <Share2 className="h-3.5 w-3.5" />
+                  Socials
+                </TabsTrigger>
                 <TabsTrigger value="scenes">Scenes</TabsTrigger>
                 <TabsTrigger value="jobs">Pipeline Jobs</TabsTrigger>
               </TabsList>
@@ -229,59 +274,165 @@ export default function AssetDetail() {
                         </div>
                       </div>
                     )}
-                    {asset.key_moments && asset.key_moments.length > 0 && (
-                      <div>
-                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Highlight Reel</h3>
-                        {asset.highlight_url && !highlightBusy ? (
-                          <div className="space-y-2">
-                            <video
-                              src={`/api/media/${id}/highlight/stream`}
-                              controls
-                              className="w-full max-w-xl rounded border border-border bg-black"
-                            />
-                            <div className="flex gap-2">
-                              <Button asChild variant="outline" size="sm" className="gap-2">
-                                <a href={`/api/media/${id}/highlight/stream`} download={`highlight_${asset.filename}`}>
-                                  <Download className="h-4 w-4" />
-                                  Download
-                                </a>
-                              </Button>
-                              <Button variant="outline" size="sm" className="gap-2" onClick={startHighlight}>
-                                <Film className="h-4 w-4" />
-                                Regenerate
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <Button size="sm" className="gap-2" onClick={startHighlight} disabled={highlightBusy}>
-                              {highlightBusy ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Building reel{highlightJob?.progress ? ` — ${Math.round(highlightJob.progress)}%` : "..."}
-                                </>
-                              ) : (
-                                <>
-                                  <Film className="h-4 w-4" />
-                                  Generate Highlight Reel
-                                </>
-                              )}
-                            </Button>
-                            <p className="text-xs text-muted-foreground">
-                              Cuts short clips at each key moment and stitches them into one video.
-                            </p>
-                            {highlightMutation.isError && (
-                              <p className="text-xs text-destructive">Failed to start highlight job. Check Pipeline Jobs.</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="text-sm text-muted-foreground py-8 text-center">
                     No AI analysis yet. It is generated automatically after indexing completes —
                     or re-run the index job from the Pipeline Jobs tab.
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="highlight" className="mt-4">
+                {asset.key_moments && asset.key_moments.length > 0 ? (
+                  asset.highlight_url && !highlightBusy ? (
+                    <div className="space-y-3 max-w-5xl">
+                      <video
+                        src={`/api/media/${id}/highlight/stream`}
+                        controls
+                        className="w-full max-h-[55vh] rounded border border-border bg-black"
+                      />
+                      <div className="flex gap-2">
+                        <Button asChild variant="outline" size="sm" className="gap-2">
+                          <a href={`/api/media/${id}/highlight/stream`} download={`highlight_${asset.filename}`}>
+                            <Download className="h-4 w-4" />
+                            Download
+                          </a>
+                        </Button>
+                        <Button variant="outline" size="sm" className="gap-2" onClick={startHighlight}>
+                          <Film className="h-4 w-4" />
+                          Regenerate
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-10 flex flex-col items-center text-center gap-3">
+                      <Clapperboard className="h-10 w-10 text-muted-foreground" />
+                      <Button className="gap-2" onClick={startHighlight} disabled={highlightBusy}>
+                        {highlightBusy ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Building reel{highlightJob?.progress ? ` — ${Math.round(highlightJob.progress)}%` : "..."}
+                          </>
+                        ) : (
+                          <>
+                            <Film className="h-4 w-4" />
+                            Generate Highlight Reel
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground max-w-sm">
+                        Cuts short clips at each AI-detected key moment and stitches them into one video.
+                      </p>
+                      {highlightMutation.isError && (
+                        <p className="text-xs text-destructive">Failed to start highlight job. Check Pipeline Jobs.</p>
+                      )}
+                    </div>
+                  )
+                ) : (
+                  <div className="text-sm text-muted-foreground py-8 text-center">
+                    A highlight reel needs AI-detected key moments. Run AI analysis first.
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="socials" className="mt-4">
+                {(asset.social_scores && asset.social_scores.length > 0 && !socialBusy) ? (
+                  <div className="space-y-4 max-w-5xl">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4" />
+                        Predicted performance if posted (or clipped) per platform
+                      </p>
+                      <Button variant="outline" size="sm" className="gap-2" onClick={startSocial}>
+                        <Share2 className="h-4 w-4" />
+                        Re-analyze
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {(asset.social_scores as SocialScore[]).map((s) => {
+                        const meta = PLATFORM_META[s.platform] ?? { label: s.platform, Icon: Share2, color: "text-foreground" };
+                        const score = Math.round(s.score);
+                        return (
+                          <div key={s.platform} className="border border-border rounded-lg p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <meta.Icon className={`h-5 w-5 ${meta.color}`} />
+                                <span className="font-medium">{meta.label}</span>
+                              </div>
+                              <span className={`text-2xl font-bold font-mono ${scoreColor(score)}`}>{score}</span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className={`h-full ${scoreBarColor(score)}`} style={{ width: `${score}%` }} />
+                            </div>
+                            {s.verdict && (
+                              <p className="text-sm text-muted-foreground">{s.verdict}</p>
+                            )}
+                            {s.strengths && s.strengths.length > 0 && (
+                              <div className="space-y-1">
+                                {s.strengths.map((str, i) => (
+                                  <div key={i} className="flex gap-2 text-xs text-muted-foreground">
+                                    <ThumbsUp className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
+                                    <span>{str}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {s.weaknesses && s.weaknesses.length > 0 && (
+                              <div className="space-y-1">
+                                {s.weaknesses.map((str, i) => (
+                                  <div key={i} className="flex gap-2 text-xs text-muted-foreground">
+                                    <ThumbsDown className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+                                    <span>{str}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {s.best_format && (
+                              <div className="flex gap-2 text-xs text-muted-foreground">
+                                <Clapperboard className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                <span>{s.best_format}</span>
+                              </div>
+                            )}
+                            {s.suggested_caption && (
+                              <div className="bg-muted/50 rounded p-2 text-xs">
+                                {s.suggested_caption}
+                              </div>
+                            )}
+                            {s.hashtags && s.hashtags.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                <Hash className="h-3 w-3 text-muted-foreground" />
+                                {s.hashtags.map((h) => (
+                                  <Badge key={h} variant="secondary" className="text-[10px]">{h}</Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-10 flex flex-col items-center text-center gap-3">
+                    <TrendingUp className="h-10 w-10 text-muted-foreground" />
+                    <Button className="gap-2" onClick={startSocial} disabled={socialBusy}>
+                      {socialBusy ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Analyzing{socialJob?.progress ? ` — ${Math.round(socialJob.progress)}%` : "..."}
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="h-4 w-4" />
+                          Analyze Social Potential
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground max-w-sm">
+                      Scores how this content would perform on YouTube, Instagram, X, Facebook, and
+                      TikTok — with strengths, weaknesses, captions, and hashtags per platform.
+                    </p>
+                    {socialMutation.isError && (
+                      <p className="text-xs text-destructive">Failed to start social analysis. Check Pipeline Jobs.</p>
+                    )}
                   </div>
                 )}
               </TabsContent>

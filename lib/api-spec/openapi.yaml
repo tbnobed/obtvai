@@ -217,6 +217,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProcessingJob"
 
+  /media/{id}/social:
+    post:
+      operationId: createSocialAnalysis
+      tags: [media]
+      summary: Score the asset's social media potential across platforms
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Social analysis job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+
   # ── Stats ────────────────────────────────────────────────────────────────
   /media/stats/summary:
     get:
@@ -533,6 +552,37 @@ components:
       required: [status]
 
     # ── Media ────────────────────────────────────────────────────────────────
+    SocialScore:
+      type: object
+      required: [platform, score]
+      properties:
+        platform:
+          type: string
+          description: "youtube | instagram | x | facebook | tiktok"
+        score:
+          type: number
+          description: Predicted performance score, 0-100
+        verdict:
+          type: ["string", "null"]
+          description: One-line performance verdict
+        strengths:
+          type: ["array", "null"]
+          items:
+            type: string
+        weaknesses:
+          type: ["array", "null"]
+          items:
+            type: string
+        best_format:
+          type: ["string", "null"]
+          description: Recommended format/cut for this platform
+        suggested_caption:
+          type: ["string", "null"]
+        hashtags:
+          type: ["array", "null"]
+          items:
+            type: string
+
     MediaAsset:
       type: object
       required: [id, filename, status, created_at]
@@ -575,6 +625,11 @@ components:
         highlight_url:
           type: ["string", "null"]
           description: Set when a generated highlight reel is available
+        social_scores:
+          type: ["array", "null"]
+          description: Per-platform social media performance predictions
+          items:
+            $ref: "#/components/schemas/SocialScore"
         synopsis:
           type: ["string", "null"]
           description: AI-generated synopsis of the content

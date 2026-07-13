@@ -42,6 +42,58 @@ const assets = [
     ],
     topics: ["urban planning", "affordable housing", "public transit", "local politics", "development"],
     highlight_url: null as string | null,
+    social_scores: [
+      {
+        platform: "youtube",
+        score: 78,
+        verdict: "Strong long-form fit — policy interviews sustain watch time when chaptered around the key moments.",
+        strengths: ["31-minute runtime suits YouTube's watch-time algorithm", "Highly searchable topic: downtown revitalization + 2026 bond measure", "Clear chapter structure from key moments"],
+        weaknesses: ["Talking-head format needs B-roll to hold retention", "Niche local audience caps ceiling"],
+        best_format: "Full interview with chapters, plus a 60s Short teasing the bond measure outlook",
+        suggested_caption: "Urban planner Sarah Chen breaks down the downtown revitalization plan — affordable housing targets, transit rezoning, and what the 2026 bond measure means for the city.",
+        hashtags: ["#urbanplanning", "#affordablehousing", "#transit", "#localgov", "#cityplanning"],
+      },
+      {
+        platform: "instagram",
+        score: 54,
+        verdict: "Moderate — needs punchy sub-90s Reels with captions; the full interview won't travel here.",
+        strengths: ["Housing affordability clips resonate with 25-40 demo", "Quote cards from Chen's strongest lines are shareable"],
+        weaknesses: ["No strong visual hook in a seated interview", "Policy detail gets skipped in feed scrolling"],
+        best_format: "3 Reels: housing targets (45s), transit rezoning (60s), bond measure (30s) — bold captions over speaker",
+        suggested_caption: "30% affordable housing — bold target or empty promise? Urban planner Sarah Chen explains the plan.",
+        hashtags: ["#housingcrisis", "#urbanism", "#citylife", "#affordablehousing"],
+      },
+      {
+        platform: "x",
+        score: 71,
+        verdict: "Good fit — local politics and housing policy drive replies and quote-posts.",
+        strengths: ["Bond measure angle is newsworthy and time-sensitive", "Business-owner pushback segment invites debate", "Clip + thread format suits policy breakdowns"],
+        weaknesses: ["Video completion rates on X are low past 45s"],
+        best_format: "40s clip of the pushback exchange + a 5-post thread summarizing the plan",
+        suggested_caption: "Merchants say construction will kill foot traffic. The city's lead planner says the data shows otherwise. Who's right?",
+        hashtags: ["#localpolitics", "#housing", "#transit"],
+      },
+      {
+        platform: "facebook",
+        score: 66,
+        verdict: "Solid — local-issue content shares well in community groups and older demos.",
+        strengths: ["Neighborhood groups actively share city-planning news", "45+ demo engages with bond measure coverage", "Longer videos acceptable on Facebook"],
+        weaknesses: ["Organic page reach is weak without group seeding", "Younger demos won't see it"],
+        best_format: "3-5 min cutdown focused on 'what changes for your neighborhood', posted natively + seeded to local groups",
+        suggested_caption: "Big changes coming downtown: 30% affordable housing, light-rail rezoning, and a 2026 bond measure. Here's what the city's lead planner says it means for you.",
+        hashtags: ["#community", "#downtown", "#localnews"],
+      },
+      {
+        platform: "tiktok",
+        score: 38,
+        verdict: "Weak — no 3-second hook, and policy interviews underperform unless reframed as conflict or stakes.",
+        strengths: ["Housing affordability is a proven TikTok topic for Gen Z"],
+        weaknesses: ["Seated interview format fights the algorithm", "No trending audio or visual momentum", "Requires heavy re-editing to work"],
+        best_format: "15-30s vertical cut: 'They want to tear up downtown — here's the plan' with kinetic captions and B-roll",
+        suggested_caption: "Your city might look completely different by 2027 👀 Here's the plan nobody's talking about",
+        hashtags: ["#housing", "#fyp", "#citytok", "#genzpolitics"],
+      },
+    ] as any[] | null,
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
     updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
   },
@@ -421,6 +473,44 @@ router.post("/media/:id/highlight", (req, res) => {
     job.logs.push("Highlight reel ready: 5 clips");
     (asset as any).highlight_url = `${asset.id}.mp4`;
   }, 9000);
+  res.status(202).json(job);
+});
+
+router.post("/media/:id/social", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ error: "Media not found" }); return; }
+  if (!asset.synopsis) {
+    res.status(400).json({ detail: "No transcript or analysis available — process the media first" });
+    return;
+  }
+  const job = {
+    id: `job-soc-${Date.now()}`,
+    media_id: asset.id,
+    filename: asset.filename,
+    job_type: "social",
+    status: "running",
+    progress: 15,
+    error_message: null as string | null,
+    logs: ["Scoring social media potential for 5 platforms"],
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    finished_at: null as string | null,
+  };
+  jobs.unshift(job as any);
+  const timer = setInterval(() => {
+    job.progress = Math.min(90, (job.progress ?? 0) + 25);
+  }, 2000);
+  setTimeout(() => {
+    clearInterval(timer);
+    job.status = "success";
+    job.progress = 100;
+    job.finished_at = new Date().toISOString();
+    job.logs.push("Social scoring complete for 5 platforms");
+    if (!(asset as any).social_scores) {
+      (asset as any).social_scores = assets[0].social_scores;
+    }
+  }, 8000);
   res.status(202).json(job);
 });
 

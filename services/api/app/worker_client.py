@@ -44,6 +44,7 @@ async def enqueue_job(job_type: str, media_id: str, job_id: str) -> str:
         "index": ("cpu", "tasks.index.build_index"),
         "analyze": ("gpu", "tasks.analyze.analyze_media"),
         "highlight": ("cpu", "tasks.highlight.build_highlight"),
+        "social": ("gpu", "tasks.social.score_social"),
     }
     queue, task_name = task_map.get(job_type, ("cpu", f"tasks.{job_type}.run"))
     await _publish(queue, task_name, {"media_id": media_id, "job_id": job_id}, str(uuid.uuid4()))

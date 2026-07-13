@@ -30,6 +30,7 @@ class MediaAsset(Base):
     scene_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     speaker_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     highlight_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    social_scores: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     synopsis: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_moments: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)

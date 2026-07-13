@@ -23,6 +23,7 @@ _COLUMN_MIGRATIONS = [
     ("media_assets", "key_moments", "JSONB"),
     ("media_assets", "topics", "JSONB"),
     ("media_assets", "highlight_url", "TEXT"),
+    ("media_assets", "social_scores", "JSONB"),
 ]
 
 

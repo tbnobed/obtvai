@@ -17,6 +17,7 @@ celery_app = Celery(
         "tasks.index",
         "tasks.analyze",
         "tasks.highlight",
+        "tasks.social",
     ],
 )
 celery_app.config_from_object("celeryconfig")

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { KeyMoment } from './keyMoment';
+import type { SocialScore } from './socialScore';
 
 export interface MediaAsset {
   id: string;
@@ -49,6 +50,11 @@ export interface MediaAsset {
      * @nullable
      */
   highlight_url?: string | null;
+  /**
+     * Per-platform social media performance predictions
+     * @nullable
+     */
+  social_scores?: SocialScore[] | null;
   /**
      * AI-generated synopsis of the content
      * @nullable

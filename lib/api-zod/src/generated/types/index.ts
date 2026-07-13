@@ -37,4 +37,5 @@ export * from './searchHistoryItem';
 export * from './searchQuery';
 export * from './searchResponse';
 export * from './searchResult';
+export * from './socialScore';
 export * from './transcriptSegment';

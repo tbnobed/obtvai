@@ -831,6 +831,77 @@ export const useCreateHighlight = <TError = ErrorType<unknown>,
       return useMutation(getCreateHighlightMutationOptions(options));
     }
 
+export const getCreateSocialAnalysisUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/social`
+}
+
+/**
+ * @summary Score the asset's social media potential across platforms
+ */
+export const createSocialAnalysis = async (id: string, options?: RequestInit): Promise<ProcessingJob> => {
+
+  return customFetch<ProcessingJob>(getCreateSocialAnalysisUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateSocialAnalysisMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSocialAnalysis>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSocialAnalysis>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['createSocialAnalysis'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSocialAnalysis>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  createSocialAnalysis(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSocialAnalysisMutationResult = NonNullable<Awaited<ReturnType<typeof createSocialAnalysis>>>
+
+    export type CreateSocialAnalysisMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Score the asset's social media potential across platforms
+ */
+export const useCreateSocialAnalysis = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSocialAnalysis>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSocialAnalysis>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCreateSocialAnalysisMutationOptions(options));
+    }
+
 export const getGetLibraryStatsUrl = () => {
 
 

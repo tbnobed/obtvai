@@ -9,6 +9,31 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface SocialScore {
+  /** youtube | instagram | x | facebook | tiktok */
+  platform: string;
+  /** Predicted performance score, 0-100 */
+  score: number;
+  /**
+     * One-line performance verdict
+     * @nullable
+     */
+  verdict?: string | null;
+  /** @nullable */
+  strengths?: string[] | null;
+  /** @nullable */
+  weaknesses?: string[] | null;
+  /**
+     * Recommended format/cut for this platform
+     * @nullable
+     */
+  best_format?: string | null;
+  /** @nullable */
+  suggested_caption?: string | null;
+  /** @nullable */
+  hashtags?: string[] | null;
+}
+
 export interface KeyMoment {
   /** Timecode in seconds */
   time: number;
@@ -59,6 +84,11 @@ export interface MediaAsset {
      * @nullable
      */
   highlight_url?: string | null;
+  /**
+     * Per-platform social media performance predictions
+     * @nullable
+     */
+  social_scores?: SocialScore[] | null;
   /**
      * AI-generated synopsis of the content
      * @nullable
