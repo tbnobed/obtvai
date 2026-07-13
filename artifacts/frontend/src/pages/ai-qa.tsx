@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, User, Bot } from "lucide-react";
 import { Link } from "wouter";
+import logoUrl from "@assets/obtv_logo.png";
 
 type Message = {
   role: 'user' | 'assistant';
@@ -47,7 +48,7 @@ export default function AIQA() {
         <div className="max-w-3xl mx-auto space-y-6">
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground py-20">
-              <Bot className="h-12 w-12 mx-auto mb-4 opacity-20" />
+              <img src={logoUrl} alt="OBTV.AI" className="h-24 w-auto mx-auto mb-6" />
               <p>Ask questions about the content of your media library.</p>
               <p className="text-sm mt-2">Example: "Who mentioned the quarterly report and when?"</p>
             </div>
