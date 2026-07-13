@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useListPeople, useReanalyzePeople, getListPeopleQueryKey } from "@workspace/api-client-react";
+import { useListPeople, useReanalyzePeople, useUpdatePerson, getListPeopleQueryKey } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Users, User, Mic, Film, ScanFace } from "lucide-react";
+import { Users, User, Mic, Film, ScanFace, Pencil, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
 
 function formatSpeaking(seconds: number) {
@@ -15,8 +16,43 @@ function formatSpeaking(seconds: number) {
 export default function People() {
   const { data, isLoading } = useListPeople();
   const reanalyzeMutation = useReanalyzePeople();
+  const updatePerson = useUpdatePerson();
   const queryClient = useQueryClient();
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+
+  const startEdit = (e: React.MouseEvent, id: string, currentName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingId(id);
+    setEditName(currentName.startsWith("Person ") || currentName.startsWith("SPEAKER_") ? "" : currentName);
+  };
+
+  const cancelEdit = (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setEditingId(null);
+    setEditName("");
+  };
+
+  const saveEdit = (e: React.SyntheticEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const name = editName.trim();
+    if (!name || updatePerson.isPending) return;
+    updatePerson.mutate(
+      { id, data: { display_name: name } },
+      {
+        onSuccess: () => {
+          setEditingId(null);
+          setEditName("");
+          queryClient.invalidateQueries({ queryKey: getListPeopleQueryKey() });
+        },
+        onError: () => setQueuedMessage("Rename failed — check the API server."),
+      }
+    );
+  };
 
   const handleReanalyze = () => {
     reanalyzeMutation.mutate(undefined, {
@@ -91,9 +127,48 @@ export default function People() {
                   )}
                 </div>
                 <div className="p-3 flex-1 flex flex-col gap-1.5">
-                  <p className="text-sm font-medium truncate" title={person.display_name}>
-                    {person.display_name}
-                  </p>
+                  {editingId === person.id ? (
+                    <div className="flex items-center gap-1" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                      <Input
+                        autoFocus
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit(e, person.id);
+                          if (e.key === "Escape") cancelEdit(e);
+                        }}
+                        placeholder="Enter name..."
+                        className="h-7 text-sm px-2"
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0"
+                        onClick={(e) => saveEdit(e, person.id)}
+                        disabled={!editName.trim() || updatePerson.isPending}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={cancelEdit}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <p className="text-sm font-medium truncate flex-1" title={person.display_name}>
+                        {person.display_name}
+                      </p>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => startEdit(e, person.id, person.display_name)}
+                        title="Rename"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Film className="h-3 w-3" />
