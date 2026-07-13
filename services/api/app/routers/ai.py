@@ -34,24 +34,26 @@ async def _run_qa(question: str, context_segments: list, db: AsyncSession) -> tu
 
     context_text = "\n".join(context_parts[:10])
     prompt = (
-        f"You are an expert media analyst. Answer the following question using ONLY the provided transcript excerpts.\n\n"
-        f"Context:\n{context_text}\n\n"
+        f"Transcript excerpts (format: [filename @ timecode] text):\n{context_text}\n\n"
         f"Question: {question}\n\n"
-        f"Answer concisely, citing the source filename and timecode when relevant."
+        f"Answer the question using only these excerpts. Quote or paraphrase the "
+        f"relevant lines and mention their timecodes. If the excerpts do not answer "
+        f"the question, say so directly instead of guessing."
     )
 
     try:
         from ..services.llm import generate_response
         answer = await generate_response(prompt)
     except Exception as e:
-        transcript_summary = "; ".join(
-            f"{asset.filename} @ {seg.start_time:.0f}s: {seg.text[:80]}"
+        transcript_summary = "\n".join(
+            f"- {asset.filename} @ {seg.start_time:.0f}s: {seg.text[:120]}"
             for seg, asset in context_segments[:3]
         )
         answer = (
-            f"Based on the indexed transcripts, here is what I found related to your question:\n\n"
+            f"The AI model is currently unavailable, so here are the raw transcript "
+            f"passages most related to your question:\n\n"
             f"{transcript_summary}\n\n"
-            f"(Local LLM inference is unavailable: {e})"
+            f"(Error: {e})"
         )
 
     return answer, citations[:5]
@@ -106,13 +108,28 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
             if row:
                 context_segments.append(row)
     except Exception:
-        q = select(TranscriptSegment, MediaAsset).join(
-            MediaAsset, TranscriptSegment.media_id == MediaAsset.id
-        ).where(TranscriptSegment.text.ilike(f"%{body.question.split()[0] if body.question.split() else ''}%"))
-        if body.media_id:
-            q = q.where(TranscriptSegment.media_id == body.media_id)
-        rows = (await db.execute(q.limit(8))).all()
-        context_segments = list(rows)
+        # Keyword fallback when vector search is unavailable: match on the
+        # meaningful words of the question, not stopwords like "does"/"this".
+        from sqlalchemy import or_
+        stopwords = {
+            "a", "an", "the", "is", "are", "was", "were", "do", "does", "did",
+            "this", "that", "these", "those", "in", "on", "at", "of", "to",
+            "about", "any", "some", "what", "who", "when", "where", "why",
+            "how", "it", "its", "and", "or", "not", "sense", "mention",
+            "mentions", "talk", "talks", "say", "says", "said", "video",
+        }
+        words = [
+            w.strip("?,.!\"'") for w in body.question.lower().split()
+        ]
+        keywords = [w for w in words if len(w) > 2 and w not in stopwords][:6]
+        if keywords:
+            q = select(TranscriptSegment, MediaAsset).join(
+                MediaAsset, TranscriptSegment.media_id == MediaAsset.id
+            ).where(or_(*[TranscriptSegment.text.ilike(f"%{kw}%") for kw in keywords]))
+            if body.media_id:
+                q = q.where(TranscriptSegment.media_id == body.media_id)
+            rows = (await db.execute(q.limit(8))).all()
+            context_segments = list(rows)
 
     answer_text, citations = await _run_qa(body.question, context_segments, db)
 
