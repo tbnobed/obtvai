@@ -80,20 +80,29 @@ async def lifespan(app: FastAPI):
     # requests immediately; the first ask simply waits on the shared lazy
     # loaders if it arrives before warm-up finishes.
     import threading
+    import time
+
+    def _ts() -> str:
+        return time.strftime("%H:%M:%S")
 
     def _warm_models():
+        print(f"[{_ts()}] Warm-up: thread started")
+        t0 = time.monotonic()
         try:
             from .services.embedding import _load_model
+            print(f"[{_ts()}] Warm-up: loading text embedding model...")
             _load_model()
-            print("Warm-up: text embedding model ready")
+            print(f"[{_ts()}] Warm-up: text embedding model ready ({time.monotonic() - t0:.0f}s)")
         except Exception as e:
-            print(f"Warm-up: embedding model failed to load: {e}")
+            print(f"[{_ts()}] Warm-up: embedding model failed to load: {e}")
+        t1 = time.monotonic()
         try:
             from .services.llm import _load_pipeline
+            print(f"[{_ts()}] Warm-up: loading LLM (downloads shards here if cache is cold)...")
             _load_pipeline()
-            print("Warm-up: LLM pipeline ready")
+            print(f"[{_ts()}] Warm-up: LLM pipeline ready ({time.monotonic() - t1:.0f}s)")
         except Exception as e:
-            print(f"Warm-up: LLM failed to load: {e}")
+            print(f"[{_ts()}] Warm-up: LLM failed to load: {e}")
 
     threading.Thread(target=_warm_models, daemon=True).start()
 
