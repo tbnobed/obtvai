@@ -1,0 +1,552 @@
+✔ Image obtv-ai-api            Built                                                                                                                                                                       1.0s
+ ✔ Container obtv-ai-redis-1    Healthy                                                                                                                                                                     1.8s
+ ✔ Container obtv-ai-postgres-1 Healthy                                                                                                                                                                     1.8s
+ ✔ Container obtv-ai-qdrant-1   Healthy                                                                                                                                                                     1.8s
+ ✔ Container obtv-ai-api-1      Started                                                                                                                                                                     2.2s
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs -f
+watcher-1  | 2026-07-13 06:38:03,436 INFO Watching: /media
+worker-gpu-1  |
+worker-gpu-1  | ==========
+worker-gpu-1  | == CUDA ==
+worker-gpu-1  | ==========
+worker-gpu-1  |
+worker-gpu-1  | CUDA Version 12.8.1
+worker-gpu-1  |
+worker-gpu-1  | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-gpu-1  |
+worker-gpu-1  | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+worker-gpu-1  | By pulling and using the container, you accept the terms and conditions of this license:
+worker-gpu-1  | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+worker-gpu-1  |
+worker-gpu-1  | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+worker-gpu-1  |
+worker-gpu-1  | /usr/local/lib/python3.10/dist-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+worker-gpu-1  | absolutely not recommended!
+api-1         | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+worker-gpu-1  |
+worker-gpu-1  | Please specify a different user using the --uid option.
+worker-gpu-1  |
+api-1         | INFO:     Started parent process [1]
+worker-gpu-1  | User information: uid=0 euid=0 gid=0 egid=0
+worker-gpu-1  |
+worker-gpu-1  |   warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+worker-gpu-1  |
+postgres-1    | The files belonging to this database system will be owned by user "postgres".
+worker-cpu-1  |
+api-1         | INFO:     Started server process [52]
+api-1         | INFO:     Waiting for application startup.
+api-1         | INFO:     Started server process [53]
+flower-1      |
+worker-gpu-1  |  -------------- celery@48614abaa114 v5.4.0 (opalescent)
+worker-gpu-1  | --- ***** -----
+worker-gpu-1  | -- ******* ---- Linux-6.17.0-35-generic-x86_64-with-glibc2.35 2026-07-13 13:50:48
+worker-gpu-1  | - *** --- * ---
+worker-gpu-1  | - ** ---------- [config]
+worker-gpu-1  | - ** ---------- .> app:         obtv_worker:0x7df81670e650
+postgres-1    | This user must also own the server process.
+postgres-1    |
+worker-cpu-1  | ==========
+worker-gpu-1  | - ** ---------- .> transport:   redis://redis:6379/0
+worker-gpu-1  | - ** ---------- .> results:     redis://redis:6379/0
+worker-gpu-1  | - *** --- * --- .> concurrency: 1 (prefork)
+worker-cpu-1  | == CUDA ==
+worker-cpu-1  | ==========
+worker-cpu-1  |
+worker-gpu-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+worker-cpu-1  | CUDA Version 12.8.1
+api-1         | INFO:     Waiting for application startup.
+worker-cpu-1  |
+qdrant-1      |            _                 _
+worker-gpu-1  | --- ***** -----
+worker-gpu-1  |  -------------- [queues]
+flower-1      | ==========
+qdrant-1      |   __ _  __| |_ __ __ _ _ __ | |_
+flower-1      | == CUDA ==
+worker-cpu-1  | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-cpu-1  |
+worker-cpu-1  | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+worker-cpu-1  | By pulling and using the container, you accept the terms and conditions of this license:
+worker-cpu-1  | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+qdrant-1      |  / _` |/ _` | '__/ _` | '_ \| __|
+qdrant-1      | | (_| | (_| | | | (_| | | | | |_
+worker-gpu-1  |                 .> gpu              exchange=gpu(direct) key=gpu
+flower-1      | ==========
+flower-1      |
+worker-cpu-1  |
+worker-cpu-1  | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+api-1         | INFO:     Application startup complete.
+worker-cpu-1  |
+worker-gpu-1  |
+api-1         | INFO:     Application startup complete.
+api-1         | INFO:     172.18.0.10:57766 - "GET /api/jobs HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:57778 - "GET /api/jobs HTTP/1.1" 200 OK
+qdrant-1      |  \__, |\__,_|_|  \__,_|_| |_|\__|
+qdrant-1      |     |_|
+flower-1      | CUDA Version 12.8.1
+flower-1      |
+flower-1      | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+flower-1      |
+flower-1      | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+frontend-1    | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+redis-1       | 1:C 13 Jul 2026 05:44:47.851 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+qdrant-1      |
+qdrant-1      | Version: 1.12.4, build: 5b578c4f
+qdrant-1      | Access web UI at http://localhost:6333/dashboard
+redis-1       | 1:C 13 Jul 2026 05:44:47.851 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+redis-1       | 1:C 13 Jul 2026 05:44:47.851 * Redis version=7.4.9, bits=64, commit=00000000, modified=0, pid=1, just started
+redis-1       | 1:C 13 Jul 2026 05:44:47.851 * Configuration loaded
+redis-1       | 1:M 13 Jul 2026 05:44:47.851 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+worker-gpu-1  |
+worker-gpu-1  | [tasks]
+worker-gpu-1  |   . tasks.audio.extract_audio
+worker-gpu-1  |   . tasks.diarize.run_diarization
+worker-gpu-1  |   . tasks.face_detect.detect_faces
+redis-1       | 1:M 13 Jul 2026 05:44:47.851 * monotonic clock: POSIX clock_gettime
+worker-gpu-1  |   . tasks.index.build_index
+redis-1       | 1:M 13 Jul 2026 05:44:47.852 * Running mode=standalone, port=6379.
+worker-gpu-1  |   . tasks.ingest.run_ingest_pipeline
+api-1         | INFO:     172.18.0.10:57790 - "GET /api/jobs HTTP/1.1" 200 OK
+worker-gpu-1  |   . tasks.proxy.create_proxy
+postgres-1    | The database cluster will be initialized with locale "en_US.utf8".
+postgres-1    | The default database encoding has accordingly been set to "UTF8".
+postgres-1    | The default text search configuration will be set to "english".
+postgres-1    |
+postgres-1    | Data page checksums are disabled.
+qdrant-1      |
+worker-cpu-1  | WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+worker-cpu-1  |    Use the NVIDIA Container Toolkit to start this container with GPU support; see
+postgres-1    |
+worker-gpu-1  |   . tasks.scene_detect.detect_scenes
+worker-gpu-1  |   . tasks.transcribe.transcribe_audio
+postgres-1    | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+postgres-1    | creating subdirectories ... ok
+frontend-1    | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+frontend-1    | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+frontend-1    | 10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf
+frontend-1    | 10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf
+qdrant-1      | 2026-07-13T06:24:43.808878Z  INFO storage::content_manager::consensus::persistent: Loading raft state from ./storage/raft_state.json
+frontend-1    | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+postgres-1    | selecting dynamic shared memory implementation ... posix
+frontend-1    | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+qdrant-1      | 2026-07-13T06:24:43.812663Z  INFO qdrant: Distributed mode disabled
+frontend-1    | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+frontend-1    | /docker-entrypoint.sh: Configuration complete; ready for start up
+redis-1       | 1:M 13 Jul 2026 05:44:47.852 * Server initialized
+postgres-1    | selecting default max_connections ... 100
+redis-1       | 1:M 13 Jul 2026 05:44:47.855 * Creating AOF base file appendonly.aof.1.base.rdb on server start
+qdrant-1      | 2026-07-13T06:24:43.812684Z  INFO qdrant: Telemetry reporting enabled, id: 0d82ed3e-4054-4f52-84d5-f484e5ba68cd
+qdrant-1      | 2026-07-13T06:24:43.812718Z  INFO qdrant: Inference service is not configured.
+qdrant-1      | 2026-07-13T06:24:43.815230Z  INFO qdrant::actix: TLS disabled for REST API
+qdrant-1      | 2026-07-13T06:24:43.815299Z  INFO qdrant::actix: Qdrant HTTP listening on 6333
+redis-1       | 1:M 13 Jul 2026 05:44:47.859 * Creating AOF incr file appendonly.aof.1.incr.aof on server start
+qdrant-1      | 2026-07-13T06:24:43.815309Z  INFO actix_server::builder: Starting 31 workers
+qdrant-1      | 2026-07-13T06:24:43.815319Z  INFO actix_server::server: Actix runtime found; starting in Actix runtime
+qdrant-1      | 2026-07-13T06:24:43.819898Z  INFO qdrant::tonic: Qdrant gRPC listening on 6334
+flower-1      | By pulling and using the container, you accept the terms and conditions of this license:
+qdrant-1      | 2026-07-13T06:24:43.819908Z  INFO qdrant::tonic: TLS disabled for gRPC API
+flower-1      | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+flower-1      |
+qdrant-1      | 2026-07-13T06:24:57.176304Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/transcripts HTTP/1.1" 404 104 "-" "python-httpx/0.28.1" 0.000251
+qdrant-1      | 2026-07-13T06:24:57.178688Z  INFO storage::content_manager::toc::collection_meta_ops: Creating collection transcripts
+qdrant-1      | 2026-07-13T06:24:57.352399Z  INFO actix_web::middleware::logger: 172.18.0.8 "PUT /collections/transcripts HTTP/1.1" 200 71 "-" "python-httpx/0.28.1" 0.173891
+qdrant-1      | 2026-07-13T06:24:57.357660Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/scenes HTTP/1.1" 404 101 "-" "python-httpx/0.28.1" 0.000187
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:55:53 +0000] "GET /api/media HTTP/1.1" 200 550 "http://192.168.201.166:5000/library" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+flower-1      | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:56:03 +0000] "GET /api/media/0dc5d414-83a3-47dc-ba47-433dc5ce2489 HTTP/1.1" 200 528 "http://192.168.201.166:5000/library/0dc5d414-83a3-47dc-ba47-433dc5ce2489" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+worker-cpu-1  |    https://docs.nvidia.com/datacenter/cloud-native/ .
+worker-cpu-1  |
+redis-1       | 1:M 13 Jul 2026 05:44:47.859 * Ready to accept connections tcp
+redis-1       | 1:M 13 Jul 2026 06:24:45.659 * 100 changes in 300 seconds. Saving...
+flower-1      |
+redis-1       | 1:M 13 Jul 2026 06:24:45.660 * Background saving started by pid 2861
+flower-1      | WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+postgres-1    | selecting default shared_buffers ... 128MB
+postgres-1    | selecting default time zone ... UTC
+postgres-1    | creating configuration files ... ok
+redis-1       | 2861:C 13 Jul 2026 06:24:45.670 * DB saved on disk
+redis-1       | 2861:C 13 Jul 2026 06:24:45.671 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:56:03 +0000] "GET /api/jobs?media_id=0dc5d414-83a3-47dc-ba47-433dc5ce2489 HTTP/1.1" 200 358 "http://192.168.201.166:5000/library/0dc5d414-83a3-47dc-ba47-433dc5ce2489" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:56:04 +0000] "GET /api/media/0dc5d414-83a3-47dc-ba47-433dc5ce2489/scenes HTTP/1.1" 200 2 "http://192.168.201.166:5000/library/0dc5d414-83a3-47dc-ba47-433dc5ce2489" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:56:04 +0000] "GET /api/media/0dc5d414-83a3-47dc-ba47-433dc5ce2489/transcript HTTP/1.1" 200 2 "http://192.168.201.166:5000/library/0dc5d414-83a3-47dc-ba47-433dc5ce2489" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:56:06 +0000] "DELETE /api/media/0dc5d414-83a3-47dc-ba47-433dc5ce2489 HTTP/1.1" 204 0 "http://192.168.201.166:5000/library/0dc5d414-83a3-47dc-ba47-433dc5ce2489" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:56:06 +0000] "GET /api/media HTTP/1.1" 200 22 "http://192.168.201.166:5000/library" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:56:40 +0000] "POST /api/media/upload HTTP/1.1" 202 520 "http://192.168.201.166:5000/library" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+postgres-1    | running bootstrap script ... ok
+worker-cpu-1  | /usr/local/lib/python3.10/dist-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+qdrant-1      | 2026-07-13T06:24:57.360669Z  INFO storage::content_manager::toc::collection_meta_ops: Creating collection scenes
+worker-cpu-1  | absolutely not recommended!
+qdrant-1      | 2026-07-13T06:24:57.530194Z  INFO actix_web::middleware::logger: 172.18.0.8 "PUT /collections/scenes HTTP/1.1" 200 71 "-" "python-httpx/0.28.1" 0.169577
+qdrant-1      | 2026-07-13T06:25:01.975138Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/transcripts HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000340
+postgres-1    | sh: locale: not found
+postgres-1    | 2026-07-13 05:44:48.051 UTC [35] WARNING:  no usable system locales were found
+postgres-1    | performing post-bootstrap initialization ... ok
+postgres-1    | syncing data to disk ... ok
+redis-1       | 1:M 13 Jul 2026 06:24:45.761 * Background saving terminated with success
+worker-gpu-1  |   . tasks.visual_embed.embed_scenes
+redis-1       | 1:M 13 Jul 2026 06:44:53.695 * 100 changes in 300 seconds. Saving...
+worker-gpu-1  |
+worker-gpu-1  | [2026-07-13 13:50:48,551: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-gpu-1  | [2026-07-13 13:50:48,552: INFO/MainProcess] mingle: searching for neighbors
+postgres-1    |
+postgres-1    |
+postgres-1    | initdb: warning: enabling "trust" authentication for local connections
+postgres-1    | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:56:40 +0000] "GET /api/media HTTP/1.1" 200 542 "http://192.168.201.166:5000/library" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:26 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+worker-gpu-1  | [2026-07-13 13:50:49,556: INFO/MainProcess] mingle: all alone
+worker-gpu-1  | [2026-07-13 13:50:49,560: INFO/MainProcess] celery@48614abaa114 ready.
+worker-gpu-1  | [2026-07-13 13:50:52,916: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-cpu-1  |
+worker-cpu-1  | Please specify a different user using the --uid option.
+worker-cpu-1  |
+worker-cpu-1  | User information: uid=0 euid=0 gid=0 egid=0
+worker-cpu-1  |
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:29 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+flower-1      |    Use the NVIDIA Container Toolkit to start this container with GPU support; see
+worker-cpu-1  |   warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+flower-1      |    https://docs.nvidia.com/datacenter/cloud-native/ .
+flower-1      |
+flower-1      | [I 260713 06:37:52 command:168] Visit me at http://0.0.0.0:5555
+qdrant-1      | 2026-07-13T06:25:01.980492Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/scenes HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000133
+qdrant-1      | 2026-07-13T06:37:54.800196Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/transcripts HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000517
+qdrant-1      | 2026-07-13T06:37:54.805285Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/scenes HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000153
+qdrant-1      | 2026-07-13T06:37:54.808790Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/transcripts HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000201
+qdrant-1      | 2026-07-13T06:37:54.814463Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/scenes HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000115
+postgres-1    | Success. You can now start the database server using:
+postgres-1    |
+postgres-1    |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+postgres-1    |
+postgres-1    | waiting for server to start....2026-07-13 05:44:48.359 UTC [41] LOG:  starting PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+flower-1      | [I 260713 06:37:52 command:176] Broker: redis://redis:6379/0
+worker-cpu-1  |
+flower-1      | [I 260713 06:37:52 command:177] Registered tasks:
+worker-cpu-1  |  -------------- celery@50487be38233 v5.4.0 (opalescent)
+qdrant-1      | 2026-07-13T06:44:45.889591Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/transcripts HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000454
+postgres-1    | 2026-07-13 05:44:48.361 UTC [41] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1    | 2026-07-13 05:44:48.367 UTC [44] LOG:  database system was shut down at 2026-07-13 05:44:48 UTC
+postgres-1    | 2026-07-13 05:44:48.374 UTC [41] LOG:  database system is ready to accept connections
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  | -- ******* ---- Linux-6.17.0-35-generic-x86_64-with-glibc2.35 2026-07-13 13:50:48
+worker-cpu-1  | - *** --- * ---
+worker-cpu-1  | - ** ---------- [config]
+qdrant-1      | 2026-07-13T06:44:45.896116Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/scenes HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000361
+qdrant-1      | 2026-07-13T06:44:45.917471Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/transcripts HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000326
+qdrant-1      | 2026-07-13T06:44:45.922472Z  INFO actix_web::middleware::logger: 172.18.0.8 "GET /collections/scenes HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000108
+qdrant-1      | 2026-07-13T06:44:49.874391Z  INFO actix_web::middleware::logger: 172.18.0.8 "POST /collections/transcripts/points/delete?wait=true HTTP/1.1" 200 93 "-" "python-httpx/0.28.1" 0.001645
+worker-cpu-1  | - ** ---------- .> app:         obtv_worker:0x7eaf62f56680
+redis-1       | 1:M 13 Jul 2026 06:44:53.696 * Background saving started by pid 4289
+redis-1       | 4289:C 13 Jul 2026 06:44:53.704 * DB saved on disk
+redis-1       | 4289:C 13 Jul 2026 06:44:53.705 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1       | 1:M 13 Jul 2026 06:44:53.797 * Background saving terminated with success
+postgres-1    |  done
+postgres-1    | server started
+postgres-1    | CREATE DATABASE
+postgres-1    |
+postgres-1    |
+redis-1       | 1:M 13 Jul 2026 07:23:14.215 * 100 changes in 300 seconds. Saving...
+redis-1       | 1:M 13 Jul 2026 07:23:14.216 * Background saving started by pid 7025
+redis-1       | 7025:C 13 Jul 2026 07:23:14.223 * DB saved on disk
+redis-1       | 7025:C 13 Jul 2026 07:23:14.224 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1       | 1:M 13 Jul 2026 07:23:14.320 * Background saving terminated with success
+redis-1       | 1:M 13 Jul 2026 08:04:54.745 * 100 changes in 300 seconds. Saving...
+redis-1       | 1:M 13 Jul 2026 08:04:54.745 * Background saving started by pid 9982
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:32 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:35 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+flower-1      |     ['celery.accumulate',
+flower-1      |      'celery.backend_cleanup',
+flower-1      |      'celery.chain',
+flower-1      |      'celery.chord',
+flower-1      |      'celery.chord_unlock',
+flower-1      |      'celery.chunks',
+flower-1      |      'celery.group',
+flower-1      |      'celery.map',
+flower-1      |      'celery.starmap',
+flower-1      |      'tasks.audio.extract_audio',
+qdrant-1      | 2026-07-13T06:44:49.876789Z  INFO actix_web::middleware::logger: 172.18.0.8 "POST /collections/scenes/points/delete?wait=true HTTP/1.1" 200 90 "-" "python-httpx/0.28.1" 0.001064
+qdrant-1      | 2026-07-13T13:50:50.205420Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/transcripts HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000675
+qdrant-1      | 2026-07-13T13:50:50.213683Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/scenes HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000117
+qdrant-1      | 2026-07-13T13:50:50.252581Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/transcripts HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000317
+worker-cpu-1  | - ** ---------- .> transport:   redis://redis:6379/0
+qdrant-1      | 2026-07-13T13:50:50.257960Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/scenes HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000120
+qdrant-1      | 2026-07-13T13:55:43.059732Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/transcripts HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000254
+redis-1       | 9982:C 13 Jul 2026 08:04:54.754 * DB saved on disk
+redis-1       | 9982:C 13 Jul 2026 08:04:54.755 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1       | 1:M 13 Jul 2026 08:04:54.848 * Background saving terminated with success
+redis-1       | 1:M 13 Jul 2026 08:46:35.375 * 100 changes in 300 seconds. Saving...
+redis-1       | 1:M 13 Jul 2026 08:46:35.376 * Background saving started by pid 12948
+redis-1       | 12948:C 13 Jul 2026 08:46:35.385 * DB saved on disk
+qdrant-1      | 2026-07-13T13:55:43.067914Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/scenes HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000384
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:38 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+qdrant-1      | 2026-07-13T13:55:43.085427Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/transcripts HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000092
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:41 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:44 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:47 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:50 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+qdrant-1      | 2026-07-13T13:55:43.089932Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/scenes HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000093
+qdrant-1      | 2026-07-13T13:56:06.056421Z  INFO actix_web::middleware::logger: 172.18.0.7 "POST /collections/transcripts/points/delete?wait=true HTTP/1.1" 200 91 "-" "python-httpx/0.28.1" 0.001690
+qdrant-1      | 2026-07-13T13:56:06.059193Z  INFO actix_web::middleware::logger: 172.18.0.7 "POST /collections/scenes/points/delete?wait=true HTTP/1.1" 200 91 "-" "python-httpx/0.28.1" 0.001308
+qdrant-1      | 2026-07-13T13:59:00.196146Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/transcripts HTTP/1.1" 200 440 "-" "python-httpx/0.28.1" 0.000408
+qdrant-1      | 2026-07-13T13:59:00.200592Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/scenes HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000105
+qdrant-1      | 2026-07-13T13:59:00.214135Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/transcripts HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000113
+qdrant-1      | 2026-07-13T13:59:00.218607Z  INFO actix_web::middleware::logger: 172.18.0.7 "GET /collections/scenes HTTP/1.1" 200 439 "-" "python-httpx/0.28.1" 0.000116
+postgres-1    | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+postgres-1    |
+postgres-1    | waiting for server to shut down....2026-07-13 05:44:48.543 UTC [41] LOG:  received fast shutdown request
+postgres-1    | 2026-07-13 05:44:48.545 UTC [41] LOG:  aborting any active transactions
+postgres-1    | 2026-07-13 05:44:48.546 UTC [41] LOG:  background worker "logical replication launcher" (PID 47) exited with exit code 1
+postgres-1    | 2026-07-13 05:44:48.547 UTC [42] LOG:  shutting down
+postgres-1    | 2026-07-13 05:44:48.549 UTC [42] LOG:  checkpoint starting: shutdown immediate
+postgres-1    | 2026-07-13 05:44:48.600 UTC [42] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.022 s, sync=0.024 s, total=0.053 s; sync files=301, longest=0.003 s, average=0.001 s; distance=4283 kB, estimate=4283 kB; lsn=0/1925D58, redo lsn=0/1925D58
+postgres-1    | 2026-07-13 05:44:48.611 UTC [41] LOG:  database system is shut down
+postgres-1    |  done
+postgres-1    | server stopped
+postgres-1    |
+postgres-1    | PostgreSQL init process complete; ready for start up.
+postgres-1    |
+postgres-1    | 2026-07-13 05:44:48.677 UTC [1] LOG:  starting PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+postgres-1    | 2026-07-13 05:44:48.677 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+postgres-1    | 2026-07-13 05:44:48.678 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+postgres-1    | 2026-07-13 05:44:48.681 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1    | 2026-07-13 05:44:48.686 UTC [57] LOG:  database system was shut down at 2026-07-13 05:44:48 UTC
+postgres-1    | 2026-07-13 05:44:48.698 UTC [1] LOG:  database system is ready to accept connections
+postgres-1    | 2026-07-13 05:49:48.786 UTC [55] LOG:  checkpoint starting: time
+postgres-1    | 2026-07-13 05:49:53.036 UTC [55] LOG:  checkpoint complete: wrote 45 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=4.222 s, sync=0.012 s, total=4.250 s; sync files=12, longest=0.009 s, average=0.001 s; distance=261 kB, estimate=261 kB; lsn=0/1967190, redo lsn=0/1967158
+postgres-1    | 2026-07-13 06:24:55.216 UTC [3511] ERROR:  duplicate key value violates unique constraint "pg_type_typname_nsp_index"
+postgres-1    | 2026-07-13 06:24:55.216 UTC [3511] DETAIL:  Key (typname, typnamespace)=(media_assets, 2200) already exists.
+postgres-1    | 2026-07-13 06:24:55.216 UTC [3511] STATEMENT:
+postgres-1    |         CREATE TABLE media_assets (
+postgres-1    |                 id VARCHAR NOT NULL,
+postgres-1    |                 filename VARCHAR NOT NULL,
+postgres-1    |                 original_path VARCHAR,
+postgres-1    |                 proxy_path VARCHAR,
+postgres-1    |                 thumbnail_url VARCHAR,
+postgres-1    |                 duration_seconds FLOAT,
+postgres-1    |                 width INTEGER,
+postgres-1    |                 height INTEGER,
+postgres-1    |                 fps FLOAT,
+postgres-1    |                 codec VARCHAR,
+postgres-1    |                 file_size_bytes BIGINT,
+redis-1       | 12948:C 13 Jul 2026 08:46:35.386 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1       | 1:M 13 Jul 2026 08:46:35.480 * Background saving terminated with success
+redis-1       | 1:M 13 Jul 2026 09:28:15.917 * 100 changes in 300 seconds. Saving...
+redis-1       | 1:M 13 Jul 2026 09:28:15.918 * Background saving started by pid 15915
+postgres-1    |                 status VARCHAR NOT NULL,
+postgres-1    |                 processing_stage VARCHAR,
+postgres-1    |                 processing_progress FLOAT,
+redis-1       | 15915:C 13 Jul 2026 09:28:15.926 * DB saved on disk
+worker-cpu-1  | - ** ---------- .> results:     redis://redis:6379/0
+worker-cpu-1  | - *** --- * --- .> concurrency: 4 (prefork)
+worker-cpu-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  |  -------------- [queues]
+postgres-1    |                 scene_count INTEGER,
+postgres-1    |                 speaker_count INTEGER,
+postgres-1    |                 created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+postgres-1    |                 updated_at TIMESTAMP WITHOUT TIME ZONE,
+flower-1      |      'tasks.diarize.run_diarization',
+postgres-1    |                 PRIMARY KEY (id)
+postgres-1    |         )
+postgres-1    |
+postgres-1    |
+redis-1       | 15915:C 13 Jul 2026 09:28:15.927 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:53 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:56 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:57:59 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:02 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:05 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:08 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:11 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:14 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:17 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+flower-1      |      'tasks.face_detect.detect_faces',
+postgres-1    | 2026-07-13 06:29:48.776 UTC [55] LOG:  checkpoint starting: time
+flower-1      |      'tasks.index.build_index',
+flower-1      |      'tasks.ingest.run_ingest_pipeline',
+flower-1      |      'tasks.proxy.create_proxy',
+flower-1      |      'tasks.scene_detect.detect_scenes',
+worker-cpu-1  |                 .> cpu              exchange=cpu(direct) key=cpu
+worker-cpu-1  |                 .> ingest           exchange=ingest(direct) key=ingest
+worker-cpu-1  |
+worker-cpu-1  | [tasks]
+worker-cpu-1  |   . tasks.audio.extract_audio
+flower-1      |      'tasks.transcribe.transcribe_audio',
+redis-1       | 1:M 13 Jul 2026 09:28:16.021 * Background saving terminated with success
+postgres-1    | 2026-07-13 06:29:56.346 UTC [55] LOG:  checkpoint complete: wrote 76 buffers (0.5%); 0 WAL file(s) added, 0 removed, 0 recycled; write=7.540 s, sync=0.016 s, total=7.571 s; sync files=78, longest=0.008 s, average=0.001 s; distance=381 kB, estimate=381 kB; lsn=0/19C6988, redo lsn=0/19C6950
+postgres-1    | 2026-07-13 06:44:48.600 UTC [55] LOG:  checkpoint starting: time
+postgres-1    | 2026-07-13 06:44:49.534 UTC [55] LOG:  checkpoint complete: wrote 10 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.906 s, sync=0.011 s, total=0.935 s; sync files=7, longest=0.009 s, average=0.002 s; distance=0 kB, estimate=343 kB; lsn=0/19C6CD0, redo lsn=0/19C6C98
+redis-1       | 1:M 13 Jul 2026 10:09:56.551 * 100 changes in 300 seconds. Saving...
+flower-1      |      'tasks.visual_embed.embed_scenes']
+redis-1       | 1:M 13 Jul 2026 10:09:56.552 * Background saving started by pid 18884
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:20 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:23 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+worker-cpu-1  |   . tasks.diarize.run_diarization
+worker-cpu-1  |   . tasks.face_detect.detect_faces
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:26 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+worker-cpu-1  |   . tasks.index.build_index
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:29 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:32 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+worker-cpu-1  |   . tasks.ingest.run_ingest_pipeline
+worker-cpu-1  |   . tasks.proxy.create_proxy
+worker-cpu-1  |   . tasks.scene_detect.detect_scenes
+worker-cpu-1  |   . tasks.transcribe.transcribe_audio
+worker-cpu-1  |   . tasks.visual_embed.embed_scenes
+worker-cpu-1  |
+worker-cpu-1  | [2026-07-13 13:50:48,546: INFO/MainProcess] Connected to redis://redis:6379/0
+flower-1      | [I 260713 06:37:52 mixins:228] Connected to redis://redis:6379/0
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method registered failed
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method active failed
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method stats failed
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method revoked failed
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:35 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+redis-1       | 18884:C 13 Jul 2026 10:09:56.560 * DB saved on disk
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:38 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+redis-1       | 18884:C 13 Jul 2026 10:09:56.561 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1       | 1:M 13 Jul 2026 10:09:56.654 * Background saving terminated with success
+redis-1       | 1:M 13 Jul 2026 10:51:37.155 * 100 changes in 300 seconds. Saving...
+redis-1       | 1:M 13 Jul 2026 10:51:37.156 * Background saving started by pid 21854
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:41 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:44 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:47 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:50 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:53 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 2026/07/13 13:58:57 [error] 31#31: *7 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.0.140, server: _, request: "GET /api/jobs HTTP/1.1", upstream: "http://172.18.0.7:8000/api/jobs", host: "192.168.201.166:5000", referrer: "http://192.168.201.166:5000/jobs"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:57 +0000] "GET /api/jobs HTTP/1.1" 502 559 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 2026/07/13 13:58:59 [error] 31#31: *7 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.0.140, server: _, request: "GET /api/jobs HTTP/1.1", upstream: "http://172.18.0.7:8000/api/jobs", host: "192.168.201.166:5000", referrer: "http://192.168.201.166:5000/jobs"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:58:59 +0000] "GET /api/jobs HTTP/1.1" 502 559 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:01 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method active_queues failed
+redis-1       | 21854:C 13 Jul 2026 10:51:37.163 * DB saved on disk
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method reserved failed
+worker-cpu-1  | [2026-07-13 13:50:48,547: INFO/MainProcess] mingle: searching for neighbors
+worker-cpu-1  | [2026-07-13 13:50:49,552: INFO/MainProcess] mingle: all alone
+worker-cpu-1  | [2026-07-13 13:50:49,557: INFO/MainProcess] celery@50487be38233 ready.
+redis-1       | 21854:C 13 Jul 2026 10:51:37.164 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1       | 1:M 13 Jul 2026 10:51:37.261 * Background saving terminated with success
+redis-1       | 1:M 13 Jul 2026 11:33:17.753 * 100 changes in 300 seconds. Saving...
+redis-1       | 1:M 13 Jul 2026 11:33:17.753 * Background saving started by pid 24820
+redis-1       | 24820:C 13 Jul 2026 11:33:17.762 * DB saved on disk
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method conf failed
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method scheduled failed
+postgres-1    | 2026-07-13 06:45:22.206 UTC [5282] ERROR:  syntax error at or near ":" at character 68
+postgres-1    | 2026-07-13 06:45:22.206 UTC [5282] STATEMENT:
+redis-1       | 24820:C 13 Jul 2026 11:33:17.763 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+worker-cpu-1  | [2026-07-13 13:50:52,916: INFO/MainProcess] Events of group {task} enabled by remote.
+redis-1       | 1:M 13 Jul 2026 11:33:17.857 * Background saving terminated with success
+postgres-1    |                     UPDATE processing_jobs
+redis-1       | 1:M 13 Jul 2026 12:14:58.225 * 100 changes in 300 seconds. Saving...
+postgres-1    |                     SET logs = logs || :msg::jsonb
+postgres-1    |                     WHERE id = '3b026660-43f8-4e1f-a4e0-6933e91b6055'
+postgres-1    |
+worker-cpu-1  | [2026-07-13 13:56:40,309: INFO/MainProcess] Task tasks.ingest.run_ingest_pipeline[0b8e5056-9a3f-4887-9b77-92af5ed407b0] received
+worker-cpu-1  | [2026-07-13 13:56:40,352: ERROR/ForkPoolWorker-4] Task tasks.ingest.run_ingest_pipeline[0b8e5056-9a3f-4887-9b77-92af5ed407b0] raised unexpected: ProgrammingError('(psycopg2.errors.UndefinedFunction) operator does not exist: json || jsonb\nLINE 3:             SET logs = logs || CAST(\'["Starting ingest for: ...\n                                    ^\nHINT:  No operator matches the given name and argument types. You might need to add explicit type casts.\n')
+worker-cpu-1  | Traceback (most recent call last):
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+worker-cpu-1  |     self.dialect.do_execute(
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:01 +0000] "GET /jobs HTTP/1.1" 200 1350 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:01 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:04 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+postgres-1    | 2026-07-13 06:45:22.207 UTC [5282] ERROR:  current transaction is aborted, commands ignored until end of transaction block
+postgres-1    | 2026-07-13 06:45:22.207 UTC [5282] STATEMENT:  UPDATE processing_jobs SET status = 'error', error_message = '(psycopg2.errors.SyntaxError) syntax error at or near ":"
+postgres-1    |         LINE 3:             SET logs = logs || :msg::jsonb
+postgres-1    |                                                ^
+postgres-1    |
+postgres-1    |         [SQL:
+redis-1       | 1:M 13 Jul 2026 12:14:58.226 * Background saving started by pid 27791
+redis-1       | 27791:C 13 Jul 2026 12:14:58.234 * DB saved on disk
+redis-1       | 27791:C 13 Jul 2026 12:14:58.235 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1       | 1:M 13 Jul 2026 12:14:58.327 * Background saving terminated with success
+redis-1       | 1:M 13 Jul 2026 12:56:38.800 * 100 changes in 300 seconds. Saving...
+redis-1       | 1:M 13 Jul 2026 12:56:38.801 * Background saving started by pid 30762
+postgres-1    |                     UPDATE processing_jobs
+postgres-1    |                     SET logs = logs || :msg::jsonb
+postgres-1    |                     WHERE id = %(jid)s
+postgres-1    |                 ]
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+worker-cpu-1  |     cursor.execute(statement, parameters)
+worker-cpu-1  | psycopg2.errors.UndefinedFunction: operator does not exist: json || jsonb
+worker-cpu-1  | LINE 3:             SET logs = logs || CAST('["Starting ingest for: ...
+redis-1       | 30762:C 13 Jul 2026 12:56:38.808 * DB saved on disk
+postgres-1    |         [parameters: {''jid'': ''3b026660-43f8-4e1f-a4e0-6933e91b6055''}]
+postgres-1    |         (Background on this error at: https://sqlalche.me/e/20/f405)', finished_at = '2026-07-13T06:45:22.206748'::timestamp WHERE id = '3b026660-43f8-4e1f-a4e0-6933e91b6055'
+postgres-1    | 2026-07-13 06:49:48.604 UTC [55] LOG:  checkpoint starting: time
+postgres-1    | 2026-07-13 06:49:49.837 UTC [55] LOG:  checkpoint complete: wrote 13 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=1.212 s, sync=0.005 s, total=1.233 s; sync files=9, longest=0.003 s, average=0.001 s; distance=1 kB, estimate=309 kB; lsn=0/19C74A0, redo lsn=0/19C7468
+redis-1       | 30762:C 13 Jul 2026 12:56:38.809 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1       | 1:M 13 Jul 2026 12:56:38.904 * Background saving terminated with success
+redis-1       | 1:M 13 Jul 2026 13:38:19.415 * 100 changes in 300 seconds. Saving...
+redis-1       | 1:M 13 Jul 2026 13:38:19.416 * Background saving started by pid 33739
+redis-1       | 33739:C 13 Jul 2026 13:38:19.424 * DB saved on disk
+worker-cpu-1  |                                     ^
+worker-cpu-1  | HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+worker-cpu-1  |
+worker-cpu-1  |
+redis-1       | 33739:C 13 Jul 2026 13:38:19.425 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1       | 1:M 13 Jul 2026 13:38:19.518 * Background saving terminated with success
+postgres-1    | 2026-07-13 13:56:40.340 UTC [42433] ERROR:  operator does not exist: json || jsonb at character 65
+postgres-1    | 2026-07-13 13:56:40.340 UTC [42433] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+postgres-1    | 2026-07-13 13:56:40.340 UTC [42433] STATEMENT:
+postgres-1    |                     UPDATE processing_jobs
+postgres-1    |                     SET logs = logs || CAST('["Starting ingest for: /uploads/c8f24475-6d45-420c-871e-004903db38c5_GodWithUs_Episode 102_Textless_AI TEST.mp4"]' AS jsonb)
+postgres-1    |                     WHERE id = '8cc69cce-4073-463e-9152-f294850b4926'
+postgres-1    |
+worker-cpu-1  | The above exception was the direct cause of the following exception:
+worker-cpu-1  |
+worker-cpu-1  | Traceback (most recent call last):
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 453, in trace_task
+worker-cpu-1  |     R = retval = fun(*args, **kwargs)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+worker-cpu-1  |     return self.run(*args, **kwargs)
+worker-cpu-1  |   File "/worker/tasks/ingest.py", line 28, in run_ingest_pipeline
+worker-cpu-1  |     append_log(db, job_id, f"Starting ingest for: {src_path}")
+worker-cpu-1  |   File "/worker/tasks/base.py", line 35, in append_log
+worker-cpu-1  |     db.execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2362, in execute
+worker-cpu-1  |     return self._execute_internal(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2256, in _execute_internal
+worker-cpu-1  |     result = conn.execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1418, in execute
+worker-cpu-1  |     return meth(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+worker-cpu-1  |     return connection._execute_clauseelement(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+worker-cpu-1  |     ret = self._execute_context(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+worker-cpu-1  |     return self._exec_single_context(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+worker-cpu-1  |     self._handle_dbapi_exception(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+worker-cpu-1  |     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+worker-cpu-1  |     self.dialect.do_execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+worker-cpu-1  |     cursor.execute(statement, parameters)
+worker-cpu-1  | sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedFunction) operator does not exist: json || jsonb
+worker-cpu-1  | LINE 3:             SET logs = logs || CAST('["Starting ingest for: ...
+worker-cpu-1  |                                     ^
+worker-cpu-1  | HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+worker-cpu-1  |
+worker-cpu-1  | [SQL:
+worker-cpu-1  |             UPDATE processing_jobs
+worker-cpu-1  |             SET logs = logs || CAST(%(msg)s AS jsonb)
+worker-cpu-1  |             WHERE id = %(jid)s
+worker-cpu-1  |         ]
+worker-cpu-1  | [parameters: {'msg': '["Starting ingest for: /uploads/c8f24475-6d45-420c-871e-004903db38c5_GodWithUs_Episode 102_Textless_AI TEST.mp4"]', 'jid': '8cc69cce-4073-463e-9152-f294850b4926'}]
+worker-cpu-1  | (Background on this error at: https://sqlalche.me/e/20/f405)
+api-1         | INFO:     172.18.0.10:57796 - "GET /api/jobs HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:07 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     127.0.0.1:58252 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:59368 - "GET /api/jobs HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:10 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:59370 - "GET /api/jobs HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:13 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:59376 - "GET /api/jobs HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:16 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     127.0.0.1:49948 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:35992 - "GET /api/jobs HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:19 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:35994 - "GET /api/jobs HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:22 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:35998 - "GET /api/jobs HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:25 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     127.0.0.1:41966 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:45262 - "GET /api/jobs HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:59:28 +0000] "GET /api/jobs HTTP/1.1" 200 1066 "http://192.168.201.166:5000/jobs" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
