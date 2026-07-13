@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Trash2, Sparkles } from "lucide-react";
+import AssetChat from "@/components/asset-chat";
 
 function formatTimecode(seconds: number): string {
   const total = Math.floor(seconds);
@@ -252,31 +253,44 @@ export default function AssetDetail() {
           </div>
         </div>
 
-        {/* Right Sidebar - Transcript */}
-        <div className="w-80 border-l border-border flex flex-col bg-card shrink-0">
-          <div className="p-4 border-b border-border font-medium flex justify-between items-center">
-            Transcript
-          </div>
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
-              {transcript?.map(segment => (
-                <div 
-                  key={segment.id} 
-                  className="group cursor-pointer hover:bg-muted p-2 -mx-2 rounded transition-colors"
-                  onClick={() => seekTo(segment.start_time)}
-                >
-                  <div className="flex gap-2 items-baseline mb-1">
-                    <span className="text-xs font-medium text-primary">{segment.speaker || 'Unknown'}</span>
-                    <span className="text-[10px] text-muted-foreground">{Math.floor(segment.start_time)}s</span>
-                  </div>
-                  <p className="text-sm">{segment.text}</p>
-                </div>
-              ))}
-              {!transcript?.length && (
-                <div className="text-sm text-muted-foreground text-center mt-10">No transcript available</div>
-              )}
+        {/* Right Sidebar - Transcript / AI Chat */}
+        <div className="w-[26rem] border-l border-border flex flex-col bg-card shrink-0 overflow-hidden">
+          <Tabs defaultValue="transcript" className="flex flex-col h-full overflow-hidden">
+            <div className="p-3 border-b border-border shrink-0">
+              <TabsList className="w-full">
+                <TabsTrigger value="transcript" className="flex-1">Transcript</TabsTrigger>
+                <TabsTrigger value="chat" className="flex-1 gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI Chat
+                </TabsTrigger>
+              </TabsList>
             </div>
-          </ScrollArea>
+            <TabsContent value="transcript" className="flex-1 overflow-hidden mt-0">
+              <ScrollArea className="h-full p-4">
+                <div className="space-y-4">
+                  {transcript?.map(segment => (
+                    <div 
+                      key={segment.id} 
+                      className="group cursor-pointer hover:bg-muted p-2 -mx-2 rounded transition-colors"
+                      onClick={() => seekTo(segment.start_time)}
+                    >
+                      <div className="flex gap-2 items-baseline mb-1">
+                        <span className="text-xs font-medium text-primary">{segment.speaker || 'Unknown'}</span>
+                        <span className="text-[10px] text-muted-foreground">{Math.floor(segment.start_time)}s</span>
+                      </div>
+                      <p className="text-sm">{segment.text}</p>
+                    </div>
+                  ))}
+                  {!transcript?.length && (
+                    <div className="text-sm text-muted-foreground text-center mt-10">No transcript available</div>
+                  )}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
+              <AssetChat mediaId={id!} onSeek={seekTo} />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
