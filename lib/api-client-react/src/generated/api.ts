@@ -36,6 +36,7 @@ import type {
   MediaAsset,
   MediaIngestInput,
   MediaListResponse,
+  MediaUploadInput,
   ProcessingJob,
   Scene,
   SearchHistoryItem,
@@ -301,6 +302,82 @@ export const useIngestMedia = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getIngestMediaMutationOptions(options));
+    }
+
+export const getUploadMediaUrl = () => {
+
+
+
+
+  return `/api/media/upload`
+}
+
+/**
+ * @summary Upload a media file directly and queue it for ingestion
+ */
+export const uploadMedia = async (mediaUploadInput: MediaUploadInput, options?: RequestInit): Promise<MediaAsset> => {
+    const formData = new FormData();
+formData.append(`file`, mediaUploadInput.file);
+if(mediaUploadInput.title !== undefined) {
+ formData.append(`title`, mediaUploadInput.title);
+ }
+
+  return customFetch<MediaAsset>(getUploadMediaUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getUploadMediaMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadMedia>>, TError,{data: BodyType<MediaUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadMedia>>, TError,{data: BodyType<MediaUploadInput>}, TContext> => {
+
+const mutationKey = ['uploadMedia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadMedia>>, {data: BodyType<MediaUploadInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  uploadMedia(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadMediaMutationResult = NonNullable<Awaited<ReturnType<typeof uploadMedia>>>
+    export type UploadMediaMutationBody = BodyType<MediaUploadInput>
+    export type UploadMediaMutationError = ErrorType<void>
+
+    /**
+ * @summary Upload a media file directly and queue it for ingestion
+ */
+export const useUploadMedia = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadMedia>>, TError,{data: BodyType<MediaUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadMedia>>,
+        TError,
+        {data: BodyType<MediaUploadInput>},
+        TContext
+      > => {
+      return useMutation(getUploadMediaMutationOptions(options));
     }
 
 export const getGetMediaUrl = (id: string,) => {

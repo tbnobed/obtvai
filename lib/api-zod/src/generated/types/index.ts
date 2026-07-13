@@ -28,6 +28,7 @@ export * from './listMediaParams';
 export * from './mediaAsset';
 export * from './mediaIngestInput';
 export * from './mediaListResponse';
+export * from './mediaUploadInput';
 export * from './processingJob';
 export * from './scene';
 export * from './searchHistoryItem';

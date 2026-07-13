@@ -2,7 +2,7 @@ import os
 import uuid
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from ..database import get_db
@@ -99,6 +99,83 @@ async def ingest_media(body: MediaIngestInput, db: AsyncSession = Depends(get_db
     return MediaAssetOut.model_validate(asset)
 
 
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wmv", ".flv", ".webm"}
+
+
+@router.post("/upload", response_model=MediaAssetOut, status_code=202)
+async def upload_media(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+):
+    original_name = os.path.basename(file.filename or "")
+    ext = os.path.splitext(original_name)[1].lower()
+    if ext not in VIDEO_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {ext or 'unknown'}. Supported: {', '.join(sorted(VIDEO_EXTENSIONS))}",
+        )
+
+    os.makedirs(settings.upload_dir, exist_ok=True)
+    asset_id = str(uuid.uuid4())
+    dest_path = os.path.join(settings.upload_dir, f"{asset_id}_{original_name}")
+
+    from fastapi.concurrency import run_in_threadpool
+
+    total_bytes = 0
+    try:
+        with open(dest_path, "wb") as out:
+            while True:
+                chunk = await file.read(8 * 1024 * 1024)
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > settings.max_upload_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File exceeds the maximum upload size of {settings.max_upload_bytes} bytes",
+                    )
+                # Write off the event loop so multi-GB uploads don't starve the API.
+                await run_in_threadpool(out.write, chunk)
+    except HTTPException:
+        try:
+            if os.path.exists(dest_path):
+                os.remove(dest_path)
+        except OSError:
+            pass
+        raise
+    except Exception:
+        try:
+            if os.path.exists(dest_path):
+                os.remove(dest_path)
+        except OSError:
+            pass
+        raise HTTPException(status_code=500, detail="Failed to save uploaded file")
+    finally:
+        await file.close()
+
+    if os.path.getsize(dest_path) == 0:
+        os.remove(dest_path)
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    asset = MediaAsset(
+        id=asset_id,
+        filename=title or original_name,
+        original_path=dest_path,
+        status="pending",
+        file_size_bytes=os.path.getsize(dest_path),
+        created_at=datetime.utcnow(),
+    )
+    db.add(asset)
+    await db.commit()
+    await db.refresh(asset)
+
+    from ..worker_client import enqueue_ingest
+    await enqueue_ingest(asset.id)
+
+    return MediaAssetOut.model_validate(asset)
+
+
 @router.get("/{id}", response_model=MediaAssetOut)
 async def get_media(id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
@@ -114,8 +191,23 @@ async def delete_media(id: str, db: AsyncSession = Depends(get_db)):
     asset = result.scalar_one_or_none()
     if not asset:
         raise HTTPException(status_code=404, detail="Media not found")
+    original_path = asset.original_path
     await db.delete(asset)
     await db.commit()
+
+    # Uploaded files live in our writable upload dir (unlike watched media,
+    # which is mounted read-only and never touched) — clean them up.
+    if original_path:
+        upload_root = os.path.realpath(settings.upload_dir)
+        real_path = os.path.realpath(original_path)
+        if real_path.startswith(upload_root + os.sep) and os.path.isfile(real_path):
+            try:
+                os.remove(real_path)
+            except OSError:
+                import logging
+                logging.getLogger("obtv.media").exception(
+                    "Failed to delete uploaded file for media %s: %s", id, real_path
+                )
 
     # Remove search vectors so deleted media stops surfacing in results.
     # Best-effort: DB row is already gone; log but don't fail if Qdrant is down.

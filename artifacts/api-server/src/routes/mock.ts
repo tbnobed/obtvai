@@ -1,6 +1,16 @@
 import { Router } from "express";
+import multer from "multer";
 
 const router = Router();
+
+const VIDEO_EXTENSIONS = new Set([
+  ".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wmv", ".flv", ".webm",
+]);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
 
 const now = new Date().toISOString();
 const assets = [
@@ -256,15 +266,51 @@ router.post("/media", (req, res) => {
   res.status(202).json(newAsset);
 });
 
+router.post("/media/upload", upload.single("file"), (req, res) => {
+  const file = req.file;
+  if (!file) {
+    res.status(400).json({ error: "No file provided" });
+    return;
+  }
+  const ext = require("path").extname(file.originalname).toLowerCase();
+  if (!VIDEO_EXTENSIONS.has(ext)) {
+    res.status(400).json({ error: `Unsupported file type: ${ext}` });
+    return;
+  }
+  const id = `asset-${Date.now()}`;
+  const newAsset = {
+    id,
+    filename: req.body.title || file.originalname,
+    original_path: `/media/uploads/${file.originalname}`,
+    proxy_path: null,
+    thumbnail_url: null,
+    duration_seconds: null,
+    width: null,
+    height: null,
+    fps: null,
+    codec: null,
+    file_size_bytes: file.size,
+    status: "pending",
+    processing_stage: null,
+    processing_progress: null,
+    scene_count: null,
+    speaker_count: null,
+    created_at: new Date().toISOString(),
+    updated_at: null,
+  };
+  assets.unshift(newAsset as unknown as (typeof assets)[number]);
+  res.status(202).json(newAsset);
+});
+
 router.get("/media/:id", (req, res) => {
   const asset = assets.find((a) => a.id === req.params.id);
-  if (!asset) return res.status(404).json({ error: "Not found" });
+  if (!asset) { res.status(404).json({ error: "Not found" }); return; }
   res.json(asset);
 });
 
 router.delete("/media/:id", (req, res) => {
   const idx = assets.findIndex((a) => a.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Not found" });
+  if (idx === -1) { res.status(404).json({ error: "Not found" }); return; }
   assets.splice(idx, 1);
   res.status(204).send();
 });
@@ -313,19 +359,19 @@ router.get("/jobs", (_req, res) => {
 
 router.get("/jobs/:id", (req, res) => {
   const job = jobs.find((j) => j.id === req.params.id);
-  if (!job) return res.status(404).json({ error: "Not found" });
+  if (!job) { res.status(404).json({ error: "Not found" }); return; }
   res.json(job);
 });
 
 router.post("/jobs/:id/retry", (req, res) => {
   const job = jobs.find((j) => j.id === req.params.id);
-  if (!job) return res.status(404).json({ error: "Not found" });
+  if (!job) { res.status(404).json({ error: "Not found" }); return; }
   res.status(202).json({ ...job, status: "pending", retry_count: job.retry_count + 1 });
 });
 
 router.post("/jobs/:id/cancel", (req, res) => {
   const job = jobs.find((j) => j.id === req.params.id);
-  if (!job) return res.status(404).json({ error: "Not found" });
+  if (!job) { res.status(404).json({ error: "Not found" }); return; }
   res.json({ ...job, status: "cancelled" });
 });
 
@@ -379,13 +425,13 @@ router.post("/clips", (req, res) => {
 
 router.get("/clips/:id", (req, res) => {
   const cl = clipLists.find((c) => c.id === req.params.id);
-  if (!cl) return res.status(404).json({ error: "Not found" });
+  if (!cl) { res.status(404).json({ error: "Not found" }); return; }
   res.json(cl);
 });
 
 router.patch("/clips/:id", (req, res) => {
   const cl = clipLists.find((c) => c.id === req.params.id);
-  if (!cl) return res.status(404).json({ error: "Not found" });
+  if (!cl) { res.status(404).json({ error: "Not found" }); return; }
   res.json({ ...cl, ...req.body });
 });
 
@@ -395,7 +441,7 @@ router.delete("/clips/:id", (_req, res) => {
 
 router.post("/clips/:id/export", (req, res) => {
   const cl = clipLists.find((c) => c.id === req.params.id);
-  if (!cl) return res.status(404).json({ error: "Not found" });
+  if (!cl) { res.status(404).json({ error: "Not found" }); return; }
   const fmt = req.body.format || "json";
   const content = fmt === "json"
     ? JSON.stringify({ name: cl.name, clips: cl.clips }, null, 2)

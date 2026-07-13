@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useListMedia, getListMediaQueryKey, useIngestMedia } from "@workspace/api-client-react";
+import { useRef, useState } from "react";
+import { useListMedia, getListMediaQueryKey, useIngestMedia, useUploadMedia } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,58 @@ export default function Library() {
     });
   };
 
+  const uploadMutation = useUploadMedia();
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const VIDEO_EXTENSIONS = [".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wmv", ".flv", ".webm"];
+
+  const pickFile = (file: File | undefined | null) => {
+    if (!file) return;
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (!VIDEO_EXTENSIONS.includes(ext)) {
+      setUploadError(`Unsupported file type: ${ext || "unknown"}`);
+      setUploadFile(null);
+      return;
+    }
+    setUploadError(null);
+    setUploadFile(file);
+  };
+
+  const resetUpload = () => {
+    setUploadFile(null);
+    setUploadTitle("");
+    setUploadError(null);
+    setDragActive(false);
+    uploadMutation.reset();
+  };
+
+  const handleUpload = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile) return;
+    setUploadError(null);
+    uploadMutation.mutate({ data: { file: uploadFile, title: uploadTitle || undefined } }, {
+      onSuccess: () => {
+        setUploadOpen(false);
+        resetUpload();
+        queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+      },
+      onError: () => {
+        setUploadError("Upload failed. Check the file and try again.");
+      },
+    });
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+    if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+    return `${(bytes / 1024).toFixed(0)} KB`;
+  };
+
   return (
     <div className="flex-1 p-8 overflow-y-auto flex flex-col">
       <div className="flex justify-between items-center mb-8">
@@ -47,6 +99,61 @@ export default function Library() {
             <option value="pending">Pending</option>
             <option value="error">Error</option>
           </select>
+          <Dialog open={uploadOpen} onOpenChange={(open) => { setUploadOpen(open); if (!open) resetUpload(); }}>
+            <DialogTrigger asChild>
+              <Button variant="secondary" className="gap-2">
+                <Upload className="h-4 w-4" />
+                Upload File
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Upload Media</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleUpload} className="space-y-4 pt-4">
+                <div
+                  className={`border-2 border-dashed rounded-md p-8 text-center cursor-pointer transition-colors ${dragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                  onDragLeave={() => setDragActive(false)}
+                  onDrop={(e) => { e.preventDefault(); setDragActive(false); pickFile(e.dataTransfer.files?.[0]); }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={VIDEO_EXTENSIONS.join(",")}
+                    className="hidden"
+                    onChange={(e) => pickFile(e.target.files?.[0])}
+                  />
+                  {uploadFile ? (
+                    <div className="space-y-1">
+                      <Film className="h-8 w-8 mx-auto text-primary" />
+                      <p className="text-sm font-medium break-all">{uploadFile.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatSize(uploadFile.size)}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                      <p className="text-sm">Drag & drop a video file here, or click to browse</p>
+                      <p className="text-xs text-muted-foreground">MP4, MOV, MKV, AVI, MXF and more</p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Title (Optional)</label>
+                  <Input
+                    value={uploadTitle}
+                    onChange={e => setUploadTitle(e.target.value)}
+                    placeholder="Interview setup"
+                  />
+                </div>
+                {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+                <Button type="submit" className="w-full" disabled={!uploadFile || uploadMutation.isPending}>
+                  {uploadMutation.isPending ? "Uploading... this may take a while for large files" : "Upload & Process"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
           <Dialog open={ingestOpen} onOpenChange={setIngestOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">

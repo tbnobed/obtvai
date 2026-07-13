@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     qdrant_url: str = "http://qdrant:6333"
     media_root: str = "/media"
+    upload_dir: str = "/uploads"
+    max_upload_bytes: int = 10 * 1024 * 1024 * 1024  # keep aligned with nginx client_max_body_size
     artifacts_root: str = "/artifacts"
     proxies_dir: str = "/artifacts/proxies"
     thumbnails_dir: str = "/artifacts/thumbnails"

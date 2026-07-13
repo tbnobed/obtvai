@@ -46,7 +46,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 
 ## Product
 
-- **Media library:** Browse all indexed video assets with status, duration, codec info
+- **Media library:** Browse all indexed video assets with status, duration, codec info; upload video files directly from the browser (`POST /media/upload`, stored under `UPLOAD_PATH` → `/uploads`) in addition to watched-folder ingest
 - **Asset detail:** Video player with timecode deep-linking, scene timeline, full transcript with speaker labels, face clusters, processing job history
 - **Semantic search:** Natural language search across transcripts and visual scene content; results link directly to the matching timecode in the video player
 - **Processing pipeline:** Real-time job monitoring with progress bars, logs, retry/cancel

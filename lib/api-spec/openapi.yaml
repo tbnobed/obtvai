@@ -80,6 +80,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/MediaAsset"
 
+  /media/upload:
+    post:
+      operationId: uploadMedia
+      tags: [media]
+      summary: Upload a media file directly and queue it for ingestion
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/MediaUploadInput"
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAsset"
+        "400":
+          description: Unsupported file type
+
   /media/{id}:
     get:
       operationId: getMedia
@@ -524,6 +545,16 @@ components:
             $ref: "#/components/schemas/MediaAsset"
         total:
           type: integer
+
+    MediaUploadInput:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+        title:
+          type: string
 
     MediaIngestInput:
       type: object

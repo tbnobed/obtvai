@@ -56,6 +56,11 @@ export interface MediaListResponse {
   total: number;
 }
 
+export interface MediaUploadInput {
+  file: Blob;
+  title?: string;
+}
+
 export interface MediaIngestInput {
   /** Absolute path to the source media file on the server */
   file_path: string;

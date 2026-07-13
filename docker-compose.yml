@@ -96,6 +96,7 @@ services:
       <<: *python-env
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
+      - "${UPLOAD_PATH:-./uploads}:/uploads"
       - artifacts_data:/artifacts
     depends_on:
       postgres:
@@ -126,6 +127,7 @@ services:
       <<: *python-env
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
+      - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
       - artifacts_data:/artifacts
     command: celery -A app worker --queues=gpu --concurrency=1 --loglevel=info
     depends_on:
@@ -142,6 +144,7 @@ services:
       <<: *python-env
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
+      - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
       - artifacts_data:/artifacts
     command: celery -A app worker --queues=cpu,ingest --concurrency=4 --loglevel=info
     depends_on:

@@ -10,3 +10,4 @@ postgres_data
 qdrant_data
 artifacts_data
 sample_media
+uploads

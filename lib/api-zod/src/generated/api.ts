@@ -81,6 +81,36 @@ export const IngestMediaResponse = zod.object({
 
 
 /**
+ * @summary Upload a media file directly and queue it for ingestion
+ */
+export const UploadMediaBody = zod.object({
+  "file": zod.instanceof(File),
+  "title": zod.string().optional()
+})
+
+export const UploadMediaResponse = zod.object({
+  "id": zod.string(),
+  "filename": zod.string(),
+  "original_path": zod.string().nullish(),
+  "proxy_path": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "duration_seconds": zod.number().nullish(),
+  "width": zod.number().nullish(),
+  "height": zod.number().nullish(),
+  "fps": zod.number().nullish(),
+  "codec": zod.string().nullish(),
+  "file_size_bytes": zod.number().nullish(),
+  "status": zod.string().describe('pending | processing | ready | error'),
+  "processing_stage": zod.string().nullish().describe('Current processing stage name'),
+  "processing_progress": zod.number().nullish().describe('0-100 percent'),
+  "scene_count": zod.number().nullish(),
+  "speaker_count": zod.number().nullish(),
+  "created_at": zod.string(),
+  "updated_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Get media asset details
  */
 export const GetMediaParams = zod.object({
