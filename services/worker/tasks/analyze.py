@@ -7,7 +7,7 @@ from db import get_session
 from tasks.base import update_job, append_log
 from config import LLM_MODEL
 
-_MAX_TRANSCRIPT_CHARS = 24000
+_CHUNK_CHARS = 20000  # ~6K tokens per chunk, well within the model's context
 
 _llm = None  # (tokenizer, model) cached for the life of the worker process
 
@@ -33,17 +33,52 @@ def _format_timecode(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
 
 
-def _build_transcript_text(rows) -> str:
+def _build_chunks(rows):
+    """Split the full transcript into timecoded chunks of ~_CHUNK_CHARS each.
+
+    Returns a list of (chunk_text, start_seconds, end_seconds). The whole
+    transcript is always covered — nothing is truncated.
+    """
+    chunks = []
     parts = []
     total = 0
+    chunk_start = float(rows[0][0])
+    last_time = chunk_start
     for start, speaker, text_val in rows:
-        line = f"[{_format_timecode(float(start))}] {speaker or 'Speaker'}: {text_val}"
-        total += len(line)
-        if total > _MAX_TRANSCRIPT_CHARS:
-            parts.append("[... transcript truncated ...]")
-            break
+        t = float(start)
+        line = f"[{_format_timecode(t)}] {speaker or 'Speaker'}: {text_val}"
+        if total + len(line) > _CHUNK_CHARS and parts:
+            chunks.append(("\n".join(parts), chunk_start, last_time))
+            parts = []
+            total = 0
+            chunk_start = t
         parts.append(line)
-    return "\n".join(parts)
+        total += len(line)
+        last_time = t
+    if parts:
+        chunks.append(("\n".join(parts), chunk_start, last_time))
+    return chunks
+
+
+def _generate(tokenizer, model, prompt: str, max_new_tokens: int = 1500) -> str:
+    import torch
+    messages = [{"role": "user", "content": prompt}]
+    inputs = tokenizer.apply_chat_template(
+        messages, add_generation_prompt=True, return_tensors="pt"
+    ).to(model.device)
+    attention_mask = torch.ones_like(inputs)
+    with torch.no_grad():
+        output_ids = model.generate(
+            inputs,
+            attention_mask=attention_mask,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            temperature=None,
+            top_p=None,
+            top_k=None,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    return tokenizer.decode(output_ids[0][inputs.shape[1]:], skip_special_tokens=True)
 
 
 def _extract_json(raw: str) -> dict:
@@ -103,65 +138,131 @@ def analyze_media(self, media_id: str, job_id: str):
             return
 
         duration = float(rows[-1][0])
-        transcript_text = _build_transcript_text(rows)
+        chunks = _build_chunks(rows)
 
         append_log(db, job_id, f"Loading LLM: {LLM_MODEL}")
-        update_job(db, job_id, progress=10.0)
+        update_job(db, job_id, progress=5.0)
 
-        import torch
         tokenizer, model = _load_llm()
 
-        append_log(db, job_id, "Generating analysis...")
-        update_job(db, job_id, progress=40.0)
-
-        prompt = (
-            "You are an expert media analyst reviewing a video transcript with timecodes.\n\n"
-            f"Transcript:\n{transcript_text}\n\n"
-            "Respond with ONLY a JSON object, no other text, in exactly this shape:\n"
-            "{\n"
-            '  "synopsis": "2-4 sentence summary of the content",\n'
-            '  "key_moments": [{"time": "MM:SS", "title": "short title", "description": "one sentence"}],\n'
-            '  "topics": ["topic1", "topic2"]\n'
-            "}\n\n"
-            "Rules: 5-10 key moments spread across the full runtime, times must match "
-            "transcript timecodes, 3-8 topics as short lowercase tags."
+        append_log(
+            db, job_id,
+            f"Analyzing full transcript in {len(chunks)} chunk(s) "
+            f"(runtime ~{_format_timecode(duration)})",
         )
 
-        messages = [{"role": "user", "content": prompt}]
-        inputs = tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, return_tensors="pt"
-        ).to(model.device)
-        with torch.no_grad():
-            output_ids = model.generate(
-                inputs,
-                max_new_tokens=1500,
-                do_sample=False,
-                pad_token_id=tokenizer.eos_token_id,
+        # ── Map: analyze each chunk of the transcript ────────────────────────
+        chunk_summaries = []
+        all_moments = []
+        all_topics = []
+        for i, (chunk_text, c_start, c_end) in enumerate(chunks):
+            prompt = (
+                "You are an expert media analyst. Below is a segment of a video "
+                f"transcript covering {_format_timecode(c_start)} to {_format_timecode(c_end)} "
+                f"of a {_format_timecode(duration)} video.\n\n"
+                f"Transcript segment:\n{chunk_text}\n\n"
+                "Respond with ONLY a JSON object, no other text, in exactly this shape:\n"
+                "{\n"
+                '  "summary": "detailed 3-5 sentence summary of what happens in this segment: '
+                'the arguments made, who says what, and how the discussion develops",\n'
+                '  "key_moments": [{"time": "MM:SS or HH:MM:SS", "title": "short title", '
+                '"description": "one specific sentence about what is said or shown"}],\n'
+                '  "topics": ["topic1", "topic2"]\n'
+                "}\n\n"
+                "Rules: 3-5 key moments for this segment, times must be timecodes that appear "
+                "in this segment, 2-5 topics as short lowercase tags."
             )
-        raw = tokenizer.decode(output_ids[0][inputs.shape[1]:], skip_special_tokens=True)
+            raw = _generate(tokenizer, model, prompt, max_new_tokens=1200)
+            try:
+                data = _extract_json(raw)
+            except (ValueError, json.JSONDecodeError):
+                append_log(db, job_id, f"Chunk {i + 1}/{len(chunks)}: unparseable LLM output, skipping")
+                continue
 
-        update_job(db, job_id, progress=80.0)
-        data = _extract_json(raw)
+            summary = str(data.get("summary", "")).strip()
+            if summary:
+                chunk_summaries.append(
+                    f"[{_format_timecode(c_start)}–{_format_timecode(c_end)}] {summary}"
+                )
+            for km in (data.get("key_moments") or []):
+                if not isinstance(km, dict):
+                    continue
+                title = str(km.get("title", "")).strip()
+                if not title:
+                    continue
+                t = _timecode_to_seconds(km.get("time", c_start))
+                # Clamp to this chunk's time range so hallucinated times stay plausible
+                t = max(c_start, min(t, c_end if c_end > c_start else duration))
+                all_moments.append({
+                    "time": round(t, 1),
+                    "title": title[:120],
+                    "description": (str(km.get("description", "")).strip()[:300] or None),
+                })
+            all_topics.extend(
+                str(t).strip().lower() for t in (data.get("topics") or []) if str(t).strip()
+            )
 
-        synopsis = str(data.get("synopsis", "")).strip() or None
-        topics = [str(t).strip() for t in (data.get("topics") or []) if str(t).strip()][:10]
+            done = 5.0 + 75.0 * (i + 1) / len(chunks)
+            update_job(db, job_id, progress=round(done, 1))
+            append_log(db, job_id, f"Chunk {i + 1}/{len(chunks)} analyzed")
 
+        if not chunk_summaries and not all_moments:
+            raise RuntimeError("LLM returned no usable analysis for any transcript chunk")
+
+        # ── Reduce: synthesize the overall analysis ──────────────────────────
+        append_log(db, job_id, "Synthesizing overall analysis...")
+        synopsis = None
+        topics = []
+        if chunk_summaries:
+            # Cap synthesis input so very long media can't overflow the context
+            _MAX_REDUCE_CHARS = 40000
+            reduce_input = chunk_summaries
+            if sum(len(s) for s in reduce_input) > _MAX_REDUCE_CHARS:
+                reduce_input = [s[:1500] for s in reduce_input][:40]
+            reduce_prompt = (
+                "You are an expert media analyst. Below are chronological segment summaries "
+                f"of a single {_format_timecode(duration)} video.\n\n"
+                + "\n\n".join(reduce_input)
+                + "\n\nRespond with ONLY a JSON object, no other text, in exactly this shape:\n"
+                "{\n"
+                '  "synopsis": "one insightful paragraph (5-8 sentences) covering the full arc '
+                'of the video: the central thesis, the main arguments and evidence presented, '
+                'points of tension or contrast, and how it concludes",\n'
+                '  "topics": ["topic1", "topic2"]\n'
+                "}\n\n"
+                "Rules: 4-8 topics as short lowercase tags capturing the main themes."
+            )
+            raw = _generate(tokenizer, model, reduce_prompt, max_new_tokens=1000)
+            try:
+                data = _extract_json(raw)
+                synopsis = str(data.get("synopsis", "")).strip() or None
+                topics = [
+                    str(t).strip().lower() for t in (data.get("topics") or []) if str(t).strip()
+                ]
+            except (ValueError, json.JSONDecodeError):
+                append_log(db, job_id, "Synthesis output unparseable, falling back to segment summaries")
+
+        if not synopsis and chunk_summaries:
+            synopsis = " ".join(s.split("] ", 1)[-1] for s in chunk_summaries)[:2000]
+        if not topics:
+            topics = list(dict.fromkeys(all_topics))
+        topics = list(dict.fromkeys(topics))[:10]
+
+        update_job(db, job_id, progress=90.0)
+
+        # De-dupe moments that landed within 15s of each other with the same title
+        all_moments.sort(key=lambda k: k["time"])
         key_moments = []
-        for km in (data.get("key_moments") or [])[:12]:
-            if not isinstance(km, dict):
+        for km in all_moments:
+            if key_moments and km["title"].lower() == key_moments[-1]["title"].lower() \
+                    and km["time"] - key_moments[-1]["time"] < 15:
                 continue
-            title = str(km.get("title", "")).strip()
-            if not title:
-                continue
-            t = _timecode_to_seconds(km.get("time", 0))
-            if duration > 0:
-                t = min(t, duration)
-            key_moments.append({
-                "time": round(t, 1),
-                "title": title[:120],
-                "description": (str(km.get("description", "")).strip()[:300] or None),
-            })
-        key_moments.sort(key=lambda k: k["time"])
+            key_moments.append(km)
+        # Keep a manageable number, evenly spread across the runtime
+        _MAX_MOMENTS = 15
+        if len(key_moments) > _MAX_MOMENTS:
+            step = len(key_moments) / _MAX_MOMENTS
+            key_moments = [key_moments[int(i * step)] for i in range(_MAX_MOMENTS)]
 
         if not synopsis and not key_moments:
             raise RuntimeError(f"LLM returned no usable analysis: {raw[:300]}")
