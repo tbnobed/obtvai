@@ -1,4 +1,3 @@
-version: "3.9"
 
 # ─── Shared environment for all Python services ───────────────────────────────
 x-python-env: &python-env

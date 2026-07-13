@@ -2,10 +2,10 @@
 import os
 import uuid
 from datetime import datetime
-from ..app import celery_app
-from ..db import get_session
-from .base import update_job, append_log, update_asset, create_job
-from ..config import PROXIES_DIR, THUMBNAILS_DIR
+from app import celery_app
+from db import get_session
+from tasks.base import update_job, append_log, update_asset, create_job
+from config import PROXIES_DIR, THUMBNAILS_DIR
 
 
 @celery_app.task(bind=True, name="tasks.scene_detect.detect_scenes", queue="cpu")
@@ -74,12 +74,12 @@ def detect_scenes(self, media_id: str, job_id: str):
 
         # Queue visual embedding
         vis_job_id = create_job(db, media_id, "visual_embed")
-        from .visual_embed import embed_scenes
+        from tasks.visual_embed import embed_scenes
         embed_scenes.delay(media_id, vis_job_id)
 
         # Queue face detection
         face_job_id = create_job(db, media_id, "face_detect")
-        from .face_detect import detect_faces
+        from tasks.face_detect import detect_faces
         detect_faces.delay(media_id, face_job_id)
 
     except Exception as e:

@@ -4,9 +4,9 @@ import subprocess
 import json
 import uuid
 from datetime import datetime
-from ..app import celery_app
-from ..db import get_session
-from .base import update_job, append_log, create_job, update_asset
+from app import celery_app
+from db import get_session
+from tasks.base import update_job, append_log, create_job, update_asset
 
 
 @celery_app.task(bind=True, name="tasks.ingest.run_ingest_pipeline", queue="ingest")
@@ -44,19 +44,19 @@ def run_ingest_pipeline(self, media_id: str, job_id: str = None):
         # Create proxy
         append_log(db, job_id, "Creating browser-compatible proxy...")
         proxy_job_id = create_job(db, media_id, "proxy")
-        from .proxy import create_proxy
+        from tasks.proxy import create_proxy
         create_proxy.delay(media_id, proxy_job_id)
 
         # Extract audio
         append_log(db, job_id, "Queuing audio extraction...")
         audio_job_id = create_job(db, media_id, "audio_extract")
-        from .audio import extract_audio
+        from tasks.audio import extract_audio
         extract_audio.delay(media_id, audio_job_id)
 
         # Scene detection
         append_log(db, job_id, "Queuing scene detection...")
         scene_job_id = create_job(db, media_id, "scene_detect")
-        from .scene_detect import detect_scenes
+        from tasks.scene_detect import detect_scenes
         detect_scenes.delay(media_id, scene_job_id)
 
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)

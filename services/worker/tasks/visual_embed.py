@@ -2,10 +2,10 @@
 import os
 import uuid
 from datetime import datetime
-from ..app import celery_app
-from ..db import get_session
-from .base import update_job, append_log, update_asset
-from ..config import THUMBNAILS_DIR, QDRANT_URL, EMBEDDINGS_MODEL, VISION_MODEL
+from app import celery_app
+from db import get_session
+from tasks.base import update_job, append_log, update_asset
+from config import THUMBNAILS_DIR, QDRANT_URL, EMBEDDINGS_MODEL, VISION_MODEL
 
 
 @celery_app.task(bind=True, name="tasks.visual_embed.embed_scenes", queue="gpu")

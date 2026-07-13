@@ -3,10 +3,10 @@ import os
 import uuid
 import json
 from datetime import datetime
-from ..app import celery_app
-from ..db import get_session
-from .base import update_job, append_log, update_asset
-from ..config import THUMBNAILS_DIR, PROXIES_DIR
+from app import celery_app
+from db import get_session
+from tasks.base import update_job, append_log, update_asset
+from config import THUMBNAILS_DIR, PROXIES_DIR
 
 
 @celery_app.task(bind=True, name="tasks.face_detect.detect_faces", queue="gpu")

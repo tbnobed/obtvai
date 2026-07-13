@@ -2,10 +2,10 @@
 import os
 import uuid
 from datetime import datetime
-from ..app import celery_app
-from ..db import get_session
-from .base import update_job, append_log, update_asset, create_job
-from ..config import AUDIO_DIR, WHISPER_MODEL
+from app import celery_app
+from db import get_session
+from tasks.base import update_job, append_log, update_asset, create_job
+from config import AUDIO_DIR, WHISPER_MODEL
 
 
 @celery_app.task(bind=True, name="tasks.transcribe.transcribe_audio", queue="gpu")
@@ -58,12 +58,12 @@ def transcribe_audio(self, media_id: str, job_id: str):
 
         # Queue diarization
         diar_job_id = create_job(db, media_id, "diarize")
-        from .diarize import run_diarization
+        from tasks.diarize import run_diarization
         run_diarization.delay(media_id, diar_job_id)
 
         # Queue indexing
         index_job_id = create_job(db, media_id, "index")
-        from .index import build_index
+        from tasks.index import build_index
         build_index.delay(media_id, index_job_id)
 
     except Exception as e:

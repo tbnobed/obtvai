@@ -1,10 +1,10 @@
 """Speaker diarization using pyannote.audio."""
 import os
 from datetime import datetime
-from ..app import celery_app
-from ..db import get_session
-from .base import update_job, append_log, update_asset
-from ..config import AUDIO_DIR
+from app import celery_app
+from db import get_session
+from tasks.base import update_job, append_log, update_asset
+from config import AUDIO_DIR
 
 
 @celery_app.task(bind=True, name="tasks.diarize.run_diarization", queue="gpu")

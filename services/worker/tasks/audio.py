@@ -2,10 +2,10 @@
 import os
 import subprocess
 from datetime import datetime
-from ..app import celery_app
-from ..db import get_session
-from .base import update_job, append_log, update_asset
-from ..config import AUDIO_DIR
+from app import celery_app
+from db import get_session
+from tasks.base import update_job, append_log, update_asset
+from config import AUDIO_DIR
 
 
 @celery_app.task(bind=True, name="tasks.audio.extract_audio", queue="cpu")
@@ -37,9 +37,9 @@ def extract_audio(self, media_id: str, job_id: str):
         append_log(db, job_id, "Audio extracted successfully")
 
         # Queue transcription
-        from .base import create_job
+        from tasks.base import create_job
         trans_job_id = create_job(db, media_id, "transcribe")
-        from .transcribe import transcribe_audio
+        from tasks.transcribe import transcribe_audio
         transcribe_audio.delay(media_id, trans_job_id)
 
     except Exception as e:

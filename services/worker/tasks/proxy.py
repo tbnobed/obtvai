@@ -2,10 +2,10 @@
 import os
 import subprocess
 from datetime import datetime
-from ..app import celery_app
-from ..db import get_session
-from .base import update_job, append_log, update_asset
-from ..config import PROXIES_DIR, THUMBNAILS_DIR
+from app import celery_app
+from db import get_session
+from tasks.base import update_job, append_log, update_asset
+from config import PROXIES_DIR, THUMBNAILS_DIR
 
 
 @celery_app.task(bind=True, name="tasks.proxy.create_proxy", queue="cpu")

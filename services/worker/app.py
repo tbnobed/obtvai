@@ -1,5 +1,5 @@
 from celery import Celery
-from .config import REDIS_URL
+from config import REDIS_URL
 
 celery_app = Celery(
     "obtv_worker",

@@ -1,10 +1,10 @@
 """Generate text embeddings for transcript segments and store in Qdrant."""
 import uuid
 from datetime import datetime
-from ..app import celery_app
-from ..db import get_session
-from .base import update_job, append_log, update_asset
-from ..config import QDRANT_URL, EMBEDDINGS_MODEL
+from app import celery_app
+from db import get_session
+from tasks.base import update_job, append_log, update_asset
+from config import QDRANT_URL, EMBEDDINGS_MODEL
 
 
 @celery_app.task(bind=True, name="tasks.index.build_index", queue="cpu")

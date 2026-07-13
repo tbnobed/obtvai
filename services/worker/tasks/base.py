@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
-from ..db import get_session
+from db import get_session
 
 
 def _get_job_and_asset(db: Session, job_id: str):
