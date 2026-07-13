@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import String, Integer, Float, Boolean, Text, DateTime, ForeignKey, JSON, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY, JSONB
 from .database import Base
 
 
@@ -74,7 +74,7 @@ class FaceCluster(Base):
     media_id: Mapped[str] = mapped_column(String, ForeignKey("media_assets.id"), nullable=False)
     label: Mapped[str | None] = mapped_column(String, nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
-    appearances: Mapped[list] = mapped_column(JSON, default=list)
+    appearances: Mapped[list] = mapped_column(JSONB, default=list)
 
     asset: Mapped["MediaAsset"] = relationship("MediaAsset", back_populates="face_clusters")
 
@@ -88,7 +88,7 @@ class ProcessingJob(Base):
     status: Mapped[str] = mapped_column(String, default="pending")
     progress: Mapped[float | None] = mapped_column(Float, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    logs: Mapped[list] = mapped_column(JSON, default=list)
+    logs: Mapped[list] = mapped_column(JSONB, default=list)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     celery_task_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -124,7 +124,7 @@ class AIMessage(Base):
     conversation_id: Mapped[str] = mapped_column(String, ForeignKey("ai_conversations.id"), nullable=False)
     role: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    citations: Mapped[list] = mapped_column(JSON, default=list)
+    citations: Mapped[list] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     conversation: Mapped["AIConversation"] = relationship("AIConversation", back_populates="messages")

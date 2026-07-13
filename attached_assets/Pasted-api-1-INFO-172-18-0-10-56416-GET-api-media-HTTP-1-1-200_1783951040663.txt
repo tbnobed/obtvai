@@ -1,0 +1,65 @@
+api-1         | INFO:     172.18.0.10:56416 - "GET /api/media HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:13:56:40 +0000] "GET /api/media HTTP/1.1" 200 542 "http://192.168.201.166:5000/library" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+postgres-1    | 2026-07-13 13:56:40.340 UTC [42433] ERROR:  operator does not exist: json || jsonb at character 65
+postgres-1    | 2026-07-13 13:56:40.340 UTC [42433] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+postgres-1    | 2026-07-13 13:56:40.340 UTC [42433] STATEMENT:
+postgres-1    |                     UPDATE processing_jobs
+postgres-1    |                     SET logs = logs || CAST('["Starting ingest for: /uploads/c8f24475-6d45-420c-871e-004903db38c5_GodWithUs_Episode 102_Textless_AI TEST.mp4"]' AS jsonb)
+postgres-1    |                     WHERE id = '8cc69cce-4073-463e-9152-f294850b4926'
+postgres-1    |
+worker-cpu-1  | [2026-07-13 13:56:40,352: ERROR/ForkPoolWorker-4] Task tasks.ingest.run_ingest_pipeline[0b8e5056-9a3f-4887-9b77-92af5ed407b0] raised unexpected: ProgrammingError('(psycopg2.errors.UndefinedFunction) operator does not exist: json || jsonb\nLINE 3:             SET logs = logs || CAST(\'["Starting ingest for: ...\n                                    ^\nHINT:  No operator matches the given name and argument types. You might need to add explicit type casts.\n')
+worker-cpu-1  | Traceback (most recent call last):
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+worker-cpu-1  |     self.dialect.do_execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+worker-cpu-1  |     cursor.execute(statement, parameters)
+worker-cpu-1  | psycopg2.errors.UndefinedFunction: operator does not exist: json || jsonb
+worker-cpu-1  | LINE 3:             SET logs = logs || CAST('["Starting ingest for: ...
+worker-cpu-1  |                                     ^
+worker-cpu-1  | HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+worker-cpu-1  |
+worker-cpu-1  |
+worker-cpu-1  | The above exception was the direct cause of the following exception:
+worker-cpu-1  |
+worker-cpu-1  | Traceback (most recent call last):
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 453, in trace_task
+worker-cpu-1  |     R = retval = fun(*args, **kwargs)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+worker-cpu-1  |     return self.run(*args, **kwargs)
+worker-cpu-1  |   File "/worker/tasks/ingest.py", line 28, in run_ingest_pipeline
+worker-cpu-1  |     append_log(db, job_id, f"Starting ingest for: {src_path}")
+worker-cpu-1  |   File "/worker/tasks/base.py", line 35, in append_log
+worker-cpu-1  |     db.execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2362, in execute
+worker-cpu-1  |     return self._execute_internal(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2256, in _execute_internal
+worker-cpu-1  |     result = conn.execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1418, in execute
+worker-cpu-1  |     return meth(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+worker-cpu-1  |     return connection._execute_clauseelement(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+worker-cpu-1  |     ret = self._execute_context(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+worker-cpu-1  |     return self._exec_single_context(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+worker-cpu-1  |     self._handle_dbapi_exception(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+worker-cpu-1  |     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+worker-cpu-1  |     self.dialect.do_execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+worker-cpu-1  |     cursor.execute(statement, parameters)
+worker-cpu-1  | sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedFunction) operator does not exist: json || jsonb
+worker-cpu-1  | LINE 3:             SET logs = logs || CAST('["Starting ingest for: ...
+worker-cpu-1  |                                     ^
+worker-cpu-1  | HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+worker-cpu-1  |
+worker-cpu-1  | [SQL:
+worker-cpu-1  |             UPDATE processing_jobs
+worker-cpu-1  |             SET logs = logs || CAST(%(msg)s AS jsonb)
+worker-cpu-1  |             WHERE id = %(jid)s
+worker-cpu-1  |         ]
+worker-cpu-1  | [parameters: {'msg': '["Starting ingest for: /uploads/c8f24475-6d45-420c-871e-004903db38c5_GodWithUs_Episode 102_Textless_AI TEST.mp4"]', 'jid': '8cc69cce-4073-463e-9152-f294850b4926'}]
+worker-cpu-1  | (Background on this error at: https://sqlalche.me/e/20/f405)
+api-1         | INFO:     127.0.0.1:39266 - "GET /api/healthz HTTP/1.1" 200 OK

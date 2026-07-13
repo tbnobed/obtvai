@@ -8,10 +8,38 @@ from .config import settings
 from .routers import media, search, jobs, ai, clips
 
 
+# Columns created as `json` by earlier versions must become `jsonb` so workers
+# can append with the || operator. Idempotent: no-op once the type is jsonb.
+_JSONB_MIGRATIONS = [
+    ("processing_jobs", "logs"),
+    ("face_clusters", "appearances"),
+    ("ai_messages", "citations"),
+]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from sqlalchemy import text
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        for table, column in _JSONB_MIGRATIONS:
+            await conn.execute(text(
+                f"""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = '{table}' AND column_name = '{column}'
+                          AND data_type = 'json'
+                    ) THEN
+                        ALTER TABLE {table}
+                        ALTER COLUMN {column} TYPE jsonb
+                        USING {column}::jsonb;
+                    END IF;
+                END $$;
+                """
+            ))
 
     try:
         from .services.qdrant_client import ensure_collections
