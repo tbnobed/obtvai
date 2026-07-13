@@ -1,0 +1,1 @@
+- [Celery/SQLAlchemy worker pitfalls](celery-redis-pitfalls.md) — publish via Celery send_task not raw Redis; use CAST(:p AS jsonb) not ::casts in text(); rollback before error-status writes.

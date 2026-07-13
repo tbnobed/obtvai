@@ -87,7 +87,7 @@ def detect_faces(self, media_id: str, job_id: str):
             db.execute(
                 text("""
                     INSERT INTO face_clusters (cluster_id, media_id, appearances)
-                    VALUES (:cid, :mid, :apps::jsonb)
+                    VALUES (:cid, :mid, CAST(:apps AS jsonb))
                 """),
                 {"cid": cluster_id, "mid": media_id, "apps": json.dumps(deduped)},
             )
@@ -99,6 +99,7 @@ def detect_faces(self, media_id: str, job_id: str):
         append_log(db, job_id, f"Detected {n_clusters} face clusters")
 
     except Exception as e:
+        db.rollback()
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())
         raise
     finally:

@@ -64,6 +64,7 @@ def run_ingest_pipeline(self, media_id: str, job_id: str = None):
         append_log(db, job_id, "Ingest complete — downstream jobs queued")
 
     except Exception as e:
+        db.rollback()
         update_job(db, job_id or "unknown", status="error", error_message=str(e), finished_at=datetime.utcnow())
         update_asset(db, media_id, status="error", processing_stage="ingest_failed")
         raise

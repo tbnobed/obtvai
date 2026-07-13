@@ -30,14 +30,15 @@ def update_job(db: Session, job_id: str, **kwargs):
 
 
 def append_log(db: Session, job_id: str, message: str):
+    import json
     from sqlalchemy import text
     db.execute(
         text("""
             UPDATE processing_jobs
-            SET logs = logs || :msg::jsonb
+            SET logs = logs || CAST(:msg AS jsonb)
             WHERE id = :jid
         """),
-        {"msg": f'["{message}"]', "jid": job_id},
+        {"msg": json.dumps([message]), "jid": job_id},
     )
     db.commit()
 

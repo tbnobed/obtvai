@@ -1,0 +1,150 @@
+worker-cpu-1  | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-cpu-1  |
+worker-cpu-1  | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+worker-cpu-1  | By pulling and using the container, you accept the terms and conditions of this license:
+worker-cpu-1  | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+worker-cpu-1  |
+worker-cpu-1  | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+worker-cpu-1  |
+worker-cpu-1  | WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+worker-cpu-1  |    Use the NVIDIA Container Toolkit to start this container with GPU support; see
+worker-cpu-1  |    https://docs.nvidia.com/datacenter/cloud-native/ .
+worker-cpu-1  |
+worker-cpu-1  | /usr/local/lib/python3.10/dist-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+worker-cpu-1  | absolutely not recommended!
+worker-cpu-1  |
+worker-cpu-1  | Please specify a different user using the --uid option.
+worker-cpu-1  |
+worker-cpu-1  | User information: uid=0 euid=0 gid=0 egid=0
+worker-cpu-1  |
+worker-cpu-1  |   warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+worker-cpu-1  |
+worker-cpu-1  |  -------------- celery@5244590d28f8 v5.4.0 (opalescent)
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  | -- ******* ---- Linux-6.17.0-35-generic-x86_64-with-glibc2.35 2026-07-13 06:40:03
+worker-cpu-1  | - *** --- * ---
+worker-cpu-1  | - ** ---------- [config]
+worker-cpu-1  | - ** ---------- .> app:         obtv_worker:0x7169816ea6b0
+worker-cpu-1  | - ** ---------- .> transport:   redis://redis:6379/0
+worker-cpu-1  | - ** ---------- .> results:     redis://redis:6379/0
+worker-cpu-1  | - *** --- * --- .> concurrency: 4 (prefork)
+worker-cpu-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  |  -------------- [queues]
+worker-cpu-1  |                 .> cpu              exchange=cpu(direct) key=cpu
+worker-cpu-1  |                 .> ingest           exchange=ingest(direct) key=ingest
+worker-cpu-1  |
+worker-cpu-1  | [tasks]
+worker-cpu-1  |   . tasks.audio.extract_audio
+worker-cpu-1  |   . tasks.diarize.run_diarization
+worker-cpu-1  |   . tasks.face_detect.detect_faces
+worker-cpu-1  |   . tasks.index.build_index
+worker-cpu-1  |   . tasks.ingest.run_ingest_pipeline
+worker-cpu-1  |   . tasks.proxy.create_proxy
+worker-cpu-1  |   . tasks.scene_detect.detect_scenes
+worker-cpu-1  |   . tasks.transcribe.transcribe_audio
+worker-cpu-1  |   . tasks.visual_embed.embed_scenes
+worker-cpu-1  |
+worker-cpu-1  | [2026-07-13 06:40:03,560: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-cpu-1  | [2026-07-13 06:40:03,561: INFO/MainProcess] mingle: searching for neighbors
+worker-cpu-1  | [2026-07-13 06:40:04,568: INFO/MainProcess] mingle: sync with 1 nodes
+worker-cpu-1  | [2026-07-13 06:40:04,568: INFO/MainProcess] mingle: sync complete
+worker-cpu-1  | [2026-07-13 06:40:04,596: INFO/MainProcess] celery@5244590d28f8 ready.
+worker-cpu-1  | [2026-07-13 06:40:07,915: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-cpu-1  | [2026-07-13 06:45:22,181: INFO/MainProcess] Task tasks.ingest.run_ingest_pipeline[4c7fe987-1e58-46a4-82a9-0a6fd6d66899] received
+worker-cpu-1  | [2026-07-13 06:45:22,210: ERROR/ForkPoolWorker-4] Task tasks.ingest.run_ingest_pipeline[4c7fe987-1e58-46a4-82a9-0a6fd6d66899] raised unexpected: InternalError('(psycopg2.errors.InFailedSqlTransaction) current transaction is aborted, commands ignored until end of transaction block\n')
+worker-cpu-1  | Traceback (most recent call last):
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+worker-cpu-1  |     self.dialect.do_execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+worker-cpu-1  |     cursor.execute(statement, parameters)
+worker-cpu-1  | psycopg2.errors.SyntaxError: syntax error at or near ":"
+worker-cpu-1  | LINE 3:             SET logs = logs || :msg::jsonb
+worker-cpu-1  |                                        ^
+worker-cpu-1  |
+worker-cpu-1  |
+worker-cpu-1  | The above exception was the direct cause of the following exception:
+worker-cpu-1  |
+worker-cpu-1  | Traceback (most recent call last):
+worker-cpu-1  |   File "/worker/tasks/ingest.py", line 28, in run_ingest_pipeline
+worker-cpu-1  |     append_log(db, job_id, f"Starting ingest for: {src_path}")
+worker-cpu-1  |   File "/worker/tasks/base.py", line 34, in append_log
+worker-cpu-1  |     db.execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2362, in execute
+worker-cpu-1  |     return self._execute_internal(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2256, in _execute_internal
+worker-cpu-1  |     result = conn.execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1418, in execute
+worker-cpu-1  |     return meth(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+worker-cpu-1  |     return connection._execute_clauseelement(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+worker-cpu-1  |     ret = self._execute_context(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+worker-cpu-1  |     return self._exec_single_context(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+worker-cpu-1  |     self._handle_dbapi_exception(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+worker-cpu-1  |     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+worker-cpu-1  |     self.dialect.do_execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+worker-cpu-1  |     cursor.execute(statement, parameters)
+worker-cpu-1  | sqlalchemy.exc.ProgrammingError: (psycopg2.errors.SyntaxError) syntax error at or near ":"
+worker-cpu-1  | LINE 3:             SET logs = logs || :msg::jsonb
+worker-cpu-1  |                                        ^
+worker-cpu-1  |
+worker-cpu-1  | [SQL:
+worker-cpu-1  |             UPDATE processing_jobs
+worker-cpu-1  |             SET logs = logs || :msg::jsonb
+worker-cpu-1  |             WHERE id = %(jid)s
+worker-cpu-1  |         ]
+worker-cpu-1  | [parameters: {'jid': '3b026660-43f8-4e1f-a4e0-6933e91b6055'}]
+worker-cpu-1  | (Background on this error at: https://sqlalche.me/e/20/f405)
+worker-cpu-1  |
+worker-cpu-1  | During handling of the above exception, another exception occurred:
+worker-cpu-1  |
+worker-cpu-1  | Traceback (most recent call last):
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+worker-cpu-1  |     self.dialect.do_execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+worker-cpu-1  |     cursor.execute(statement, parameters)
+worker-cpu-1  | psycopg2.errors.InFailedSqlTransaction: current transaction is aborted, commands ignored until end of transaction block
+worker-cpu-1  |
+worker-cpu-1  |
+worker-cpu-1  | The above exception was the direct cause of the following exception:
+worker-cpu-1  |
+worker-cpu-1  | Traceback (most recent call last):
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 453, in trace_task
+worker-cpu-1  |     R = retval = fun(*args, **kwargs)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+worker-cpu-1  |     return self.run(*args, **kwargs)
+worker-cpu-1  |   File "/worker/tasks/ingest.py", line 67, in run_ingest_pipeline
+worker-cpu-1  |     update_job(db, job_id or "unknown", status="error", error_message=str(e), finished_at=datetime.utcnow())
+worker-cpu-1  |   File "/worker/tasks/base.py", line 28, in update_job
+worker-cpu-1  |     db.execute(text(f"UPDATE processing_jobs SET {set_parts} WHERE id = :jid"), {**kwargs, "jid": job_id})
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2362, in execute
+worker-cpu-1  |     return self._execute_internal(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2256, in _execute_internal
+worker-cpu-1  |     result = conn.execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1418, in execute
+worker-cpu-1  |     return meth(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+worker-cpu-1  |     return connection._execute_clauseelement(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+worker-cpu-1  |     ret = self._execute_context(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+worker-cpu-1  |     return self._exec_single_context(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+worker-cpu-1  |     self._handle_dbapi_exception(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+worker-cpu-1  |     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+worker-cpu-1  |     self.dialect.do_execute(
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+worker-cpu-1  |     cursor.execute(statement, parameters)
+worker-cpu-1  | sqlalchemy.exc.InternalError: (psycopg2.errors.InFailedSqlTransaction) current transaction is aborted, commands ignored until end of transaction block
+worker-cpu-1  |
+worker-cpu-1  | [SQL: UPDATE processing_jobs SET status = %(status)s, error_message = %(error_message)s, finished_at = %(finished_at)s WHERE id = %(jid)s]
+worker-cpu-1  | [parameters: {'status': 'error', 'error_message': '(psycopg2.errors.SyntaxError) syntax error at or near ":"\nLINE 3:             SET logs = logs || :msg::jsonb\n                                       ... (115 characters truncated) ... = %(jid)s\n        ]\n[parameters: {\'jid\': \'3b026660-43f8-4e1f-a4e0-6933e91b6055\'}]\n(Background on this error at: https://sqlalche.me/e/20/f405)', 'finished_at': datetime.datetime(2026, 7, 13, 6, 45, 22, 206748), 'jid': '3b026660-43f8-4e1f-a4e0-6933e91b6055'}]
+worker-cpu-1  | (Background on this error at: https://sqlalche.me/e/20/2j85)

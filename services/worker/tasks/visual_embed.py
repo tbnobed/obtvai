@@ -84,6 +84,7 @@ def embed_scenes(self, media_id: str, job_id: str):
         append_log(db, job_id, f"Embedded {embedded} scenes ({attempted - embedded} failed)")
 
     except Exception as e:
+        db.rollback()
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())
         raise
     finally:

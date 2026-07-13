@@ -83,6 +83,7 @@ def detect_scenes(self, media_id: str, job_id: str):
         detect_faces.delay(media_id, face_job_id)
 
     except Exception as e:
+        db.rollback()
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())
         raise
     finally:

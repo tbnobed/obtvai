@@ -43,6 +43,7 @@ def extract_audio(self, media_id: str, job_id: str):
         transcribe_audio.delay(media_id, trans_job_id)
 
     except Exception as e:
+        db.rollback()
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())
         raise
     finally:
