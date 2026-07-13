@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from ..database import get_db
-from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, ProcessingJob
+from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, ProcessingJob, Person, PersonAppearance
 from ..schemas import (
     MediaAssetOut, MediaListResponse, MediaIngestInput,
     LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance,
@@ -239,11 +239,26 @@ async def get_media_transcript(id: str, lang: str | None = None, db: AsyncSessio
         .order_by(TranscriptSegment.start_time)
     )
     segments = result.scalars().all()
+
+    # Resolve diarization labels (SPEAKER_00, ...) to current person names so
+    # transcripts reflect renames immediately.
+    name_rows = await db.execute(
+        select(PersonAppearance.speaker_label, Person.display_name)
+        .join(Person, Person.id == PersonAppearance.person_id)
+        .where(
+            PersonAppearance.media_id == id,
+            PersonAppearance.speaker_label.is_not(None),
+        )
+    )
+    speaker_names = {label: name for label, name in name_rows.all() if label}
+
     out = []
     for s in segments:
         seg = TranscriptSegmentOut.model_validate(s)
         if lang and s.translations and s.translations.get(lang):
             seg.text = s.translations[lang]
+        if seg.speaker and seg.speaker in speaker_names:
+            seg.speaker = speaker_names[seg.speaker]
         out.append(seg)
     return out
 
