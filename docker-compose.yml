@@ -140,8 +140,18 @@ services:
     build:
       context: ./services/worker
     restart: unless-stopped
+    # NVENC hardware video encoding for proxy generation (defaults to GPU 0 = RTX 5090).
+    # 'video' capability is required for the encoder; 'compute'/'utility' for CUDA basics.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${NVENC_GPU_DEVICE_ID:-0}"]
+              capabilities: [gpu, video]
     environment:
       <<: *python-env
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
