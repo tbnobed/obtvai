@@ -148,7 +148,7 @@
 }
 
 .logo-alive {
-  animation: logo-float 4s ease-in-out infinite,
-             logo-glow 2s ease-in-out infinite;
+  animation: logo-float 8s ease-in-out infinite,
+             logo-glow 5s ease-in-out infinite;
   will-change: transform, filter;
 }
