@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearch } from "wouter";
+import { useParams, useSearch, useLocation } from "wouter";
 import { 
   useGetMedia, getGetMediaQueryKey,
   useGetMediaScenes, getGetMediaScenesQueryKey,
   useGetMediaTranscript, getGetMediaTranscriptQueryKey,
-  useListJobs, getListJobsQueryKey
+  useListJobs, getListJobsQueryKey,
+  useDeleteMedia, getListMediaQueryKey
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Trash2 } from "lucide-react";
 
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +22,20 @@ export default function AssetDetail() {
   const timeParam = searchParams.get('t');
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+  const deleteMutation = useDeleteMedia();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleDelete = () => {
+    if (!id) return;
+    deleteMutation.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+        navigate("/library");
+      }
+    });
+  };
 
   const { data: asset, isLoading } = useGetMedia(id!, { 
     query: { 
@@ -81,12 +99,42 @@ export default function AssetDetail() {
           </div>
           
           <div className="p-6">
-            <h1 className="text-2xl font-bold mb-2">{asset.filename}</h1>
+            <div className="flex items-start justify-between gap-4 mb-2">
+              <h1 className="text-2xl font-bold">{asset.filename}</h1>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 text-destructive hover:text-destructive shrink-0"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove from Library
+              </Button>
+            </div>
             <div className="flex gap-4 text-sm text-muted-foreground mb-6">
               <span>{asset.codec}</span>
               <span>{asset.width}x{asset.height}</span>
               <span>{asset.fps} fps</span>
             </div>
+
+            <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Remove from library?</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  This removes <span className="font-medium text-foreground">{asset.filename}</span> from 
+                  the index — its transcript, scenes, and search entries. The source video file on disk 
+                  is never touched and can be re-ingested later.
+                </p>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                  <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
+                    {deleteMutation.isPending ? "Removing..." : "Remove"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <Tabs defaultValue="scenes">
               <TabsList>

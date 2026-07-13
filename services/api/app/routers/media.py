@@ -117,6 +117,18 @@ async def delete_media(id: str, db: AsyncSession = Depends(get_db)):
     await db.delete(asset)
     await db.commit()
 
+    # Remove search vectors so deleted media stops surfacing in results.
+    # Best-effort: DB row is already gone; log but don't fail if Qdrant is down.
+    from ..services.qdrant_client import delete_by_media_id
+    for collection in ("transcripts", "scenes"):
+        try:
+            await delete_by_media_id(collection, id)
+        except Exception:
+            import logging
+            logging.getLogger("obtv.media").exception(
+                "Failed to delete vectors for media %s from collection %s", id, collection
+            )
+
 
 @router.get("/{id}/scenes", response_model=list[SceneOut])
 async def get_media_scenes(id: str, db: AsyncSession = Depends(get_db)):

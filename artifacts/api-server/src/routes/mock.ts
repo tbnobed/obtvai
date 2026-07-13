@@ -263,6 +263,9 @@ router.get("/media/:id", (req, res) => {
 });
 
 router.delete("/media/:id", (req, res) => {
+  const idx = assets.findIndex((a) => a.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Not found" });
+  assets.splice(idx, 1);
   res.status(204).send();
 });
 
