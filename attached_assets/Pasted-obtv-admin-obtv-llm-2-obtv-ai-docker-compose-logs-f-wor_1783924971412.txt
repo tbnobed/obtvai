@@ -1,0 +1,256 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs -f worker-gpu worker-cpu flower
+worker-cpu-1  |
+worker-cpu-1  | ==========
+worker-cpu-1  | == CUDA ==
+worker-cpu-1  | ==========
+worker-cpu-1  |
+worker-cpu-1  | CUDA Version 12.8.1
+worker-cpu-1  |
+worker-cpu-1  | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-cpu-1  |
+worker-cpu-1  | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+worker-cpu-1  | By pulling and using the container, you accept the terms and conditions of this license:
+worker-cpu-1  | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+worker-cpu-1  |
+worker-cpu-1  | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+worker-cpu-1  |
+worker-cpu-1  | WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+worker-cpu-1  |    Use the NVIDIA Container Toolkit to start this container with GPU support; see
+worker-cpu-1  |    https://docs.nvidia.com/datacenter/cloud-native/ .
+worker-cpu-1  |
+worker-cpu-1  | /usr/local/lib/python3.10/dist-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+worker-cpu-1  | absolutely not recommended!
+worker-cpu-1  |
+worker-cpu-1  | Please specify a different user using the --uid option.
+worker-cpu-1  |
+worker-cpu-1  | User information: uid=0 euid=0 gid=0 egid=0
+worker-cpu-1  |
+worker-cpu-1  |   warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+worker-cpu-1  |
+worker-cpu-1  |  -------------- celery@5244590d28f8 v5.4.0 (opalescent)
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  | -- ******* ---- Linux-6.17.0-35-generic-x86_64-with-glibc2.35 2026-07-13 06:37:52
+worker-cpu-1  | - *** --- * ---
+worker-cpu-1  | - ** ---------- [config]
+worker-cpu-1  | - ** ---------- .> app:         obtv_worker:0x75094280e680
+worker-cpu-1  | - ** ---------- .> transport:   redis://redis:6379/0
+worker-cpu-1  | - ** ---------- .> results:     redis://redis:6379/0
+worker-cpu-1  | - *** --- * --- .> concurrency: 4 (prefork)
+worker-cpu-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  |  -------------- [queues]
+worker-cpu-1  |                 .> cpu              exchange=cpu(direct) key=cpu
+worker-cpu-1  |                 .> ingest           exchange=ingest(direct) key=ingest
+worker-cpu-1  |
+worker-cpu-1  | [tasks]
+worker-cpu-1  |   . tasks.audio.extract_audio
+worker-cpu-1  |   . tasks.diarize.run_diarization
+worker-cpu-1  |   . tasks.face_detect.detect_faces
+worker-cpu-1  |   . tasks.index.build_index
+worker-cpu-1  |   . tasks.ingest.run_ingest_pipeline
+worker-cpu-1  |   . tasks.proxy.create_proxy
+worker-cpu-1  |   . tasks.scene_detect.detect_scenes
+worker-cpu-1  |   . tasks.transcribe.transcribe_audio
+worker-cpu-1  |   . tasks.visual_embed.embed_scenes
+worker-cpu-1  |
+worker-cpu-1  | [2026-07-13 06:37:53,039: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-cpu-1  | [2026-07-13 06:37:53,040: INFO/MainProcess] mingle: searching for neighbors
+worker-cpu-1  | [2026-07-13 06:37:54,044: INFO/MainProcess] mingle: all alone
+worker-cpu-1  | [2026-07-13 06:37:54,048: INFO/MainProcess] celery@5244590d28f8 ready.
+worker-cpu-1  | [2026-07-13 06:37:57,915: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-cpu-1  | [2026-07-13 06:39:59,680: CRITICAL/MainProcess] Unrecoverable error: KeyError('properties')
+worker-cpu-1  | Traceback (most recent call last):
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/worker/worker.py", line 202, in start
+worker-cpu-1  |     self.blueprint.start(self)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/bootsteps.py", line 116, in start
+worker-cpu-1  |     step.start(parent)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/bootsteps.py", line 365, in start
+worker-cpu-1  |     return self.obj.start()
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/worker/consumer/consumer.py", line 340, in start
+worker-cpu-1  |     blueprint.start(self)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/bootsteps.py", line 116, in start
+worker-cpu-1  |     step.start(parent)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/worker/consumer/consumer.py", line 746, in start
+worker-cpu-1  |     c.loop(*c.loop_args())
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/worker/loops.py", line 97, in asynloop
+worker-cpu-1  |     next(loop)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/kombu/asynchronous/hub.py", line 377, in create_loop
+worker-cpu-1  |     cb(*cbargs)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/kombu/transport/redis.py", line 1394, in on_readable
+worker-cpu-1  |     self.cycle.on_readable(fileno)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/kombu/transport/redis.py", line 579, in on_readable
+worker-cpu-1  |     chan.handlers[type]()
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/kombu/transport/redis.py", line 994, in _brpop_read
+worker-cpu-1  |     self.connection._deliver(loads(bytes_to_str(item)), dest)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/kombu/transport/virtual/base.py", line 1017, in _deliver
+worker-cpu-1  |     callback(message)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/kombu/transport/virtual/base.py", line 636, in _callback
+worker-cpu-1  |     message = self.Message(raw_message, channel=self)
+worker-cpu-1  |   File "/usr/local/lib/python3.10/dist-packages/kombu/transport/virtual/base.py", line 323, in __init__
+worker-cpu-1  |     properties = payload['properties']
+worker-cpu-1  | KeyError: 'properties'
+worker-cpu-1  |
+worker-cpu-1  | ==========
+worker-cpu-1  | == CUDA ==
+worker-cpu-1  | ==========
+worker-cpu-1  |
+worker-cpu-1  | CUDA Version 12.8.1
+worker-cpu-1  |
+worker-cpu-1  | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-cpu-1  |
+worker-cpu-1  | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+worker-cpu-1  | By pulling and using the container, you accept the terms and conditions of this license:
+worker-cpu-1  | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+worker-cpu-1  |
+worker-cpu-1  | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+worker-cpu-1  |
+worker-cpu-1  | WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+worker-cpu-1  |    Use the NVIDIA Container Toolkit to start this container with GPU support; see
+worker-cpu-1  |    https://docs.nvidia.com/datacenter/cloud-native/ .
+worker-cpu-1  |
+worker-cpu-1  | /usr/local/lib/python3.10/dist-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+worker-cpu-1  | absolutely not recommended!
+worker-cpu-1  |
+worker-cpu-1  | Please specify a different user using the --uid option.
+worker-cpu-1  |
+worker-cpu-1  | User information: uid=0 euid=0 gid=0 egid=0
+worker-cpu-1  |
+worker-cpu-1  |   warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+worker-cpu-1  |
+worker-cpu-1  |  -------------- celery@5244590d28f8 v5.4.0 (opalescent)
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  | -- ******* ---- Linux-6.17.0-35-generic-x86_64-with-glibc2.35 2026-07-13 06:40:03
+worker-cpu-1  | - *** --- * ---
+worker-cpu-1  | - ** ---------- [config]
+worker-cpu-1  | - ** ---------- .> app:         obtv_worker:0x7169816ea6b0
+worker-cpu-1  | - ** ---------- .> transport:   redis://redis:6379/0
+worker-cpu-1  | - ** ---------- .> results:     redis://redis:6379/0
+worker-cpu-1  | - *** --- * --- .> concurrency: 4 (prefork)
+worker-cpu-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  |  -------------- [queues]
+worker-cpu-1  |                 .> cpu              exchange=cpu(direct) key=cpu
+worker-cpu-1  |                 .> ingest           exchange=ingest(direct) key=ingest
+worker-cpu-1  |
+worker-cpu-1  | [tasks]
+worker-cpu-1  |   . tasks.audio.extract_audio
+worker-cpu-1  |   . tasks.diarize.run_diarization
+worker-cpu-1  |   . tasks.face_detect.detect_faces
+worker-cpu-1  |   . tasks.index.build_index
+worker-cpu-1  |   . tasks.ingest.run_ingest_pipeline
+worker-cpu-1  |   . tasks.proxy.create_proxy
+worker-cpu-1  |   . tasks.scene_detect.detect_scenes
+worker-cpu-1  |   . tasks.transcribe.transcribe_audio
+worker-cpu-1  |   . tasks.visual_embed.embed_scenes
+worker-cpu-1  |
+worker-cpu-1  | [2026-07-13 06:40:03,560: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-cpu-1  | [2026-07-13 06:40:03,561: INFO/MainProcess] mingle: searching for neighbors
+worker-cpu-1  | [2026-07-13 06:40:04,568: INFO/MainProcess] mingle: sync with 1 nodes
+worker-cpu-1  | [2026-07-13 06:40:04,568: INFO/MainProcess] mingle: sync complete
+worker-cpu-1  | [2026-07-13 06:40:04,596: INFO/MainProcess] celery@5244590d28f8 ready.
+worker-cpu-1  | [2026-07-13 06:40:07,915: INFO/MainProcess] Events of group {task} enabled by remote.
+flower-1      |
+flower-1      | ==========
+flower-1      | == CUDA ==
+flower-1      | ==========
+flower-1      |
+flower-1      | CUDA Version 12.8.1
+flower-1      |
+flower-1      | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+flower-1      |
+flower-1      | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+flower-1      | By pulling and using the container, you accept the terms and conditions of this license:
+flower-1      | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+flower-1      |
+flower-1      | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+flower-1      |
+flower-1      | WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+flower-1      |    Use the NVIDIA Container Toolkit to start this container with GPU support; see
+flower-1      |    https://docs.nvidia.com/datacenter/cloud-native/ .
+flower-1      |
+worker-gpu-1  |
+worker-gpu-1  | ==========
+worker-gpu-1  | == CUDA ==
+worker-gpu-1  | ==========
+worker-gpu-1  |
+worker-gpu-1  | CUDA Version 12.8.1
+flower-1      | [I 260713 06:37:52 command:168] Visit me at http://0.0.0.0:5555
+worker-gpu-1  |
+worker-gpu-1  | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-gpu-1  |
+worker-gpu-1  | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+worker-gpu-1  | By pulling and using the container, you accept the terms and conditions of this license:
+worker-gpu-1  | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+worker-gpu-1  |
+flower-1      | [I 260713 06:37:52 command:176] Broker: redis://redis:6379/0
+flower-1      | [I 260713 06:37:52 command:177] Registered tasks:
+flower-1      |     ['celery.accumulate',
+flower-1      |      'celery.backend_cleanup',
+flower-1      |      'celery.chain',
+flower-1      |      'celery.chord',
+flower-1      |      'celery.chord_unlock',
+flower-1      |      'celery.chunks',
+worker-gpu-1  | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+worker-gpu-1  |
+worker-gpu-1  | /usr/local/lib/python3.10/dist-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+worker-gpu-1  | absolutely not recommended!
+worker-gpu-1  |
+worker-gpu-1  | Please specify a different user using the --uid option.
+worker-gpu-1  |
+worker-gpu-1  | User information: uid=0 euid=0 gid=0 egid=0
+worker-gpu-1  |
+worker-gpu-1  |   warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+worker-gpu-1  |
+worker-gpu-1  |  -------------- celery@680be0ca56c3 v5.4.0 (opalescent)
+worker-gpu-1  | --- ***** -----
+worker-gpu-1  | -- ******* ---- Linux-6.17.0-35-generic-x86_64-with-glibc2.35 2026-07-13 06:37:53
+worker-gpu-1  | - *** --- * ---
+worker-gpu-1  | - ** ---------- [config]
+flower-1      |      'celery.group',
+flower-1      |      'celery.map',
+flower-1      |      'celery.starmap',
+flower-1      |      'tasks.audio.extract_audio',
+worker-gpu-1  | - ** ---------- .> app:         obtv_worker:0x74c4c1076620
+worker-gpu-1  | - ** ---------- .> transport:   redis://redis:6379/0
+worker-gpu-1  | - ** ---------- .> results:     redis://redis:6379/0
+worker-gpu-1  | - *** --- * --- .> concurrency: 1 (prefork)
+worker-gpu-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+flower-1      |      'tasks.diarize.run_diarization',
+worker-gpu-1  | --- ***** -----
+worker-gpu-1  |  -------------- [queues]
+worker-gpu-1  |                 .> gpu              exchange=gpu(direct) key=gpu
+worker-gpu-1  |
+worker-gpu-1  |
+worker-gpu-1  | [tasks]
+flower-1      |      'tasks.face_detect.detect_faces',
+flower-1      |      'tasks.index.build_index',
+flower-1      |      'tasks.ingest.run_ingest_pipeline',
+flower-1      |      'tasks.proxy.create_proxy',
+flower-1      |      'tasks.scene_detect.detect_scenes',
+flower-1      |      'tasks.transcribe.transcribe_audio',
+flower-1      |      'tasks.visual_embed.embed_scenes']
+flower-1      | [I 260713 06:37:52 mixins:228] Connected to redis://redis:6379/0
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method registered failed
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method active failed
+worker-gpu-1  |   . tasks.audio.extract_audio
+worker-gpu-1  |   . tasks.diarize.run_diarization
+worker-gpu-1  |   . tasks.face_detect.detect_faces
+worker-gpu-1  |   . tasks.index.build_index
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method stats failed
+worker-gpu-1  |   . tasks.ingest.run_ingest_pipeline
+worker-gpu-1  |   . tasks.proxy.create_proxy
+worker-gpu-1  |   . tasks.scene_detect.detect_scenes
+worker-gpu-1  |   . tasks.transcribe.transcribe_audio
+worker-gpu-1  |   . tasks.visual_embed.embed_scenes
+worker-gpu-1  |
+worker-gpu-1  | [2026-07-13 06:37:53,035: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-gpu-1  | [2026-07-13 06:37:53,037: INFO/MainProcess] mingle: searching for neighbors
+worker-gpu-1  | [2026-07-13 06:37:54,040: INFO/MainProcess] mingle: all alone
+worker-gpu-1  | [2026-07-13 06:37:54,044: INFO/MainProcess] celery@680be0ca56c3 ready.
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method revoked failed
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method active_queues failed
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method reserved failed
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method conf failed
+flower-1      | [W 260713 06:37:53 inspector:44] Inspect method scheduled failed
+worker-gpu-1  | [2026-07-13 06:37:57,915: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-gpu-1  | [2026-07-13 06:40:03,564: INFO/MainProcess] sync with celery@5244590d28f8

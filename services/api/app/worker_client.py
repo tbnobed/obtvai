@@ -1,22 +1,28 @@
-"""Async helpers for enqueuing Celery tasks via Redis."""
-import json
+"""Async helpers for enqueuing Celery tasks via Redis.
+
+Uses the real Celery client so messages are published in the Celery/kombu
+wire format the workers expect. Hand-rolled JSON pushed straight to the
+Redis list crashes workers with KeyError('properties').
+"""
 import uuid
-import redis.asyncio as aioredis
+from celery import Celery
+from fastapi.concurrency import run_in_threadpool
 from .config import settings
+
+_celery = Celery("obtv_api", broker=settings.redis_url, backend=settings.redis_url)
+_celery.conf.task_serializer = "json"
+_celery.conf.broker_connection_retry_on_startup = True
 
 
 async def _publish(queue: str, task_name: str, kwargs: dict, task_id: str):
-    r = aioredis.from_url(settings.redis_url)
-    payload = {
-        "id": task_id,
-        "task": task_name,
-        "kwargs": kwargs,
-        "retries": 0,
-    }
-    try:
-        await r.rpush(queue, json.dumps(payload))
-    finally:
-        await r.aclose()
+    # send_task is blocking (sync Redis connection), so run it off the event loop.
+    await run_in_threadpool(
+        _celery.send_task,
+        task_name,
+        kwargs=kwargs,
+        queue=queue,
+        task_id=task_id,
+    )
 
 
 async def enqueue_ingest(media_id: str) -> str:
