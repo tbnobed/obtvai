@@ -198,6 +198,25 @@ paths:
                 items:
                   $ref: "#/components/schemas/FaceCluster"
 
+  /media/{id}/highlight:
+    post:
+      operationId: createHighlight
+      tags: [media]
+      summary: Generate a highlight reel video from the asset's key moments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Highlight job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+
   # ── Stats ────────────────────────────────────────────────────────────────
   /media/stats/summary:
     get:
@@ -553,6 +572,9 @@ components:
           type: ["integer", "null"]
         speaker_count:
           type: ["integer", "null"]
+        highlight_url:
+          type: ["string", "null"]
+          description: Set when a generated highlight reel is available
         synopsis:
           type: ["string", "null"]
           description: AI-generated synopsis of the content

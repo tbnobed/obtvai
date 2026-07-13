@@ -29,6 +29,7 @@ class MediaAsset(Base):
     processing_progress: Mapped[float | None] = mapped_column(Float, nullable=True)
     scene_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     speaker_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    highlight_url: Mapped[str | None] = mapped_column(String, nullable=True)
     synopsis: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_moments: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)

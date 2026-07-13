@@ -26,6 +26,7 @@ class MediaAssetOut(BaseModel):
     processing_progress: Optional[float] = None
     scene_count: Optional[int] = None
     speaker_count: Optional[int] = None
+    highlight_url: Optional[str] = None
     synopsis: Optional[str] = None
     key_moments: Optional[List[Any]] = None
     topics: Optional[List[str]] = None

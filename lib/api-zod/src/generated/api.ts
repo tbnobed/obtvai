@@ -43,6 +43,7 @@ export const ListMediaResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
@@ -82,6 +83,7 @@ export const IngestMediaResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
@@ -119,6 +121,7 @@ export const UploadMediaResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
@@ -155,6 +158,7 @@ export const GetMediaResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
@@ -236,6 +240,29 @@ export const GetMediaFacesResponse = zod.array(GetMediaFacesResponseItem)
 
 
 /**
+ * @summary Generate a highlight reel video from the asset's key moments
+ */
+export const CreateHighlightParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateHighlightResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "filename": zod.string().nullish(),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "status": zod.string().describe('pending | running | success | error | cancelled'),
+  "progress": zod.number().nullish().describe('0-100'),
+  "error_message": zod.string().nullish(),
+  "logs": zod.array(zod.string()).optional(),
+  "retry_count": zod.number().optional(),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Library-wide stats (counts, totals, status breakdown)
  */
 export const GetLibraryStatsResponse = zod.object({
@@ -260,6 +287,7 @@ export const GetLibraryStatsResponse = zod.object({
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
+  "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),

@@ -9,7 +9,8 @@ from ..database import get_db
 from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, ProcessingJob
 from ..schemas import (
     MediaAssetOut, MediaListResponse, MediaIngestInput,
-    LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance
+    LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance,
+    ProcessingJobOut,
 )
 from ..config import settings
 import redis.asyncio as aioredis
@@ -270,3 +271,62 @@ async def stream_media(id: str, db: AsyncSession = Depends(get_db)):
     if not proxy or not os.path.exists(proxy):
         raise HTTPException(status_code=404, detail="No streamable file available")
     return FileResponse(proxy, media_type="video/mp4")
+
+
+@router.post("/{id}/highlight", response_model=ProcessingJobOut, status_code=202)
+async def create_highlight(id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+    if not asset.key_moments:
+        raise HTTPException(
+            status_code=400,
+            detail="No key moments available — run AI analysis first",
+        )
+
+    existing = (
+        await db.execute(
+            select(ProcessingJob).where(
+                ProcessingJob.media_id == id,
+                ProcessingJob.job_type == "highlight",
+                ProcessingJob.status.in_(("pending", "running")),
+            )
+        )
+    ).scalars().first()
+    if existing:
+        out = ProcessingJobOut.model_validate(existing)
+        out.filename = asset.filename
+        return out
+
+    job = ProcessingJob(media_id=id, job_type="highlight", status="pending", logs=[])
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    from ..worker_client import enqueue_job
+    await enqueue_job("highlight", id, job.id)
+
+    out = ProcessingJobOut.model_validate(job)
+    out.filename = asset.filename
+    return out
+
+
+@router.get("/{id}/highlight/stream")
+async def stream_highlight(id: str, db: AsyncSession = Depends(get_db)):
+    from fastapi.responses import FileResponse
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+    if not asset.highlight_url:
+        raise HTTPException(status_code=404, detail="No highlight reel available")
+    path = os.path.join(settings.artifacts_root, "reels", asset.highlight_url)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Highlight reel file missing")
+    return FileResponse(
+        path,
+        media_type="video/mp4",
+        filename=f"highlight_{asset.filename.rsplit('.', 1)[0]}.mp4",
+        content_disposition_type="inline",
+    )

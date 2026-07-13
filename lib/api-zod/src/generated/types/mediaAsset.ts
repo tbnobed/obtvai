@@ -45,6 +45,11 @@ export interface MediaAsset {
   /** @nullable */
   speaker_count?: number | null;
   /**
+     * Set when a generated highlight reel is available
+     * @nullable
+     */
+  highlight_url?: string | null;
+  /**
      * AI-generated synopsis of the content
      * @nullable
      */

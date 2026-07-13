@@ -16,6 +16,7 @@ celery_app = Celery(
         "tasks.face_detect",
         "tasks.index",
         "tasks.analyze",
+        "tasks.highlight",
     ],
 )
 celery_app.config_from_object("celeryconfig")

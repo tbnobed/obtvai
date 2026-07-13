@@ -5,7 +5,8 @@ import {
   useGetMediaScenes, getGetMediaScenesQueryKey,
   useGetMediaTranscript, getGetMediaTranscriptQueryKey,
   useListJobs, getListJobsQueryKey,
-  useDeleteMedia, getListMediaQueryKey
+  useDeleteMedia, getListMediaQueryKey,
+  useCreateHighlight
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download } from "lucide-react";
 import AssetChat from "@/components/asset-chat";
 
 function formatTimecode(seconds: number): string {
@@ -59,6 +60,28 @@ export default function AssetDetail() {
   const { data: scenes } = useGetMediaScenes(id!, { query: { enabled: !!id, queryKey: getGetMediaScenesQueryKey(id!) } });
   const { data: transcript } = useGetMediaTranscript(id!, { query: { enabled: !!id, queryKey: getGetMediaTranscriptQueryKey(id!) } });
   const { data: jobs } = useListJobs({ media_id: id! }, { query: { enabled: !!id, queryKey: getListJobsQueryKey({ media_id: id! }), refetchInterval: 3000 } });
+
+  const highlightMutation = useCreateHighlight();
+  const highlightJob = jobs?.find(j => j.job_type === "highlight" && (j.status === "pending" || j.status === "running"));
+  const highlightBusy = highlightMutation.isPending || Boolean(highlightJob);
+
+  const startHighlight = () => {
+    if (!id) return;
+    highlightMutation.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
+      }
+    });
+  };
+
+  // When the highlight job finishes, refresh the asset so highlight_url appears.
+  const lastHighlightStatus = jobs?.filter(j => j.job_type === "highlight")
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
+  useEffect(() => {
+    if (lastHighlightStatus === "success" && id) {
+      queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
+    }
+  }, [lastHighlightStatus, id, queryClient]);
 
   useEffect(() => {
     if (timeParam && videoRef.current && asset?.status === 'ready') {
@@ -204,6 +227,54 @@ export default function AssetDetail() {
                             <Badge key={topic} variant="secondary" className="text-xs">{topic}</Badge>
                           ))}
                         </div>
+                      </div>
+                    )}
+                    {asset.key_moments && asset.key_moments.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Highlight Reel</h3>
+                        {asset.highlight_url && !highlightBusy ? (
+                          <div className="space-y-2">
+                            <video
+                              src={`/api/media/${id}/highlight/stream`}
+                              controls
+                              className="w-full max-w-xl rounded border border-border bg-black"
+                            />
+                            <div className="flex gap-2">
+                              <Button asChild variant="outline" size="sm" className="gap-2">
+                                <a href={`/api/media/${id}/highlight/stream`} download={`highlight_${asset.filename}`}>
+                                  <Download className="h-4 w-4" />
+                                  Download
+                                </a>
+                              </Button>
+                              <Button variant="outline" size="sm" className="gap-2" onClick={startHighlight}>
+                                <Film className="h-4 w-4" />
+                                Regenerate
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Button size="sm" className="gap-2" onClick={startHighlight} disabled={highlightBusy}>
+                              {highlightBusy ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Building reel{highlightJob?.progress ? ` — ${Math.round(highlightJob.progress)}%` : "..."}
+                                </>
+                              ) : (
+                                <>
+                                  <Film className="h-4 w-4" />
+                                  Generate Highlight Reel
+                                </>
+                              )}
+                            </Button>
+                            <p className="text-xs text-muted-foreground">
+                              Cuts short clips at each key moment and stitches them into one video.
+                            </p>
+                            {highlightMutation.isError && (
+                              <p className="text-xs text-destructive">Failed to start highlight job. Check Pipeline Jobs.</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

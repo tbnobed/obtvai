@@ -10,6 +10,7 @@ x-python-env: &python-env
   PROXIES_DIR: "/artifacts/proxies"
   THUMBNAILS_DIR: "/artifacts/thumbnails"
   AUDIO_DIR: "/artifacts/audio"
+  REELS_DIR: "/artifacts/reels"
   WHISPER_MODEL: "${WHISPER_MODEL:-large-v3}"
   EMBEDDINGS_MODEL: "${EMBEDDINGS_MODEL:-sentence-transformers/all-MiniLM-L6-v2}"
   VISION_MODEL: "${VISION_MODEL:-openai/clip-vit-large-patch14}"

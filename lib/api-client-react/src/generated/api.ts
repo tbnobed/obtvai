@@ -760,6 +760,77 @@ export function useGetMediaFaces<TData = Awaited<ReturnType<typeof getMediaFaces
 
 
 
+export const getCreateHighlightUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/highlight`
+}
+
+/**
+ * @summary Generate a highlight reel video from the asset's key moments
+ */
+export const createHighlight = async (id: string, options?: RequestInit): Promise<ProcessingJob> => {
+
+  return customFetch<ProcessingJob>(getCreateHighlightUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateHighlightMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createHighlight>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createHighlight>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['createHighlight'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createHighlight>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  createHighlight(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateHighlightMutationResult = NonNullable<Awaited<ReturnType<typeof createHighlight>>>
+
+    export type CreateHighlightMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Generate a highlight reel video from the asset's key moments
+ */
+export const useCreateHighlight = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createHighlight>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createHighlight>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCreateHighlightMutationOptions(options));
+    }
+
 export const getGetLibraryStatsUrl = () => {
 
 

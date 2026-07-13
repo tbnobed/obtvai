@@ -41,6 +41,7 @@ const assets = [
       { time: 1580, title: "2026 bond measure outlook", description: "Closing thoughts on funding prospects and the November ballot." },
     ],
     topics: ["urban planning", "affordable housing", "public transit", "local politics", "development"],
+    highlight_url: null as string | null,
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
     updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
   },
@@ -383,6 +384,54 @@ router.post("/jobs/:id/cancel", (req, res) => {
   const job = jobs.find((j) => j.id === req.params.id);
   if (!job) { res.status(404).json({ error: "Not found" }); return; }
   res.json({ ...job, status: "cancelled" });
+});
+
+// ── Highlight reel ───────────────────────────────────────────────────────────
+router.post("/media/:id/highlight", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ error: "Media not found" }); return; }
+  if (!asset.key_moments || asset.key_moments.length === 0) {
+    res.status(400).json({ detail: "No key moments available — run AI analysis first" });
+    return;
+  }
+  const job = {
+    id: `job-hl-${Date.now()}`,
+    media_id: asset.id,
+    filename: asset.filename,
+    job_type: "highlight",
+    status: "running",
+    progress: 10,
+    error_message: null as string | null,
+    logs: ["Building highlight reel", "Cutting 5 clips from source"],
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    finished_at: null as string | null,
+  };
+  jobs.unshift(job as any);
+  // Simulate the worker: advance progress, then finish and set highlight_url.
+  const timer = setInterval(() => {
+    job.progress = Math.min(90, (job.progress ?? 0) + 25);
+  }, 2000);
+  setTimeout(() => {
+    clearInterval(timer);
+    job.status = "success";
+    job.progress = 100;
+    job.finished_at = new Date().toISOString();
+    job.logs.push("Highlight reel ready: 5 clips");
+    (asset as any).highlight_url = `${asset.id}.mp4`;
+  }, 9000);
+  res.status(202).json(job);
+});
+
+router.get("/media/:id/highlight/stream", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset || !(asset as any).highlight_url) {
+    res.status(404).json({ error: "No highlight reel available" });
+    return;
+  }
+  // No real video in the mock environment.
+  res.status(404).json({ error: "Highlight reel file missing (mock)" });
 });
 
 // ── AI ────────────────────────────────────────────────────────────────────────
