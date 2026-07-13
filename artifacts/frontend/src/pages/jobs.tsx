@@ -52,7 +52,7 @@ export default function Jobs() {
                 </div>
 
                 <div className="flex gap-2">
-                  {job.status === 'error' && (
+                  {(job.status === 'error' || job.status === 'cancelled') && (
                     <Button size="sm" variant="outline" onClick={() => handleRetry(job.id)} disabled={retryMutation.isPending}>
                       <Play className="h-4 w-4 mr-1" /> Retry
                     </Button>
