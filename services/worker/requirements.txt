@@ -10,6 +10,7 @@ torch==2.7.1+cu128
 torchvision==0.22.1+cu128
 torchaudio==2.7.1+cu128
 transformers==4.47.0
+sentencepiece==0.2.0
 accelerate==1.2.1
 faster-whisper==1.2.0
 ctranslate2>=4.6.0
