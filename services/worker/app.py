@@ -18,6 +18,7 @@ celery_app = Celery(
         "tasks.analyze",
         "tasks.highlight",
         "tasks.social",
+        "tasks.translate",
     ],
 )
 celery_app.config_from_object("celeryconfig")

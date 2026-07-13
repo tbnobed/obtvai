@@ -42,6 +42,7 @@ const assets = [
     ],
     topics: ["urban planning", "affordable housing", "public transit", "local politics", "development"],
     highlight_url: null as string | null,
+    translated_languages: ["es"] as string[] | null,
     social_scores: [
       {
         platform: "youtube",
@@ -258,12 +259,21 @@ const scenes = [
   { id: "scene-003", media_id: "asset-001", start_time: 127.8, end_time: 246.1, thumbnail_url: null, description: "Close-up interview, technology strategy topic", embedding_id: "scene-003" },
 ];
 
-const transcript = [
-  { id: "seg-001", media_id: "asset-001", start_time: 2.1, end_time: 8.4, text: "Thank you for having me. I'm really excited to talk about what we've been building.", speaker: "SPEAKER_00", confidence: 0.94 },
-  { id: "seg-002", media_id: "asset-001", start_time: 9.0, end_time: 14.2, text: "So Sarah, can you tell us about the new infrastructure initiative?", speaker: "SPEAKER_01", confidence: 0.91 },
-  { id: "seg-003", media_id: "asset-001", start_time: 15.5, end_time: 32.0, text: "Absolutely. We've been working on a distributed processing pipeline that can handle petabyte-scale video archives. The key insight was that you don't need cloud infrastructure to do this at scale.", speaker: "SPEAKER_00", confidence: 0.96 },
-  { id: "seg-004", media_id: "asset-001", start_time: 33.1, end_time: 48.7, text: "That's fascinating. Most organizations assume you need AWS or Google Cloud for anything at this scale.", speaker: "SPEAKER_01", confidence: 0.88 },
-  { id: "seg-005", media_id: "asset-001", start_time: 50.0, end_time: 71.3, text: "Right, and that's exactly the misconception we're challenging. With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput.", speaker: "SPEAKER_00", confidence: 0.97 },
+const transcript: {
+  id: string; media_id: string; start_time: number; end_time: number;
+  text: string; speaker: string; confidence: number;
+  translations?: Record<string, string>;
+}[] = [
+  { id: "seg-001", media_id: "asset-001", start_time: 2.1, end_time: 8.4, text: "Thank you for having me. I'm really excited to talk about what we've been building.", speaker: "SPEAKER_00", confidence: 0.94,
+    translations: { es: "Gracias por invitarme. Estoy muy emocionada de hablar sobre lo que hemos estado construyendo." } },
+  { id: "seg-002", media_id: "asset-001", start_time: 9.0, end_time: 14.2, text: "So Sarah, can you tell us about the new infrastructure initiative?", speaker: "SPEAKER_01", confidence: 0.91,
+    translations: { es: "Entonces, Sarah, ¿puedes contarnos sobre la nueva iniciativa de infraestructura?" } },
+  { id: "seg-003", media_id: "asset-001", start_time: 15.5, end_time: 32.0, text: "Absolutely. We've been working on a distributed processing pipeline that can handle petabyte-scale video archives. The key insight was that you don't need cloud infrastructure to do this at scale.", speaker: "SPEAKER_00", confidence: 0.96,
+    translations: { es: "Por supuesto. Hemos estado trabajando en una canalización de procesamiento distribuido capaz de manejar archivos de video a escala de petabytes. La clave fue darnos cuenta de que no se necesita infraestructura en la nube para hacerlo a esta escala." } },
+  { id: "seg-004", media_id: "asset-001", start_time: 33.1, end_time: 48.7, text: "That's fascinating. Most organizations assume you need AWS or Google Cloud for anything at this scale.", speaker: "SPEAKER_01", confidence: 0.88,
+    translations: { es: "Fascinante. La mayoría de las organizaciones asumen que se necesita AWS o Google Cloud para cualquier cosa a esta escala." } },
+  { id: "seg-005", media_id: "asset-001", start_time: 50.0, end_time: 71.3, text: "Right, and that's exactly the misconception we're challenging. With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput.", speaker: "SPEAKER_00", confidence: 0.97,
+    translations: { es: "Exacto, y esa es precisamente la idea errónea que estamos cuestionando. Con hardware GPU moderno y la arquitectura de software adecuada, se puede construir una pila de inferencia de IA totalmente local que supera a las soluciones en la nube en rendimiento." } },
 ];
 
 const searchHistory = [
@@ -383,7 +393,17 @@ router.get("/media/:id/scenes", (req, res) => {
 });
 
 router.get("/media/:id/transcript", (req, res) => {
-  res.json(transcript.filter((s) => s.media_id === req.params.id));
+  const lang = typeof req.query.lang === "string" ? req.query.lang : null;
+  const segments = transcript
+    .filter((s) => s.media_id === req.params.id)
+    .map((s) => {
+      const { translations, ...rest } = s;
+      if (lang && translations?.[lang]) {
+        return { ...rest, text: translations[lang] };
+      }
+      return rest;
+    });
+  res.json(segments);
 });
 
 router.get("/media/:id/faces", (req, res) => {
@@ -510,6 +530,59 @@ router.post("/media/:id/social", (req, res) => {
     if (!(asset as any).social_scores) {
       (asset as any).social_scores = assets[0].social_scores;
     }
+  }, 8000);
+  res.status(202).json(job);
+});
+
+const SUPPORTED_LANGS = ["es", "fr", "de", "pt", "it", "nl", "ru", "ja", "ko", "zh", "ar", "hi"];
+
+router.post("/media/:id/translate", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ error: "Media not found" }); return; }
+  const lang = String(req.body?.target_language ?? "").trim().toLowerCase();
+  if (!SUPPORTED_LANGS.includes(lang)) {
+    res.status(400).json({ detail: `Unsupported language '${lang}'. Supported: ${SUPPORTED_LANGS.join(", ")}` });
+    return;
+  }
+  const hasTranscript = transcript.some((s) => s.media_id === asset.id);
+  if (!hasTranscript) {
+    res.status(400).json({ detail: "No transcript available — process the media first" });
+    return;
+  }
+  const job = {
+    id: `job-tr-${Date.now()}`,
+    media_id: asset.id,
+    filename: asset.filename,
+    job_type: "translate",
+    status: "running",
+    progress: 10,
+    error_message: null as string | null,
+    logs: [`Target language: ${lang}`, `Translating ${transcript.length} segments to '${lang}'`],
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    finished_at: null as string | null,
+  };
+  jobs.unshift(job as any);
+  const timer = setInterval(() => {
+    job.progress = Math.min(90, (job.progress ?? 0) + 25);
+  }, 2000);
+  setTimeout(() => {
+    clearInterval(timer);
+    job.status = "success";
+    job.progress = 100;
+    job.finished_at = new Date().toISOString();
+    job.logs.push(`Translation to '${lang}' complete`);
+    for (const seg of transcript) {
+      if (seg.media_id !== asset.id) continue;
+      seg.translations = seg.translations ?? {};
+      if (!seg.translations[lang]) {
+        seg.translations[lang] = `[${lang.toUpperCase()}] ${seg.text}`;
+      }
+    }
+    const langs = new Set((asset as any).translated_languages ?? []);
+    langs.add(lang);
+    (asset as any).translated_languages = Array.from(langs);
   }, 8000);
   res.status(202).json(job);
 });

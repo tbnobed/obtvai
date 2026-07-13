@@ -30,6 +30,7 @@ import type {
   ClipListUpdate,
   Conversation,
   FaceCluster,
+  GetMediaTranscriptParams,
   HealthStatus,
   LibraryStats,
   ListJobsParams,
@@ -43,7 +44,8 @@ import type {
   SearchHistoryItem,
   SearchQuery,
   SearchResponse,
-  TranscriptSegment
+  TranscriptSegment,
+  TranslateRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -606,20 +608,29 @@ export function useGetMediaScenes<TData = Awaited<ReturnType<typeof getMediaScen
 
 
 
-export const getGetMediaTranscriptUrl = (id: string,) => {
+export const getGetMediaTranscriptUrl = (id: string,
+    params?: GetMediaTranscriptParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/media/${id}/transcript`
+  return stringifiedParams.length > 0 ? `/api/media/${id}/transcript?${stringifiedParams}` : `/api/media/${id}/transcript`
 }
 
 /**
  * @summary Get transcript segments for a media asset
  */
-export const getMediaTranscript = async (id: string, options?: RequestInit): Promise<TranscriptSegment[]> => {
+export const getMediaTranscript = async (id: string,
+    params?: GetMediaTranscriptParams, options?: RequestInit): Promise<TranscriptSegment[]> => {
 
-  return customFetch<TranscriptSegment[]>(getGetMediaTranscriptUrl(id),
+  return customFetch<TranscriptSegment[]>(getGetMediaTranscriptUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -632,23 +643,25 @@ export const getMediaTranscript = async (id: string, options?: RequestInit): Pro
 
 
 
-export const getGetMediaTranscriptQueryKey = (id: string,) => {
+export const getGetMediaTranscriptQueryKey = (id: string,
+    params?: GetMediaTranscriptParams,) => {
     return [
-    `/api/media/${id}/transcript`
+    `/api/media/${id}/transcript`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetMediaTranscriptQueryOptions = <TData = Awaited<ReturnType<typeof getMediaTranscript>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaTranscript>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetMediaTranscriptQueryOptions = <TData = Awaited<ReturnType<typeof getMediaTranscript>>, TError = ErrorType<unknown>>(id: string,
+    params?: GetMediaTranscriptParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaTranscript>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetMediaTranscriptQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetMediaTranscriptQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMediaTranscript>>> = ({ signal }) => getMediaTranscript(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMediaTranscript>>> = ({ signal }) => getMediaTranscript(id,params, { signal, ...requestOptions });
 
 
 
@@ -666,11 +679,12 @@ export type GetMediaTranscriptQueryError = ErrorType<unknown>
  */
 
 export function useGetMediaTranscript<TData = Awaited<ReturnType<typeof getMediaTranscript>>, TError = ErrorType<unknown>>(
- id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaTranscript>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: string,
+    params?: GetMediaTranscriptParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaTranscript>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetMediaTranscriptQueryOptions(id,options)
+  const queryOptions = getGetMediaTranscriptQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -682,6 +696,78 @@ export function useGetMediaTranscript<TData = Awaited<ReturnType<typeof getMedia
 
 
 
+
+export const getCreateTranslationUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/translate`
+}
+
+/**
+ * @summary Translate the transcript into a target language
+ */
+export const createTranslation = async (id: string,
+    translateRequest: TranslateRequest, options?: RequestInit): Promise<ProcessingJob> => {
+
+  return customFetch<ProcessingJob>(getCreateTranslationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(translateRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateTranslationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTranslation>>, TError,{id: string;data: BodyType<TranslateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTranslation>>, TError,{id: string;data: BodyType<TranslateRequest>}, TContext> => {
+
+const mutationKey = ['createTranslation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTranslation>>, {id: string;data: BodyType<TranslateRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createTranslation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTranslationMutationResult = NonNullable<Awaited<ReturnType<typeof createTranslation>>>
+    export type CreateTranslationMutationBody = BodyType<TranslateRequest>
+    export type CreateTranslationMutationError = ErrorType<void>
+
+    /**
+ * @summary Translate the transcript into a target language
+ */
+export const useCreateTranslation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTranslation>>, TError,{id: string;data: BodyType<TranslateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTranslation>>,
+        TError,
+        {id: string;data: BodyType<TranslateRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateTranslationMutationOptions(options));
+    }
 
 export const getGetMediaFacesUrl = (id: string,) => {
 

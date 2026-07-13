@@ -7,7 +7,8 @@ import {
   useListJobs, getListJobsQueryKey,
   useDeleteMedia, getListMediaQueryKey,
   useCreateHighlight,
-  useCreateSocialAnalysis
+  useCreateSocialAnalysis,
+  useCreateTranslation
 } from "@workspace/api-client-react";
 import type { SocialScore } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,7 +17,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AssetChat from "@/components/asset-chat";
 
 const PLATFORM_META: Record<string, { label: string; Icon: typeof Youtube; color: string }> = {
@@ -26,6 +28,21 @@ const PLATFORM_META: Record<string, { label: string; Icon: typeof Youtube; color
   facebook: { label: "Facebook", Icon: Facebook, color: "text-blue-500" },
   tiktok: { label: "TikTok", Icon: Music2, color: "text-cyan-400" },
 };
+
+const TRANSLATION_LANGUAGES: { code: string; label: string }[] = [
+  { code: "es", label: "Spanish" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "pt", label: "Portuguese" },
+  { code: "it", label: "Italian" },
+  { code: "nl", label: "Dutch" },
+  { code: "ru", label: "Russian" },
+  { code: "ja", label: "Japanese" },
+  { code: "ko", label: "Korean" },
+  { code: "zh", label: "Chinese" },
+  { code: "ar", label: "Arabic" },
+  { code: "hi", label: "Hindi" },
+];
 
 function scoreColor(score: number): string {
   if (score >= 70) return "text-green-500";
@@ -80,7 +97,10 @@ export default function AssetDetail() {
   });
 
   const { data: scenes } = useGetMediaScenes(id!, { query: { enabled: !!id, queryKey: getGetMediaScenesQueryKey(id!) } });
-  const { data: transcript } = useGetMediaTranscript(id!, { query: { enabled: !!id, queryKey: getGetMediaTranscriptQueryKey(id!) } });
+  const [transcriptLang, setTranscriptLang] = useState<string>("original");
+  const langAvailable = transcriptLang !== "original" && (asset?.translated_languages ?? []).includes(transcriptLang);
+  const transcriptParams = langAvailable ? { lang: transcriptLang } : undefined;
+  const { data: transcript } = useGetMediaTranscript(id!, transcriptParams, { query: { enabled: !!id, queryKey: getGetMediaTranscriptQueryKey(id!, transcriptParams) } });
   const { data: jobs } = useListJobs({ media_id: id! }, { query: { enabled: !!id, queryKey: getListJobsQueryKey({ media_id: id! }), refetchInterval: 3000 } });
 
   const highlightMutation = useCreateHighlight();
@@ -109,16 +129,31 @@ export default function AssetDetail() {
     });
   };
 
-  // When a highlight/social job finishes, refresh the asset so results appear.
+  const translateMutation = useCreateTranslation();
+  const translateJob = jobs?.find(j => j.job_type === "translate" && (j.status === "pending" || j.status === "running"));
+  const translateBusy = translateMutation.isPending || Boolean(translateJob);
+
+  const startTranslate = (lang: string) => {
+    if (!id) return;
+    translateMutation.mutate({ id, data: { target_language: lang } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
+      }
+    });
+  };
+
+  // When a highlight/social/translate job finishes, refresh the asset so results appear.
   const lastHighlightStatus = jobs?.filter(j => j.job_type === "highlight")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
   const lastSocialStatus = jobs?.filter(j => j.job_type === "social")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
+  const lastTranslateStatus = jobs?.filter(j => j.job_type === "translate")
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
   useEffect(() => {
-    if ((lastHighlightStatus === "success" || lastSocialStatus === "success") && id) {
+    if ((lastHighlightStatus === "success" || lastSocialStatus === "success" || lastTranslateStatus === "success") && id) {
       queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
     }
-  }, [lastHighlightStatus, lastSocialStatus, id, queryClient]);
+  }, [lastHighlightStatus, lastSocialStatus, lastTranslateStatus, id, queryClient]);
 
   useEffect(() => {
     if (timeParam && videoRef.current && asset?.status === 'ready') {
@@ -487,8 +522,48 @@ export default function AssetDetail() {
                 </TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent value="transcript" className="flex-1 overflow-hidden mt-0">
-              <ScrollArea className="h-full p-4">
+            <TabsContent value="transcript" className="flex-1 overflow-hidden mt-0 flex flex-col">
+              <div className="px-3 pt-3 shrink-0 flex items-center gap-2">
+                <Languages className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Select value={transcriptLang} onValueChange={setTranscriptLang}>
+                  <SelectTrigger className="h-8 text-xs flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="original">Original</SelectItem>
+                    {TRANSLATION_LANGUAGES.map(l => (
+                      <SelectItem key={l.code} value={l.code}>
+                        {l.label}{(asset?.translated_languages ?? []).includes(l.code) ? " ✓" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {transcriptLang !== "original" && !langAvailable ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
+                  <Languages className="h-8 w-8 text-muted-foreground" />
+                  <Button size="sm" className="gap-2" onClick={() => startTranslate(transcriptLang)} disabled={translateBusy}>
+                    {translateBusy ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Translating{translateJob?.progress ? ` — ${Math.round(translateJob.progress)}%` : "..."}
+                      </>
+                    ) : (
+                      <>
+                        <Languages className="h-4 w-4" />
+                        Translate to {TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label}
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Translates the full transcript locally on the GPU worker. Timecodes and speakers stay aligned.
+                  </p>
+                  {translateMutation.isError && (
+                    <p className="text-xs text-destructive">Failed to start translation. Check Pipeline Jobs.</p>
+                  )}
+                </div>
+              ) : (
+              <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
                   {transcript?.map(segment => (
                     <div 
@@ -508,6 +583,7 @@ export default function AssetDetail() {
                   )}
                 </div>
               </ScrollArea>
+              )}
             </TabsContent>
             <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
               <AssetChat key={id} mediaId={id!} onSeek={seekTo} />

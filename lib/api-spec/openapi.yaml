@@ -167,6 +167,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO language code — return translated text where available
       responses:
         "200":
           description: OK
@@ -176,6 +182,35 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TranscriptSegment"
+
+  /media/{id}/translate:
+    post:
+      operationId: createTranslation
+      tags: [media]
+      summary: Translate the transcript into a target language
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranslateRequest"
+      responses:
+        "202":
+          description: Translation job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+        "400":
+          description: No transcript available or unsupported language
+        "404":
+          description: Media not found
 
   /media/{id}/faces:
     get:
@@ -552,6 +587,14 @@ components:
       required: [status]
 
     # ── Media ────────────────────────────────────────────────────────────────
+    TranslateRequest:
+      type: object
+      required: [target_language]
+      properties:
+        target_language:
+          type: string
+          description: "ISO code: es | fr | de | pt | it | nl | ru | ja | ko | zh | ar | hi"
+
     SocialScore:
       type: object
       required: [platform, score]
@@ -625,6 +668,11 @@ components:
         highlight_url:
           type: ["string", "null"]
           description: Set when a generated highlight reel is available
+        translated_languages:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: ISO codes of languages the transcript has been translated into
         social_scores:
           type: ["array", "null"]
           description: Per-platform social media performance predictions

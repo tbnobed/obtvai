@@ -10,7 +10,7 @@ from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, Processi
 from ..schemas import (
     MediaAssetOut, MediaListResponse, MediaIngestInput,
     LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance,
-    ProcessingJobOut,
+    ProcessingJobOut, TranslateRequest,
 )
 from ..config import settings
 import redis.asyncio as aioredis
@@ -232,13 +232,20 @@ async def get_media_scenes(id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{id}/transcript", response_model=list[TranscriptSegmentOut])
-async def get_media_transcript(id: str, db: AsyncSession = Depends(get_db)):
+async def get_media_transcript(id: str, lang: str | None = None, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(TranscriptSegment)
         .where(TranscriptSegment.media_id == id)
         .order_by(TranscriptSegment.start_time)
     )
-    return [TranscriptSegmentOut.model_validate(s) for s in result.scalars().all()]
+    segments = result.scalars().all()
+    out = []
+    for s in segments:
+        seg = TranscriptSegmentOut.model_validate(s)
+        if lang and s.translations and s.translations.get(lang):
+            seg.text = s.translations[lang]
+        out.append(seg)
+    return out
 
 
 @router.get("/{id}/faces", response_model=list[FaceClusterOut])
@@ -351,6 +358,63 @@ async def create_social_analysis(id: str, db: AsyncSession = Depends(get_db)):
 
     from ..worker_client import enqueue_job
     await enqueue_job("social", id, job.id)
+
+    out = ProcessingJobOut.model_validate(job)
+    out.filename = asset.filename
+    return out
+
+
+SUPPORTED_TRANSLATION_LANGUAGES = {
+    "es", "fr", "de", "pt", "it", "nl", "ru", "ja", "ko", "zh", "ar", "hi",
+}
+
+
+@router.post("/{id}/translate", response_model=ProcessingJobOut, status_code=202)
+async def create_translation(id: str, body: TranslateRequest, db: AsyncSession = Depends(get_db)):
+    target = body.target_language.strip().lower()
+    if target not in SUPPORTED_TRANSLATION_LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported language '{target}'. Supported: {', '.join(sorted(SUPPORTED_TRANSLATION_LANGUAGES))}",
+        )
+
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    has_transcript = (
+        await db.execute(
+            select(func.count(TranscriptSegment.id)).where(TranscriptSegment.media_id == id)
+        )
+    ).scalar_one() > 0
+    if not has_transcript:
+        raise HTTPException(status_code=400, detail="No transcript available — process the media first")
+
+    existing = (
+        await db.execute(
+            select(ProcessingJob).where(
+                ProcessingJob.media_id == id,
+                ProcessingJob.job_type == "translate",
+                ProcessingJob.status.in_(("pending", "running")),
+            )
+        )
+    ).scalars().first()
+    if existing:
+        out = ProcessingJobOut.model_validate(existing)
+        out.filename = asset.filename
+        return out
+
+    job = ProcessingJob(
+        media_id=id, job_type="translate", status="pending",
+        logs=[f"Target language: {target}"],
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    from ..worker_client import enqueue_job
+    await enqueue_job("translate", id, job.id, extra={"target_language": target})
 
     out = ProcessingJobOut.model_validate(job)
     out.filename = asset.filename

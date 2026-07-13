@@ -28,6 +28,7 @@ class MediaAssetOut(BaseModel):
     speaker_count: Optional[int] = None
     highlight_url: Optional[str] = None
     social_scores: Optional[List[Any]] = None
+    translated_languages: Optional[List[str]] = None
     synopsis: Optional[str] = None
     key_moments: Optional[List[Any]] = None
     topics: Optional[List[str]] = None
@@ -35,6 +36,10 @@ class MediaAssetOut(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class TranslateRequest(BaseModel):
+    target_language: str
 
 
 class MediaListResponse(BaseModel):

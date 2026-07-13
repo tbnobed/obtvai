@@ -9,6 +9,11 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface TranslateRequest {
+  /** ISO code: es | fr | de | pt | it | nl | ru | ja | ko | zh | ar | hi */
+  target_language: string;
+}
+
 export interface SocialScore {
   /** youtube | instagram | x | facebook | tiktok */
   platform: string;
@@ -84,6 +89,11 @@ export interface MediaAsset {
      * @nullable
      */
   highlight_url?: string | null;
+  /**
+     * ISO codes of languages the transcript has been translated into
+     * @nullable
+     */
+  translated_languages?: string[] | null;
   /**
      * Per-platform social media performance predictions
      * @nullable
@@ -349,6 +359,13 @@ export type ListMediaParams = {
 status?: string;
 limit?: number;
 offset?: number;
+};
+
+export type GetMediaTranscriptParams = {
+/**
+ * ISO language code — return translated text where available
+ */
+lang?: string;
 };
 
 export type ListJobsParams = {

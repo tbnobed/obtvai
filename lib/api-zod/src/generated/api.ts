@@ -44,6 +44,7 @@ export const ListMediaResponse = zod.object({
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
+  "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),
@@ -94,6 +95,7 @@ export const IngestMediaResponse = zod.object({
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
+  "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),
@@ -142,6 +144,7 @@ export const UploadMediaResponse = zod.object({
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
+  "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),
@@ -189,6 +192,7 @@ export const GetMediaResponse = zod.object({
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
+  "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),
@@ -247,6 +251,10 @@ export const GetMediaTranscriptParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const GetMediaTranscriptQueryParams = zod.object({
+  "lang": zod.coerce.string().optional().describe('ISO language code — return translated text where available')
+})
+
 export const GetMediaTranscriptResponseItem = zod.object({
   "id": zod.string(),
   "media_id": zod.string(),
@@ -257,6 +265,33 @@ export const GetMediaTranscriptResponseItem = zod.object({
   "confidence": zod.number().nullish()
 })
 export const GetMediaTranscriptResponse = zod.array(GetMediaTranscriptResponseItem)
+
+
+/**
+ * @summary Translate the transcript into a target language
+ */
+export const CreateTranslationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateTranslationBody = zod.object({
+  "target_language": zod.string().describe('ISO code: es | fr | de | pt | it | nl | ru | ja | ko | zh | ar | hi')
+})
+
+export const CreateTranslationResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "filename": zod.string().nullish(),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "status": zod.string().describe('pending | running | success | error | cancelled'),
+  "progress": zod.number().nullish().describe('0-100'),
+  "error_message": zod.string().nullish(),
+  "logs": zod.array(zod.string()).optional(),
+  "retry_count": zod.number().optional(),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
 
 
 /**
@@ -351,6 +386,7 @@ export const GetLibraryStatsResponse = zod.object({
   "scene_count": zod.number().nullish(),
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
+  "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),

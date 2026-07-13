@@ -51,6 +51,11 @@ export interface MediaAsset {
      */
   highlight_url?: string | null;
   /**
+     * ISO codes of languages the transcript has been translated into
+     * @nullable
+     */
+  translated_languages?: string[] | null;
+  /**
      * Per-platform social media performance predictions
      * @nullable
      */
