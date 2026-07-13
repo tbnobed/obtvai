@@ -14,6 +14,11 @@ export interface TranslateRequest {
   target_language: string;
 }
 
+export interface DubRequest {
+  /** ISO code with MMS-TTS support: es | fr | de | pt | nl | ru | ko | ar | hi */
+  target_language: string;
+}
+
 export interface SocialScore {
   /** youtube | instagram | x | facebook | tiktok */
   platform: string;
@@ -94,6 +99,11 @@ export interface MediaAsset {
      * @nullable
      */
   translated_languages?: string[] | null;
+  /**
+     * ISO codes of languages with a generated dubbed audio track
+     * @nullable
+     */
+  dubbed_languages?: string[] | null;
   /**
      * Per-platform social media performance predictions
      * @nullable

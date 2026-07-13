@@ -43,6 +43,7 @@ const assets = [
     topics: ["urban planning", "affordable housing", "public transit", "local politics", "development"],
     highlight_url: null as string | null,
     translated_languages: ["es"] as string[] | null,
+    dubbed_languages: ["es"] as string[] | null,
     social_scores: [
       {
         platform: "youtube",
@@ -585,6 +586,83 @@ router.post("/media/:id/translate", (req, res) => {
     (asset as any).translated_languages = Array.from(langs);
   }, 8000);
   res.status(202).json(job);
+});
+
+const DUB_LANGS = ["es", "fr", "de", "pt", "nl", "ru", "ko", "ar", "hi"];
+
+router.post("/media/:id/dub", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ error: "Media not found" }); return; }
+  const lang = String(req.body?.target_language ?? "").trim().toLowerCase();
+  if (!DUB_LANGS.includes(lang)) {
+    res.status(400).json({ detail: `Dubbing not supported for '${lang}'. Supported: ${DUB_LANGS.join(", ")}` });
+    return;
+  }
+  if (!((asset as any).translated_languages ?? []).includes(lang)) {
+    res.status(400).json({ detail: `Transcript not translated to '${lang}' yet — run translation first` });
+    return;
+  }
+  const job = {
+    id: `job-dub-${Date.now()}`,
+    media_id: asset.id,
+    filename: asset.filename,
+    job_type: "dub",
+    status: "running",
+    progress: 10,
+    error_message: null as string | null,
+    logs: [`Target language: ${lang}`, `Loading TTS model: facebook/mms-tts-${lang}`],
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    finished_at: null as string | null,
+  };
+  jobs.unshift(job as any);
+  const timer = setInterval(() => {
+    job.progress = Math.min(90, (job.progress ?? 0) + 20);
+  }, 2000);
+  setTimeout(() => {
+    clearInterval(timer);
+    job.status = "success";
+    job.progress = 100;
+    job.finished_at = new Date().toISOString();
+    job.logs.push(`Dubbed audio track for '${lang}' complete`);
+    const langs = new Set((asset as any).dubbed_languages ?? []);
+    langs.add(lang);
+    (asset as any).dubbed_languages = Array.from(langs);
+  }, 8000);
+  res.status(202).json(job);
+});
+
+router.get("/media/:id/dub/:lang/stream", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  const lang = String(req.params.lang ?? "").toLowerCase();
+  if (!asset || !((asset as any).dubbed_languages ?? []).includes(lang)) {
+    res.status(404).json({ error: "No dubbed audio for this language" });
+    return;
+  }
+  // No real TTS in the mock environment — serve a silent WAV matching the
+  // asset duration so the player toggle can be exercised end-to-end.
+  const sampleRate = 8000;
+  const seconds = Math.min(Math.ceil((asset as any).duration_seconds ?? 60), 3600);
+  const dataSize = sampleRate * seconds * 2;
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + dataSize, 4);
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * 2, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(dataSize, 40);
+  res.setHeader("Content-Type", "audio/wav");
+  res.setHeader("Content-Length", String(44 + dataSize));
+  res.write(header);
+  res.end(Buffer.alloc(dataSize));
 });
 
 router.get("/media/:id/highlight/stream", (req, res) => {

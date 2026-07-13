@@ -19,6 +19,7 @@ export * from './clipListInputClipsItem';
 export * from './clipListUpdate';
 export * from './clipListUpdateClipsItem';
 export * from './conversation';
+export * from './dubRequest';
 export * from './faceCluster';
 export * from './faceClusterAppearancesItem';
 export * from './getMediaTranscriptParams';

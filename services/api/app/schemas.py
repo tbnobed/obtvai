@@ -29,6 +29,7 @@ class MediaAssetOut(BaseModel):
     highlight_url: Optional[str] = None
     social_scores: Optional[List[Any]] = None
     translated_languages: Optional[List[str]] = None
+    dubbed_languages: Optional[List[str]] = None
     synopsis: Optional[str] = None
     key_moments: Optional[List[Any]] = None
     topics: Optional[List[str]] = None
@@ -39,6 +40,10 @@ class MediaAssetOut(BaseModel):
 
 
 class TranslateRequest(BaseModel):
+    target_language: str
+
+
+class DubRequest(BaseModel):
     target_language: str
 
 

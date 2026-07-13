@@ -25,6 +25,7 @@ _COLUMN_MIGRATIONS = [
     ("media_assets", "highlight_url", "TEXT"),
     ("media_assets", "social_scores", "JSONB"),
     ("media_assets", "translated_languages", "JSONB"),
+    ("media_assets", "dubbed_languages", "JSONB"),
     ("transcript_segments", "translations", "JSONB"),
 ]
 

@@ -10,7 +10,7 @@ from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, Processi
 from ..schemas import (
     MediaAssetOut, MediaListResponse, MediaIngestInput,
     LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance,
-    ProcessingJobOut, TranslateRequest,
+    ProcessingJobOut, TranslateRequest, DubRequest,
 )
 from ..config import settings
 import redis.asyncio as aioredis
@@ -391,7 +391,8 @@ async def create_translation(id: str, body: TranslateRequest, db: AsyncSession =
     if not has_transcript:
         raise HTTPException(status_code=400, detail="No transcript available — process the media first")
 
-    existing = (
+    marker = f"Target language: {target}"
+    active = (
         await db.execute(
             select(ProcessingJob).where(
                 ProcessingJob.media_id == id,
@@ -399,7 +400,8 @@ async def create_translation(id: str, body: TranslateRequest, db: AsyncSession =
                 ProcessingJob.status.in_(("pending", "running")),
             )
         )
-    ).scalars().first()
+    ).scalars().all()
+    existing = next((j for j in active if marker in (j.logs or [])), None)
     if existing:
         out = ProcessingJobOut.model_validate(existing)
         out.filename = asset.filename
@@ -419,6 +421,85 @@ async def create_translation(id: str, body: TranslateRequest, db: AsyncSession =
     out = ProcessingJobOut.model_validate(job)
     out.filename = asset.filename
     return out
+
+
+# Languages with a facebook/mms-tts-* model (Italian, Japanese, Chinese have none).
+SUPPORTED_DUB_LANGUAGES = {
+    "es", "fr", "de", "pt", "nl", "ru", "ko", "ar", "hi",
+}
+
+
+@router.post("/{id}/dub", response_model=ProcessingJobOut, status_code=202)
+async def create_dub(id: str, body: DubRequest, db: AsyncSession = Depends(get_db)):
+    target = body.target_language.strip().lower()
+    if target not in SUPPORTED_DUB_LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Dubbing not supported for '{target}'. Supported: {', '.join(sorted(SUPPORTED_DUB_LANGUAGES))}",
+        )
+
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    if target not in (asset.translated_languages or []):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Transcript not translated to '{target}' yet — run translation first",
+        )
+
+    marker = f"Target language: {target}"
+    active = (
+        await db.execute(
+            select(ProcessingJob).where(
+                ProcessingJob.media_id == id,
+                ProcessingJob.job_type == "dub",
+                ProcessingJob.status.in_(("pending", "running")),
+            )
+        )
+    ).scalars().all()
+    existing = next((j for j in active if marker in (j.logs or [])), None)
+    if existing:
+        out = ProcessingJobOut.model_validate(existing)
+        out.filename = asset.filename
+        return out
+
+    job = ProcessingJob(
+        media_id=id, job_type="dub", status="pending",
+        logs=[f"Target language: {target}"],
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    from ..worker_client import enqueue_job
+    await enqueue_job("dub", id, job.id, extra={"target_language": target})
+
+    out = ProcessingJobOut.model_validate(job)
+    out.filename = asset.filename
+    return out
+
+
+@router.get("/{id}/dub/{lang}/stream")
+async def stream_dub(id: str, lang: str, db: AsyncSession = Depends(get_db)):
+    from fastapi.responses import FileResponse
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+    lang = lang.strip().lower()
+    if lang not in (asset.dubbed_languages or []):
+        raise HTTPException(status_code=404, detail="No dubbed audio for this language")
+    path = os.path.join(settings.artifacts_root, "dubs", f"{id}_{lang}.m4a")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Dubbed audio file missing")
+    return FileResponse(
+        path,
+        media_type="audio/mp4",
+        filename=f"dub_{lang}_{asset.filename.rsplit('.', 1)[0]}.m4a",
+        content_disposition_type="inline",
+    )
 
 
 @router.get("/{id}/highlight/stream")

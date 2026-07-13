@@ -29,6 +29,7 @@ import type {
   ClipListInput,
   ClipListUpdate,
   Conversation,
+  DubRequest,
   FaceCluster,
   GetMediaTranscriptParams,
   HealthStatus,
@@ -768,6 +769,160 @@ export const useCreateTranslation = <TError = ErrorType<void>,
       > => {
       return useMutation(getCreateTranslationMutationOptions(options));
     }
+
+export const getCreateDubUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/dub`
+}
+
+/**
+ * @summary Generate a dubbed audio track from the translated transcript
+ */
+export const createDub = async (id: string,
+    dubRequest: DubRequest, options?: RequestInit): Promise<ProcessingJob> => {
+
+  return customFetch<ProcessingJob>(getCreateDubUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dubRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateDubMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDub>>, TError,{id: string;data: BodyType<DubRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDub>>, TError,{id: string;data: BodyType<DubRequest>}, TContext> => {
+
+const mutationKey = ['createDub'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDub>>, {id: string;data: BodyType<DubRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createDub(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDubMutationResult = NonNullable<Awaited<ReturnType<typeof createDub>>>
+    export type CreateDubMutationBody = BodyType<DubRequest>
+    export type CreateDubMutationError = ErrorType<void>
+
+    /**
+ * @summary Generate a dubbed audio track from the translated transcript
+ */
+export const useCreateDub = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDub>>, TError,{id: string;data: BodyType<DubRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createDub>>,
+        TError,
+        {id: string;data: BodyType<DubRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateDubMutationOptions(options));
+    }
+
+export const getStreamDubUrl = (id: string,
+    lang: string,) => {
+
+
+
+
+  return `/api/media/${id}/dub/${lang}/stream`
+}
+
+/**
+ * @summary Stream the dubbed audio track for a language
+ */
+export const streamDub = async (id: string,
+    lang: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getStreamDubUrl(id,lang),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamDubQueryKey = (id: string,
+    lang: string,) => {
+    return [
+    `/api/media/${id}/dub/${lang}/stream`
+    ] as const;
+    }
+
+
+export const getStreamDubQueryOptions = <TData = Awaited<ReturnType<typeof streamDub>>, TError = ErrorType<void>>(id: string,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamDub>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamDubQueryKey(id,lang);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamDub>>> = ({ signal }) => streamDub(id,lang, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && lang !== null && lang !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamDub>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamDubQueryResult = NonNullable<Awaited<ReturnType<typeof streamDub>>>
+export type StreamDubQueryError = ErrorType<void>
+
+
+/**
+ * @summary Stream the dubbed audio track for a language
+ */
+
+export function useStreamDub<TData = Awaited<ReturnType<typeof streamDub>>, TError = ErrorType<void>>(
+ id: string,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamDub>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamDubQueryOptions(id,lang,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetMediaFacesUrl = (id: string,) => {
 

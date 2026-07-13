@@ -212,6 +212,62 @@ paths:
         "404":
           description: Media not found
 
+  /media/{id}/dub:
+    post:
+      operationId: createDub
+      tags: [media]
+      summary: Generate a dubbed audio track from the translated transcript
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DubRequest"
+      responses:
+        "202":
+          description: Dub job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+        "400":
+          description: Language not translated yet or dubbing unsupported for language
+        "404":
+          description: Media not found
+
+  /media/{id}/dub/{lang}/stream:
+    get:
+      operationId: streamDub
+      tags: [player]
+      summary: Stream the dubbed audio track for a language
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: lang
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dubbed audio (AAC in M4A container)
+          content:
+            audio/mp4:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No dubbed audio for this language
+
   /media/{id}/faces:
     get:
       operationId: getMediaFaces
@@ -595,6 +651,14 @@ components:
           type: string
           description: "ISO code: es | fr | de | pt | it | nl | ru | ja | ko | zh | ar | hi"
 
+    DubRequest:
+      type: object
+      required: [target_language]
+      properties:
+        target_language:
+          type: string
+          description: "ISO code with MMS-TTS support: es | fr | de | pt | nl | ru | ko | ar | hi"
+
     SocialScore:
       type: object
       required: [platform, score]
@@ -673,6 +737,11 @@ components:
           items:
             type: string
           description: ISO codes of languages the transcript has been translated into
+        dubbed_languages:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: ISO codes of languages with a generated dubbed audio track
         social_scores:
           type: ["array", "null"]
           description: Per-platform social media performance predictions

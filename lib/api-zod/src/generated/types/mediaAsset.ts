@@ -56,6 +56,11 @@ export interface MediaAsset {
      */
   translated_languages?: string[] | null;
   /**
+     * ISO codes of languages with a generated dubbed audio track
+     * @nullable
+     */
+  dubbed_languages?: string[] | null;
+  /**
      * Per-platform social media performance predictions
      * @nullable
      */

@@ -8,7 +8,8 @@ import {
   useDeleteMedia, getListMediaQueryKey,
   useCreateHighlight,
   useCreateSocialAnalysis,
-  useCreateTranslation
+  useCreateTranslation,
+  useCreateDub
 } from "@workspace/api-client-react";
 import type { SocialScore } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AssetChat from "@/components/asset-chat";
 
@@ -43,6 +44,9 @@ const TRANSLATION_LANGUAGES: { code: string; label: string }[] = [
   { code: "ar", label: "Arabic" },
   { code: "hi", label: "Hindi" },
 ];
+
+// Languages with a local MMS-TTS voice (Italian, Japanese, Chinese have none).
+const DUB_LANGUAGES = ["es", "fr", "de", "pt", "nl", "ru", "ko", "ar", "hi"];
 
 function scoreColor(score: number): string {
   if (score >= 70) return "text-green-500";
@@ -130,7 +134,7 @@ export default function AssetDetail() {
   };
 
   const translateMutation = useCreateTranslation();
-  const translateJob = jobs?.find(j => j.job_type === "translate" && (j.status === "pending" || j.status === "running"));
+  const translateJob = jobs?.find(j => j.job_type === "translate" && (j.status === "pending" || j.status === "running") && (j.logs ?? []).includes(`Target language: ${transcriptLang}`));
   const translateBusy = translateMutation.isPending || Boolean(translateJob);
 
   const startTranslate = (lang: string) => {
@@ -142,6 +146,62 @@ export default function AssetDetail() {
     });
   };
 
+  const dubMutation = useCreateDub();
+  const dubJob = jobs?.find(j => j.job_type === "dub" && (j.status === "pending" || j.status === "running") && (j.logs ?? []).includes(`Target language: ${transcriptLang}`));
+  const dubBusy = dubMutation.isPending || Boolean(dubJob);
+
+  const startDub = (lang: string) => {
+    if (!id) return;
+    dubMutation.mutate({ id, data: { target_language: lang } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
+      }
+    });
+  };
+
+  const dubSupported = DUB_LANGUAGES.includes(transcriptLang);
+  const dubAvailable = dubSupported && (asset?.dubbed_languages ?? []).includes(transcriptLang);
+  const [dubOn, setDubOn] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Turn dubbed audio off whenever it stops being applicable.
+  useEffect(() => {
+    if (!dubAvailable && dubOn) setDubOn(false);
+  }, [dubAvailable, dubOn]);
+
+  // Keep the dubbed audio track in lockstep with the video element.
+  useEffect(() => {
+    const video = videoRef.current;
+    const audio = audioRef.current;
+    if (!video || !audio || !dubOn) return;
+    video.muted = true;
+    const syncPlay = () => { audio.currentTime = video.currentTime; audio.play().catch(() => {}); };
+    const syncPause = () => audio.pause();
+    const syncSeek = () => { audio.currentTime = video.currentTime; };
+    const syncRate = () => { audio.playbackRate = video.playbackRate; };
+    const fixDrift = () => {
+      if (!video.paused && Math.abs(audio.currentTime - video.currentTime) > 0.35) {
+        audio.currentTime = video.currentTime;
+      }
+    };
+    video.addEventListener("play", syncPlay);
+    video.addEventListener("pause", syncPause);
+    video.addEventListener("seeked", syncSeek);
+    video.addEventListener("ratechange", syncRate);
+    video.addEventListener("timeupdate", fixDrift);
+    syncRate();
+    if (!video.paused) syncPlay();
+    return () => {
+      video.removeEventListener("play", syncPlay);
+      video.removeEventListener("pause", syncPause);
+      video.removeEventListener("seeked", syncSeek);
+      video.removeEventListener("ratechange", syncRate);
+      video.removeEventListener("timeupdate", fixDrift);
+      audio.pause();
+      video.muted = false;
+    };
+  }, [dubOn, transcriptLang, id]);
+
   // When a highlight/social/translate job finishes, refresh the asset so results appear.
   const lastHighlightStatus = jobs?.filter(j => j.job_type === "highlight")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
@@ -150,11 +210,14 @@ export default function AssetDetail() {
   const lastTranslateJob = jobs?.filter(j => j.job_type === "translate")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0];
   const lastTranslateStatus = lastTranslateJob?.status;
+  const lastDubJob = jobs?.filter(j => j.job_type === "dub")
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0];
+  const lastDubStatus = lastDubJob?.status;
   useEffect(() => {
-    if ((lastHighlightStatus === "success" || lastSocialStatus === "success" || lastTranslateStatus === "success") && id) {
+    if ((lastHighlightStatus === "success" || lastSocialStatus === "success" || lastTranslateStatus === "success" || lastDubStatus === "success") && id) {
       queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
     }
-  }, [lastHighlightStatus, lastSocialStatus, lastTranslateStatus, id, queryClient]);
+  }, [lastHighlightStatus, lastSocialStatus, lastTranslateStatus, lastDubStatus, id, queryClient]);
 
   useEffect(() => {
     if (timeParam && videoRef.current && asset?.status === 'ready') {
@@ -203,6 +266,17 @@ export default function AssetDetail() {
                 className="w-full max-h-[60vh] object-contain bg-black"
               />
             ) : (
+              undefined
+            )}
+            {asset.status === 'ready' && dubAvailable && (
+              <audio
+                ref={audioRef}
+                src={`/api/media/${id}/dub/${transcriptLang}/stream`}
+                preload="auto"
+                className="hidden"
+              />
+            )}
+            {asset.status !== 'ready' && (
               <div className="w-full h-64 bg-muted flex flex-col items-center justify-center">
                 <p className="text-muted-foreground mb-2">Media is {asset.status}</p>
                 {asset.processing_stage && (
@@ -540,6 +614,55 @@ export default function AssetDetail() {
                   </SelectContent>
                 </Select>
               </div>
+              {transcriptLang !== "original" && langAvailable && (
+                <div className="px-3 pt-2 shrink-0">
+                  {dubAvailable ? (
+                    <Button
+                      size="sm"
+                      variant={dubOn ? "default" : "outline"}
+                      className="w-full gap-2"
+                      onClick={() => setDubOn(v => !v)}
+                    >
+                      <Volume2 className="h-4 w-4" />
+                      {dubOn ? "Dubbed audio on — click to switch off" : "Play dubbed audio"}
+                    </Button>
+                  ) : dubSupported ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={() => startDub(transcriptLang)}
+                        disabled={dubBusy}
+                      >
+                        {dubBusy ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Generating dub{dubJob?.progress ? ` — ${Math.round(dubJob.progress)}%` : "..."}
+                          </>
+                        ) : (
+                          <>
+                            <AudioLines className="h-4 w-4" />
+                            Generate dubbed audio
+                          </>
+                        )}
+                      </Button>
+                      {dubMutation.isError && (
+                        <p className="text-xs text-destructive mt-1.5">Failed to start dubbing. Check Pipeline Jobs.</p>
+                      )}
+                      {!dubBusy && !dubMutation.isError && lastDubStatus === "error" && (
+                        <p className="text-xs text-destructive mt-1.5 break-words">
+                          Last dub failed{lastDubJob?.error_message ? `: ${lastDubJob.error_message}` : ""}. See Pipeline Jobs for details.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      Dubbed audio isn't available for this language — no local TTS voice exists for it.
+                    </p>
+                  )}
+                </div>
+              )}
               {transcriptLang !== "original" && !langAvailable ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
                   <Languages className="h-8 w-8 text-muted-foreground" />

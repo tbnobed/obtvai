@@ -45,6 +45,7 @@ export const ListMediaResponse = zod.object({
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
+  "dubbed_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages with a generated dubbed audio track'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),
@@ -96,6 +97,7 @@ export const IngestMediaResponse = zod.object({
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
+  "dubbed_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages with a generated dubbed audio track'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),
@@ -145,6 +147,7 @@ export const UploadMediaResponse = zod.object({
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
+  "dubbed_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages with a generated dubbed audio track'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),
@@ -193,6 +196,7 @@ export const GetMediaResponse = zod.object({
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
+  "dubbed_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages with a generated dubbed audio track'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),
@@ -295,6 +299,44 @@ export const CreateTranslationResponse = zod.object({
 
 
 /**
+ * @summary Generate a dubbed audio track from the translated transcript
+ */
+export const CreateDubParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateDubBody = zod.object({
+  "target_language": zod.string().describe('ISO code with MMS-TTS support: es | fr | de | pt | nl | ru | ko | ar | hi')
+})
+
+export const CreateDubResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "filename": zod.string().nullish(),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "status": zod.string().describe('pending | running | success | error | cancelled'),
+  "progress": zod.number().nullish().describe('0-100'),
+  "error_message": zod.string().nullish(),
+  "logs": zod.array(zod.string()).optional(),
+  "retry_count": zod.number().optional(),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Stream the dubbed audio track for a language
+ */
+export const StreamDubParams = zod.object({
+  "id": zod.coerce.string(),
+  "lang": zod.coerce.string()
+})
+
+export const StreamDubResponse = zod.unknown()
+
+
+/**
  * @summary Get detected face clusters for a media asset
  */
 export const GetMediaFacesParams = zod.object({
@@ -387,6 +429,7 @@ export const GetLibraryStatsResponse = zod.object({
   "speaker_count": zod.number().nullish(),
   "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
   "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
+  "dubbed_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages with a generated dubbed audio track'),
   "social_scores": zod.array(zod.object({
   "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
   "score": zod.number().describe('Predicted performance score, 0-100'),

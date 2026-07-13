@@ -32,6 +32,7 @@ class MediaAsset(Base):
     highlight_url: Mapped[str | None] = mapped_column(String, nullable=True)
     social_scores: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     translated_languages: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    dubbed_languages: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     synopsis: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_moments: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)
