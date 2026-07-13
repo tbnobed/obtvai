@@ -437,6 +437,10 @@ router.get("/search/history", (_req, res) => {
 });
 
 // ── Jobs ─────────────────────────────────────────────────────────────────────
+router.post("/people/reanalyze", (_req, res) => {
+  res.status(202).json({ assets_queued: 3, jobs_created: 6 });
+});
+
 router.post("/jobs/cleanup", (req, res) => {
   const requested: string[] = Array.isArray(req.body?.statuses) && req.body.statuses.length
     ? req.body.statuses

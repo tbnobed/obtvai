@@ -261,6 +261,13 @@ export interface PersonMergeRequest {
   source_person_id: string;
 }
 
+export interface ReanalyzeResult {
+  /** Number of media assets queued for re-analysis */
+  assets_queued: number;
+  /** Total diarize/face_detect jobs created */
+  jobs_created: number;
+}
+
 export interface InsightItem {
   title: string;
   detail: string;

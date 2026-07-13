@@ -434,6 +434,19 @@ paths:
         "404":
           description: Not found
 
+  /people/reanalyze:
+    post:
+      operationId: reanalyzePeople
+      tags: [people]
+      summary: Re-run diarization and face analysis across the library to backfill person identification
+      responses:
+        "202":
+          description: Jobs queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReanalyzeResult"
+
   # ── Insights ───────────────────────────────────────────────────────────────
   /insights:
     get:
@@ -1114,6 +1127,17 @@ components:
         source_person_id:
           type: string
           description: Person to merge into the target; the source is deleted
+
+    ReanalyzeResult:
+      type: object
+      required: [assets_queued, jobs_created]
+      properties:
+        assets_queued:
+          type: integer
+          description: Number of media assets queued for re-analysis
+        jobs_created:
+          type: integer
+          description: Total diarize/face_detect jobs created
 
     # ── Insights ──────────────────────────────────────────────────────────────
     InsightItem:

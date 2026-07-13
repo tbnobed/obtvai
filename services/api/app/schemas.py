@@ -295,6 +295,11 @@ class PersonMergeIn(BaseModel):
     source_person_id: str
 
 
+class ReanalyzeOut(BaseModel):
+    assets_queued: int
+    jobs_created: int
+
+
 # ── Insights ──────────────────────────────────────────────────────────────────
 
 class InsightItemOut(BaseModel):

@@ -562,6 +562,15 @@ export const MergePersonResponse = zod.object({
 
 
 /**
+ * @summary Re-run diarization and face analysis across the library to backfill person identification
+ */
+export const ReanalyzePeopleResponse = zod.object({
+  "assets_queued": zod.number().describe('Number of media assets queued for re-analysis'),
+  "jobs_created": zod.number().describe('Total diarize\/face_detect jobs created')
+})
+
+
+/**
  * @summary Library-wide aggregates plus the latest AI-generated narrative
  */
 export const GetLibraryInsightsResponse = zod.object({

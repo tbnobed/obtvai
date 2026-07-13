@@ -48,6 +48,7 @@ import type {
   PersonMergeRequest,
   PersonUpdate,
   ProcessingJob,
+  ReanalyzeResult,
   Scene,
   SearchHistoryItem,
   SearchQuery,
@@ -1523,6 +1524,77 @@ export const useMergePerson = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getMergePersonMutationOptions(options));
+    }
+
+export const getReanalyzePeopleUrl = () => {
+
+
+
+
+  return `/api/people/reanalyze`
+}
+
+/**
+ * @summary Re-run diarization and face analysis across the library to backfill person identification
+ */
+export const reanalyzePeople = async ( options?: RequestInit): Promise<ReanalyzeResult> => {
+
+  return customFetch<ReanalyzeResult>(getReanalyzePeopleUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReanalyzePeopleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reanalyzePeople>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reanalyzePeople>>, TError,void, TContext> => {
+
+const mutationKey = ['reanalyzePeople'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reanalyzePeople>>, void> = () => {
+
+
+          return  reanalyzePeople(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReanalyzePeopleMutationResult = NonNullable<Awaited<ReturnType<typeof reanalyzePeople>>>
+
+    export type ReanalyzePeopleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Re-run diarization and face analysis across the library to backfill person identification
+ */
+export const useReanalyzePeople = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reanalyzePeople>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reanalyzePeople>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getReanalyzePeopleMutationOptions(options));
     }
 
 export const getGetLibraryInsightsUrl = () => {

@@ -1,7 +1,10 @@
-import { useListPeople } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useListPeople, useReanalyzePeople, getListPeopleQueryKey } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Users, User, Mic, Film } from "lucide-react";
+import { Users, User, Mic, Film, ScanFace } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useQueryClient } from "@tanstack/react-query";
 
 function formatSpeaking(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -11,17 +14,52 @@ function formatSpeaking(seconds: number) {
 
 export default function People() {
   const { data, isLoading } = useListPeople();
+  const reanalyzeMutation = useReanalyzePeople();
+  const queryClient = useQueryClient();
+  const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
+
+  const handleReanalyze = () => {
+    reanalyzeMutation.mutate(undefined, {
+      onSuccess: (result) => {
+        setQueuedMessage(
+          result.assets_queued > 0
+            ? `Queued ${result.jobs_created} analysis jobs across ${result.assets_queued} assets — people will appear as processing completes.`
+            : "Nothing to re-analyze — all assets are already queued or processing."
+        );
+        queryClient.invalidateQueries({ queryKey: getListPeopleQueryKey() });
+      },
+      onError: () => setQueuedMessage("Re-analysis request failed — check the API server."),
+    });
+  };
 
   return (
     <div className="flex-1 p-8 overflow-y-auto flex flex-col">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
         <h1 className="text-3xl font-bold tracking-tight">People</h1>
-        {data?.length ? (
-          <p className="text-sm text-muted-foreground">
-            {data.length} {data.length === 1 ? "person" : "people"} identified across the library
-          </p>
-        ) : null}
+        <div className="flex items-center gap-4">
+          {data?.length ? (
+            <p className="text-sm text-muted-foreground">
+              {data.length} {data.length === 1 ? "person" : "people"} identified across the library
+            </p>
+          ) : null}
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={handleReanalyze}
+            disabled={reanalyzeMutation.isPending}
+          >
+            <ScanFace className="h-4 w-4" />
+            {reanalyzeMutation.isPending ? "Queuing..." : "Re-analyze Library"}
+          </Button>
+        </div>
       </div>
+
+      {queuedMessage && (
+        <div className="mb-6 px-4 py-3 rounded-md border border-border bg-card text-sm text-muted-foreground">
+          {queuedMessage}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -84,7 +122,12 @@ export default function People() {
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
           <Users className="h-12 w-12 mb-4 opacity-50" />
           <p>No people identified yet.</p>
-          <p className="text-xs mt-1">People appear here automatically as media is transcribed and analyzed.</p>
+          <p className="text-xs mt-1 mb-4">People appear here automatically as media is transcribed and analyzed.</p>
+          <p className="text-xs max-w-md text-center">
+            Already have processed media? It was analyzed before person identification existed —
+            use <span className="text-foreground font-medium">Re-analyze Library</span> above to
+            backfill voice and face profiles for existing assets.
+          </p>
         </div>
       )}
     </div>

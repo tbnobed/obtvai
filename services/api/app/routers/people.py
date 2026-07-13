@@ -9,6 +9,7 @@ from ..schemas import (
     PersonAppearanceOut,
     PersonUpdateIn,
     PersonMergeIn,
+    ReanalyzeOut,
 )
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -66,6 +67,62 @@ async def list_people(db: AsyncSession = Depends(get_db)):
         )
     ).all()
     return [_person_out(p, a or 0, s or 0, g or 0) for p, a, s, g in rows]
+
+
+@router.post("/reanalyze", response_model=ReanalyzeOut, status_code=202)
+async def reanalyze_people(db: AsyncSession = Depends(get_db)):
+    """Backfill person identification for media processed before the People
+    system existed: re-runs diarization (voice embeddings) and face analysis
+    (face cluster embeddings) on every ready asset, which chain into identify."""
+    from sqlalchemy import text
+    from ..models import ProcessingJob
+    from .jobs import prune_finished_jobs
+    from ..worker_client import enqueue_job
+
+    # Serialize concurrent reanalyze requests: the lock is held until this
+    # transaction commits, so a second caller waits and then sees the pending
+    # jobs the first one created (its active-job check skips those assets).
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_reanalyze'))"))
+
+    assets = (
+        await db.execute(select(MediaAsset.id).where(MediaAsset.status == "ready"))
+    ).scalars().all()
+
+    assets_queued = 0
+    jobs_created = 0
+    pending: list[tuple[str, str, str]] = []
+
+    for media_id in assets:
+        active = (
+            await db.execute(
+                select(ProcessingJob.id).where(
+                    ProcessingJob.media_id == media_id,
+                    ProcessingJob.job_type.in_(("diarize", "face_detect", "identify")),
+                    ProcessingJob.status.in_(("pending", "running")),
+                )
+            )
+        ).scalars().first()
+        if active:
+            continue
+
+        queued_any = False
+        for job_type in ("diarize", "face_detect"):
+            await prune_finished_jobs(db, media_id, job_type)
+            job = ProcessingJob(media_id=media_id, job_type=job_type, status="pending", logs=[])
+            db.add(job)
+            await db.flush()
+            pending.append((job_type, media_id, job.id))
+            jobs_created += 1
+            queued_any = True
+        if queued_any:
+            assets_queued += 1
+
+    await db.commit()
+
+    for job_type, media_id, job_id in pending:
+        await enqueue_job(job_type, media_id, job_id)
+
+    return ReanalyzeOut(assets_queued=assets_queued, jobs_created=jobs_created)
 
 
 async def _get_person_with_stats(id: str, db: AsyncSession):

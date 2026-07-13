@@ -44,6 +44,7 @@ export * from './personDetail';
 export * from './personMergeRequest';
 export * from './personUpdate';
 export * from './processingJob';
+export * from './reanalyzeResult';
 export * from './scene';
 export * from './searchHistoryItem';
 export * from './searchQuery';
