@@ -48,6 +48,7 @@ import type {
   Person,
   PersonDetail,
   PersonMergeRequest,
+  PersonSplitRequest,
   PersonUpdate,
   ProcessingJob,
   ReanalyzeResult,
@@ -1533,6 +1534,78 @@ export const useMergePerson = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getMergePersonMutationOptions(options));
+    }
+
+export const getSplitPersonUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/split`
+}
+
+/**
+ * @summary Split one appearance out of a person into a new person (undo a bad merge or identification)
+ */
+export const splitPerson = async (id: string,
+    personSplitRequest: PersonSplitRequest, options?: RequestInit): Promise<Person> => {
+
+  return customFetch<Person>(getSplitPersonUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(personSplitRequest)
+  }
+);}
+
+
+
+
+
+export const getSplitPersonMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof splitPerson>>, TError,{id: string;data: BodyType<PersonSplitRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof splitPerson>>, TError,{id: string;data: BodyType<PersonSplitRequest>}, TContext> => {
+
+const mutationKey = ['splitPerson'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof splitPerson>>, {id: string;data: BodyType<PersonSplitRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  splitPerson(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SplitPersonMutationResult = NonNullable<Awaited<ReturnType<typeof splitPerson>>>
+    export type SplitPersonMutationBody = BodyType<PersonSplitRequest>
+    export type SplitPersonMutationError = ErrorType<void>
+
+    /**
+ * @summary Split one appearance out of a person into a new person (undo a bad merge or identification)
+ */
+export const useSplitPerson = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof splitPerson>>, TError,{id: string;data: BodyType<PersonSplitRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof splitPerson>>,
+        TError,
+        {id: string;data: BodyType<PersonSplitRequest>},
+        TContext
+      > => {
+      return useMutation(getSplitPersonMutationOptions(options));
     }
 
 export const getReanalyzePeopleUrl = () => {

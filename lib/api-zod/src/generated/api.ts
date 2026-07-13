@@ -577,6 +577,34 @@ export const MergePersonResponse = zod.object({
 
 
 /**
+ * @summary Split one appearance out of a person into a new person (undo a bad merge or identification)
+ */
+export const SplitPersonParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SplitPersonBody = zod.object({
+  "media_id": zod.string().describe('Media asset of the appearance to split out'),
+  "speaker_label": zod.string().nullish().describe('Diarized speaker label of the appearance (when voice-based)'),
+  "face_cluster_id": zod.string().nullish().describe('Face cluster of the appearance (when face-based)')
+})
+
+export const SplitPersonResponse = zod.object({
+  "id": zod.string(),
+  "display_name": zod.string(),
+  "name_source": zod.string().nullish().describe('auto (LLM-extracted from transcripts) | manual | null (unnamed)'),
+  "thumbnail_url": zod.string().nullish(),
+  "speech_style": zod.string().nullish().describe('AI summary of how this person speaks'),
+  "key_topics": zod.array(zod.string()).optional(),
+  "summary": zod.string().nullish().describe('AI bio of who this person appears to be'),
+  "asset_count": zod.number(),
+  "total_speaking_seconds": zod.number(),
+  "segment_count": zod.number(),
+  "updated_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Re-run diarization and face analysis across the library to backfill person identification
  */
 export const ReanalyzePeopleResponse = zod.object({

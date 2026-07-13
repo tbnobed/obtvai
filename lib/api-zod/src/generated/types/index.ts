@@ -44,6 +44,7 @@ export * from './person';
 export * from './personAppearance';
 export * from './personDetail';
 export * from './personMergeRequest';
+export * from './personSplitRequest';
 export * from './personUpdate';
 export * from './processingJob';
 export * from './reanalyzeResult';

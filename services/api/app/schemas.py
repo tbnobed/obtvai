@@ -295,6 +295,12 @@ class PersonMergeIn(BaseModel):
     source_person_id: str
 
 
+class PersonSplitIn(BaseModel):
+    media_id: str
+    speaker_label: str | None = None
+    face_cluster_id: str | None = None
+
+
 class ReanalyzeOut(BaseModel):
     assets_queued: int
     jobs_created: int

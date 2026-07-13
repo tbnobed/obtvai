@@ -448,6 +448,35 @@ paths:
         "404":
           description: Not found
 
+  /people/{id}/split:
+    post:
+      operationId: splitPerson
+      tags: [people]
+      summary: Split one appearance out of a person into a new person (undo a bad merge or identification)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonSplitRequest"
+      responses:
+        "200":
+          description: New person created from the split-out appearance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "404":
+          description: Not found
+        "409":
+          description: Cannot split the person's only appearance
+
   /people/reanalyze:
     post:
       operationId: reanalyzePeople
@@ -1141,6 +1170,22 @@ components:
         source_person_id:
           type: string
           description: Person to merge into the target; the source is deleted
+
+    PersonSplitRequest:
+      type: object
+      required: [media_id]
+      properties:
+        media_id:
+          type: string
+          description: Media asset of the appearance to split out
+        speaker_label:
+          type: string
+          nullable: true
+          description: Diarized speaker label of the appearance (when voice-based)
+        face_cluster_id:
+          type: string
+          nullable: true
+          description: Face cluster of the appearance (when face-based)
 
     PeoplePage:
       type: object

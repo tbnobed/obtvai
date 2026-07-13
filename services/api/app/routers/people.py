@@ -9,6 +9,7 @@ from ..schemas import (
     PersonAppearanceOut,
     PersonUpdateIn,
     PersonMergeIn,
+    PersonSplitIn,
     ReanalyzeOut,
     PeoplePageOut,
 )
@@ -214,6 +215,83 @@ async def update_person(id: str, body: PersonUpdateIn, db: AsyncSession = Depend
     await db.commit()
     await db.refresh(person)
     return _person_out(person, assets or 0, speaking or 0, segments or 0)
+
+
+@router.post("/{id}/split", response_model=PersonOut)
+async def split_person(id: str, body: PersonSplitIn, db: AsyncSession = Depends(get_db)):
+    """Move one appearance out of a person into a brand-new person — the
+    undo for a bad merge or a wrong automatic identification."""
+    from sqlalchemy import text
+    from ..models import FaceCluster, MediaAsset as MA
+
+    # Same lock the identify worker holds, so a split can't interleave with
+    # an in-flight identification pass.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_identify'))"))
+
+    person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    q = select(PersonAppearance).where(
+        PersonAppearance.person_id == id,
+        PersonAppearance.media_id == body.media_id,
+    )
+    if body.speaker_label is not None:
+        q = q.where(PersonAppearance.speaker_label == body.speaker_label)
+    if body.face_cluster_id is not None:
+        q = q.where(PersonAppearance.face_cluster_id == body.face_cluster_id)
+    appearance = (await db.execute(q)).scalars().first()
+    if not appearance:
+        raise HTTPException(status_code=404, detail="Appearance not found on this person")
+
+    total_apps = (
+        await db.execute(
+            select(func.count(PersonAppearance.id)).where(PersonAppearance.person_id == id)
+        )
+    ).scalar_one()
+    if total_apps <= 1:
+        raise HTTPException(
+            status_code=409,
+            detail="This is the person's only appearance — rename this person instead of splitting",
+        )
+
+    # Rebuild identity signals for the new person from the source asset itself
+    # (NOT from the old person's blended embeddings, which caused the bad merge).
+    voice_emb = None
+    if appearance.speaker_label:
+        asset = (
+            await db.execute(select(MA).where(MA.id == body.media_id))
+        ).scalar_one_or_none()
+        if asset and asset.speaker_embeddings:
+            voice_emb = asset.speaker_embeddings.get(appearance.speaker_label)
+
+    face_emb = None
+    thumb = None
+    if appearance.face_cluster_id:
+        cluster = (
+            await db.execute(
+                select(FaceCluster).where(FaceCluster.cluster_id == appearance.face_cluster_id)
+            )
+        ).scalar_one_or_none()
+        if cluster:
+            face_emb = cluster.embedding
+            thumb = cluster.thumbnail_url
+
+    count = (await db.execute(select(func.count(Person.id)))).scalar_one()
+    new_person = Person(
+        display_name=f"Person {int(count or 0) + 1}",
+        name_source=None,
+        thumbnail_url=thumb,
+        voice_embedding=voice_emb,
+        face_embedding=face_emb,
+    )
+    db.add(new_person)
+    await db.flush()
+    appearance.person_id = new_person.id
+    await db.commit()
+
+    person_row, assets, speaking, segments = await _get_person_with_stats(new_person.id, db)
+    return _person_out(person_row, assets or 0, speaking or 0, segments or 0)
 
 
 @router.post("/{id}/merge", response_model=PersonOut)

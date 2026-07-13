@@ -958,6 +958,47 @@ router.post("/people/:id/merge", (req, res) => {
   res.json(target);
 });
 
+router.post("/people/:id/split", (req, res) => {
+  const source = people.find((x) => x.id === req.params.id);
+  if (!source) { res.status(404).json({ error: "Not found" }); return; }
+  const mediaId = String(req.body?.media_id ?? "");
+  const speakerLabel = req.body?.speaker_label ?? null;
+  const faceClusterId = req.body?.face_cluster_id ?? null;
+  const apps = personAppearances[source.id] ?? [];
+  const idx = apps.findIndex(
+    (a: any) =>
+      a.media_id === mediaId &&
+      (speakerLabel == null || a.speaker_label === speakerLabel) &&
+      (faceClusterId == null || a.face_cluster_id === faceClusterId)
+  );
+  if (idx < 0) { res.status(404).json({ error: "Appearance not found on this person" }); return; }
+  if (apps.length <= 1) {
+    res.status(409).json({ error: "This is the person's only appearance — rename this person instead of splitting" });
+    return;
+  }
+  const [app] = apps.splice(idx, 1);
+  const newPerson = {
+    id: `person-${Date.now()}`,
+    display_name: `Person ${people.length + 1}`,
+    name_source: null as string | null,
+    thumbnail_url: app.thumbnail_url ?? null,
+    speech_style: null as string | null,
+    key_topics: [] as string[],
+    summary: null as string | null,
+    asset_count: 1,
+    total_speaking_seconds: app.speaking_seconds ?? 0,
+    segment_count: app.segment_count ?? 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  people.push(newPerson as any);
+  personAppearances[newPerson.id] = [app];
+  source.asset_count = Math.max(0, source.asset_count - 1);
+  source.total_speaking_seconds = Math.max(0, source.total_speaking_seconds - (app.speaking_seconds ?? 0));
+  source.segment_count = Math.max(0, source.segment_count - (app.segment_count ?? 0));
+  res.json(newPerson);
+});
+
 router.get("/insights", (_req, res) => {
   res.json({
     generated_at: libraryInsights.generated_at,

@@ -6,6 +6,7 @@ import {
   getListPeopleQueryKey,
   useUpdatePerson,
   useMergePerson,
+  useSplitPerson,
   useListPeople,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,7 +20,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote } from "lucide-react";
+import { ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors } from "lucide-react";
+import { useLocation } from "wouter";
 
 function formatDuration(seconds: number | null | undefined) {
   if (!seconds) return "—";
@@ -48,6 +50,8 @@ export default function PersonDetail() {
 
   const updatePerson = useUpdatePerson();
   const mergePerson = useMergePerson();
+  const splitPerson = useSplitPerson();
+  const [, navigate] = useLocation();
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -69,6 +73,42 @@ export default function PersonDetail() {
           setRenameOpen(false);
           setNewName("");
           invalidate();
+        },
+      }
+    );
+  };
+
+  const handleSplit = (
+    e: React.MouseEvent,
+    a: { media_id: string; speaker_label?: string | null; face_cluster_id?: string | null }
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (splitPerson.isPending) return;
+    if (
+      !window.confirm(
+        "Split this appearance out into a new, separate person? Use this to undo a merge that combined two different people."
+      )
+    )
+      return;
+    splitPerson.mutate(
+      {
+        id,
+        data: {
+          media_id: a.media_id,
+          speaker_label: a.speaker_label ?? null,
+          face_cluster_id: a.face_cluster_id ?? null,
+        },
+      },
+      {
+        onSuccess: (newPerson) => {
+          invalidate();
+          navigate(`/people/${newPerson.id}`);
+        },
+        onError: (err: unknown) => {
+          const detail =
+            (err as { response?: { data?: { detail?: string; error?: string } } })?.response?.data;
+          window.alert(detail?.detail || detail?.error || "Split failed");
         },
       }
     );
@@ -248,11 +288,14 @@ export default function PersonDetail() {
       {person.appearances?.length ? (
         <div className="space-y-2">
           {person.appearances.map((a) => (
-            <Link
-              key={`${a.media_id}-${a.speaker_label ?? ""}`}
-              href={`/library/${a.media_id}${a.first_spoken_at != null ? `?t=${Math.floor(a.first_spoken_at)}` : ""}`}
+            <div
+              key={`${a.media_id}-${a.speaker_label ?? ""}-${a.face_cluster_id ?? ""}`}
+              className="border border-border bg-card rounded-md p-4 flex items-center gap-4 hover:border-primary transition-colors"
             >
-              <div className="border border-border bg-card rounded-md p-4 flex items-center gap-4 cursor-pointer hover:border-primary transition-colors mb-2">
+              <Link
+                href={`/library/${a.media_id}${a.first_spoken_at != null ? `?t=${Math.floor(a.first_spoken_at)}` : ""}`}
+                className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+              >
                 <div className="w-24 h-14 bg-muted rounded flex-shrink-0 overflow-hidden">
                   {a.thumbnail_url ? (
                     <img src={`/api/thumbnails/${a.thumbnail_url}`} alt={a.filename} className="w-full h-full object-cover" />
@@ -273,8 +316,21 @@ export default function PersonDetail() {
                 <span className="text-xs text-muted-foreground flex-shrink-0">
                   {formatDuration(a.duration_seconds)}
                 </span>
-              </div>
-            </Link>
+              </Link>
+              {(person.appearances?.length ?? 0) > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                  disabled={splitPerson.isPending}
+                  onClick={(e) => handleSplit(e, a)}
+                  title="Split this appearance into a new person (undo a bad merge)"
+                >
+                  <Scissors className="h-3.5 w-3.5" />
+                  Split out
+                </Button>
+              )}
+            </div>
           ))}
         </div>
       ) : (

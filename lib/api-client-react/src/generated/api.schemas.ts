@@ -261,6 +261,15 @@ export interface PersonMergeRequest {
   source_person_id: string;
 }
 
+export interface PersonSplitRequest {
+  /** Media asset of the appearance to split out */
+  media_id: string;
+  /** Diarized speaker label of the appearance (when voice-based) */
+  speaker_label?: string | null;
+  /** Face cluster of the appearance (when face-based) */
+  face_cluster_id?: string | null;
+}
+
 export interface PeoplePage {
   items: Person[];
   /** Total number of people in the library */
