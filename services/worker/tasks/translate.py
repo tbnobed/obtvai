@@ -31,10 +31,17 @@ def _load_translator():
     global _translator
     if _translator is None:
         import torch
+        from huggingface_hub import snapshot_download
         from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-        tokenizer = AutoTokenizer.from_pretrained(TRANSLATE_MODEL, src_lang="eng_Latn")
+        # Download first via snapshot_download (thread-based, safe inside Celery's
+        # daemonized prefork workers), then load from the local path. Loading a hub
+        # repo id directly makes transformers spawn a safetensors auto-conversion
+        # subprocess for legacy .bin checkpoints, which daemonic workers can't do
+        # ("daemonic processes are not allowed to have children").
+        local_dir = snapshot_download(TRANSLATE_MODEL)
+        tokenizer = AutoTokenizer.from_pretrained(local_dir, src_lang="eng_Latn")
         model = AutoModelForSeq2SeqLM.from_pretrained(
-            TRANSLATE_MODEL,
+            local_dir,
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
         )
         if torch.cuda.is_available():

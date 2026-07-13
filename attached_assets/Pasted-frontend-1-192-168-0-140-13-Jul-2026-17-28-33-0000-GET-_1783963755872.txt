@@ -1,0 +1,60 @@
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:33 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 8508 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     127.0.0.1:49312 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:53366 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:37 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 8508 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:34104 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:40 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 8508 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:34110 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:43 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 8508 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     127.0.0.1:56630 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:34120 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:46 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 8508 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:34126 - "POST /api/media/d81a394f-13b2-4add-83e8-d180aa977f24/translate HTTP/1.1" 202 Accepted
+worker-gpu-1  | [2026-07-13 17:28:46,890: INFO/MainProcess] Task tasks.translate.translate_transcript[0a8702c3-d469-495f-8ea5-f2ed15c9d841] received
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:46 +0000] "POST /api/media/d81a394f-13b2-4add-83e8-d180aa977f24/translate HTTP/1.1" 202 353 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:34132 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:46 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 8885 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:34142 - "GET /api/media/d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:46 +0000] "GET /api/media/d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 7078 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+worker-gpu-1  | [2026-07-13 17:28:47,693: ERROR/ForkPoolWorker-1] Task tasks.translate.translate_transcript[0a8702c3-d469-495f-8ea5-f2ed15c9d841] raised unexpected: OSError("Can't load the model for 'facebook/nllb-200-distilled-600M'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'facebook/nllb-200-distilled-600M' is the correct path to a directory containing a file named pytorch_model.bin, tf_model.h5, model.ckpt or flax_model.msgpack.")
+worker-gpu-1  | Traceback (most recent call last):
+worker-gpu-1  |   File "/usr/local/lib/python3.10/dist-packages/transformers/modeling_utils.py", line 3897, in from_pretrained
+worker-gpu-1  |     ).start()
+worker-gpu-1  |   File "/usr/lib/python3.10/multiprocessing/process.py", line 118, in start
+worker-gpu-1  |     assert not _current_process._config.get('daemon'), \
+worker-gpu-1  | AssertionError: daemonic processes are not allowed to have children
+worker-gpu-1  |
+worker-gpu-1  | The above exception was the direct cause of the following exception:
+worker-gpu-1  |
+worker-gpu-1  | Traceback (most recent call last):
+worker-gpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 453, in trace_task
+worker-gpu-1  |     R = retval = fun(*args, **kwargs)
+worker-gpu-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+worker-gpu-1  |     return self.run(*args, **kwargs)
+worker-gpu-1  |   File "/worker/tasks/translate.py", line 89, in translate_transcript
+worker-gpu-1  |     tokenizer, model = _load_translator()
+worker-gpu-1  |   File "/worker/tasks/translate.py", line 36, in _load_translator
+worker-gpu-1  |     model = AutoModelForSeq2SeqLM.from_pretrained(
+worker-gpu-1  |   File "/usr/local/lib/python3.10/dist-packages/transformers/models/auto/auto_factory.py", line 564, in from_pretrained
+worker-gpu-1  |     return model_class.from_pretrained(
+worker-gpu-1  |   File "/usr/local/lib/python3.10/dist-packages/transformers/modeling_utils.py", line 3941, in from_pretrained
+worker-gpu-1  |     raise EnvironmentError(
+worker-gpu-1  | OSError: Can't load the model for 'facebook/nllb-200-distilled-600M'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'facebook/nllb-200-distilled-600M' is the correct path to a directory containing a file named pytorch_model.bin, tf_model.h5, model.ckpt or flax_model.msgpack.
+api-1         | INFO:     172.18.0.10:50402 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:49 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 9339 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:50418 - "GET /api/media/d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:49 +0000] "GET /api/media/d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 7078 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:50430 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:52 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 9339 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     127.0.0.1:41372 - "GET /api/healthz HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:55 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 9339 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:50432 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:52976 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:28:59 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 9339 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:52980 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:29:02 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 9339 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     127.0.0.1:59022 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:52986 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:29:05 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 9339 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:52996 - "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:17:29:08 +0000] "GET /api/jobs?media_id=d81a394f-13b2-4add-83e8-d180aa977f24 HTTP/1.1" 200 9339 "http://192.168.201.166:5000/library/d81a394f-13b2-4add-83e8-d180aa977f24" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"

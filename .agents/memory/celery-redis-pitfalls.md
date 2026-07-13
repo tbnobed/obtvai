@@ -26,6 +26,11 @@ Docker worker containers must mount a named volume at `/root/.cache` (HF hub, to
 **Why:** container filesystems are recreated on rebuild; only named volumes survive. Bit us when Qwen 7B (~15 GB) re-downloaded after every worker rebuild.
 **How to apply:** declare `models_cache:` in top-level volumes and mount `models_cache:/root/.cache` in EVERY service that loads models — workers AND the api container (the api lazy-loads the Q&A LLM + embedding model; without the mount, the first /ai/ask after a rebuild hangs for minutes re-downloading shards).
 
+# HF from_pretrained spawns subprocesses — forbidden in prefork workers
+Loading a hub repo id directly via `from_pretrained` can crash Celery prefork tasks with "daemonic processes are not allowed to have children" (surfaces as a misleading OSError "Can't load the model").
+**Why:** transformers spawns a background process to auto-convert legacy `pytorch_model.bin`-only repos (e.g. NLLB) to safetensors; Celery prefork children are daemonic and cannot spawn.
+**How to apply:** `snapshot_download(repo_id)` first (thread-based, daemon-safe), then `from_pretrained(local_dir)` — a local path skips hub-side conversion logic. Do NOT switch the worker to `--pool=solo` as a fix: job cancel uses `revoke(terminate=True)`, which requires prefork.
+
 # Lazy model loaders need warm-up + locking in the API
 The api warms models in a background daemon thread at startup (non-blocking, healthchecks pass), and the lazy loaders use double-checked locking (`threading.Lock`) so a request racing the warm-up can't load the model twice (double VRAM).
 **Why:** first /ai/ask otherwise blocks minutes on model load; an unlocked `if _model is None` check loaded twice under the warm-up race.

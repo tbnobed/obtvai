@@ -147,8 +147,9 @@ export default function AssetDetail() {
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
   const lastSocialStatus = jobs?.filter(j => j.job_type === "social")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
-  const lastTranslateStatus = jobs?.filter(j => j.job_type === "translate")
-    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
+  const lastTranslateJob = jobs?.filter(j => j.job_type === "translate")
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0];
+  const lastTranslateStatus = lastTranslateJob?.status;
   useEffect(() => {
     if ((lastHighlightStatus === "success" || lastSocialStatus === "success" || lastTranslateStatus === "success") && id) {
       queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
@@ -560,6 +561,11 @@ export default function AssetDetail() {
                   </p>
                   {translateMutation.isError && (
                     <p className="text-xs text-destructive">Failed to start translation. Check Pipeline Jobs.</p>
+                  )}
+                  {!translateBusy && !translateMutation.isError && lastTranslateStatus === "error" && (
+                    <p className="text-xs text-destructive max-w-xs break-words">
+                      Last translation failed{lastTranslateJob?.error_message ? `: ${lastTranslateJob.error_message}` : ""}. See Pipeline Jobs for details.
+                    </p>
                   )}
                 </div>
               ) : (
