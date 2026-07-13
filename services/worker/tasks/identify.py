@@ -19,6 +19,8 @@ from tasks.base import update_job, append_log
 VOICE_SIM_THRESHOLD = 0.75
 FACE_SIM_THRESHOLD = 0.70
 FACE_ATTACH_OVERLAP = 0.25
+FACE_ONLY_MIN_SECONDS = 5.0     # face-only cluster must be on screen this long...
+FACE_ONLY_MIN_APPEARANCES = 3   # ...or seen in at least this many scenes to become a person
 _PROFILE_CHARS = 12000
 
 
@@ -347,7 +349,14 @@ def identify_people(self, media_id: str, job_id: str):
             touched.append(pid)
 
         # Face-only clusters (people seen but never speaking): match against
-        # known faces; never create new people from faces alone (too noisy).
+        # known faces, or create a new person when the cluster is substantial
+        # enough (on-screen long enough / seen often enough) to be a real person.
+        def _cluster_screen_seconds(appearances) -> float:
+            total = 0.0
+            for a in appearances or []:
+                total += max(0.0, float(a["end_time"]) - float(a["start_time"]))
+            return total
+
         for row in clusters:
             if row[0] in attached_clusters:
                 continue
@@ -358,6 +367,46 @@ def identify_people(self, media_id: str, job_id: str):
                     if sim >= FACE_SIM_THRESHOLD and sim > best_sim:
                         best_sim, best_p = sim, p
             if best_p is None:
+                screen_secs = _cluster_screen_seconds(row[3])
+                n_appearances = len(row[3] or [])
+                if screen_secs < FACE_ONLY_MIN_SECONDS and n_appearances < FACE_ONLY_MIN_APPEARANCES:
+                    append_log(
+                        db, job_id,
+                        f"Skipped weak face-only cluster {row[0]} ({screen_secs:.1f}s on screen, {n_appearances} appearances)",
+                    )
+                    continue
+                pid = str(uuid.uuid4())
+                count = db.execute(text("SELECT COUNT(*) FROM people")).fetchone()[0]
+                name = f"Person {count + 1}"
+                db.execute(
+                    text("""
+                        INSERT INTO people (id, display_name, name_source, thumbnail_url,
+                                            voice_embedding, face_embedding, created_at)
+                        VALUES (:id, :name, NULL, :thumb, NULL, CAST(:face AS jsonb), :now)
+                    """),
+                    {
+                        "id": pid,
+                        "name": name,
+                        "thumb": row[2],
+                        "face": json.dumps([float(x) for x in row[1]]),
+                        "now": datetime.utcnow(),
+                    },
+                )
+                db.execute(
+                    text("""
+                        INSERT INTO person_appearances
+                          (id, person_id, media_id, face_cluster_id, created_at)
+                        VALUES (:id, :pid, :mid, :cid, :now)
+                    """),
+                    {"id": str(uuid.uuid4()), "pid": pid, "mid": media_id, "cid": row[0], "now": datetime.utcnow()},
+                )
+                db.commit()
+                people.append([pid, name, None, None, [float(x) for x in row[1]], row[2]])
+                new_people += 1
+                append_log(
+                    db, job_id,
+                    f"New person from face-only cluster: {name} ({screen_secs:.1f}s on screen)",
+                )
                 continue
             existing = db.execute(
                 text("SELECT id FROM person_appearances WHERE person_id = :pid AND media_id = :mid"),
