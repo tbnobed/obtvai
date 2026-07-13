@@ -30,9 +30,15 @@ def transcribe_audio(self, media_id: str, job_id: str):
         append_log(db, job_id, f"Transcribing with {device}...")
 
         segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=True)
+        total_duration = float(getattr(info, "duration", 0) or 0)
 
         from sqlalchemy import text
+        # Idempotent re-run: clear any segments left by a previous attempt
+        db.execute(text("DELETE FROM transcript_segments WHERE media_id = :mid"), {"mid": media_id})
+        db.commit()
+
         inserted = 0
+        last_reported = 0.0
         for seg in segments:
             seg_id = str(uuid.uuid4())
             db.execute(
@@ -50,6 +56,11 @@ def transcribe_audio(self, media_id: str, job_id: str):
                 },
             )
             inserted += 1
+            if total_duration > 0:
+                pct = min(99.0, (float(seg.end) / total_duration) * 100.0)
+                if pct - last_reported >= 5.0:
+                    last_reported = pct
+                    update_job(db, job_id, progress=round(pct, 1))
 
         db.commit()
         append_log(db, job_id, f"Transcription complete: {inserted} segments")
