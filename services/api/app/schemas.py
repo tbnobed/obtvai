@@ -330,3 +330,11 @@ class LibraryInsightsOut(BaseModel):
     stats: LibraryInsightsStatsOut
     top_people: List[TopPersonOut] = []
     top_topics: List[TopTopicOut] = []
+
+
+class JobCleanupIn(BaseModel):
+    statuses: Optional[List[str]] = None
+
+
+class JobCleanupOut(BaseModel):
+    deleted: int

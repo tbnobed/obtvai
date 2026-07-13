@@ -122,6 +122,8 @@ async def refresh_library_insights(db: AsyncSession = Depends(get_db)):
 
     from sqlalchemy.exc import IntegrityError
 
+    from .jobs import prune_finished_jobs
+    await prune_finished_jobs(db, None, "insights")
     job = ProcessingJob(media_id=None, job_type="insights", status="pending", logs=[])
     db.add(job)
     try:

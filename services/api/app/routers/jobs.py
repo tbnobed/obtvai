@@ -1,12 +1,28 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, delete
 from ..database import get_db
 from ..models import ProcessingJob, MediaAsset
-from ..schemas import ProcessingJobOut
+from ..schemas import ProcessingJobOut, JobCleanupIn, JobCleanupOut
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+FINISHED_STATUSES = ("success", "error", "cancelled")
+
+
+async def prune_finished_jobs(db: AsyncSession, media_id: str | None, job_type: str) -> None:
+    """Delete finished jobs of the same (media_id, job_type) so re-runs replace
+    their history instead of piling up duplicate rows. Does not commit."""
+    q = delete(ProcessingJob).where(
+        ProcessingJob.job_type == job_type,
+        ProcessingJob.status.in_(FINISHED_STATUSES),
+    )
+    if media_id is None:
+        q = q.where(ProcessingJob.media_id.is_(None))
+    else:
+        q = q.where(ProcessingJob.media_id == media_id)
+    await db.execute(q)
 
 
 def _enrich(job: ProcessingJob, asset: MediaAsset | None) -> ProcessingJobOut:
@@ -35,6 +51,22 @@ async def list_jobs(
     q = q.limit(limit)
     rows = (await db.execute(q)).all()
     return [_enrich(job, asset) for job, asset in rows]
+
+
+@router.post("/cleanup", response_model=JobCleanupOut)
+async def cleanup_jobs(body: JobCleanupIn | None = None, db: AsyncSession = Depends(get_db)):
+    statuses = tuple(body.statuses) if body and body.statuses else FINISHED_STATUSES
+    invalid = [s for s in statuses if s not in FINISHED_STATUSES]
+    if invalid:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Only finished statuses can be cleaned up: {', '.join(FINISHED_STATUSES)}",
+        )
+    result = await db.execute(
+        delete(ProcessingJob).where(ProcessingJob.status.in_(statuses))
+    )
+    await db.commit()
+    return JobCleanupOut(deleted=result.rowcount or 0)
 
 
 @router.get("/{id}", response_model=ProcessingJobOut)

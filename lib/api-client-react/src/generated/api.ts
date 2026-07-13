@@ -33,6 +33,8 @@ import type {
   FaceCluster,
   GetMediaTranscriptParams,
   HealthStatus,
+  JobCleanupRequest,
+  JobCleanupResult,
   LibraryInsights,
   LibraryStats,
   ListJobsParams,
@@ -1979,6 +1981,77 @@ export function useGetJob<TData = Awaited<ReturnType<typeof getJob>>, TError = E
 
 
 
+
+export const getCleanupJobsUrl = () => {
+
+
+
+
+  return `/api/jobs/cleanup`
+}
+
+/**
+ * @summary Delete finished jobs (success, error, cancelled) from the history
+ */
+export const cleanupJobs = async (jobCleanupRequest?: JobCleanupRequest, options?: RequestInit): Promise<JobCleanupResult> => {
+
+  return customFetch<JobCleanupResult>(getCleanupJobsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(jobCleanupRequest)
+  }
+);}
+
+
+
+
+
+export const getCleanupJobsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cleanupJobs>>, TError,{data?: BodyType<JobCleanupRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cleanupJobs>>, TError,{data?: BodyType<JobCleanupRequest>}, TContext> => {
+
+const mutationKey = ['cleanupJobs'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cleanupJobs>>, {data?: BodyType<JobCleanupRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  cleanupJobs(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CleanupJobsMutationResult = NonNullable<Awaited<ReturnType<typeof cleanupJobs>>>
+    export type CleanupJobsMutationBody = BodyType<JobCleanupRequest> | undefined
+    export type CleanupJobsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete finished jobs (success, error, cancelled) from the history
+ */
+export const useCleanupJobs = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cleanupJobs>>, TError,{data?: BodyType<JobCleanupRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cleanupJobs>>,
+        TError,
+        {data?: BodyType<JobCleanupRequest>},
+        TContext
+      > => {
+      return useMutation(getCleanupJobsMutationOptions(options));
+    }
 
 export const getRetryJobUrl = (id: string,) => {
 

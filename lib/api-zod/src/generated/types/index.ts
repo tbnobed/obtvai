@@ -25,6 +25,8 @@ export * from './faceClusterAppearancesItem';
 export * from './getMediaTranscriptParams';
 export * from './healthStatus';
 export * from './insightItem';
+export * from './jobCleanupRequest';
+export * from './jobCleanupResult';
 export * from './keyMoment';
 export * from './libraryInsights';
 export * from './libraryInsightsStats';

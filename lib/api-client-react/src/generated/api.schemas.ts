@@ -373,6 +373,15 @@ export interface ProcessingJob {
   finished_at?: string | null;
 }
 
+export interface JobCleanupRequest {
+  /** Finished statuses to delete. Defaults to all of: success, error, cancelled. */
+  statuses?: string[];
+}
+
+export interface JobCleanupResult {
+  deleted: number;
+}
+
 export interface AIQuestion {
   question: string;
   /** @nullable */

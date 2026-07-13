@@ -306,6 +306,8 @@ async def create_highlight(id: str, db: AsyncSession = Depends(get_db)):
         out.filename = asset.filename
         return out
 
+    from .jobs import prune_finished_jobs
+    await prune_finished_jobs(db, id, "highlight")
     job = ProcessingJob(media_id=id, job_type="highlight", status="pending", logs=[])
     db.add(job)
     await db.commit()
@@ -351,6 +353,8 @@ async def create_social_analysis(id: str, db: AsyncSession = Depends(get_db)):
         out.filename = asset.filename
         return out
 
+    from .jobs import prune_finished_jobs
+    await prune_finished_jobs(db, id, "social")
     job = ProcessingJob(media_id=id, job_type="social", status="pending", logs=[])
     db.add(job)
     await db.commit()
@@ -407,6 +411,8 @@ async def create_translation(id: str, body: TranslateRequest, db: AsyncSession =
         out.filename = asset.filename
         return out
 
+    from .jobs import prune_finished_jobs
+    await prune_finished_jobs(db, id, "translate")
     job = ProcessingJob(
         media_id=id, job_type="translate", status="pending",
         logs=[f"Target language: {target}"],
@@ -465,6 +471,8 @@ async def create_dub(id: str, body: DubRequest, db: AsyncSession = Depends(get_d
         out.filename = asset.filename
         return out
 
+    from .jobs import prune_finished_jobs
+    await prune_finished_jobs(db, id, "dub")
     job = ProcessingJob(
         media_id=id, job_type="dub", status="pending",
         logs=[f"Target language: {target}"],

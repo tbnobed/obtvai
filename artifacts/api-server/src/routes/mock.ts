@@ -437,6 +437,26 @@ router.get("/search/history", (_req, res) => {
 });
 
 // ── Jobs ─────────────────────────────────────────────────────────────────────
+router.post("/jobs/cleanup", (req, res) => {
+  const requested: string[] = Array.isArray(req.body?.statuses) && req.body.statuses.length
+    ? req.body.statuses
+    : ["success", "error", "cancelled"];
+  const allowed = new Set(["success", "error", "cancelled"]);
+  if (requested.some((s) => !allowed.has(s))) {
+    res.status(422).json({ error: "Only finished statuses can be cleaned up" });
+    return;
+  }
+  const statuses = new Set(requested);
+  let deleted = 0;
+  for (let i = jobs.length - 1; i >= 0; i--) {
+    if (statuses.has((jobs[i] as any).status)) {
+      jobs.splice(i, 1);
+      deleted++;
+    }
+  }
+  res.json({ deleted });
+});
+
 router.get("/jobs", (_req, res) => {
   res.json(jobs);
 });

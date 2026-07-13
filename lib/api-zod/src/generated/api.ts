@@ -702,6 +702,18 @@ export const GetJobResponse = zod.object({
 
 
 /**
+ * @summary Delete finished jobs (success, error, cancelled) from the history
+ */
+export const CleanupJobsBody = zod.object({
+  "statuses": zod.array(zod.string()).optional().describe('Finished statuses to delete. Defaults to all of: success, error, cancelled.')
+})
+
+export const CleanupJobsResponse = zod.object({
+  "deleted": zod.number()
+})
+
+
+/**
  * @summary Retry a failed job
  */
 export const RetryJobParams = zod.object({

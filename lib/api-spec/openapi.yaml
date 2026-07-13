@@ -546,6 +546,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProcessingJob"
 
+  /jobs/cleanup:
+    post:
+      operationId: cleanupJobs
+      tags: [jobs]
+      summary: Delete finished jobs (success, error, cancelled) from the history
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobCleanupRequest"
+      responses:
+        "200":
+          description: Cleanup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCleanupResult"
+
   /jobs/{id}/retry:
     post:
       operationId: retryJob
@@ -1268,6 +1287,22 @@ components:
           type: ["string", "null"]
         finished_at:
           type: ["string", "null"]
+
+    JobCleanupRequest:
+      type: object
+      properties:
+        statuses:
+          type: array
+          description: "Finished statuses to delete. Defaults to all of: success, error, cancelled."
+          items:
+            type: string
+
+    JobCleanupResult:
+      type: object
+      required: [deleted]
+      properties:
+        deleted:
+          type: integer
 
     # ── AI ───────────────────────────────────────────────────────────────────
     AIQuestion:

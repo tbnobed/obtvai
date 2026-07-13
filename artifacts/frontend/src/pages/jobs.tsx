@@ -1,13 +1,16 @@
-import { useListJobs, getListJobsQueryKey, useRetryJob, useCancelJob } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useListJobs, getListJobsQueryKey, useRetryJob, useCancelJob, useCleanupJobs } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Square } from "lucide-react";
+import { Play, Square, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Jobs() {
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const { data: jobs, isLoading } = useListJobs(undefined, { query: { queryKey: getListJobsQueryKey(), refetchInterval: 3000 } });
   const retryMutation = useRetryJob();
   const cancelMutation = useCancelJob();
+  const cleanupMutation = useCleanupJobs();
   const queryClient = useQueryClient();
 
   const handleRetry = (id: string) => {
@@ -18,9 +21,60 @@ export default function Jobs() {
     cancelMutation.mutate({ id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() }) });
   };
 
+  const handleCleanup = (statuses?: string[]) => {
+    cleanupMutation.mutate(
+      { data: statuses ? { statuses } : {} },
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() }) }
+    );
+  };
+
+  const filtered = statusFilter ? jobs?.filter(j => j.status === statusFilter) : jobs;
+  const finishedCount = jobs?.filter(j => j.status === "success" || j.status === "error" || j.status === "cancelled").length ?? 0;
+  const errorCount = jobs?.filter(j => j.status === "error").length ?? 0;
+
   return (
     <div className="flex-1 p-8 overflow-y-auto">
-      <h1 className="text-3xl font-bold tracking-tight mb-8">Processing Pipeline</h1>
+      <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
+        <h1 className="text-3xl font-bold tracking-tight">Processing Pipeline</h1>
+        <div className="flex gap-3 items-center">
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="h-9 px-3 py-1 rounded-md border border-input bg-background text-sm"
+          >
+            <option value="">All Statuses</option>
+            <option value="running">Running</option>
+            <option value="pending">Pending</option>
+            <option value="success">Success</option>
+            <option value="error">Error</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          {errorCount > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => handleCleanup(["error"])}
+              disabled={cleanupMutation.isPending}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear Errors ({errorCount})
+            </Button>
+          )}
+          {finishedCount > 0 && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="gap-1.5"
+              onClick={() => handleCleanup()}
+              disabled={cleanupMutation.isPending}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear Finished ({finishedCount})
+            </Button>
+          )}
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="space-y-4">
@@ -28,7 +82,7 @@ export default function Jobs() {
         </div>
       ) : (
         <div className="space-y-4">
-          {jobs?.map(job => (
+          {filtered?.map(job => (
             <div key={job.id} className="border border-border bg-card rounded-md p-4">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -39,7 +93,7 @@ export default function Jobs() {
                     </Badge>
                   </div>
                   <div className="text-sm text-muted-foreground font-mono truncate max-w-md" title={job.filename || "Unknown file"}>
-                    {job.filename || job.media_id}
+                    {job.filename || job.media_id || "Library-wide"}
                   </div>
                 </div>
 
@@ -71,8 +125,10 @@ export default function Jobs() {
               )}
             </div>
           ))}
-          {!jobs?.length && (
-            <div className="text-center text-muted-foreground py-12">No processing jobs found.</div>
+          {!filtered?.length && (
+            <div className="text-center text-muted-foreground py-12">
+              {statusFilter ? `No ${statusFilter} jobs.` : "No processing jobs found."}
+            </div>
           )}
         </div>
       )}

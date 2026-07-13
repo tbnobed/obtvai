@@ -46,6 +46,16 @@ def append_log(db: Session, job_id: str, message: str):
 def create_job(db: Session, media_id: str, job_type: str) -> str:
     from sqlalchemy import text
     job_id = str(uuid.uuid4())
+    # Replace finished history for this (asset, job type) instead of piling up
+    # duplicate rows every time a pipeline stage re-runs.
+    db.execute(
+        text("""
+            DELETE FROM processing_jobs
+            WHERE media_id = :media_id AND job_type = :job_type
+              AND status IN ('success', 'error', 'cancelled')
+        """),
+        {"media_id": media_id, "job_type": job_type},
+    )
     db.execute(
         text("""
             INSERT INTO processing_jobs (id, media_id, job_type, status, logs, retry_count, created_at)
