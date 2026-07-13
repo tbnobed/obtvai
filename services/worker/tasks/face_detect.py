@@ -1,4 +1,10 @@
-"""Detect and cluster faces across scenes using MTCNN + FaceNet."""
+"""Detect and cluster faces across scenes using MTCNN + FaceNet.
+
+Samples MULTIPLE frames per scene from the proxy video (not just the single
+scene thumbnail), so every person visible during a scene can be detected —
+critical for talk-show / interview footage where several people share a scene
+but only one is visible in any given frame.
+"""
 import os
 import uuid
 import json
@@ -6,19 +12,34 @@ from datetime import datetime
 from app import celery_app
 from db import get_session
 from tasks.base import update_job, append_log, update_asset
-from config import THUMBNAILS_DIR, PROXIES_DIR
+from config import THUMBNAILS_DIR
+
+FRAMES_PER_SCENE_MAX = 4      # sample up to this many frames per scene
+FRAME_SAMPLE_EVERY = 4.0      # ~one sample per this many seconds of scene
+TOTAL_FRAME_CAP = 500         # hard cap of sampled frames per asset
+MIN_FACE_PROB = 0.90          # MTCNN detection confidence floor
+MIN_FACE_SIDE = 36            # ignore tiny background faces (pixels)
+CLUSTER_EPS = 0.30            # cosine DISTANCE for DBSCAN — 0.6 merged
+                              # different people (sim 0.4!); 0.3 ≈ sim 0.7
+
+
+def _sample_times(start: float, end: float) -> list[float]:
+    dur = max(0.0, float(end) - float(start))
+    n = min(FRAMES_PER_SCENE_MAX, max(1, int(dur / FRAME_SAMPLE_EVERY)))
+    return [float(start) + dur * (k + 1) / (n + 1) for k in range(n)]
 
 
 @celery_app.task(bind=True, name="tasks.face_detect.detect_faces", queue="gpu")
 def detect_faces(self, media_id: str, job_id: str):
     db = get_session()
+    cap = None
     try:
         update_job(db, job_id, status="running", started_at=datetime.utcnow(), celery_task_id=self.request.id)
         update_asset(db, media_id, processing_stage="face_detect", processing_progress=85.0)
 
         from sqlalchemy import text
         scenes = db.execute(
-            text("SELECT id, start_time, end_time, thumbnail_url FROM scenes WHERE media_id = :mid"),
+            text("SELECT id, start_time, end_time, thumbnail_url FROM scenes WHERE media_id = :mid ORDER BY start_time"),
             {"mid": media_id},
         ).fetchall()
 
@@ -27,6 +48,13 @@ def detect_faces(self, media_id: str, job_id: str):
             append_log(db, job_id, "No scenes for face detection")
             return
 
+        row = db.execute(
+            text("SELECT original_path, proxy_path FROM media_assets WHERE id = :mid"),
+            {"mid": media_id},
+        ).fetchone()
+        video_path = (row[1] or row[0]) if row else None
+
+        import cv2
         import torch
         import numpy as np
         from facenet_pytorch import MTCNN, InceptionResnetV1
@@ -37,44 +65,103 @@ def detect_faces(self, media_id: str, job_id: str):
         mtcnn = MTCNN(device=device, keep_all=True)
         resnet = InceptionResnetV1(pretrained="vggface2").eval().to(device)
 
+        if video_path and os.path.exists(video_path):
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                cap = None
+        if cap is None:
+            append_log(db, job_id, "Proxy video unavailable — falling back to scene thumbnails only")
+
+        def _grab_frame(ts: float):
+            if cap is None:
+                return None
+            cap.set(cv2.CAP_PROP_POS_MSEC, max(0.0, ts) * 1000.0)
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                return None
+            return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+        def _detect(img):
+            """Returns list of (box, face_tensor) passing confidence/size gates."""
+            boxes, probs = mtcnn.detect(img)
+            if boxes is None:
+                return []
+            keep, keep_boxes = [], []
+            for j, box in enumerate(boxes):
+                p = probs[j] if probs is not None else 1.0
+                if p is None or p < MIN_FACE_PROB:
+                    continue
+                if (box[2] - box[0]) < MIN_FACE_SIDE or (box[3] - box[1]) < MIN_FACE_SIDE:
+                    continue
+                keep_boxes.append(box)
+            if not keep_boxes:
+                return []
+            faces = mtcnn.extract(img, np.array(keep_boxes), None)
+            if faces is None:
+                return []
+            for j in range(len(keep_boxes)):
+                keep.append((keep_boxes[j], faces[j]))
+            return keep
+
         embeddings = []
         scene_meta = []
+        frames_sampled = 0
 
         for scene_id, start_time, end_time, thumb_url in scenes:
-            if not thumb_url:
-                continue
-            thumb_file = os.path.join(THUMBNAILS_DIR, os.path.basename(thumb_url))
-            if not os.path.exists(thumb_file):
-                continue
-            try:
-                img = Image.open(thumb_file).convert("RGB")
-                boxes, _probs = mtcnn.detect(img)
-                if boxes is None:
+            sources = []
+            if cap is not None and frames_sampled < TOTAL_FRAME_CAP:
+                for ts in _sample_times(start_time, end_time):
+                    if frames_sampled >= TOTAL_FRAME_CAP:
+                        break
+                    img = _grab_frame(ts)
+                    frames_sampled += 1
+                    if img is not None:
+                        sources.append((img, ("video", float(ts))))
+            if not sources and thumb_url:
+                thumb_file = os.path.join(THUMBNAILS_DIR, os.path.basename(thumb_url))
+                if os.path.exists(thumb_file):
+                    try:
+                        sources.append((Image.open(thumb_file).convert("RGB"), ("file", thumb_file)))
+                    except Exception:
+                        pass
+
+            for img, src in sources:
+                try:
+                    detections = _detect(img)
+                    if not detections:
+                        continue
+                    face_tensors = torch.stack([f for _, f in detections])
+                    with torch.no_grad():
+                        embs = resnet(face_tensors.to(device))
+                    for (box, _f), emb in zip(detections, embs):
+                        embeddings.append(emb.cpu().numpy())
+                        scene_meta.append({
+                            "scene_id": scene_id,
+                            "start_time": start_time,
+                            "end_time": end_time,
+                            "src": src,
+                            "box": [float(v) for v in box],
+                        })
+                except Exception:
                     continue
-                faces = mtcnn.extract(img, boxes, None)
-                if faces is None:
-                    continue
-                with torch.no_grad():
-                    embs = resnet(faces.to(device))
-                for j, emb in enumerate(embs):
-                    embeddings.append(emb.cpu().numpy())
-                    scene_meta.append({
-                        "scene_id": scene_id,
-                        "start_time": start_time,
-                        "end_time": end_time,
-                        "thumb_file": thumb_file,
-                        "box": [float(v) for v in boxes[j]],
-                    })
-            except Exception:
-                continue
 
         if not embeddings:
+            db.execute(text("DELETE FROM face_clusters WHERE media_id = :mid"), {"mid": media_id})
+            db.commit()
             update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
             append_log(db, job_id, "No faces found")
+            # Still re-run identify so person appearances reflect the (now
+            # empty) cluster set instead of stale face links from prior runs.
+            from tasks.base import create_job
+            ident_job_id = create_job(db, media_id, "identify")
+            from tasks.identify import identify_people
+            identify_people.delay(media_id, ident_job_id)
             return
 
+        append_log(db, job_id, f"Detected {len(embeddings)} faces across {frames_sampled or len(scenes)} sampled frames")
+
         X = np.array(embeddings)
-        clustering = DBSCAN(eps=0.6, min_samples=1, metric="cosine").fit(X)
+        clustering = DBSCAN(eps=CLUSTER_EPS, min_samples=1, metric="cosine").fit(X)
         labels = clustering.labels_
 
         clusters: dict[int, list] = {}
@@ -87,6 +174,16 @@ def detect_faces(self, media_id: str, job_id: str):
         for idx, label in enumerate(labels):
             if label >= 0:
                 cluster_members.setdefault(label, []).append(idx)
+
+        # Re-runs must replace, not accumulate: drop this asset's old clusters
+        # (identify rebuilds appearances from the fresh set afterwards).
+        db.execute(text("DELETE FROM face_clusters WHERE media_id = :mid"), {"mid": media_id})
+
+        def _load_source(src):
+            kind, ref = src
+            if kind == "file":
+                return Image.open(ref).convert("RGB")
+            return _grab_frame(ref)
 
         for label, appearances in clusters.items():
             cluster_id = str(uuid.uuid4())
@@ -108,21 +205,27 @@ def detect_faces(self, media_id: str, job_id: str):
                     c = c / norm
                 centroid = [float(v) for v in c]
 
-            # Face crop thumbnail from the first appearance
+            # Face crop thumbnail: prefer the largest detected face in the cluster
             face_thumb_name = None
             if member_idx:
-                meta = scene_meta[member_idx[0]]
+                best = max(
+                    member_idx,
+                    key=lambda i: (scene_meta[i]["box"][2] - scene_meta[i]["box"][0])
+                    * (scene_meta[i]["box"][3] - scene_meta[i]["box"][1]),
+                )
+                meta = scene_meta[best]
                 try:
-                    src = Image.open(meta["thumb_file"]).convert("RGB")
-                    x1, y1, x2, y2 = meta["box"]
-                    mx = (x2 - x1) * 0.3
-                    my = (y2 - y1) * 0.3
-                    crop = src.crop((
-                        max(0, int(x1 - mx)), max(0, int(y1 - my)),
-                        min(src.width, int(x2 + mx)), min(src.height, int(y2 + my)),
-                    ))
-                    face_thumb_name = f"face_{cluster_id}.jpg"
-                    crop.save(os.path.join(THUMBNAILS_DIR, face_thumb_name), quality=90)
+                    src_img = _load_source(meta["src"])
+                    if src_img is not None:
+                        x1, y1, x2, y2 = meta["box"]
+                        mx = (x2 - x1) * 0.3
+                        my = (y2 - y1) * 0.3
+                        crop = src_img.crop((
+                            max(0, int(x1 - mx)), max(0, int(y1 - my)),
+                            min(src_img.width, int(x2 + mx)), min(src_img.height, int(y2 + my)),
+                        ))
+                        face_thumb_name = f"face_{cluster_id}.jpg"
+                        crop.save(os.path.join(THUMBNAILS_DIR, face_thumb_name), quality=90)
                 except Exception:
                     face_thumb_name = None
 
@@ -158,4 +261,9 @@ def detect_faces(self, media_id: str, job_id: str):
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())
         raise
     finally:
+        if cap is not None:
+            try:
+                cap.release()
+            except Exception:
+                pass
         db.close()
