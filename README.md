@@ -40,7 +40,7 @@ On the GPU server, pre-pull the AI models before starting (optional but prevents
 docker compose run --rm worker-gpu python -c "
 from faster_whisper import WhisperModel; WhisperModel('large-v3', device='cpu', compute_type='int8')
 from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-from transformers import CLIPModel; CLIPModel.from_pretrained('openai/clip-vit-base-patch32')
+from transformers import CLIPModel; CLIPModel.from_pretrained('openai/clip-vit-large-patch14')
 "
 ```
 
@@ -140,4 +140,4 @@ See `.env.example` for all environment variables.
 | `LLM_MODEL` | `Llama-3.2-3B-Instruct` | Local LLM for AI Q&A |
 | `HF_TOKEN` | — | HuggingFace token for diarization + gated Llama models |
 | `EMBEDDINGS_MODEL` | `all-MiniLM-L6-v2` | Text embedding model |
-| `VISION_MODEL` | `clip-vit-base-patch32` | Visual embedding model |
+| `VISION_MODEL` | `clip-vit-large-patch14` | Visual embedding model |

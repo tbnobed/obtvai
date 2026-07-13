@@ -18,7 +18,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
     results: list[SearchResultOut] = []
 
     try:
-        from ..services.embedding import get_text_embedding
+        from ..services.embedding import get_text_embedding, get_clip_text_embedding
         from ..services.qdrant_client import search_vectors
 
         query_embedding = await get_text_embedding(body.query)
@@ -52,9 +52,11 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                     ))
 
         if body.search_type in ("visual", "combined"):
+            # Visual search must query in CLIP space, not sentence-transformer space
+            clip_query_embedding = await get_clip_text_embedding(body.query)
             visual_hits = await search_vectors(
                 collection="scenes",
-                vector=query_embedding,
+                vector=clip_query_embedding,
                 limit=body.limit,
                 media_id=body.media_id,
             )
@@ -80,7 +82,10 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                     ))
 
     except Exception:
-        pass
+        import logging
+        logging.getLogger("obtv.search").exception(
+            "Vector search failed for query %r — falling back to text search", body.query
+        )
 
     if not results:
         results = await _fallback_text_search(body, db)

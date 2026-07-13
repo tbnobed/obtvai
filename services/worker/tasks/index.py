@@ -34,7 +34,7 @@ def build_index(self, media_id: str, job_id: str):
         model = SentenceTransformer(EMBEDDINGS_MODEL)
 
         qdrant = QdrantClient(url=QDRANT_URL)
-        _ensure_collection(qdrant, "transcripts", 384)
+        _ensure_collection(qdrant, "transcripts", model.get_sentence_embedding_dimension())
 
         texts = [seg[1] for seg in segs]
         append_log(db, job_id, f"Embedding {len(texts)} segments...")
@@ -71,8 +71,11 @@ def build_index(self, media_id: str, job_id: str):
 
 
 def _ensure_collection(qdrant, name: str, size: int):
+    from qdrant_client.models import Distance, VectorParams
     try:
-        qdrant.get_collection(name)
+        info = qdrant.get_collection(name)
+        if info.config.params.vectors.size != size:
+            qdrant.delete_collection(name)
+            qdrant.create_collection(name, vectors_config=VectorParams(size=size, distance=Distance.COSINE))
     except Exception:
-        from qdrant_client.models import Distance, VectorParams
         qdrant.create_collection(name, vectors_config=VectorParams(size=size, distance=Distance.COSINE))

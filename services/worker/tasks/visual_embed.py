@@ -38,15 +38,17 @@ def embed_scenes(self, media_id: str, job_id: str):
         processor = CLIPProcessor.from_pretrained(VISION_MODEL)
 
         qdrant = QdrantClient(url=QDRANT_URL)
-        _ensure_collection(qdrant, "scenes", 512)
+        _ensure_collection(qdrant, "scenes", model.config.projection_dim)
 
         embedded = 0
+        attempted = 0
         for scene_id, thumb_url in scenes:
             if not thumb_url:
                 continue
             thumb_file = os.path.join(THUMBNAILS_DIR, os.path.basename(thumb_url))
             if not os.path.exists(thumb_file):
                 continue
+            attempted += 1
             try:
                 img = Image.open(thumb_file).convert("RGB")
                 inputs = processor(images=img, return_tensors="pt").to(device)
@@ -72,9 +74,14 @@ def embed_scenes(self, media_id: str, job_id: str):
                 append_log(db, job_id, f"Scene {scene_id} embed failed: {e}")
 
         db.commit()
+        if attempted > 0 and embedded == 0:
+            raise RuntimeError(
+                f"All {attempted} scene embeddings failed — check logs above (likely a "
+                f"Qdrant dimension mismatch or model load failure)"
+            )
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         update_asset(db, media_id, processing_stage="visual_embed_complete", processing_progress=90.0)
-        append_log(db, job_id, f"Embedded {embedded} scenes")
+        append_log(db, job_id, f"Embedded {embedded} scenes ({attempted - embedded} failed)")
 
     except Exception as e:
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())
@@ -84,8 +91,11 @@ def embed_scenes(self, media_id: str, job_id: str):
 
 
 def _ensure_collection(qdrant, name: str, size: int):
+    from qdrant_client.models import Distance, VectorParams
     try:
-        qdrant.get_collection(name)
+        info = qdrant.get_collection(name)
+        if info.config.params.vectors.size != size:
+            qdrant.delete_collection(name)
+            qdrant.create_collection(name, vectors_config=VectorParams(size=size, distance=Distance.COSINE))
     except Exception:
-        from qdrant_client.models import Distance, VectorParams
         qdrant.create_collection(name, vectors_config=VectorParams(size=size, distance=Distance.COSINE))

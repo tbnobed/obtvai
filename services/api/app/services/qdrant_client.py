@@ -6,7 +6,6 @@ from qdrant_client.models import (
 from ..config import settings
 
 _client: Optional[AsyncQdrantClient] = None
-VECTOR_SIZE = 384
 
 
 def get_client() -> AsyncQdrantClient:
@@ -17,14 +16,39 @@ def get_client() -> AsyncQdrantClient:
 
 
 async def ensure_collections():
+    """Create collections sized to their embedding models:
+    transcripts -> sentence-transformer dims, scenes -> CLIP projection dims.
+
+    If an existing collection has a different vector size (e.g. after switching
+    embedding models), it is dropped and recreated — vectors are derivable data
+    and are rebuilt by re-running indexing jobs."""
+    import logging
+    from .embedding import get_text_vector_size, get_clip_vector_size
+    logger = logging.getLogger("obtv.qdrant")
     client = get_client()
-    for collection in ("transcripts", "scenes"):
+    sizes = {
+        "transcripts": get_text_vector_size(),
+        "scenes": get_clip_vector_size(),
+    }
+    for collection, size in sizes.items():
         try:
-            await client.get_collection(collection)
+            info = await client.get_collection(collection)
+            existing = info.config.params.vectors.size
+            if existing != size:
+                logger.warning(
+                    "Collection '%s' has vector size %d but model produces %d — "
+                    "recreating. Re-run indexing jobs to repopulate.",
+                    collection, existing, size,
+                )
+                await client.delete_collection(collection)
+                await client.create_collection(
+                    collection_name=collection,
+                    vectors_config=VectorParams(size=size, distance=Distance.COSINE),
+                )
         except Exception:
             await client.create_collection(
                 collection_name=collection,
-                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+                vectors_config=VectorParams(size=size, distance=Distance.COSINE),
             )
 
 
