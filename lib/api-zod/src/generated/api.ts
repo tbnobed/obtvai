@@ -284,9 +284,9 @@ export const CreateTranslationBody = zod.object({
 
 export const CreateTranslationResponse = zod.object({
   "id": zod.string(),
-  "media_id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
   "filename": zod.string().nullish(),
-  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
   "status": zod.string().describe('pending | running | success | error | cancelled'),
   "progress": zod.number().nullish().describe('0-100'),
   "error_message": zod.string().nullish(),
@@ -311,9 +311,9 @@ export const CreateDubBody = zod.object({
 
 export const CreateDubResponse = zod.object({
   "id": zod.string(),
-  "media_id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
   "filename": zod.string().nullish(),
-  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
   "status": zod.string().describe('pending | running | success | error | cancelled'),
   "progress": zod.number().nullish().describe('0-100'),
   "error_message": zod.string().nullish(),
@@ -365,9 +365,9 @@ export const CreateHighlightParams = zod.object({
 
 export const CreateHighlightResponse = zod.object({
   "id": zod.string(),
-  "media_id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
   "filename": zod.string().nullish(),
-  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
   "status": zod.string().describe('pending | running | success | error | cancelled'),
   "progress": zod.number().nullish().describe('0-100'),
   "error_message": zod.string().nullish(),
@@ -388,9 +388,9 @@ export const CreateSocialAnalysisParams = zod.object({
 
 export const CreateSocialAnalysisResponse = zod.object({
   "id": zod.string(),
-  "media_id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
   "filename": zod.string().nullish(),
-  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
   "status": zod.string().describe('pending | running | success | error | cancelled'),
   "progress": zod.number().nullish().describe('0-100'),
   "error_message": zod.string().nullish(),
@@ -454,6 +454,164 @@ export const GetLibraryStatsResponse = zod.object({
 
 
 /**
+ * @summary List all identified people across the library
+ */
+export const ListPeopleResponseItem = zod.object({
+  "id": zod.string(),
+  "display_name": zod.string(),
+  "name_source": zod.string().nullish().describe('auto (LLM-extracted from transcripts) | manual | null (unnamed)'),
+  "thumbnail_url": zod.string().nullish(),
+  "speech_style": zod.string().nullish().describe('AI summary of how this person speaks'),
+  "key_topics": zod.array(zod.string()).optional(),
+  "summary": zod.string().nullish().describe('AI bio of who this person appears to be'),
+  "asset_count": zod.number(),
+  "total_speaking_seconds": zod.number(),
+  "segment_count": zod.number(),
+  "updated_at": zod.string().nullish()
+})
+export const ListPeopleResponse = zod.array(ListPeopleResponseItem)
+
+
+/**
+ * @summary Person profile with per-asset appearances
+ */
+export const GetPersonParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPersonResponse = zod.object({
+  "id": zod.string(),
+  "display_name": zod.string(),
+  "name_source": zod.string().nullish().describe('auto (LLM-extracted from transcripts) | manual | null (unnamed)'),
+  "thumbnail_url": zod.string().nullish(),
+  "speech_style": zod.string().nullish().describe('AI summary of how this person speaks'),
+  "key_topics": zod.array(zod.string()).optional(),
+  "summary": zod.string().nullish().describe('AI bio of who this person appears to be'),
+  "asset_count": zod.number(),
+  "total_speaking_seconds": zod.number(),
+  "segment_count": zod.number(),
+  "updated_at": zod.string().nullish()
+}).and(zod.object({
+  "appearances": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "duration_seconds": zod.number().nullish(),
+  "speaker_label": zod.string().nullish(),
+  "face_cluster_id": zod.string().nullish(),
+  "speaking_seconds": zod.number().nullish(),
+  "segment_count": zod.number().nullish(),
+  "first_spoken_at": zod.number().nullish().describe('Seconds into the asset where this person first speaks')
+}))
+}))
+
+
+/**
+ * @summary Rename a person
+ */
+export const UpdatePersonParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpdatePersonBody = zod.object({
+  "display_name": zod.string().min(1)
+})
+
+export const UpdatePersonResponse = zod.object({
+  "id": zod.string(),
+  "display_name": zod.string(),
+  "name_source": zod.string().nullish().describe('auto (LLM-extracted from transcripts) | manual | null (unnamed)'),
+  "thumbnail_url": zod.string().nullish(),
+  "speech_style": zod.string().nullish().describe('AI summary of how this person speaks'),
+  "key_topics": zod.array(zod.string()).optional(),
+  "summary": zod.string().nullish().describe('AI bio of who this person appears to be'),
+  "asset_count": zod.number(),
+  "total_speaking_seconds": zod.number(),
+  "segment_count": zod.number(),
+  "updated_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Merge another person into this one (fix duplicate identities)
+ */
+export const MergePersonParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const MergePersonBody = zod.object({
+  "source_person_id": zod.string().describe('Person to merge into the target; the source is deleted')
+})
+
+export const MergePersonResponse = zod.object({
+  "id": zod.string(),
+  "display_name": zod.string(),
+  "name_source": zod.string().nullish().describe('auto (LLM-extracted from transcripts) | manual | null (unnamed)'),
+  "thumbnail_url": zod.string().nullish(),
+  "speech_style": zod.string().nullish().describe('AI summary of how this person speaks'),
+  "key_topics": zod.array(zod.string()).optional(),
+  "summary": zod.string().nullish().describe('AI bio of who this person appears to be'),
+  "asset_count": zod.number(),
+  "total_speaking_seconds": zod.number(),
+  "segment_count": zod.number(),
+  "updated_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Library-wide aggregates plus the latest AI-generated narrative
+ */
+export const GetLibraryInsightsResponse = zod.object({
+  "generated_at": zod.string().nullish().describe('When the AI narrative was last generated (null if never)'),
+  "headline": zod.string().nullish(),
+  "insights": zod.array(zod.object({
+  "title": zod.string(),
+  "detail": zod.string()
+})),
+  "stats": zod.object({
+  "total_assets": zod.number(),
+  "total_duration_seconds": zod.number(),
+  "total_people": zod.number(),
+  "transcribed_assets": zod.number(),
+  "total_speaking_seconds": zod.number()
+}),
+  "top_people": zod.array(zod.object({
+  "person_id": zod.string(),
+  "display_name": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "asset_count": zod.number(),
+  "speaking_seconds": zod.number()
+})),
+  "top_topics": zod.array(zod.object({
+  "topic": zod.string(),
+  "asset_count": zod.number()
+}))
+})
+
+
+/**
+ * @summary Queue a library-wide AI insights regeneration job
+ */
+export const RefreshLibraryInsightsResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
+  "filename": zod.string().nullish(),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
+  "status": zod.string().describe('pending | running | success | error | cancelled'),
+  "progress": zod.number().nullish().describe('0-100'),
+  "error_message": zod.string().nullish(),
+  "logs": zod.array(zod.string()).optional(),
+  "retry_count": zod.number().optional(),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Semantic search across indexed media
  */
 export const semanticSearchBodySearchTypeDefault = `combined`;
@@ -505,9 +663,9 @@ export const ListJobsQueryParams = zod.object({
 
 export const ListJobsResponseItem = zod.object({
   "id": zod.string(),
-  "media_id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
   "filename": zod.string().nullish(),
-  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
   "status": zod.string().describe('pending | running | success | error | cancelled'),
   "progress": zod.number().nullish().describe('0-100'),
   "error_message": zod.string().nullish(),
@@ -529,9 +687,9 @@ export const GetJobParams = zod.object({
 
 export const GetJobResponse = zod.object({
   "id": zod.string(),
-  "media_id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
   "filename": zod.string().nullish(),
-  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
   "status": zod.string().describe('pending | running | success | error | cancelled'),
   "progress": zod.number().nullish().describe('0-100'),
   "error_message": zod.string().nullish(),
@@ -552,9 +710,9 @@ export const RetryJobParams = zod.object({
 
 export const RetryJobResponse = zod.object({
   "id": zod.string(),
-  "media_id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
   "filename": zod.string().nullish(),
-  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
   "status": zod.string().describe('pending | running | success | error | cancelled'),
   "progress": zod.number().nullish().describe('0-100'),
   "error_message": zod.string().nullish(),
@@ -575,9 +733,9 @@ export const CancelJobParams = zod.object({
 
 export const CancelJobResponse = zod.object({
   "id": zod.string(),
-  "media_id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
   "filename": zod.string().nullish(),
-  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index'),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
   "status": zod.string().describe('pending | running | success | error | cancelled'),
   "progress": zod.number().nullish().describe('0-100'),
   "error_message": zod.string().nullish(),

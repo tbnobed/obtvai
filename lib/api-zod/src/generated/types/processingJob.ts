@@ -8,10 +8,14 @@
 
 export interface ProcessingJob {
   id: string;
-  media_id: string;
+  /**
+     * Null for library-wide jobs (e.g. insights)
+     * @nullable
+     */
+  media_id?: string | null;
   /** @nullable */
   filename?: string | null;
-  /** ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index */
+  /** ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights */
   job_type: string;
   /** pending | running | success | error | cancelled */
   status: string;

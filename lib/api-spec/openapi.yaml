@@ -22,6 +22,10 @@ tags:
     description: AI Q&A
   - name: clips
     description: Clip lists
+  - name: people
+    description: Cross-asset person identities
+  - name: insights
+    description: Library-wide AI insights
 paths:
   /healthz:
     get:
@@ -340,6 +344,124 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LibraryStats"
+
+  # ── People ─────────────────────────────────────────────────────────────────
+  /people:
+    get:
+      operationId: listPeople
+      tags: [people]
+      summary: List all identified people across the library
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Person"
+
+  /people/{id}:
+    get:
+      operationId: getPerson
+      tags: [people]
+      summary: Person profile with per-asset appearances
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonDetail"
+        "404":
+          description: Not found
+    patch:
+      operationId: updatePerson
+      tags: [people]
+      summary: Rename a person
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "404":
+          description: Not found
+
+  /people/{id}/merge:
+    post:
+      operationId: mergePerson
+      tags: [people]
+      summary: Merge another person into this one (fix duplicate identities)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonMergeRequest"
+      responses:
+        "200":
+          description: Merged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "404":
+          description: Not found
+
+  # ── Insights ───────────────────────────────────────────────────────────────
+  /insights:
+    get:
+      operationId: getLibraryInsights
+      tags: [insights]
+      summary: Library-wide aggregates plus the latest AI-generated narrative
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryInsights"
+
+  /insights/refresh:
+    post:
+      operationId: refreshLibraryInsights
+      tags: [insights]
+      summary: Queue a library-wide AI insights regeneration job
+      responses:
+        "202":
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+        "409":
+          description: An insights job is already running
 
   # ── Search ────────────────────────────────────────────────────────────────
   /search:
@@ -890,6 +1012,160 @@ components:
               end_time:
                 type: number
 
+    # ── People ────────────────────────────────────────────────────────────────
+    Person:
+      type: object
+      required: [id, display_name, asset_count, total_speaking_seconds, segment_count]
+      properties:
+        id:
+          type: string
+        display_name:
+          type: string
+        name_source:
+          type: ["string", "null"]
+          description: "auto (LLM-extracted from transcripts) | manual | null (unnamed)"
+        thumbnail_url:
+          type: ["string", "null"]
+        speech_style:
+          type: ["string", "null"]
+          description: AI summary of how this person speaks
+        key_topics:
+          type: array
+          items:
+            type: string
+        summary:
+          type: ["string", "null"]
+          description: AI bio of who this person appears to be
+        asset_count:
+          type: integer
+        total_speaking_seconds:
+          type: number
+        segment_count:
+          type: integer
+        updated_at:
+          type: ["string", "null"]
+
+    PersonAppearance:
+      type: object
+      required: [media_id, filename]
+      properties:
+        media_id:
+          type: string
+        filename:
+          type: string
+        thumbnail_url:
+          type: ["string", "null"]
+        duration_seconds:
+          type: ["number", "null"]
+        speaker_label:
+          type: ["string", "null"]
+        face_cluster_id:
+          type: ["string", "null"]
+        speaking_seconds:
+          type: ["number", "null"]
+        segment_count:
+          type: ["integer", "null"]
+        first_spoken_at:
+          type: ["number", "null"]
+          description: Seconds into the asset where this person first speaks
+
+    PersonDetail:
+      allOf:
+        - $ref: "#/components/schemas/Person"
+        - type: object
+          required: [appearances]
+          properties:
+            appearances:
+              type: array
+              items:
+                $ref: "#/components/schemas/PersonAppearance"
+
+    PersonUpdate:
+      type: object
+      required: [display_name]
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+
+    PersonMergeRequest:
+      type: object
+      required: [source_person_id]
+      properties:
+        source_person_id:
+          type: string
+          description: Person to merge into the target; the source is deleted
+
+    # ── Insights ──────────────────────────────────────────────────────────────
+    InsightItem:
+      type: object
+      required: [title, detail]
+      properties:
+        title:
+          type: string
+        detail:
+          type: string
+
+    TopPerson:
+      type: object
+      required: [person_id, display_name, asset_count, speaking_seconds]
+      properties:
+        person_id:
+          type: string
+        display_name:
+          type: string
+        thumbnail_url:
+          type: ["string", "null"]
+        asset_count:
+          type: integer
+        speaking_seconds:
+          type: number
+
+    TopTopic:
+      type: object
+      required: [topic, asset_count]
+      properties:
+        topic:
+          type: string
+        asset_count:
+          type: integer
+
+    LibraryInsights:
+      type: object
+      required: [stats, top_people, top_topics, insights]
+      properties:
+        generated_at:
+          type: ["string", "null"]
+          description: When the AI narrative was last generated (null if never)
+        headline:
+          type: ["string", "null"]
+        insights:
+          type: array
+          items:
+            $ref: "#/components/schemas/InsightItem"
+        stats:
+          type: object
+          required: [total_assets, total_duration_seconds, total_people, transcribed_assets, total_speaking_seconds]
+          properties:
+            total_assets:
+              type: integer
+            total_duration_seconds:
+              type: number
+            total_people:
+              type: integer
+            transcribed_assets:
+              type: integer
+            total_speaking_seconds:
+              type: number
+        top_people:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopPerson"
+        top_topics:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopTopic"
+
     # ── Search ────────────────────────────────────────────────────────────────
     SearchQuery:
       type: object
@@ -960,17 +1236,18 @@ components:
     # ── Jobs ─────────────────────────────────────────────────────────────────
     ProcessingJob:
       type: object
-      required: [id, media_id, job_type, status, created_at]
+      required: [id, job_type, status, created_at]
       properties:
         id:
           type: string
         media_id:
-          type: string
+          type: ["string", "null"]
+          description: Null for library-wide jobs (e.g. insights)
         filename:
           type: ["string", "null"]
         job_type:
           type: string
-          description: "ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index"
+          description: "ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights"
         status:
           type: string
           description: "pending | running | success | error | cancelled"

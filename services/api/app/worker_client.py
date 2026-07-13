@@ -31,7 +31,7 @@ async def enqueue_ingest(media_id: str) -> str:
     return task_id
 
 
-async def enqueue_job(job_type: str, media_id: str, job_id: str, extra: dict | None = None) -> str:
+async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: dict | None = None) -> str:
     task_map = {
         "ingest": ("ingest", "tasks.ingest.run_ingest_pipeline"),
         "proxy": ("cpu", "tasks.proxy.create_proxy"),
@@ -47,6 +47,8 @@ async def enqueue_job(job_type: str, media_id: str, job_id: str, extra: dict | N
         "social": ("gpu", "tasks.social.score_social"),
         "translate": ("gpu", "tasks.translate.translate_transcript"),
         "dub": ("gpu", "tasks.dub.generate_dub"),
+        "identify": ("gpu", "tasks.identify.identify_people"),
+        "insights": ("gpu", "tasks.insights.generate_insights"),
     }
     queue, task_name = task_map.get(job_type, ("cpu", f"tasks.{job_type}.run"))
     payload = {"media_id": media_id, "job_id": job_id}

@@ -145,7 +145,7 @@ class SearchHistoryItemOut(BaseModel):
 
 class ProcessingJobOut(BaseModel):
     id: str
-    media_id: str
+    media_id: Optional[str] = None
     filename: Optional[str] = None
     job_type: str
     status: str
@@ -253,3 +253,80 @@ class ClipExportResult(BaseModel):
     format: str
     content: str
     filename: str
+
+
+# ── People ────────────────────────────────────────────────────────────────────
+
+class PersonOut(BaseModel):
+    id: str
+    display_name: str
+    name_source: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    speech_style: Optional[str] = None
+    key_topics: List[str] = []
+    summary: Optional[str] = None
+    asset_count: int = 0
+    total_speaking_seconds: float = 0
+    segment_count: int = 0
+    updated_at: Optional[datetime] = None
+
+
+class PersonAppearanceOut(BaseModel):
+    media_id: str
+    filename: str
+    thumbnail_url: Optional[str] = None
+    duration_seconds: Optional[float] = None
+    speaker_label: Optional[str] = None
+    face_cluster_id: Optional[str] = None
+    speaking_seconds: Optional[float] = None
+    segment_count: Optional[int] = None
+    first_spoken_at: Optional[float] = None
+
+
+class PersonDetailOut(PersonOut):
+    appearances: List[PersonAppearanceOut] = []
+
+
+class PersonUpdateIn(BaseModel):
+    display_name: str
+
+
+class PersonMergeIn(BaseModel):
+    source_person_id: str
+
+
+# ── Insights ──────────────────────────────────────────────────────────────────
+
+class InsightItemOut(BaseModel):
+    title: str
+    detail: str
+
+
+class TopPersonOut(BaseModel):
+    person_id: str
+    display_name: str
+    thumbnail_url: Optional[str] = None
+    asset_count: int
+    speaking_seconds: float
+
+
+class TopTopicOut(BaseModel):
+    topic: str
+    asset_count: int
+
+
+class LibraryInsightsStatsOut(BaseModel):
+    total_assets: int
+    total_duration_seconds: float
+    total_people: int
+    transcribed_assets: int
+    total_speaking_seconds: float
+
+
+class LibraryInsightsOut(BaseModel):
+    generated_at: Optional[datetime] = None
+    headline: Optional[str] = None
+    insights: List[InsightItemOut] = []
+    stats: LibraryInsightsStatsOut
+    top_people: List[TopPersonOut] = []
+    top_topics: List[TopTopicOut] = []

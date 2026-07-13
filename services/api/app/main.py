@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips
+from .routers import media, search, jobs, ai, clips, people, insights
 
 
 # Columns created as `json` by earlier versions must become `jsonb` so workers
@@ -27,6 +27,14 @@ _COLUMN_MIGRATIONS = [
     ("media_assets", "translated_languages", "JSONB"),
     ("media_assets", "dubbed_languages", "JSONB"),
     ("transcript_segments", "translations", "JSONB"),
+    ("media_assets", "speaker_embeddings", "JSONB"),
+    ("face_clusters", "embedding", "JSONB"),
+]
+
+
+# Library-wide jobs (e.g. insights) have no media asset.
+_NULLABLE_MIGRATIONS = [
+    ("processing_jobs", "media_id"),
 ]
 
 
@@ -39,6 +47,10 @@ async def lifespan(app: FastAPI):
         for table, column, coltype in _COLUMN_MIGRATIONS:
             await conn.execute(text(
                 f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {coltype}"
+            ))
+        for table, column in _NULLABLE_MIGRATIONS:
+            await conn.execute(text(
+                f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL"
             ))
         for table, column in _JSONB_MIGRATIONS:
             await conn.execute(text(
@@ -57,6 +69,16 @@ async def lifespan(app: FastAPI):
                 END $$;
                 """
             ))
+
+        # At most one active library-wide insights job: the refresh endpoint
+        # relies on this index to make its dedupe race-free.
+        await conn.execute(text(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_processing_jobs_active_insights
+            ON processing_jobs (job_type)
+            WHERE job_type = 'insights' AND status IN ('pending', 'running')
+            """
+        ))
 
         # One-time data fixup: thumbnail_url must store bare filenames; older
         # worker versions stored them with the /api/thumbnails/ prefix, which
@@ -133,6 +155,8 @@ app.include_router(search.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(clips.router, prefix="/api")
+app.include_router(people.router, prefix="/api")
+app.include_router(insights.router, prefix="/api")
 
 
 @app.get("/api/healthz")

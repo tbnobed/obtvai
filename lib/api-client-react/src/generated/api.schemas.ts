@@ -197,6 +197,111 @@ export interface FaceCluster {
   appearances: FaceClusterAppearancesItem[];
 }
 
+export interface Person {
+  id: string;
+  display_name: string;
+  /**
+     * auto (LLM-extracted from transcripts) | manual | null (unnamed)
+     * @nullable
+     */
+  name_source?: string | null;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  /**
+     * AI summary of how this person speaks
+     * @nullable
+     */
+  speech_style?: string | null;
+  key_topics?: string[];
+  /**
+     * AI bio of who this person appears to be
+     * @nullable
+     */
+  summary?: string | null;
+  asset_count: number;
+  total_speaking_seconds: number;
+  segment_count: number;
+  /** @nullable */
+  updated_at?: string | null;
+}
+
+export interface PersonAppearance {
+  media_id: string;
+  filename: string;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  /** @nullable */
+  duration_seconds?: number | null;
+  /** @nullable */
+  speaker_label?: string | null;
+  /** @nullable */
+  face_cluster_id?: string | null;
+  /** @nullable */
+  speaking_seconds?: number | null;
+  /** @nullable */
+  segment_count?: number | null;
+  /**
+     * Seconds into the asset where this person first speaks
+     * @nullable
+     */
+  first_spoken_at?: number | null;
+}
+
+export type PersonDetail = Person & {
+  appearances: PersonAppearance[];
+};
+
+export interface PersonUpdate {
+  /** @minLength 1 */
+  display_name: string;
+}
+
+export interface PersonMergeRequest {
+  /** Person to merge into the target; the source is deleted */
+  source_person_id: string;
+}
+
+export interface InsightItem {
+  title: string;
+  detail: string;
+}
+
+export interface TopPerson {
+  person_id: string;
+  display_name: string;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  asset_count: number;
+  speaking_seconds: number;
+}
+
+export interface TopTopic {
+  topic: string;
+  asset_count: number;
+}
+
+export type LibraryInsightsStats = {
+  total_assets: number;
+  total_duration_seconds: number;
+  total_people: number;
+  transcribed_assets: number;
+  total_speaking_seconds: number;
+};
+
+export interface LibraryInsights {
+  /**
+     * When the AI narrative was last generated (null if never)
+     * @nullable
+     */
+  generated_at?: string | null;
+  /** @nullable */
+  headline?: string | null;
+  insights: InsightItem[];
+  stats: LibraryInsightsStats;
+  top_people: TopPerson[];
+  top_topics: TopTopic[];
+}
+
 export interface SearchQuery {
   query: string;
   /**
@@ -241,10 +346,14 @@ export interface SearchHistoryItem {
 
 export interface ProcessingJob {
   id: string;
-  media_id: string;
+  /**
+     * Null for library-wide jobs (e.g. insights)
+     * @nullable
+     */
+  media_id?: string | null;
   /** @nullable */
   filename?: string | null;
-  /** ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index */
+  /** ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights */
   job_type: string;
   /** pending | running | success | error | cancelled */
   status: string;

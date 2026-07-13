@@ -786,4 +786,214 @@ router.post("/clips/:id/export", (req, res) => {
   res.json({ format: fmt, content, filename: `${cl.name.replace(/ /g, "_")}.${fmt}` });
 });
 
+// ── People & Insights ────────────────────────────────────────────────────────
+
+const people = [
+  {
+    id: "person-001",
+    display_name: "Sarah Chen",
+    name_source: "auto",
+    thumbnail_url: null as string | null,
+    speech_style:
+      "Confident and precise, favors concrete technical detail over generalities. Speaks in measured, complete sentences and often reframes questions before answering them.",
+    key_topics: ["local AI infrastructure", "GPU computing", "video processing at scale", "cloud cost reduction", "team leadership"],
+    summary:
+      "Appears to be a senior technology executive leading an infrastructure team. Frequently interviewed about large-scale local AI processing and challenges to cloud-first assumptions.",
+    asset_count: 3,
+    total_speaking_seconds: 1845.2,
+    segment_count: 214,
+    updated_at: now,
+  },
+  {
+    id: "person-002",
+    display_name: "Marcus Webb",
+    name_source: "auto",
+    thumbnail_url: null as string | null,
+    speech_style:
+      "Warm, conversational interviewer style. Asks short open-ended questions, frequently affirms the speaker, and uses accessible analogies for technical topics.",
+    key_topics: ["technology interviews", "infrastructure", "startup strategy"],
+    summary:
+      "Recurring interviewer/host across the library. Guides conversations rather than presenting; appears in most interview-format assets.",
+    asset_count: 2,
+    total_speaking_seconds: 612.7,
+    segment_count: 98,
+    updated_at: now,
+  },
+  {
+    id: "person-003",
+    display_name: "Councilwoman Rivera",
+    name_source: "auto",
+    thumbnail_url: null as string | null,
+    speech_style:
+      "Formal procedural register with deliberate pacing. Uses policy terminology, cites ordinance numbers, and frequently defers to points of order.",
+    key_topics: ["zoning policy", "budget allocation", "public infrastructure", "community development"],
+    summary:
+      "City council member who chairs sessions in the civic meeting footage. Primary speaker in municipal government assets.",
+    asset_count: 1,
+    total_speaking_seconds: 1120.4,
+    segment_count: 156,
+    updated_at: now,
+  },
+  {
+    id: "person-004",
+    display_name: "Person 4",
+    name_source: null as string | null,
+    thumbnail_url: null as string | null,
+    speech_style: null as string | null,
+    key_topics: [] as string[],
+    summary: null as string | null,
+    asset_count: 1,
+    total_speaking_seconds: 87.3,
+    segment_count: 12,
+    updated_at: now,
+  },
+];
+
+const personAppearances: Record<string, any[]> = {
+  "person-001": [
+    { media_id: "asset-001", filename: "interview_sarah_chen.mp4", thumbnail_url: null, duration_seconds: 1122.5, speaker_label: "SPEAKER_00", face_cluster_id: "cluster-001", speaking_seconds: 812.4, segment_count: 96, first_spoken_at: 2.1 },
+    { media_id: "asset-003", filename: "documentary_rough_cut_v3.mkv", thumbnail_url: null, duration_seconds: 5406.0, speaker_label: "SPEAKER_02", face_cluster_id: null, speaking_seconds: 734.5, segment_count: 84, first_spoken_at: 341.8 },
+    { media_id: "asset-004", filename: "press_conference_may15.mp4", thumbnail_url: null, duration_seconds: 1863.2, speaker_label: "SPEAKER_01", face_cluster_id: "cluster-004", speaking_seconds: 298.3, segment_count: 34, first_spoken_at: 122.6 },
+  ],
+  "person-002": [
+    { media_id: "asset-001", filename: "interview_sarah_chen.mp4", thumbnail_url: null, duration_seconds: 1122.5, speaker_label: "SPEAKER_01", face_cluster_id: "cluster-002", speaking_seconds: 310.2, segment_count: 52, first_spoken_at: 9.0 },
+    { media_id: "asset-003", filename: "documentary_rough_cut_v3.mkv", thumbnail_url: null, duration_seconds: 5406.0, speaker_label: "SPEAKER_00", face_cluster_id: null, speaking_seconds: 302.5, segment_count: 46, first_spoken_at: 12.4 },
+  ],
+  "person-003": [
+    { media_id: "asset-002", filename: "city_council_meeting_oct24.mp4", thumbnail_url: null, duration_seconds: 7204.8, speaker_label: "SPEAKER_00", face_cluster_id: "cluster-003", speaking_seconds: 1120.4, segment_count: 156, first_spoken_at: 44.2 },
+  ],
+  "person-004": [
+    { media_id: "asset-004", filename: "press_conference_may15.mp4", thumbnail_url: null, duration_seconds: 1863.2, speaker_label: "SPEAKER_03", face_cluster_id: null, speaking_seconds: 87.3, segment_count: 12, first_spoken_at: 903.1 },
+  ],
+};
+
+let libraryInsights: { generated_at: string | null; headline: string | null; insights: { title: string; detail: string }[] } = {
+  generated_at: new Date(Date.now() - 86400000).toISOString(),
+  headline:
+    "An interview-heavy technology archive anchored by Sarah Chen, with growing but under-processed civic and documentary footage.",
+  insights: [
+    {
+      title: "Sarah Chen is the library's central figure",
+      detail:
+        "She appears in 3 of 5 assets and accounts for over 30 minutes of speaking time — more than any other person. Her recurring themes (local AI infrastructure, GPU computing) effectively define the archive's editorial identity.",
+    },
+    {
+      title: "Interview format dominates the collection",
+      detail:
+        "Most speech content comes from two-person interview setups hosted by Marcus Webb. Consider tagging B-roll and civic footage more aggressively, since search quality currently skews toward interview content.",
+    },
+    {
+      title: "Civic footage is a single point of coverage",
+      detail:
+        "All municipal government content traces to one council meeting featuring Councilwoman Rivera. If civic coverage matters to the library, this is a significant gap.",
+    },
+    {
+      title: "One speaker remains unidentified",
+      detail:
+        "A speaker in the May 15 press conference could not be matched to any known person or named from context. Reviewing and naming them would improve cross-asset tracking.",
+    },
+  ],
+};
+
+router.get("/people", (_req, res) => {
+  res.json(people);
+});
+
+router.get("/people/:id", (req, res) => {
+  const p = people.find((x) => x.id === req.params.id);
+  if (!p) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ ...p, appearances: personAppearances[p.id] ?? [] });
+});
+
+router.patch("/people/:id", (req, res) => {
+  const p = people.find((x) => x.id === req.params.id);
+  if (!p) { res.status(404).json({ error: "Not found" }); return; }
+  const name = String(req.body?.display_name ?? "").trim();
+  if (!name) { res.status(422).json({ error: "display_name must not be empty" }); return; }
+  p.display_name = name;
+  p.name_source = "manual";
+  p.updated_at = new Date().toISOString();
+  res.json(p);
+});
+
+router.post("/people/:id/merge", (req, res) => {
+  const target = people.find((x) => x.id === req.params.id);
+  const sourceId = String(req.body?.source_person_id ?? "");
+  const sourceIdx = people.findIndex((x) => x.id === sourceId);
+  if (!target || sourceIdx < 0) { res.status(404).json({ error: "Not found" }); return; }
+  if (target.id === sourceId) { res.status(400).json({ error: "Cannot merge a person into themselves" }); return; }
+  const source = people[sourceIdx];
+  target.asset_count += source.asset_count;
+  target.total_speaking_seconds += source.total_speaking_seconds;
+  target.segment_count += source.segment_count;
+  personAppearances[target.id] = [...(personAppearances[target.id] ?? []), ...(personAppearances[sourceId] ?? [])];
+  delete personAppearances[sourceId];
+  people.splice(sourceIdx, 1);
+  res.json(target);
+});
+
+router.get("/insights", (_req, res) => {
+  res.json({
+    generated_at: libraryInsights.generated_at,
+    headline: libraryInsights.headline,
+    insights: libraryInsights.insights,
+    stats: {
+      total_assets: assets.length,
+      total_duration_seconds: assets.reduce((s, a: any) => s + (a.duration_seconds || 0), 0),
+      total_people: people.length,
+      transcribed_assets: 4,
+      total_speaking_seconds: people.reduce((s, p) => s + p.total_speaking_seconds, 0),
+    },
+    top_people: [...people]
+      .sort((a, b) => b.asset_count - a.asset_count || b.total_speaking_seconds - a.total_speaking_seconds)
+      .map((p) => ({
+        person_id: p.id,
+        display_name: p.display_name,
+        thumbnail_url: p.thumbnail_url,
+        asset_count: p.asset_count,
+        speaking_seconds: p.total_speaking_seconds,
+      })),
+    top_topics: [
+      { topic: "local AI infrastructure", asset_count: 3 },
+      { topic: "GPU computing", asset_count: 2 },
+      { topic: "video processing", asset_count: 2 },
+      { topic: "zoning policy", asset_count: 1 },
+      { topic: "budget allocation", asset_count: 1 },
+      { topic: "urban development", asset_count: 1 },
+    ],
+  });
+});
+
+router.post("/insights/refresh", (_req, res) => {
+  const running = jobs.find((j: any) => j.job_type === "insights" && (j.status === "pending" || j.status === "running"));
+  if (running) { res.status(202).json(running); return; }
+  const job: any = {
+    id: `job-insights-${Date.now()}`,
+    media_id: null,
+    filename: null,
+    job_type: "insights",
+    status: "running",
+    progress: 5,
+    error_message: null,
+    logs: ["Aggregating library statistics..."],
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    finished_at: null,
+  };
+  jobs.unshift(job as any);
+  const timer = setInterval(() => {
+    job.progress = Math.min(100, (job.progress ?? 0) + 25);
+    if (job.progress >= 40 && job.logs.length < 2) job.logs.push("Generating AI narrative...");
+    if (job.progress >= 100) {
+      job.status = "success";
+      job.finished_at = new Date().toISOString();
+      job.logs.push("Insights generated: 4 findings");
+      libraryInsights = { ...libraryInsights, generated_at: new Date().toISOString() };
+      clearInterval(timer);
+    }
+  }, 1500);
+  res.status(202).json(job);
+});
+
 export default router;

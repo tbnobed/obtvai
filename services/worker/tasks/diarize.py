@@ -49,7 +49,7 @@ def run_diarization(self, media_id: str, job_id: str):
         pipeline = pipeline.to(device)
 
         append_log(db, job_id, "Running diarization...")
-        diarization = pipeline(audio_path)
+        diarization, speaker_embeddings = pipeline(audio_path, return_embeddings=True)
 
         speaker_map: dict[str, list[tuple[float, float]]] = {}
         for turn, _, speaker in diarization.itertracks(yield_label=True):
@@ -76,10 +76,39 @@ def run_diarization(self, media_id: str, job_id: str):
                 )
 
         db.commit()
+
+        # Persist per-speaker voice embeddings for cross-asset person identification.
+        try:
+            import json
+            emb_map = {}
+            labels = list(diarization.labels())
+            if speaker_embeddings is not None:
+                for i, label in enumerate(labels):
+                    if i < len(speaker_embeddings):
+                        vec = speaker_embeddings[i]
+                        if vec is not None:
+                            emb_map[label] = [float(x) for x in vec]
+            if emb_map:
+                db.execute(
+                    text("UPDATE media_assets SET speaker_embeddings = CAST(:emb AS jsonb) WHERE id = :mid"),
+                    {"emb": json.dumps(emb_map), "mid": media_id},
+                )
+                db.commit()
+                append_log(db, job_id, f"Stored voice embeddings for {len(emb_map)} speakers")
+        except Exception as emb_err:
+            db.rollback()
+            append_log(db, job_id, f"Voice embedding capture skipped: {emb_err}")
+
         n_speakers = len(speaker_map)
         update_asset(db, media_id, speaker_count=n_speakers, processing_stage="diarized", processing_progress=75.0)
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         append_log(db, job_id, f"Diarization complete: {n_speakers} speakers found")
+
+        # Queue cross-asset person identification
+        from tasks.base import create_job
+        ident_job_id = create_job(db, media_id, "identify")
+        from tasks.identify import identify_people
+        identify_people.delay(media_id, ident_job_id)
 
     except Exception as e:
         db.rollback()

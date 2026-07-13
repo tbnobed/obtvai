@@ -33,6 +33,7 @@ import type {
   FaceCluster,
   GetMediaTranscriptParams,
   HealthStatus,
+  LibraryInsights,
   LibraryStats,
   ListJobsParams,
   ListMediaParams,
@@ -40,6 +41,10 @@ import type {
   MediaIngestInput,
   MediaListResponse,
   MediaUploadInput,
+  Person,
+  PersonDetail,
+  PersonMergeRequest,
+  PersonUpdate,
   ProcessingJob,
   Scene,
   SearchHistoryItem,
@@ -1219,6 +1224,452 @@ export function useGetLibraryStats<TData = Awaited<ReturnType<typeof getLibraryS
 
 
 
+
+export const getListPeopleUrl = () => {
+
+
+
+
+  return `/api/people`
+}
+
+/**
+ * @summary List all identified people across the library
+ */
+export const listPeople = async ( options?: RequestInit): Promise<Person[]> => {
+
+  return customFetch<Person[]>(getListPeopleUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPeopleQueryKey = () => {
+    return [
+    `/api/people`
+    ] as const;
+    }
+
+
+export const getListPeopleQueryOptions = <TData = Awaited<ReturnType<typeof listPeople>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPeopleQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPeople>>> = ({ signal }) => listPeople({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPeopleQueryResult = NonNullable<Awaited<ReturnType<typeof listPeople>>>
+export type ListPeopleQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all identified people across the library
+ */
+
+export function useListPeople<TData = Awaited<ReturnType<typeof listPeople>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPeopleQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPersonUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}`
+}
+
+/**
+ * @summary Person profile with per-asset appearances
+ */
+export const getPerson = async (id: string, options?: RequestInit): Promise<PersonDetail> => {
+
+  return customFetch<PersonDetail>(getGetPersonUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPersonQueryKey = (id: string,) => {
+    return [
+    `/api/people/${id}`
+    ] as const;
+    }
+
+
+export const getGetPersonQueryOptions = <TData = Awaited<ReturnType<typeof getPerson>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerson>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPersonQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerson>>> = ({ signal }) => getPerson(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerson>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPersonQueryResult = NonNullable<Awaited<ReturnType<typeof getPerson>>>
+export type GetPersonQueryError = ErrorType<void>
+
+
+/**
+ * @summary Person profile with per-asset appearances
+ */
+
+export function useGetPerson<TData = Awaited<ReturnType<typeof getPerson>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerson>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPersonQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdatePersonUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}`
+}
+
+/**
+ * @summary Rename a person
+ */
+export const updatePerson = async (id: string,
+    personUpdate: PersonUpdate, options?: RequestInit): Promise<Person> => {
+
+  return customFetch<Person>(getUpdatePersonUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(personUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdatePersonMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePerson>>, TError,{id: string;data: BodyType<PersonUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePerson>>, TError,{id: string;data: BodyType<PersonUpdate>}, TContext> => {
+
+const mutationKey = ['updatePerson'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePerson>>, {id: string;data: BodyType<PersonUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePerson(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePersonMutationResult = NonNullable<Awaited<ReturnType<typeof updatePerson>>>
+    export type UpdatePersonMutationBody = BodyType<PersonUpdate>
+    export type UpdatePersonMutationError = ErrorType<void>
+
+    /**
+ * @summary Rename a person
+ */
+export const useUpdatePerson = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePerson>>, TError,{id: string;data: BodyType<PersonUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePerson>>,
+        TError,
+        {id: string;data: BodyType<PersonUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdatePersonMutationOptions(options));
+    }
+
+export const getMergePersonUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/merge`
+}
+
+/**
+ * @summary Merge another person into this one (fix duplicate identities)
+ */
+export const mergePerson = async (id: string,
+    personMergeRequest: PersonMergeRequest, options?: RequestInit): Promise<Person> => {
+
+  return customFetch<Person>(getMergePersonUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(personMergeRequest)
+  }
+);}
+
+
+
+
+
+export const getMergePersonMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mergePerson>>, TError,{id: string;data: BodyType<PersonMergeRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mergePerson>>, TError,{id: string;data: BodyType<PersonMergeRequest>}, TContext> => {
+
+const mutationKey = ['mergePerson'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mergePerson>>, {id: string;data: BodyType<PersonMergeRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  mergePerson(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MergePersonMutationResult = NonNullable<Awaited<ReturnType<typeof mergePerson>>>
+    export type MergePersonMutationBody = BodyType<PersonMergeRequest>
+    export type MergePersonMutationError = ErrorType<void>
+
+    /**
+ * @summary Merge another person into this one (fix duplicate identities)
+ */
+export const useMergePerson = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mergePerson>>, TError,{id: string;data: BodyType<PersonMergeRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mergePerson>>,
+        TError,
+        {id: string;data: BodyType<PersonMergeRequest>},
+        TContext
+      > => {
+      return useMutation(getMergePersonMutationOptions(options));
+    }
+
+export const getGetLibraryInsightsUrl = () => {
+
+
+
+
+  return `/api/insights`
+}
+
+/**
+ * @summary Library-wide aggregates plus the latest AI-generated narrative
+ */
+export const getLibraryInsights = async ( options?: RequestInit): Promise<LibraryInsights> => {
+
+  return customFetch<LibraryInsights>(getGetLibraryInsightsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLibraryInsightsQueryKey = () => {
+    return [
+    `/api/insights`
+    ] as const;
+    }
+
+
+export const getGetLibraryInsightsQueryOptions = <TData = Awaited<ReturnType<typeof getLibraryInsights>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLibraryInsights>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLibraryInsightsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLibraryInsights>>> = ({ signal }) => getLibraryInsights({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLibraryInsights>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLibraryInsightsQueryResult = NonNullable<Awaited<ReturnType<typeof getLibraryInsights>>>
+export type GetLibraryInsightsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Library-wide aggregates plus the latest AI-generated narrative
+ */
+
+export function useGetLibraryInsights<TData = Awaited<ReturnType<typeof getLibraryInsights>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLibraryInsights>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLibraryInsightsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRefreshLibraryInsightsUrl = () => {
+
+
+
+
+  return `/api/insights/refresh`
+}
+
+/**
+ * @summary Queue a library-wide AI insights regeneration job
+ */
+export const refreshLibraryInsights = async ( options?: RequestInit): Promise<ProcessingJob> => {
+
+  return customFetch<ProcessingJob>(getRefreshLibraryInsightsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRefreshLibraryInsightsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshLibraryInsights>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshLibraryInsights>>, TError,void, TContext> => {
+
+const mutationKey = ['refreshLibraryInsights'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshLibraryInsights>>, void> = () => {
+
+
+          return  refreshLibraryInsights(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshLibraryInsightsMutationResult = NonNullable<Awaited<ReturnType<typeof refreshLibraryInsights>>>
+
+    export type RefreshLibraryInsightsMutationError = ErrorType<void>
+
+    /**
+ * @summary Queue a library-wide AI insights regeneration job
+ */
+export const useRefreshLibraryInsights = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshLibraryInsights>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshLibraryInsights>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRefreshLibraryInsightsMutationOptions(options));
+    }
 
 export const getSemanticSearchUrl = () => {
 

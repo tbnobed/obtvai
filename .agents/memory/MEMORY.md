@@ -6,4 +6,5 @@
 - [HF loads in Celery prefork](celery-redis-pitfalls.md) — from_pretrained on .bin-only repos spawns a subprocess (daemonic crash); snapshot_download first, load from local path; solo pool breaks job cancel.
 - [Torch stack pinning](torch-pinning.md) — torch/torchvision/torchaudio must all be pinned to the same release (+cu128); an unpinned member drifts on rebuild and breaks with undefined-symbol errors.
 - [PyTorch weights_only checkpoint loads](torch-pinning.md) — torch>=2.6 defaults torch.load weights_only=True; older checkpoints (pyannote) need a temporary patched load with weights_only=False.
+- [Person identity concurrency](identity-concurrency.md) — all person mutations share advisory lock hashtext('obtv_identify'); merge blends embeddings; singleton jobs deduped via partial unique index.
 - [MMS-TTS coverage & usage](mms-tts.md) — no model for Italian/Japanese/Chinese; uroman romanization needed for some scripts; gate TTS langs separately from translation langs.

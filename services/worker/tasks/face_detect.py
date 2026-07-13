@@ -48,14 +48,23 @@ def detect_faces(self, media_id: str, job_id: str):
                 continue
             try:
                 img = Image.open(thumb_file).convert("RGB")
-                faces = mtcnn(img)
+                boxes, _probs = mtcnn.detect(img)
+                if boxes is None:
+                    continue
+                faces = mtcnn.extract(img, boxes, None)
                 if faces is None:
                     continue
                 with torch.no_grad():
                     embs = resnet(faces.to(device))
-                for emb in embs:
+                for j, emb in enumerate(embs):
                     embeddings.append(emb.cpu().numpy())
-                    scene_meta.append({"scene_id": scene_id, "start_time": start_time, "end_time": end_time})
+                    scene_meta.append({
+                        "scene_id": scene_id,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "thumb_file": thumb_file,
+                        "box": [float(v) for v in boxes[j]],
+                    })
             except Exception:
                 continue
 
@@ -74,6 +83,11 @@ def detect_faces(self, media_id: str, job_id: str):
                 continue
             clusters.setdefault(label, []).append(meta)
 
+        cluster_members: dict[int, list[int]] = {}
+        for idx, label in enumerate(labels):
+            if label >= 0:
+                cluster_members.setdefault(label, []).append(idx)
+
         for label, appearances in clusters.items():
             cluster_id = str(uuid.uuid4())
             deduped = []
@@ -84,12 +98,46 @@ def detect_faces(self, media_id: str, job_id: str):
                     seen.add(key)
                     deduped.append({"start_time": a["start_time"], "end_time": a["end_time"]})
 
+            # Centroid embedding for cross-asset identity matching
+            member_idx = cluster_members.get(label, [])
+            centroid = None
+            if member_idx:
+                c = X[member_idx].mean(axis=0)
+                norm = np.linalg.norm(c)
+                if norm > 0:
+                    c = c / norm
+                centroid = [float(v) for v in c]
+
+            # Face crop thumbnail from the first appearance
+            face_thumb_name = None
+            if member_idx:
+                meta = scene_meta[member_idx[0]]
+                try:
+                    src = Image.open(meta["thumb_file"]).convert("RGB")
+                    x1, y1, x2, y2 = meta["box"]
+                    mx = (x2 - x1) * 0.3
+                    my = (y2 - y1) * 0.3
+                    crop = src.crop((
+                        max(0, int(x1 - mx)), max(0, int(y1 - my)),
+                        min(src.width, int(x2 + mx)), min(src.height, int(y2 + my)),
+                    ))
+                    face_thumb_name = f"face_{cluster_id}.jpg"
+                    crop.save(os.path.join(THUMBNAILS_DIR, face_thumb_name), quality=90)
+                except Exception:
+                    face_thumb_name = None
+
             db.execute(
                 text("""
-                    INSERT INTO face_clusters (cluster_id, media_id, appearances)
-                    VALUES (:cid, :mid, CAST(:apps AS jsonb))
+                    INSERT INTO face_clusters (cluster_id, media_id, appearances, embedding, thumbnail_url)
+                    VALUES (:cid, :mid, CAST(:apps AS jsonb), CAST(:emb AS jsonb), :thumb)
                 """),
-                {"cid": cluster_id, "mid": media_id, "apps": json.dumps(deduped)},
+                {
+                    "cid": cluster_id,
+                    "mid": media_id,
+                    "apps": json.dumps(deduped),
+                    "emb": json.dumps(centroid) if centroid else None,
+                    "thumb": face_thumb_name,
+                },
             )
 
         db.commit()
@@ -97,6 +145,13 @@ def detect_faces(self, media_id: str, job_id: str):
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         update_asset(db, media_id, processing_stage="face_detect_complete", processing_progress=92.0)
         append_log(db, job_id, f"Detected {n_clusters} face clusters")
+
+        # Queue cross-asset person identification (idempotent; also triggered
+        # by diarize — whichever finishes last sees the full picture)
+        from tasks.base import create_job
+        ident_job_id = create_job(db, media_id, "identify")
+        from tasks.identify import identify_people
+        identify_people.delay(media_id, ident_job_id)
 
     except Exception as e:
         db.rollback()

@@ -12,6 +12,9 @@ import Search from "@/pages/search";
 import Jobs from "@/pages/jobs";
 import AIQA from "@/pages/ai-qa";
 import ClipLists from "@/pages/clip-lists";
+import People from "@/pages/people";
+import PersonDetail from "@/pages/person-detail";
+import Insights from "@/pages/insights";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +26,9 @@ function Router() {
         <Route path="/library" component={Library} />
         <Route path="/library/:id" component={AssetDetail} />
         <Route path="/search" component={Search} />
+        <Route path="/people" component={People} />
+        <Route path="/people/:id" component={PersonDetail} />
+        <Route path="/insights" component={Insights} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/ai" component={AIQA} />
         <Route path="/clips" component={ClipLists} />

@@ -33,6 +33,7 @@ class MediaAsset(Base):
     social_scores: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     translated_languages: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     dubbed_languages: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    speaker_embeddings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     synopsis: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_moments: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)
@@ -83,15 +84,62 @@ class FaceCluster(Base):
     label: Mapped[str | None] = mapped_column(String, nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     appearances: Mapped[list] = mapped_column(JSONB, default=list)
+    embedding: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     asset: Mapped["MediaAsset"] = relationship("MediaAsset", back_populates="face_clusters")
+
+
+class Person(Base):
+    __tablename__ = "people"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    display_name: Mapped[str] = mapped_column(String, nullable=False)
+    name_source: Mapped[str | None] = mapped_column(String, nullable=True)  # auto | manual
+    thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    face_embedding: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    voice_embedding: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    speech_style: Mapped[str | None] = mapped_column(Text, nullable=True)
+    key_topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    appearances: Mapped[list["PersonAppearance"]] = relationship(
+        "PersonAppearance", back_populates="person", cascade="all, delete-orphan"
+    )
+
+
+class PersonAppearance(Base):
+    __tablename__ = "person_appearances"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    person_id: Mapped[str] = mapped_column(String, ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
+    media_id: Mapped[str] = mapped_column(String, ForeignKey("media_assets.id", ondelete="CASCADE"), nullable=False)
+    speaker_label: Mapped[str | None] = mapped_column(String, nullable=True)
+    face_cluster_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    speaking_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    segment_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    first_spoken_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    person: Mapped["Person"] = relationship("Person", back_populates="appearances")
+    asset: Mapped["MediaAsset"] = relationship("MediaAsset")
+
+
+class LibraryInsight(Base):
+    __tablename__ = "library_insights"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    headline: Mapped[str | None] = mapped_column(Text, nullable=True)
+    insights: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class ProcessingJob(Base):
     __tablename__ = "processing_jobs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    media_id: Mapped[str] = mapped_column(String, ForeignKey("media_assets.id"), nullable=False)
+    media_id: Mapped[str | None] = mapped_column(String, ForeignKey("media_assets.id"), nullable=True)
     job_type: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, default="pending")
     progress: Mapped[float | None] = mapped_column(Float, nullable=True)
