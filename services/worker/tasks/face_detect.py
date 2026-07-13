@@ -17,8 +17,11 @@ from config import THUMBNAILS_DIR
 FRAMES_PER_SCENE_MAX = 4      # sample up to this many frames per scene
 FRAME_SAMPLE_EVERY = 4.0      # ~one sample per this many seconds of scene
 TOTAL_FRAME_CAP = 500         # hard cap of sampled frames per asset
-MIN_FACE_PROB = 0.90          # MTCNN detection confidence floor
+MIN_FACE_PROB = 0.98          # MTCNN detection confidence floor (0.90 let
+                              # hands / necks / graphics through as "faces")
 MIN_FACE_SIDE = 36            # ignore tiny background faces (pixels)
+MIN_ASPECT = 0.5              # face box width/height sanity range —
+MAX_ASPECT = 1.25             # hands and neck closeups produce odd boxes
 CLUSTER_EPS = 0.30            # cosine DISTANCE for DBSCAN — 0.6 merged
                               # different people (sim 0.4!); 0.3 ≈ sim 0.7
 
@@ -82,8 +85,10 @@ def detect_faces(self, media_id: str, job_id: str):
             return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
         def _detect(img):
-            """Returns list of (box, face_tensor) passing confidence/size gates."""
-            boxes, probs = mtcnn.detect(img)
+            """Returns list of (box, face_tensor) passing confidence, size and
+            facial-geometry gates (kills hands / necks / graphics that MTCNN
+            occasionally reports as faces)."""
+            boxes, probs, landmarks = mtcnn.detect(img, landmarks=True)
             if boxes is None:
                 return []
             keep, keep_boxes = [], []
@@ -91,7 +96,30 @@ def detect_faces(self, media_id: str, job_id: str):
                 p = probs[j] if probs is not None else 1.0
                 if p is None or p < MIN_FACE_PROB:
                     continue
-                if (box[2] - box[0]) < MIN_FACE_SIDE or (box[3] - box[1]) < MIN_FACE_SIDE:
+                w, h = box[2] - box[0], box[3] - box[1]
+                if w < MIN_FACE_SIDE or h < MIN_FACE_SIDE:
+                    continue
+                if h <= 0 or not (MIN_ASPECT <= w / h <= MAX_ASPECT):
+                    continue
+                # Geometric sanity: a real frontal/profile face has both eyes
+                # above the nose and the nose above the mouth, all inside the box.
+                lm = landmarks[j] if landmarks is not None else None
+                if lm is None:
+                    continue
+                le, re_, nose, ml, mr = lm
+                if not (le[1] < nose[1] and re_[1] < nose[1] and nose[1] < (ml[1] + mr[1]) / 2):
+                    continue
+                pad_x, pad_y = 0.15 * w, 0.15 * h
+                inside = all(
+                    box[0] - pad_x <= px <= box[2] + pad_x and box[1] - pad_y <= py <= box[3] + pad_y
+                    for px, py in lm
+                )
+                if not inside:
+                    continue
+                # Eye spacing should be a meaningful fraction of box width —
+                # extreme chin/neck closeups fail this.
+                eye_dist = ((le[0] - re_[0]) ** 2 + (le[1] - re_[1]) ** 2) ** 0.5
+                if eye_dist < 0.2 * w:
                     continue
                 keep_boxes.append(box)
             if not keep_boxes:

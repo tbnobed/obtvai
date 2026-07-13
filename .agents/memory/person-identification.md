@@ -13,5 +13,6 @@ description: Lessons from debugging "missing people" in embedding-based speaker/
 - Cosine thresholds that worked: 0.75 voice (pyannote), 0.70 face (FaceNet). 0.60 over-merges badly.
 - **Sample multiple frames per scene for face detection.** One frame (the scene thumbnail) misses most people in multi-person talk-show scenes. ~4 frames/scene (one per ~4s, capped per asset) via cv2.VideoCapture on the proxy fixes recall.
 - DBSCAN on FaceNet embeddings: eps is cosine DISTANCE, not similarity — eps=0.6 means sim 0.4 and merges different people; eps≈0.30 (sim 0.7) is right.
+- MTCNN at prob 0.90 passes hands/necks/graphics as faces. Need prob ≥0.98 PLUS landmark geometry gates (eyes above nose above mouth, landmarks inside box, eye distance ≥0.2× box width, aspect ratio 0.5–1.25) to keep People thumbnails clean.
 - Per-asset derived tables (face_clusters etc.) must DELETE-then-insert on re-runs or they accumulate duplicates; also re-queue identify even when zero results so stale links get rebuilt.
 - Advisory-lock note: Postgres xact-level and session-level advisory locks share the same lock space, so an API endpoint using `pg_advisory_xact_lock(key)` correctly serializes against a worker holding `pg_advisory_lock(key)`.
