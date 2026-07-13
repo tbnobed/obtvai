@@ -4,11 +4,60 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from ..database import get_db
-from ..models import AIConversation, AIMessage, MediaAsset, TranscriptSegment
+from ..models import (
+    AIConversation, AIMessage, MediaAsset, TranscriptSegment,
+    Person, PersonAppearance,
+)
 from ..schemas import AIQuestion, AIAnswerOut, AICitationOut, ConversationOut, AIMessageOut
 from ..config import settings
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+_STOPWORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "do", "does", "did",
+    "this", "that", "these", "those", "in", "on", "at", "of", "to",
+    "about", "any", "some", "what", "who", "when", "where", "why",
+    "how", "it", "its", "and", "or", "not", "sense", "mention",
+    "mentions", "talk", "talks", "say", "says", "said", "video",
+    "have", "has", "had", "many", "much", "with", "for", "his", "her",
+    "their", "they", "she", "him", "them",
+}
+
+
+def _question_keywords(question: str) -> list[str]:
+    words = [w.strip("?,.!\"'") for w in question.lower().split()]
+    return [w for w in words if len(w) > 2 and w not in _STOPWORDS][:6]
+
+
+async def _keyword_segments(db: AsyncSession, question: str, media_id: str | None, limit: int = 8):
+    """Keyword match over transcript text. Runs alongside vector search:
+    embeddings miss first-person answers (question names a person, the answer
+    says "my wife and I..."), while exact words like "children" still match."""
+    from sqlalchemy import or_
+    keywords = _question_keywords(question)
+    if not keywords:
+        return []
+    q = select(TranscriptSegment, MediaAsset).join(
+        MediaAsset, TranscriptSegment.media_id == MediaAsset.id
+    ).where(or_(*[TranscriptSegment.text.ilike(f"%{kw}%") for kw in keywords]))
+    if media_id:
+        q = q.where(TranscriptSegment.media_id == media_id)
+    return list((await db.execute(q.limit(limit))).all())
+
+
+async def _speaker_names(db: AsyncSession, media_ids: set[str]) -> dict[tuple[str, str], str]:
+    """Map (media_id, diarization label) -> identified person display name."""
+    if not media_ids:
+        return {}
+    rows = await db.execute(
+        select(PersonAppearance.media_id, PersonAppearance.speaker_label, Person.display_name)
+        .join(Person, Person.id == PersonAppearance.person_id)
+        .where(
+            PersonAppearance.media_id.in_(media_ids),
+            PersonAppearance.speaker_label.is_not(None),
+        )
+    )
+    return {(mid, label): name for mid, label, name in rows.all() if label}
 
 
 async def _run_qa(
@@ -26,12 +75,18 @@ async def _run_qa(
     citations: list[AICitationOut] = []
     context_parts: list[str] = []
 
+    # Resolve diarization labels to identified person names so the LLM can
+    # attribute first-person statements ("my wife and I...") to the speaker.
+    speaker_names = await _speaker_names(db, {asset.id for _, asset in context_segments})
+
     for seg, asset in context_segments:
         tc = f"{int(seg.start_time // 60):02d}:{int(seg.start_time % 60):02d}"
+        name = speaker_names.get((asset.id, seg.speaker)) if seg.speaker else None
+        spoken = f"{name}: {seg.text}" if name else seg.text
         if single_asset:
-            context_parts.append(f"[{tc}] {seg.text}")
+            context_parts.append(f"[{tc}] {spoken}")
         else:
-            context_parts.append(f"[{asset.filename} @ {tc}] {seg.text}")
+            context_parts.append(f"[{asset.filename} @ {tc}] {spoken}")
         citations.append(AICitationOut(
             media_id=asset.id,
             filename=asset.filename,
@@ -43,21 +98,26 @@ async def _run_qa(
     if not context_parts:
         return "No indexed media content found that matches your question. Make sure videos have been processed and indexed.", []
 
-    context_text = "\n".join(context_parts[:10])
+    context_text = "\n".join(context_parts[:12])
     if single_asset:
         prompt = (
-            f"Transcript excerpts from a single video (format: [timecode] text):\n{context_text}\n\n"
+            f"Transcript excerpts from a single video (format: [timecode] speaker: text):\n{context_text}\n\n"
             f"Question: {question}\n\n"
-            f"Answer the question using only these excerpts. Quote or paraphrase the "
-            f"relevant lines and mention their timecodes (e.g. 50:39). Never mention "
-            f"any filename — refer to the content as \"this video\". If the excerpts "
-            f"do not answer the question, say so directly instead of guessing."
+            f"Answer the question using only these excerpts. Statements are first-person: "
+            f"when a line is labeled with a speaker's name, facts they state about "
+            f"themselves (\"my wife and I have six children\") are facts about that "
+            f"speaker. Quote or paraphrase the relevant lines and mention their "
+            f"timecodes (e.g. 50:39). Never mention any filename — refer to the "
+            f"content as \"this video\". If the excerpts do not answer the question, "
+            f"say so directly instead of guessing."
         )
     else:
         prompt = (
-            f"Transcript excerpts (format: [filename @ timecode] text):\n{context_text}\n\n"
+            f"Transcript excerpts (format: [filename @ timecode] speaker: text):\n{context_text}\n\n"
             f"Question: {question}\n\n"
-            f"Answer the question using only these excerpts. Quote or paraphrase the "
+            f"Answer the question using only these excerpts. Statements are first-person: "
+            f"when a line is labeled with a speaker's name, facts they state about "
+            f"themselves are facts about that speaker. Quote or paraphrase the "
             f"relevant lines and mention their timecodes. If the excerpts do not answer "
             f"the question, say so directly instead of guessing."
         )
@@ -111,7 +171,13 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
     )
     db.add(user_msg)
 
+    # Hybrid retrieval: vector search finds semantically similar segments, but
+    # misses first-person answers (the question names a person, the answer says
+    # "my wife and I..."). Keyword search catches exact words like "children".
+    # Run both and merge, deduping by segment id.
     context_segments: list = []
+    seen_ids: set[str] = set()
+
     try:
         from ..services.embedding import get_text_embedding
         from ..services.qdrant_client import search_vectors
@@ -125,6 +191,8 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
         )
         for hit in hits:
             seg_id = hit.payload.get("segment_id")
+            if not seg_id or seg_id in seen_ids:
+                continue
             row = (await db.execute(
                 select(TranscriptSegment, MediaAsset)
                 .join(MediaAsset, TranscriptSegment.media_id == MediaAsset.id)
@@ -132,29 +200,20 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
             )).first()
             if row:
                 context_segments.append(row)
+                seen_ids.add(seg_id)
     except Exception:
-        # Keyword fallback when vector search is unavailable: match on the
-        # meaningful words of the question, not stopwords like "does"/"this".
-        from sqlalchemy import or_
-        stopwords = {
-            "a", "an", "the", "is", "are", "was", "were", "do", "does", "did",
-            "this", "that", "these", "those", "in", "on", "at", "of", "to",
-            "about", "any", "some", "what", "who", "when", "where", "why",
-            "how", "it", "its", "and", "or", "not", "sense", "mention",
-            "mentions", "talk", "talks", "say", "says", "said", "video",
-        }
-        words = [
-            w.strip("?,.!\"'") for w in body.question.lower().split()
-        ]
-        keywords = [w for w in words if len(w) > 2 and w not in stopwords][:6]
-        if keywords:
-            q = select(TranscriptSegment, MediaAsset).join(
-                MediaAsset, TranscriptSegment.media_id == MediaAsset.id
-            ).where(or_(*[TranscriptSegment.text.ilike(f"%{kw}%") for kw in keywords]))
-            if body.media_id:
-                q = q.where(TranscriptSegment.media_id == body.media_id)
-            rows = (await db.execute(q.limit(8))).all()
-            context_segments = list(rows)
+        pass  # vector search unavailable — keyword results below still apply
+
+    try:
+        for row in await _keyword_segments(db, body.question, body.media_id):
+            seg = row[0]
+            if seg.id not in seen_ids:
+                context_segments.append(row)
+                seen_ids.add(seg.id)
+    except Exception:
+        pass
+
+    context_segments = context_segments[:12]
 
     answer_text, citations = await _run_qa(
         body.question, context_segments, db, single_asset=bool(body.media_id)
