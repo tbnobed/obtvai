@@ -13,10 +13,7 @@ export default function ClipLists() {
   const [exportData, setExportData] = useState<string | null>(null);
 
   const handleExport = (listId: string, format: string) => {
-    // In a real app we might pass listId to the mutation if supported, 
-    // or the export might act on a specific list. Assuming basic behavior.
-    // Given the provided spec, we only have useExportClipList() with body {format}.
-    exportMutation.mutate({ data: { format } }, {
+    exportMutation.mutate({ id: listId, data: { format } }, {
       onSuccess: (res) => {
         setExportData(res.content);
       }

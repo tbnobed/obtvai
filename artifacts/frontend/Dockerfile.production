@@ -7,6 +7,7 @@ RUN npm install -g pnpm
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json tsconfig.json ./
 COPY lib/ ./lib/
 COPY artifacts/frontend/ ./artifacts/frontend/
+COPY attached_assets/ ./attached_assets/
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @workspace/api-spec run codegen

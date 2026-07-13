@@ -8,6 +8,7 @@ import {
   MessageSquare, 
   Scissors 
 } from "lucide-react";
+import logoUrl from "@assets/obtv_logo.png";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -29,7 +30,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
       <aside className="w-64 border-r border-border bg-card flex flex-col">
         <div className="h-14 flex items-center px-4 border-b border-border">
-          <div className="font-mono font-bold text-lg tracking-tight">OBTV<span className="text-primary">.AI</span></div>
+          <img src={logoUrl} alt="OBTV.AI" className="h-10 w-auto" />
         </div>
         <nav className="flex-1 overflow-y-auto p-2 space-y-1">
           {navItems.map((item) => {
