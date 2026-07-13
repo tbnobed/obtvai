@@ -23,10 +23,29 @@ def run_diarization(self, media_id: str, job_id: str):
 
         append_log(db, job_id, "Loading diarization pipeline...")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1",
-            use_auth_token=os.getenv("HF_TOKEN", ""),
-        )
+
+        # PyTorch >=2.6 defaults torch.load to weights_only=True, which rejects
+        # pyannote's checkpoint format. The model comes from pyannote's official
+        # HF repo (trusted), so temporarily restore the legacy behavior.
+        _orig_torch_load = torch.load
+
+        def _legacy_load(*args, **kwargs):
+            kwargs["weights_only"] = False
+            return _orig_torch_load(*args, **kwargs)
+
+        torch.load = _legacy_load
+        try:
+            pipeline = Pipeline.from_pretrained(
+                "pyannote/speaker-diarization-3.1",
+                use_auth_token=os.getenv("HF_TOKEN", ""),
+            )
+        finally:
+            torch.load = _orig_torch_load
+        if pipeline is None:
+            raise RuntimeError(
+                "Failed to load pyannote/speaker-diarization-3.1 — check that HF_TOKEN "
+                "is set and the model's gated-access terms are accepted on Hugging Face"
+            )
         pipeline = pipeline.to(device)
 
         append_log(db, job_id, "Running diarization...")
