@@ -403,11 +403,17 @@ router.post("/ai/ask", (req, res) => {
       message_count: 0,
     });
   }
-  const answer = `Based on the indexed transcripts, I found relevant content related to your question: "${req.body.question}"\n\nIn the interview with Sarah Chen (interview_sarah_chen.mp4), she discusses this topic extensively starting around 50 seconds in, noting: "With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput."\n\nThis appears to be the most relevant passage in the current library.`;
+  const scopedAsset = req.body.media_id
+    ? assets.find((a) => a.id === req.body.media_id)
+    : null;
+  const citeAsset = scopedAsset ?? assets[0];
+  const answer = scopedAsset
+    ? `Looking only at ${scopedAsset.filename}, here is what I found for: "${req.body.question}"\n\nAround 50 seconds in, the speaker notes: "With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput."\n\nThis is the most relevant passage in this video.`
+    : `Based on the indexed transcripts, I found relevant content related to your question: "${req.body.question}"\n\nIn the interview with Sarah Chen (interview_sarah_chen.mp4), she discusses this topic extensively starting around 50 seconds in, noting: "With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput."\n\nThis appears to be the most relevant passage in the current library.`;
   const citations = [
     {
-      media_id: "asset-001",
-      filename: "interview_sarah_chen.mp4",
+      media_id: citeAsset.id,
+      filename: citeAsset.filename,
       start_time: 50.0,
       end_time: 71.3,
       snippet: "With modern GPU hardware and the right software architecture, you can build a fully local AI inference stack that outperforms cloud solutions on throughput.",

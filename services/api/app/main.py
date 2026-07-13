@@ -75,6 +75,28 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.thumbnails_dir, exist_ok=True)
     os.makedirs(settings.audio_dir, exist_ok=True)
 
+    # Warm AI models in the background so the first /ai/ask request does not
+    # stall for minutes on model download + load. Non-blocking: the API serves
+    # requests immediately; the first ask simply waits on the shared lazy
+    # loaders if it arrives before warm-up finishes.
+    import threading
+
+    def _warm_models():
+        try:
+            from .services.embedding import _load_model
+            _load_model()
+            print("Warm-up: text embedding model ready")
+        except Exception as e:
+            print(f"Warm-up: embedding model failed to load: {e}")
+        try:
+            from .services.llm import _load_pipeline
+            _load_pipeline()
+            print("Warm-up: LLM pipeline ready")
+        except Exception as e:
+            print(f"Warm-up: LLM failed to load: {e}")
+
+    threading.Thread(target=_warm_models, daemon=True).start()
+
     yield
 
 

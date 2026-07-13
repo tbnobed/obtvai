@@ -1,7 +1,9 @@
 import asyncio
+import threading
 from ..config import settings
 
 _model = None
+_model_lock = threading.Lock()
 _clip_model = None
 _clip_processor = None
 _clip_tokenizer = None
@@ -10,8 +12,10 @@ _clip_tokenizer = None
 def _load_model():
     global _model
     if _model is None:
-        from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer(settings.embeddings_model)
+        with _model_lock:
+            if _model is None:
+                from sentence_transformers import SentenceTransformer
+                _model = SentenceTransformer(settings.embeddings_model)
     return _model
 
 

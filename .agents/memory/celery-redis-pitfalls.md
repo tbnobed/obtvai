@@ -24,4 +24,9 @@ Cache large models (LLMs, whisper, CLIP) in a module-level global inside the tas
 # Model downloads must be persisted in a volume
 Docker worker containers must mount a named volume at `/root/.cache` (HF hub, torch hub, whisper all cache there), or every `docker compose up --build` wipes the models and re-downloads tens of GB on first task.
 **Why:** container filesystems are recreated on rebuild; only named volumes survive. Bit us when Qwen 7B (~15 GB) re-downloaded after every worker rebuild.
-**How to apply:** declare `models_cache:` in top-level volumes and mount `models_cache:/root/.cache` in every worker service that loads models (workers run as root, so `/root/.cache` is the right home).
+**How to apply:** declare `models_cache:` in top-level volumes and mount `models_cache:/root/.cache` in EVERY service that loads models — workers AND the api container (the api lazy-loads the Q&A LLM + embedding model; without the mount, the first /ai/ask after a rebuild hangs for minutes re-downloading shards).
+
+# Lazy model loaders need warm-up + locking in the API
+The api warms models in a background daemon thread at startup (non-blocking, healthchecks pass), and the lazy loaders use double-checked locking (`threading.Lock`) so a request racing the warm-up can't load the model twice (double VRAM).
+**Why:** first /ai/ask otherwise blocks minutes on model load; an unlocked `if _model is None` check loaded twice under the warm-up race.
+**How to apply:** spawn `threading.Thread(target=_warm, daemon=True)` in the FastAPI lifespan after migrations; keep `_load()` guards as `if None: with lock: if None:`.

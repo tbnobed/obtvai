@@ -99,6 +99,7 @@ services:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads"
       - artifacts_data:/artifacts
+      - models_cache:/root/.cache
     depends_on:
       postgres:
         condition: service_healthy

@@ -5,24 +5,28 @@ The model is configurable via the LLM_MODEL environment variable.
 """
 import asyncio
 import os
+import threading
 
 LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 
 _pipeline = None
+_pipeline_lock = threading.Lock()
 
 
 def _load_pipeline():
     global _pipeline
     if _pipeline is None:
-        from transformers import pipeline as hf_pipeline
-        import torch
-        _pipeline = hf_pipeline(
-            "text-generation",
-            model=LLM_MODEL,
-            torch_dtype=torch.float16,
-            device_map="auto",
-            max_new_tokens=512,
-        )
+        with _pipeline_lock:
+            if _pipeline is None:
+                from transformers import pipeline as hf_pipeline
+                import torch
+                _pipeline = hf_pipeline(
+                    "text-generation",
+                    model=LLM_MODEL,
+                    torch_dtype=torch.float16,
+                    device_map="auto",
+                    max_new_tokens=512,
+                )
     return _pipeline
 
 

@@ -1,0 +1,28 @@
+api-1         | INFO:     172.18.0.10:39340 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:49:40 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-004903db38c5" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:39352 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:49:43 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-004903db38c5" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:39354 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:49:46 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-004903db38c5" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     127.0.0.1:44120 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:32994 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:49:49 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-004903db38c5" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:33010 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:49:52 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-004903db38c5" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+qdrant-1      | 2026-07-13T15:49:53.513949Z  INFO actix_web::middleware::logger: 172.18.0.6 "POST /collections/transcripts/points/search HTTP/1.1" 200 919 "-" "python-httpx/0.28.1" 0.005655
+Downloading shards:  50%|█████     | 2/4 [01:16<01:16, 38.24s/it]
+postgres-1    | 2026-07-13 15:49:55.282 UTC [55] LOG:  checkpoint starting: time
+api-1         | INFO:     172.18.0.10:33028 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:49:55 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-0049Downloading shards:  75%|███████▌  | 3/4 [01:54<00:38, 38.37s/it]537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+postgres-1    | 2026-07-13 15:49:56.908 UTC [55] LOG:  checkpoint complete: wrote 5 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.913 s, sync=0.012 s, total=1.627 s; sync files=5, longest=0.009 s, average=0.003 s; distance=8 kB, estimate=490 kB; lsn=0/1D87B40, redo lsn=0/1D87B00
+api-1         | INFO:     127.0.0.1:48966 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:33038 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:49:58 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-004903db38c5" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:51636 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:50:02 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-004903db38c5" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:51646 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:50:05 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-004903db38c5" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     127.0.0.1:51116 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1         | INFO:     172.18.0.10:51648 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK
+frontend-1    | 192.168.0.140 - - [13/Jul/2026:15:50:08 +0000] "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 6617 "http://192.168.201.166:5000/library/c8f24475-6d45-420c-871e-004903db38c5" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1         | INFO:     172.18.0.10:47950 - "GET /api/jobs?media_id=c8f24475-6d45-420c-871e-004903db38c5 HTTP/1.1" 200 OK

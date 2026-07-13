@@ -108,8 +108,10 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
     except Exception:
         q = select(TranscriptSegment, MediaAsset).join(
             MediaAsset, TranscriptSegment.media_id == MediaAsset.id
-        ).where(TranscriptSegment.text.ilike(f"%{body.question.split()[0] if body.question.split() else ''}%")).limit(8)
-        rows = (await db.execute(q)).all()
+        ).where(TranscriptSegment.text.ilike(f"%{body.question.split()[0] if body.question.split() else ''}%"))
+        if body.media_id:
+            q = q.where(TranscriptSegment.media_id == body.media_id)
+        rows = (await db.execute(q.limit(8))).all()
         context_segments = list(rows)
 
     answer_text, citations = await _run_qa(body.question, context_segments, db)

@@ -288,7 +288,7 @@ export default function AssetDetail() {
               </ScrollArea>
             </TabsContent>
             <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
-              <AssetChat mediaId={id!} onSeek={seekTo} />
+              <AssetChat key={id} mediaId={id!} onSeek={seekTo} />
             </TabsContent>
           </Tabs>
         </div>
