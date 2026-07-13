@@ -91,7 +91,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              device_ids: ["${GPU_DEVICE_ID:-1}"]
               capabilities: [gpu]
     environment:
       <<: *python-env
@@ -121,7 +121,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              device_ids: ["${GPU_DEVICE_ID:-1}"]
               capabilities: [gpu]
     environment:
       <<: *python-env

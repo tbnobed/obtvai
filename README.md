@@ -10,10 +10,14 @@ Runs entirely on-premises — no cloud APIs, no data leaves your network.
 
 - Ubuntu 22.04+ server
 - NVIDIA GPU with CUDA support (RTX 3090 or better recommended; RTX PRO 6000 Blackwell for production)
+- NVIDIA driver 570+ (containers use CUDA 12.8 + PyTorch cu128 wheels — required for Blackwell GPUs)
 - NVIDIA Container Toolkit
 - Docker Engine 24+
 - Docker Compose v2.x
 - Local media storage (SMB, NFS, or directly mounted)
+
+On multi-GPU or shared machines, set `GPU_DEVICE_ID` in `.env` to pin the whole stack
+to one GPU (default: `1`). All AI services (API + GPU worker) respect this setting.
 
 ---
 
@@ -131,6 +135,7 @@ See `.env.example` for all environment variables.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MEDIA_PATH` | `./sample_media` | Path to your video library |
+| `GPU_DEVICE_ID` | `1` | Which GPU (nvidia-smi index) the stack uses |
 | `WHISPER_MODEL` | `large-v3` | Whisper model size |
 | `LLM_MODEL` | `Llama-3.2-3B-Instruct` | Local LLM for AI Q&A |
 | `HF_TOKEN` | — | HuggingFace token for diarization + gated Llama models |

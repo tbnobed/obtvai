@@ -1,4 +1,5 @@
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+# CUDA 12.8+ required for Blackwell GPUs (RTX 5090, RTX PRO 6000)
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -18,6 +19,8 @@ WORKDIR /worker
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# facenet-pytorch pins an old torch; install without deps (torch/torchvision already present)
+RUN pip install --no-cache-dir --no-deps facenet-pytorch==2.6.0 && pip install --no-cache-dir requests
 
 COPY . .
 
