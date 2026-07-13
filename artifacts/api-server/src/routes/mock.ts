@@ -919,8 +919,10 @@ let libraryInsights: { generated_at: string | null; headline: string | null; ins
   ],
 };
 
-router.get("/people", (_req, res) => {
-  res.json(people);
+router.get("/people", (req, res) => {
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "48"), 10) || 48, 1), 200);
+  const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
+  res.json({ items: people.slice(offset, offset + limit), total: people.length });
 });
 
 router.get("/people/:id", (req, res) => {

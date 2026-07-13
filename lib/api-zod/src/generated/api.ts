@@ -454,9 +454,23 @@ export const GetLibraryStatsResponse = zod.object({
 
 
 /**
- * @summary List all identified people across the library
+ * @summary List identified people across the library (paginated)
  */
-export const ListPeopleResponseItem = zod.object({
+export const listPeopleQueryLimitDefault = 48;
+export const listPeopleQueryLimitMax = 200;
+
+export const listPeopleQueryOffsetDefault = 0;
+export const listPeopleQueryOffsetMin = 0;
+
+
+
+export const ListPeopleQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(listPeopleQueryLimitMax).default(listPeopleQueryLimitDefault),
+  "offset": zod.coerce.number().min(listPeopleQueryOffsetMin).default(listPeopleQueryOffsetDefault)
+})
+
+export const ListPeopleResponse = zod.object({
+  "items": zod.array(zod.object({
   "id": zod.string(),
   "display_name": zod.string(),
   "name_source": zod.string().nullish().describe('auto (LLM-extracted from transcripts) | manual | null (unnamed)'),
@@ -468,8 +482,9 @@ export const ListPeopleResponseItem = zod.object({
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
   "updated_at": zod.string().nullish()
+})),
+  "total": zod.number().describe('Total number of people in the library')
 })
-export const ListPeopleResponse = zod.array(ListPeopleResponseItem)
 
 
 /**

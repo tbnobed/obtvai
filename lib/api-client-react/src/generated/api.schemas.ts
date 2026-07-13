@@ -261,6 +261,12 @@ export interface PersonMergeRequest {
   source_person_id: string;
 }
 
+export interface PeoplePage {
+  items: Person[];
+  /** Total number of people in the library */
+  total: number;
+}
+
 export interface ReanalyzeResult {
   /** Number of media assets queued for re-analysis */
   assets_queued: number;
@@ -501,6 +507,18 @@ export type GetMediaTranscriptParams = {
  * ISO language code — return translated text where available
  */
 lang?: string;
+};
+
+export type ListPeopleParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * @minimum 0
+ */
+offset?: number;
 };
 
 export type ListJobsParams = {

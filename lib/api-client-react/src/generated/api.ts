@@ -39,10 +39,12 @@ import type {
   LibraryStats,
   ListJobsParams,
   ListMediaParams,
+  ListPeopleParams,
   MediaAsset,
   MediaIngestInput,
   MediaListResponse,
   MediaUploadInput,
+  PeoplePage,
   Person,
   PersonDetail,
   PersonMergeRequest,
@@ -1228,20 +1230,27 @@ export function useGetLibraryStats<TData = Awaited<ReturnType<typeof getLibraryS
 
 
 
-export const getListPeopleUrl = () => {
+export const getListPeopleUrl = (params?: ListPeopleParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/people`
+  return stringifiedParams.length > 0 ? `/api/people?${stringifiedParams}` : `/api/people`
 }
 
 /**
- * @summary List all identified people across the library
+ * @summary List identified people across the library (paginated)
  */
-export const listPeople = async ( options?: RequestInit): Promise<Person[]> => {
+export const listPeople = async (params?: ListPeopleParams, options?: RequestInit): Promise<PeoplePage> => {
 
-  return customFetch<Person[]>(getListPeopleUrl(),
+  return customFetch<PeoplePage>(getListPeopleUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1254,23 +1263,23 @@ export const listPeople = async ( options?: RequestInit): Promise<Person[]> => {
 
 
 
-export const getListPeopleQueryKey = () => {
+export const getListPeopleQueryKey = (params?: ListPeopleParams,) => {
     return [
-    `/api/people`
+    `/api/people`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListPeopleQueryOptions = <TData = Awaited<ReturnType<typeof listPeople>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListPeopleQueryOptions = <TData = Awaited<ReturnType<typeof listPeople>>, TError = ErrorType<unknown>>(params?: ListPeopleParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListPeopleQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListPeopleQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPeople>>> = ({ signal }) => listPeople({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPeople>>> = ({ signal }) => listPeople(params, { signal, ...requestOptions });
 
 
 
@@ -1284,15 +1293,15 @@ export type ListPeopleQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List all identified people across the library
+ * @summary List identified people across the library (paginated)
  */
 
 export function useListPeople<TData = Awaited<ReturnType<typeof listPeople>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListPeopleParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListPeopleQueryOptions(options)
+  const queryOptions = getListPeopleQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -16,8 +16,8 @@ from app import celery_app
 from db import get_session
 from tasks.base import update_job, append_log
 
-VOICE_SIM_THRESHOLD = 0.60
-FACE_SIM_THRESHOLD = 0.60
+VOICE_SIM_THRESHOLD = 0.75
+FACE_SIM_THRESHOLD = 0.70
 FACE_ATTACH_OVERLAP = 0.25
 _PROFILE_CHARS = 12000
 
@@ -381,8 +381,14 @@ def identify_people(self, media_id: str, job_id: str):
                 append_log(db, job_id, f"Face-only appearance matched to {best_p[1]} (sim {best_sim:.2f})")
             db.commit()
 
-        # Drop people that no longer have any appearances (stale from re-runs)
-        db.execute(text("DELETE FROM people WHERE id NOT IN (SELECT DISTINCT person_id FROM person_appearances)"))
+        # Drop auto-created people that no longer have any appearances (stale
+        # from re-runs). Manually named people are never auto-deleted — the
+        # user invested in labeling them, so keep them for future matching.
+        db.execute(text("""
+            DELETE FROM people
+            WHERE id NOT IN (SELECT DISTINCT person_id FROM person_appearances)
+              AND (name_source IS NULL OR name_source != 'manual')
+        """))
         db.commit()
 
         # ── AI profiles for everyone touched ────────────────────────────────

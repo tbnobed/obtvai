@@ -300,6 +300,11 @@ class ReanalyzeOut(BaseModel):
     jobs_created: int
 
 
+class PeoplePageOut(BaseModel):
+    items: list["PersonOut"]
+    total: int
+
+
 # ── Insights ──────────────────────────────────────────────────────────────────
 
 class InsightItemOut(BaseModel):

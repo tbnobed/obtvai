@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 from ..database import get_db
@@ -10,6 +10,7 @@ from ..schemas import (
     PersonUpdateIn,
     PersonMergeIn,
     ReanalyzeOut,
+    PeoplePageOut,
 )
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -54,8 +55,13 @@ _STATS = (
 ).subquery()
 
 
-@router.get("", response_model=list[PersonOut])
-async def list_people(db: AsyncSession = Depends(get_db)):
+@router.get("", response_model=PeoplePageOut)
+async def list_people(
+    limit: int = Query(48, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    total = (await db.execute(select(func.count(Person.id)))).scalar_one()
     rows = (
         await db.execute(
             select(Person, _STATS.c.assets, _STATS.c.speaking, _STATS.c.segments)
@@ -63,10 +69,16 @@ async def list_people(db: AsyncSession = Depends(get_db)):
             .order_by(
                 func.coalesce(_STATS.c.assets, 0).desc(),
                 func.coalesce(_STATS.c.speaking, 0).desc(),
+                Person.created_at,
             )
+            .limit(limit)
+            .offset(offset)
         )
     ).all()
-    return [_person_out(p, a or 0, s or 0, g or 0) for p, a, s, g in rows]
+    return PeoplePageOut(
+        items=[_person_out(p, a or 0, s or 0, g or 0) for p, a, s, g in rows],
+        total=int(total or 0),
+    )
 
 
 @router.post("/reanalyze", response_model=ReanalyzeOut, status_code=202)

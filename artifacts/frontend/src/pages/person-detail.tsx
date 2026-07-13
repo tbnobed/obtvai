@@ -44,7 +44,7 @@ export default function PersonDetail() {
   const { data: person, isLoading } = useGetPerson(id, {
     query: { queryKey: getGetPersonQueryKey(id), enabled: !!id },
   });
-  const { data: allPeople } = useListPeople();
+  const { data: allPeople } = useListPeople({ limit: 200 });
 
   const updatePerson = useUpdatePerson();
   const mergePerson = useMergePerson();
@@ -112,7 +112,7 @@ export default function PersonDetail() {
     );
   }
 
-  const mergeCandidates = (allPeople ?? []).filter((p) => p.id !== id);
+  const mergeCandidates = (allPeople?.items ?? []).filter((p) => p.id !== id);
 
   return (
     <div className="flex-1 p-8 overflow-y-auto">
