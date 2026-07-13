@@ -64,8 +64,8 @@ async def retry_job(id: str, db: AsyncSession = Depends(get_db)):
     if not row:
         raise HTTPException(status_code=404, detail="Job not found")
     job, asset = row
-    if job.status not in ("error", "cancelled"):
-        raise HTTPException(status_code=400, detail="Only failed or cancelled jobs can be retried")
+    if job.status in ("running", "pending"):
+        raise HTTPException(status_code=400, detail="Job is already queued or running")
 
     job.status = "pending"
     job.error_message = None
