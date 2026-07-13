@@ -336,7 +336,7 @@ export default function AssetDetail() {
               </TabsContent>
               <TabsContent value="socials" className="mt-4">
                 {(asset.social_scores && asset.social_scores.length > 0 && !socialBusy) ? (
-                  <div className="space-y-4 max-w-5xl">
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-muted-foreground flex items-center gap-2">
                         <TrendingUp className="h-4 w-4" />
@@ -347,7 +347,7 @@ export default function AssetDetail() {
                         Re-analyze
                       </Button>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {(asset.social_scores as SocialScore[]).map((s) => {
                         const meta = PLATFORM_META[s.platform] ?? { label: s.platform, Icon: Share2, color: "text-foreground" };
                         const score = Math.round(s.score);
