@@ -245,6 +245,11 @@ def identify_people(self, media_id: str, job_id: str):
                 tokenizer, model = _load_llm()
             return tokenizer, model
 
+        # Each diarized speaker in this asset must resolve to a DISTINCT person:
+        # two different voices in the same video are never the same person, so
+        # once a person is claimed by one speaker, other speakers can't match it.
+        assigned_pids: set[str] = set()
+
         for spk, segs, secs, first_at in speaker_stats:
             voice = voice_map.get(spk)
             cluster = cluster_for_speaker.get(spk)
@@ -253,6 +258,8 @@ def identify_people(self, media_id: str, job_id: str):
             match = None
             best_sim = 0.0
             for p in people:
+                if p[0] in assigned_pids:
+                    continue
                 sim = -1.0
                 if voice and p[3]:
                     sim = _cosine(voice, p[3])
@@ -267,10 +274,11 @@ def identify_people(self, media_id: str, job_id: str):
 
             if match is None and face:
                 for p in people:
-                    if p[4]:
-                        sim = _cosine(face, p[4])
-                        if sim >= FACE_SIM_THRESHOLD and sim > best_sim:
-                            best_sim, match = sim, p
+                    if p[0] in assigned_pids or not p[4]:
+                        continue
+                    sim = _cosine(face, p[4])
+                    if sim >= FACE_SIM_THRESHOLD and sim > best_sim:
+                        best_sim, match = sim, p
 
             if match is None:
                 pid = str(uuid.uuid4())
@@ -347,6 +355,7 @@ def identify_people(self, media_id: str, job_id: str):
             )
             db.commit()
             touched.append(pid)
+            assigned_pids.add(pid)
 
         # Face-only clusters (people seen but never speaking): match against
         # known faces, or create a new person when the cluster is substantial

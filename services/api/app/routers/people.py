@@ -96,6 +96,28 @@ async def reanalyze_people(db: AsyncSession = Depends(get_db)):
     # jobs the first one created (its active-job check skips those assets).
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_reanalyze'))"))
 
+    # Also serialize against in-flight identify workers before wiping people.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_identify'))"))
+
+    # Start identification from a clean slate: drop all auto-created people so
+    # stale identities (e.g. over-merged "blob" people built under older, looser
+    # similarity thresholds) can't keep absorbing speakers on the re-run.
+    # Manually named people are kept — their embeddings still match future runs.
+    await db.execute(
+        delete(PersonAppearance).where(
+            PersonAppearance.person_id.in_(
+                select(Person.id).where(
+                    (Person.name_source.is_(None)) | (Person.name_source != "manual")
+                )
+            )
+        )
+    )
+    await db.execute(
+        delete(Person).where(
+            (Person.name_source.is_(None)) | (Person.name_source != "manual")
+        )
+    )
+
     assets = (
         await db.execute(select(MediaAsset.id).where(MediaAsset.status == "ready"))
     ).scalars().all()
