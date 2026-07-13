@@ -1,1 +1,2 @@
 - [Celery/SQLAlchemy worker pitfalls](celery-redis-pitfalls.md) — publish via Celery send_task not raw Redis; use CAST(:p AS jsonb) not ::casts in text(); rollback before error-status writes.
+- [nginx in Docker caches upstream IPs](docker-nginx-dns.md) — static upstream blocks 502 after backend rebuilds; use resolver 127.0.0.11 + variable proxy_pass.
