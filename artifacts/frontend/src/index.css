@@ -126,3 +126,31 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+@keyframes logo-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-6px) scale(1.02); }
+}
+
+@keyframes logo-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 12px hsl(280 90% 55% / 0.35))
+            drop-shadow(0 0 28px hsl(210 100% 55% / 0.2));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px hsl(20 95% 55% / 0.5))
+            drop-shadow(0 0 44px hsl(300 90% 55% / 0.35));
+  }
+}
+
+.logo-alive {
+  animation: logo-float 5s ease-in-out infinite,
+             logo-glow 3.5s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-alive {
+    animation: none;
+  }
+}

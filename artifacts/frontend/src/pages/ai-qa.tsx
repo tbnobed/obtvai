@@ -48,7 +48,7 @@ export default function AIQA() {
         <div className="max-w-3xl mx-auto space-y-6">
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground py-20">
-              <img src={logoUrl} alt="OBTV.AI" className="h-24 w-auto mx-auto mb-6" />
+              <img src={logoUrl} alt="OBTV.AI" className="h-24 w-auto mx-auto mb-6 logo-alive" />
               <p>Ask questions about the content of your media library.</p>
               <p className="text-sm mt-2">Example: "Who mentioned the quarterly report and when?"</p>
             </div>
