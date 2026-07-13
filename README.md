@@ -104,15 +104,13 @@ Both use Qdrant cosine similarity. Results resolve to `(asset_id, start_time, en
 
 ## AI Q&A
 
-The AI Q&A page retrieves the most relevant transcript segments via Qdrant, then feeds them as context to a local instruction-tuned LLM (default: Llama 3.2 3B Instruct). Every answer cites the source asset and timecode.
+The AI Q&A page retrieves the most relevant transcript segments via Qdrant, then feeds them as context to a local instruction-tuned LLM (default: Qwen 2.5 7B Instruct — ungated on HuggingFace, no access approval needed). Every answer cites the source asset and timecode.
 
 To change the model, set `LLM_MODEL` in `.env`:
 ```bash
-LLM_MODEL=meta-llama/Llama-3.2-1B-Instruct   # faster, less VRAM
-LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.3 # smarter, ~16 GB VRAM
+LLM_MODEL=Qwen/Qwen2.5-3B-Instruct    # faster, ~7 GB VRAM
+LLM_MODEL=Qwen/Qwen2.5-14B-Instruct   # smarter, ~30 GB VRAM
 ```
-
-Note: Llama models are gated on HuggingFace — accept the license on the model page and set `HF_TOKEN` in `.env`.
 
 ## Data Storage
 
@@ -137,7 +135,7 @@ See `.env.example` for all environment variables.
 | `MEDIA_PATH` | `./sample_media` | Path to your video library |
 | `GPU_DEVICE_ID` | `1` | Which GPU (nvidia-smi index) the stack uses |
 | `WHISPER_MODEL` | `large-v3` | Whisper model size |
-| `LLM_MODEL` | `Llama-3.2-3B-Instruct` | Local LLM for AI Q&A |
-| `HF_TOKEN` | — | HuggingFace token for diarization + gated Llama models |
+| `LLM_MODEL` | `Qwen/Qwen2.5-7B-Instruct` | Local LLM for AI Q&A (ungated) |
+| `HF_TOKEN` | — | HuggingFace token for pyannote diarization |
 | `EMBEDDINGS_MODEL` | `all-MiniLM-L6-v2` | Text embedding model |
 | `VISION_MODEL` | `clip-vit-large-patch14` | Visual embedding model |

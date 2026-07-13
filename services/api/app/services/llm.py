@@ -1,11 +1,12 @@
 """
-Local LLM inference using an instruction-tuned model (default: Llama 3.2 3B Instruct).
+Local LLM inference using an instruction-tuned model (default: Qwen 2.5 7B Instruct —
+ungated on HuggingFace, no access approval required).
 The model is configurable via the LLM_MODEL environment variable.
 """
 import asyncio
 import os
 
-LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/Llama-3.2-3B-Instruct")
+LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 
 _pipeline = None
 
