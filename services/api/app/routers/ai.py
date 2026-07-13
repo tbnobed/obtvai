@@ -11,16 +11,27 @@ from ..config import settings
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 
-async def _run_qa(question: str, context_segments: list, db: AsyncSession) -> tuple[str, list[AICitationOut]]:
-    """Run local LLM QA over retrieved context segments."""
+async def _run_qa(
+    question: str,
+    context_segments: list,
+    db: AsyncSession,
+    single_asset: bool = False,
+) -> tuple[str, list[AICitationOut]]:
+    """Run local LLM QA over retrieved context segments.
+
+    single_asset: the chat is scoped to one video, so context labels and the
+    prompt reference timecodes only — repeating the filename in every line is
+    noise when the user is already on that asset's page.
+    """
     citations: list[AICitationOut] = []
     context_parts: list[str] = []
 
     for seg, asset in context_segments:
         tc = f"{int(seg.start_time // 60):02d}:{int(seg.start_time % 60):02d}"
-        context_parts.append(
-            f"[{asset.filename} @ {tc}] {seg.text}"
-        )
+        if single_asset:
+            context_parts.append(f"[{tc}] {seg.text}")
+        else:
+            context_parts.append(f"[{asset.filename} @ {tc}] {seg.text}")
         citations.append(AICitationOut(
             media_id=asset.id,
             filename=asset.filename,
@@ -33,20 +44,34 @@ async def _run_qa(question: str, context_segments: list, db: AsyncSession) -> tu
         return "No indexed media content found that matches your question. Make sure videos have been processed and indexed.", []
 
     context_text = "\n".join(context_parts[:10])
-    prompt = (
-        f"Transcript excerpts (format: [filename @ timecode] text):\n{context_text}\n\n"
-        f"Question: {question}\n\n"
-        f"Answer the question using only these excerpts. Quote or paraphrase the "
-        f"relevant lines and mention their timecodes. If the excerpts do not answer "
-        f"the question, say so directly instead of guessing."
-    )
+    if single_asset:
+        prompt = (
+            f"Transcript excerpts from a single video (format: [timecode] text):\n{context_text}\n\n"
+            f"Question: {question}\n\n"
+            f"Answer the question using only these excerpts. Quote or paraphrase the "
+            f"relevant lines and mention their timecodes (e.g. 50:39). Never mention "
+            f"any filename — refer to the content as \"this video\". If the excerpts "
+            f"do not answer the question, say so directly instead of guessing."
+        )
+    else:
+        prompt = (
+            f"Transcript excerpts (format: [filename @ timecode] text):\n{context_text}\n\n"
+            f"Question: {question}\n\n"
+            f"Answer the question using only these excerpts. Quote or paraphrase the "
+            f"relevant lines and mention their timecodes. If the excerpts do not answer "
+            f"the question, say so directly instead of guessing."
+        )
 
     try:
         from ..services.llm import generate_response
         answer = await generate_response(prompt)
     except Exception as e:
         transcript_summary = "\n".join(
-            f"- {asset.filename} @ {seg.start_time:.0f}s: {seg.text[:120]}"
+            (
+                f"- {int(seg.start_time // 60):02d}:{int(seg.start_time % 60):02d}: {seg.text[:120]}"
+                if single_asset
+                else f"- {asset.filename} @ {seg.start_time:.0f}s: {seg.text[:120]}"
+            )
             for seg, asset in context_segments[:3]
         )
         answer = (
@@ -131,7 +156,9 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
             rows = (await db.execute(q.limit(8))).all()
             context_segments = list(rows)
 
-    answer_text, citations = await _run_qa(body.question, context_segments, db)
+    answer_text, citations = await _run_qa(
+        body.question, context_segments, db, single_asset=bool(body.media_id)
+    )
 
     assistant_msg = AIMessage(
         id=str(uuid.uuid4()),
