@@ -34,7 +34,7 @@ On the GPU server, pre-pull the AI models before starting (optional but prevents
 
 ```bash
 docker compose run --rm worker-gpu python -c "
-import whisper; whisper.load_model('medium')
+from faster_whisper import WhisperModel; WhisperModel('large-v3', device='cpu', compute_type='int8')
 from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 from transformers import CLIPModel; CLIPModel.from_pretrained('openai/clip-vit-base-patch32')
 "
@@ -100,14 +100,15 @@ Both use Qdrant cosine similarity. Results resolve to `(asset_id, start_time, en
 
 ## AI Q&A
 
-The AI Q&A page retrieves the most relevant transcript segments via Qdrant, then feeds them as context to a local instruction-tuned LLM (default: Llama 3.2 1B Instruct). Every answer cites the source asset and timecode.
+The AI Q&A page retrieves the most relevant transcript segments via Qdrant, then feeds them as context to a local instruction-tuned LLM (default: Llama 3.2 3B Instruct). Every answer cites the source asset and timecode.
 
-To use a larger model, set in `services/api/app/services/llm.py`:
-```python
-model="meta-llama/Llama-3.2-3B-Instruct"
-# or
-model="mistralai/Mistral-7B-Instruct-v0.3"
+To change the model, set `LLM_MODEL` in `.env`:
+```bash
+LLM_MODEL=meta-llama/Llama-3.2-1B-Instruct   # faster, less VRAM
+LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.3 # smarter, ~16 GB VRAM
 ```
+
+Note: Llama models are gated on HuggingFace — accept the license on the model page and set `HF_TOKEN` in `.env`.
 
 ## Data Storage
 
@@ -130,7 +131,8 @@ See `.env.example` for all environment variables.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MEDIA_PATH` | `./sample_media` | Path to your video library |
-| `WHISPER_MODEL` | `medium` | Whisper model size |
-| `HF_TOKEN` | — | HuggingFace token for diarization |
+| `WHISPER_MODEL` | `large-v3` | Whisper model size |
+| `LLM_MODEL` | `Llama-3.2-3B-Instruct` | Local LLM for AI Q&A |
+| `HF_TOKEN` | — | HuggingFace token for diarization + gated Llama models |
 | `EMBEDDINGS_MODEL` | `all-MiniLM-L6-v2` | Text embedding model |
 | `VISION_MODEL` | `clip-vit-base-patch32` | Visual embedding model |
