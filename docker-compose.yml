@@ -167,8 +167,8 @@ services:
   # ── Frontend + nginx ─────────────────────────────────────────────────────────
   frontend:
     build:
-      context: ./artifacts/frontend
-      dockerfile: Dockerfile.production
+      context: .
+      dockerfile: artifacts/frontend/Dockerfile.production
     restart: unless-stopped
     ports:
       - "5000:80"

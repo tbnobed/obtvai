@@ -1,0 +1,196 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ cd ~/obtv-ai
+git stash          # sets aside the local edits (kept as a backup, not deleted)
+git pull
+docker compose up -d --build
+docker compose ps
+Saved working directory and index state WIP on main: 81668b6 Update default AI model for improved quality and instant access
+remote: Enumerating objects: 11, done.
+remote: Counting objects: 100% (11/11), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 6 (delta 3), reused 6 (delta 3), pack-reused 0 (from 0)
+Unpacking objects: 100% (6/6), 918 bytes | 306.00 KiB/s, done.
+From https://github.com/tbnobed/obtvai
+   760ce06..8cd35c7  main       -> origin/main
+Updating 81668b6..8cd35c7
+Fast-forward
+ README.md                                                                                        |    2 +-
+ artifacts/api-server/src/routes/mock.ts                                                          |    3 +
+ artifacts/frontend/Dockerfile.production                                                         |    1 +
+ artifacts/frontend/index.html                                                                    |    2 +-
+ artifacts/frontend/public/favicon.png                                                            |  Bin 0 -> 10621 bytes
+ artifacts/frontend/public/favicon.svg                                                            |    3 -
+ artifacts/frontend/src/components/layout.tsx                                                     |    5 +-
+ artifacts/frontend/src/index.css                                                                 |   48 ++
+ artifacts/frontend/src/pages/ai-qa.tsx                                                           |    3 +-
+ artifacts/frontend/src/pages/asset-detail.tsx                                                    |   54 ++-
+ artifacts/frontend/src/pages/clip-lists.tsx                                                      |    5 +-
+ attached_assets/Pasted--up-8-8-Image-obtv-ai-worker-gpu-Built--1783922901868_1783922901868.txt   |  198 ++++++++
+ attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-docker-compose-logs-f-WAR_1783922073133.txt | 2514 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ attached_assets/image_1783922970755.png                                                          |  Bin 0 -> 21993 bytes
+ attached_assets/obtv.ai_1783920952155.png                                                        |  Bin 0 -> 748705 bytes
+ attached_assets/obtv.ai_1783921425806.png                                                        |  Bin 0 -> 363228 bytes
+ attached_assets/obtv_logo.png                                                                    |  Bin 0 -> 312355 bytes
+ attached_assets/obtv_logo_transparent.png                                                        |  Bin 0 -> 704157 bytes
+ docker-compose.yml                                                                               |    5 +-
+ services/api/Dockerfile                                                                          |    1 +
+ services/api/app/routers/media.py                                                                |   12 +
+ services/worker/app.py                                                                           |    2 +-
+ services/worker/celeryconfig.py                                                                  |    1 +
+ services/worker/db.py                                                                            |    2 +-
+ services/worker/tasks/audio.py                                                                   |   12 +-
+ services/worker/tasks/base.py                                                                    |    2 +-
+ services/worker/tasks/diarize.py                                                                 |    8 +-
+ services/worker/tasks/face_detect.py                                                             |    8 +-
+ services/worker/tasks/index.py                                                                   |    8 +-
+ services/worker/tasks/ingest.py                                                                  |   12 +-
+ services/worker/tasks/proxy.py                                                                   |    8 +-
+ services/worker/tasks/scene_detect.py                                                            |   12 +-
+ services/worker/tasks/transcribe.py                                                              |   12 +-
+ services/worker/tasks/visual_embed.py                                                            |    8 +-
+ 34 files changed, 2886 insertions(+), 65 deletions(-)
+ create mode 100644 artifacts/frontend/public/favicon.png
+ delete mode 100644 artifacts/frontend/public/favicon.svg
+ create mode 100644 attached_assets/Pasted--up-8-8-Image-obtv-ai-worker-gpu-Built--1783922901868_1783922901868.txt
+ create mode 100644 attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-docker-compose-logs-f-WAR_1783922073133.txt
+ create mode 100644 attached_assets/image_1783922970755.png
+ create mode 100644 attached_assets/obtv.ai_1783920952155.png
+ create mode 100644 attached_assets/obtv.ai_1783921425806.png
+ create mode 100644 attached_assets/obtv_logo.png
+ create mode 100644 attached_assets/obtv_logo_transparent.png
+[+] Building 1.7s (44/52)
+ => [internal] load local bake definitions                                                                                                                                                                 0.0s
+ => => reading from stdin 2.80kB                                                                                                                                                                           0.0s
+ => [flower internal] load build definition from Dockerfile                                                                                                                                                0.0s
+ => => transferring dockerfile: 988B                                                                                                                                                                       0.0s
+ => [api internal] load build definition from Dockerfile                                                                                                                                                   0.0s
+ => => transferring dockerfile: 469B                                                                                                                                                                       0.0s
+ => [frontend internal] load build definition from Dockerfile.production                                                                                                                                   0.0s
+ => => transferring dockerfile: 657B                                                                                                                                                                       0.0s
+ => [watcher internal] load build definition from Dockerfile                                                                                                                                               0.0s
+ => => transferring dockerfile: 228B                                                                                                                                                                       0.0s
+ => [flower internal] load metadata for docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04                                                                                                             0.0s
+ => [api internal] load metadata for docker.io/library/python:3.11-slim                                                                                                                                    0.5s
+ => [frontend internal] load metadata for docker.io/library/node:20-alpine                                                                                                                                 0.5s
+ => [frontend internal] load metadata for docker.io/library/nginx:alpine                                                                                                                                   0.5s
+ => [flower internal] load .dockerignore                                                                                                                                                                   0.0s
+ => => transferring context: 2B                                                                                                                                                                            0.0s
+ => [worker-cpu 1/8] FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                                                   0.0s
+ => => resolve docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                                                              0.0s
+ => [flower internal] load build context                                                                                                                                                                   0.0s
+ => => transferring context: 34.86kB                                                                                                                                                                       0.0s
+ => CACHED [worker-gpu 2/8] RUN apt-get update && apt-get install -y --no-install-recommends     python3.11     python3.11-dev     python3-pip     ffmpeg     libpq-dev     gcc     libsndfile1     sox    0.0s
+ => CACHED [worker-gpu 3/8] RUN ln -s /usr/bin/python3.11 /usr/bin/python                                                                                                                                  0.0s
+ => CACHED [worker-gpu 4/8] WORKDIR /worker                                                                                                                                                                0.0s
+ => CACHED [worker-gpu 5/8] COPY requirements.txt .                                                                                                                                                        0.0s
+ => CACHED [worker-gpu 6/8] RUN pip install --no-cache-dir -r requirements.txt                                                                                                                             0.0s
+ => CACHED [worker-cpu 7/8] RUN pip install --no-cache-dir --no-deps facenet-pytorch==2.6.0 && pip install --no-cache-dir requests                                                                         0.0s
+ => [worker-gpu 8/8] COPY . .                                                                                                                                                                              0.0s
+ => CANCELED [flower] exporting to image                                                                                                                                                                   0.7s
+ => => exporting layers                                                                                                                                                                                    0.1s
+ => => exporting manifest sha256:4c917ea46ad1f966f2c9422b41a76500dbef3a21e3401853146ca3ab49fb50a6                                                                                                          0.0s
+ => => exporting config sha256:0a3b96d05ae2150be6ad0cce02416d6c9445cb32acfa02de8765f647ea25264b                                                                                                            0.0s
+ => => exporting attestation manifest sha256:9f34ddd015797e0f9d368877980ccdd761cfd3d512e049134de8be7e72d4d98e                                                                                              0.1s
+ => => exporting manifest list sha256:9a6352cc5981046b99408f76ebc34c56ccea72e2bcc08591dba06f93a1383dbd                                                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-flower:latest                                                                                                                                                   0.0s
+ => => unpacking to docker.io/library/obtv-ai-flower:latest                                                                                                                                                0.4s
+ => CANCELED [worker-gpu] exporting to image                                                                                                                                                               0.7s
+ => => exporting layers                                                                                                                                                                                    0.1s
+ => => exporting manifest sha256:48e70cb801927bbf8e7286fcae21a69f444749ef3d4a78b0b51751743b6ee3f5                                                                                                          0.0s
+ => => exporting config sha256:5ae25a6cb2aa577ba8b2ff59b908a621ec6c798d61a7e4132bfadb77351b2848                                                                                                            0.0s
+ => => exporting attestation manifest sha256:21a55e177a8a757555d6380005cca87925bcd4ee7250e0a77bcc593c041b3e07                                                                                              0.1s
+ => => exporting manifest list sha256:436dcee37d27deb472d242770eb2ec79891bc318eec0d2e27700bd11307aa0de                                                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-worker-gpu:latest                                                                                                                                               0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-gpu:latest                                                                                                                                            0.4s
+ => CANCELED [worker-cpu] exporting to image                                                                                                                                                               0.7s
+ => => exporting layers                                                                                                                                                                                    0.1s
+ => => exporting manifest sha256:a570ed6a0dcd12a0e1f6f2230d92fac5e90e2f85f5725d85e060b58a372802d1                                                                                                          0.0s
+ => => exporting config sha256:70e4507ddba1807daf023fea034dad675b6ebc92f7744e55b857fb69fcbcc4ab                                                                                                            0.0s
+ => => exporting attestation manifest sha256:5a43138044eda1e1594c0976533440148c6761c2c11d0fac8cc742a9b614dd7a                                                                                              0.1s
+ => => exporting manifest list sha256:de09979ee224d52ca8c142e25bbc3de4a7ef580a793436b6b5673607861c33d4                                                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-worker-cpu:latest                                                                                                                                               0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-cpu:latest                                                                                                                                            0.4s
+ => [api internal] load .dockerignore                                                                                                                                                                      0.0s
+ => => transferring context: 2B                                                                                                                                                                            0.0s
+ => [watcher internal] load .dockerignore                                                                                                                                                                  0.0s
+ => => transferring context: 2B                                                                                                                                                                            0.0s
+ => [frontend internal] load .dockerignore                                                                                                                                                                 0.1s
+ => => transferring context: 2B                                                                                                                                                                            0.0s
+ => CACHED [api 1/5] FROM docker.io/library/python:3.11-slim@sha256:e031123e3d85762b141ad1cbc56452ba69c6e722ebf2f042cc0dc86c47c0d8b3                                                                       0.0s
+ => => resolve docker.io/library/python:3.11-slim@sha256:e031123e3d85762b141ad1cbc56452ba69c6e722ebf2f042cc0dc86c47c0d8b3                                                                                  0.0s
+ => [watcher internal] load build context                                                                                                                                                                  0.0s
+ => => transferring context: 67B                                                                                                                                                                           0.0s
+ => [api internal] load build context                                                                                                                                                                      0.0s
+ => => transferring context: 7.33kB                                                                                                                                                                        0.0s
+ => CANCELED [api 2/6] RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libpq-dev     gcc     curl     && rm -rf /var/lib/apt/lists/*                                       0.8s
+ => CACHED [watcher 2/5] WORKDIR /watcher                                                                                                                                                                  0.0s
+ => CACHED [watcher 3/5] COPY requirements.txt .                                                                                                                                                           0.0s
+ => CACHED [watcher 4/5] RUN pip install --no-cache-dir -r requirements.txt                                                                                                                                0.0s
+ => CACHED [watcher 5/5] COPY watcher.py .                                                                                                                                                                 0.0s
+ => [frontend builder  1/10] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293                                                                 0.1s
+ => => resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293                                                                                    0.1s
+ => [frontend stage-1 1/3] FROM docker.io/library/nginx:alpine@sha256:54f2a904c251d5a34adf545a72d32515a15e08418dae0266e23be2e18c66fefa                                                                     0.1s
+ => => resolve docker.io/library/nginx:alpine@sha256:54f2a904c251d5a34adf545a72d32515a15e08418dae0266e23be2e18c66fefa                                                                                      0.1s
+ => [frontend internal] load build context                                                                                                                                                                 0.1s
+ => => transferring context: 3.40kB                                                                                                                                                                        0.0s
+ => [watcher] exporting to image                                                                                                                                                                           0.2s
+ => => exporting layers                                                                                                                                                                                    0.0s
+ => => exporting manifest sha256:4ed11e7567e1e32d835a94f49b14770d72679ae1fee9fb67058066a02ad42bce                                                                                                          0.0s
+ => => exporting config sha256:15f780ebb8c9c1ff9a60a6a08bb68d80e94990a417ac956ae8493d4618937876                                                                                                            0.0s
+ => => exporting attestation manifest sha256:4a0098df00b47c024eb07fdf298dc2f2e72ad10add9897394222bc26bdee26a5                                                                                              0.0s
+ => => exporting manifest list sha256:799d0d82fb6a06fc7698189a7cc23997704d80948a9751c2a6a0a379cd24b7e6                                                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-watcher:latest                                                                                                                                                  0.0s
+ => => unpacking to docker.io/library/obtv-ai-watcher:latest                                                                                                                                               0.0s
+ => CACHED [frontend builder  2/10] WORKDIR /app                                                                                                                                                           0.0s
+ => CACHED [frontend builder  3/10] RUN npm install -g pnpm                                                                                                                                                0.0s
+ => ERROR [frontend builder  4/10] COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json tsconfig.json ./                                                                                0.0s
+ => ERROR [frontend builder  5/10] COPY lib/ ./lib/                                                                                                                                                        0.0s
+ => ERROR [frontend builder  6/10] COPY artifacts/frontend/ ./artifacts/frontend/                                                                                                                          0.0s
+ => ERROR [frontend builder  7/10] COPY attached_assets/ ./attached_assets/                                                                                                                                0.0s
+ => ERROR [frontend stage-1 2/3] COPY nginx/nginx.conf /etc/nginx/nginx.conf                                                                                                                               0.0s
+------
+ > [frontend builder  4/10] COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json tsconfig.json ./:
+------
+------
+ > [frontend builder  5/10] COPY lib/ ./lib/:
+------
+------
+ > [frontend builder  6/10] COPY artifacts/frontend/ ./artifacts/frontend/:
+------
+------
+ > [frontend builder  7/10] COPY attached_assets/ ./attached_assets/:
+------
+------
+ > [frontend stage-1 2/3] COPY nginx/nginx.conf /etc/nginx/nginx.conf:
+------
+[+] up 0/6
+ ⠙ Image obtv-ai-flower     Building                                                                                                                                                                        1.7s
+ ⠙ Image obtv-ai-worker-cpu Building                                                                                                                                                                        1.7s
+ ⠙ Image obtv-ai-frontend   Building                                                                                                                                                                        1.7s
+ ⠙ Image obtv-ai-worker-gpu Building                                                                                                                                                                        1.7s
+ ⠙ Image obtv-ai-api        Building                                                                                                                                                                        1.7s
+ ⠙ Image obtv-ai-watcher    Building                                                                                                                                                                        1.7s
+Dockerfile.production:17
+
+--------------------
+
+  15 |
+
+  16 |     FROM nginx:alpine
+
+  17 | >>> COPY nginx/nginx.conf /etc/nginx/nginx.conf
+
+  18 |     COPY --from=builder /app/artifacts/frontend/dist/public /usr/share/nginx/html
+
+  19 |     EXPOSE 80
+
+--------------------
+
+target frontend: failed to solve: failed to compute cache key: failed to calculate checksum of ref pswnjitubnjpoivphtk0344y5::qykxzo37jle9ogrkaqucwvgh4: "/nginx/nginx.conf": not found
+
+NAME                   IMAGE                                                                     COMMAND                  SERVICE      CREATED          STATUS                      PORTS
+obtv-ai-flower-1       sha256:6127af40be363b96a727c343ce8bd0132d5b4c20e0011bd46fb65084f4985ed8   "/opt/nvidia/nvidia_…"   flower       13 minutes ago   Up 12 minutes               0.0.0.0:5555->5555/tcp, [::]:5555->5555/tcp
+obtv-ai-postgres-1     postgres:16-alpine                                                        "docker-entrypoint.s…"   postgres     27 minutes ago   Up 27 minutes (healthy)     5432/tcp
+obtv-ai-qdrant-1       qdrant/qdrant:v1.12.4                                                     "./entrypoint.sh"        qdrant       27 minutes ago   Up 27 minutes (unhealthy)   0.0.0.0:6333->6333/tcp, [::]:6333->6333/tcp, 6334/tcp
+obtv-ai-redis-1        redis:7-alpine                                                            "docker-entrypoint.s…"   redis        27 minutes ago   Up 27 minutes (healthy)     6379/tcp
+obtv-ai-worker-cpu-1   sha256:3c7de3743b9aeef980704ab028f54dad77eac5b60ceec0dc4b6bc5bad64bdf34   "/opt/nvidia/nvidia_…"   worker-cpu   13 minutes ago   Up 12 minutes
+obtv-ai-worker-gpu-1   sha256:0d57152432ce62ac5c92817473dfa1272ac6bbb2625e5b7e9f44c0235cf65ba2   "/opt/nvidia/nvidia_…"   worker-gpu   13 minutes ago   Up 12 minutes

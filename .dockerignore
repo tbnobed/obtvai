@@ -1,0 +1,12 @@
+.git
+**/node_modules
+**/dist
+**/.tsbuildinfo
+**/__pycache__
+.local
+.agents
+.cache
+postgres_data
+qdrant_data
+artifacts_data
+sample_media
