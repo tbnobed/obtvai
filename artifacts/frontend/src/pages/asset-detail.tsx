@@ -74,6 +74,7 @@ export default function AssetDetail() {
     if (videoRef.current) {
       videoRef.current.currentTime = time;
       videoRef.current.play();
+      videoRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
