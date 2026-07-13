@@ -85,6 +85,12 @@ export default function AssetDetail() {
     return <div className="p-8">Asset not found.</div>;
   }
 
+  const hasAnalysis = Boolean(
+    asset.synopsis ||
+    (asset.key_moments && asset.key_moments.length > 0) ||
+    (asset.topics && asset.topics.length > 0)
+  );
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div className="flex-1 flex overflow-hidden">
@@ -127,49 +133,6 @@ export default function AssetDetail() {
               <span>{asset.fps} fps</span>
             </div>
 
-            {(asset.synopsis || (asset.key_moments && asset.key_moments.length > 0) || (asset.topics && asset.topics.length > 0)) && (
-              <div className="mb-6 p-4 border border-border rounded-lg bg-card space-y-4">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <h2 className="font-semibold">AI Analysis</h2>
-                </div>
-                {asset.synopsis && (
-                  <p className="text-sm text-muted-foreground leading-relaxed">{asset.synopsis}</p>
-                )}
-                {asset.key_moments && asset.key_moments.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Key Moments</h3>
-                    <div className="space-y-1">
-                      {asset.key_moments.map((moment, i) => (
-                        <div
-                          key={i}
-                          className="flex gap-3 items-baseline p-2 -mx-2 rounded cursor-pointer hover:bg-muted transition-colors"
-                          onClick={() => seekTo(moment.time)}
-                        >
-                          <span className="text-xs font-mono text-primary shrink-0 w-12 text-right">
-                            {formatTimecode(moment.time)}
-                          </span>
-                          <div>
-                            <div className="text-sm font-medium">{moment.title}</div>
-                            {moment.description && (
-                              <div className="text-xs text-muted-foreground">{moment.description}</div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {asset.topics && asset.topics.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {asset.topics.map(topic => (
-                      <Badge key={topic} variant="secondary" className="text-xs">{topic}</Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
               <DialogContent>
                 <DialogHeader>
@@ -189,11 +152,66 @@ export default function AssetDetail() {
               </DialogContent>
             </Dialog>
 
-            <Tabs defaultValue="scenes">
+            <Tabs defaultValue={hasAnalysis ? "analysis" : "scenes"}>
               <TabsList>
+                <TabsTrigger value="analysis" className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI Analysis
+                </TabsTrigger>
                 <TabsTrigger value="scenes">Scenes</TabsTrigger>
                 <TabsTrigger value="jobs">Pipeline Jobs</TabsTrigger>
               </TabsList>
+              <TabsContent value="analysis" className="mt-4">
+                {hasAnalysis ? (
+                  <div className="space-y-6 max-w-3xl">
+                    {asset.synopsis && (
+                      <div>
+                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Synopsis</h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{asset.synopsis}</p>
+                      </div>
+                    )}
+                    {asset.key_moments && asset.key_moments.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Key Moments</h3>
+                        <div className="space-y-1">
+                          {asset.key_moments.map((moment, i) => (
+                            <div
+                              key={i}
+                              className="flex gap-3 items-baseline p-2 -mx-2 rounded cursor-pointer hover:bg-muted transition-colors"
+                              onClick={() => seekTo(moment.time)}
+                            >
+                              <span className="text-xs font-mono text-primary shrink-0 w-12 text-right">
+                                {formatTimecode(moment.time)}
+                              </span>
+                              <div>
+                                <div className="text-sm font-medium">{moment.title}</div>
+                                {moment.description && (
+                                  <div className="text-xs text-muted-foreground">{moment.description}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {asset.topics && asset.topics.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Topics</h3>
+                        <div className="flex flex-wrap gap-1.5">
+                          {asset.topics.map(topic => (
+                            <Badge key={topic} variant="secondary" className="text-xs">{topic}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground py-8 text-center">
+                    No AI analysis yet. It is generated automatically after indexing completes —
+                    or re-run the index job from the Pipeline Jobs tab.
+                  </div>
+                )}
+              </TabsContent>
               <TabsContent value="scenes" className="mt-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {scenes?.map(scene => (
