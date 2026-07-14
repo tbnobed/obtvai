@@ -144,6 +144,34 @@ services:
       postgres:
         condition: service_healthy
 
+  # Second GPU worker: consumes the same "gpu" queue but is pinned to the other
+  # card, so Celery distributes GPU jobs (transcribe, diarize, embed, scenes)
+  # across both GPUs. Each worker loads its own copy of the models on its GPU.
+  worker-gpu-2:
+    build:
+      context: ./services/worker
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU2_DEVICE_ID:-0}"]
+              capabilities: [gpu]
+    environment:
+      <<: *python-env
+    volumes:
+      - "${MEDIA_PATH:-./sample_media}:/media:ro"
+      - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
+      - artifacts_data:/artifacts
+      - models_cache:/root/.cache
+    command: celery -A app worker --queues=gpu --concurrency=1 --loglevel=info --hostname=worker-gpu-2@%h
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
   worker-cpu:
     build:
       context: ./services/worker
