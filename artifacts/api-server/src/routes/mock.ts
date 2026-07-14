@@ -1142,7 +1142,7 @@ router.post("/media/:id/social/cuts", (req, res) => {
 
 type MockReel = {
   id: string; prompt: string; media_id: string | null; preset: string; burn_captions: boolean;
-  clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null }[];
+  clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null; thumbnail_url: string | null }[];
   status: string; progress: number;
   output_url: string | null; error_message: string | null;
   created_at: string; finished_at: string | null;
@@ -1150,6 +1150,13 @@ type MockReel = {
 };
 
 const reels: MockReel[] = [];
+
+function nearestSceneThumb(mediaId: string, startTime: number): string | null {
+  const scene = scenes
+    .filter((sc) => sc.media_id === mediaId && sc.start_time <= startTime)
+    .sort((a, b) => b.start_time - a.start_time)[0];
+  return scene?.thumbnail_url ?? assets.find((a) => a.id === mediaId)?.thumbnail_url ?? null;
+}
 
 function tickReel(r: MockReel) {
   if (r.status !== "pending" && r.status !== "running") return;
@@ -1219,12 +1226,16 @@ router.post("/reels", (req, res) => {
       const asset = assets.find((a) => a.id === seg.media_id);
       const start = Math.max(0, seg.start_time - 1);
       const end = Math.max(start + 6, seg.end_time);
+      const scene = scenes
+        .filter((sc) => sc.media_id === seg.media_id && sc.start_time <= start)
+        .sort((a, b) => b.start_time - a.start_time)[0];
       return {
         media_id: seg.media_id,
         filename: asset?.filename || "unknown.mp4",
         start_time: start,
         end_time: Math.min(end, start + 30),
         snippet: seg.text,
+        thumbnail_url: scene?.thumbnail_url ?? asset?.thumbnail_url ?? null,
       };
     })
     .sort((a, b) => a.media_id.localeCompare(b.media_id) || a.start_time - b.start_time);
@@ -1388,6 +1399,7 @@ router.post("/media/:id/roughcut", (req, res) => {
     .map((c: any) => ({
       media_id: asset.id, filename: asset.filename,
       start_time: c.start, end_time: c.end, snippet: c.title || c.quote || null,
+      thumbnail_url: nearestSceneThumb(asset.id, c.start),
     }));
   const reel = makeMockReel(`Rough cut — ${asset.filename}`, asset.id, preset, !!req.body?.burn_captions, clips);
   res.status(202).json(reelOut(reel));
@@ -1402,6 +1414,7 @@ router.post("/clips/:id/roughcut", (req, res) => {
   const clips = cl.clips.map((c) => ({
     media_id: c.media_id, filename: c.filename,
     start_time: c.start_time, end_time: c.end_time, snippet: c.label || null,
+    thumbnail_url: nearestSceneThumb(c.media_id, c.start_time),
   }));
   const reel = makeMockReel(`Rough cut — ${cl.name}`, null, preset, !!req.body?.burn_captions, clips);
   res.status(202).json(reelOut(reel));

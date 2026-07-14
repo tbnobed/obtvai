@@ -5,7 +5,7 @@ import {
   useCreateReel,
   useDeleteReel,
 } from "@workspace/api-client-react";
-import type { ReelJob } from "@workspace/api-client-react";
+import type { ReelJob, ReelClip } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,23 +15,200 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Trash2, Wand2, Loader2, Smartphone, Monitor, Captions, Film } from "lucide-react";
+import {
+  Download, Trash2, Wand2, Loader2, Smartphone, Captions, Film, Clock,
+  ChevronDown, ChevronUp, Play, AlertCircle,
+} from "lucide-react";
 import { Link } from "wouter";
-
-function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    pending: "bg-yellow-500/15 text-yellow-400",
-    running: "bg-blue-500/15 text-blue-400",
-    success: "bg-green-500/15 text-green-400",
-    error: "bg-red-500/15 text-red-400",
-  };
-  return map[status] || "bg-muted text-muted-foreground";
-}
 
 function fmtTime(s: number) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+function totalDuration(clips: ReelClip[]) {
+  return clips.reduce((sum, c) => sum + Math.max(0, c.end_time - c.start_time), 0);
+}
+
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function ClipThumb({ clip, vertical }: { clip: ReelClip; vertical: boolean }) {
+  return (
+    <Link
+      href={`/library/${clip.media_id}?t=${Math.floor(clip.start_time)}`}
+      className={`group relative shrink-0 overflow-hidden rounded-md bg-muted/60 border border-border/60 ${
+        vertical ? "w-[76px] h-[124px]" : "w-[136px] h-[76px]"
+      }`}
+      title={`${clip.filename} · ${fmtTime(clip.start_time)} – ${fmtTime(clip.end_time)}`}
+    >
+      {clip.thumbnail_url ? (
+        <img
+          src={`/api/thumbnails/${clip.thumbnail_url}`}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <Film className="h-5 w-5 text-muted-foreground/40" />
+        </div>
+      )}
+      <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors">
+        <Play className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+      <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-px text-[10px] font-mono text-white/90">
+        {fmtTime(clip.end_time - clip.start_time)}
+      </span>
+    </Link>
+  );
+}
+
+function ReelCard({
+  reel,
+  onDelete,
+  deleting,
+}: {
+  reel: ReelJob;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
+  const [showClips, setShowClips] = useState(false);
+  const vertical = reel.preset === "vertical";
+  const inProgress = reel.status === "running" || reel.status === "pending";
+  const runtime = totalDuration(reel.clips);
+  const sourceCount = new Set(reel.clips.map((c) => c.media_id)).size;
+
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-0">
+        <div className="p-4 pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium leading-snug truncate" title={reel.prompt}>
+                “{reel.prompt}”
+              </p>
+              <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                {inProgress ? (
+                  <span className="inline-flex items-center gap-1.5 text-blue-400">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {reel.status === "pending" ? "Queued" : "Rendering"}
+                  </span>
+                ) : reel.status === "error" ? (
+                  <span className="inline-flex items-center gap-1.5 text-red-400">
+                    <AlertCircle className="h-3 w-3" /> Failed
+                  </span>
+                ) : null}
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> {fmtTime(runtime)}
+                </span>
+                <span>
+                  {reel.clips.length} clip{reel.clips.length === 1 ? "" : "s"}
+                  {sourceCount > 1 ? ` · ${sourceCount} sources` : ""}
+                </span>
+                {vertical && (
+                  <span className="inline-flex items-center gap-1">
+                    <Smartphone className="h-3 w-3" /> 9:16
+                  </span>
+                )}
+                {reel.burn_captions && (
+                  <span className="inline-flex items-center gap-1">
+                    <Captions className="h-3 w-3" /> captions
+                  </span>
+                )}
+                <span className="text-muted-foreground/60">{relativeTime(reel.created_at)}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {reel.status === "success" && (
+                <Button size="sm" variant="outline" asChild>
+                  <a href={`/api/reels/${reel.id}/download`} download>
+                    <Download className="h-4 w-4 mr-1.5" /> MP4
+                  </a>
+                </Button>
+              )}
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-muted-foreground hover:text-red-400"
+                onClick={onDelete}
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {inProgress && (
+            <div className="mt-3 flex items-center gap-3">
+              <Progress value={reel.progress} className="h-1.5 flex-1" />
+              <span className="text-xs text-muted-foreground font-mono w-9 text-right">
+                {Math.round(reel.progress)}%
+              </span>
+            </div>
+          )}
+          {reel.status === "error" && reel.error_message && (
+            <p className="text-xs text-red-400 mt-2">{reel.error_message}</p>
+          )}
+        </div>
+
+        {reel.clips.length > 0 && (
+          <div className="px-4 pb-3">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {reel.clips.map((c, i) => (
+                <ClipThumb key={i} clip={c} vertical={vertical} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {reel.clips.length > 0 && (
+          <div className="border-t border-border/60">
+            <button
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+              onClick={() => setShowClips((v) => !v)}
+            >
+              {showClips ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {showClips ? "Hide clip details" : "Clip details"}
+            </button>
+            {showClips && (
+              <div className="px-4 pb-4 pt-1 space-y-2.5">
+                {reel.clips.map((c, i) => (
+                  <div key={i} className="flex gap-3 text-sm">
+                    <span className="shrink-0 w-6 text-right font-mono text-xs text-muted-foreground/60 pt-0.5">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <Link
+                        href={`/library/${c.media_id}?t=${Math.floor(c.start_time)}`}
+                        className="font-mono text-xs text-primary hover:underline"
+                      >
+                        {fmtTime(c.start_time)} – {fmtTime(c.end_time)}
+                      </Link>
+                      <span className="font-mono text-xs text-muted-foreground ml-2 break-all">
+                        {c.filename}
+                      </span>
+                      {c.snippet && (
+                        <p className="text-xs text-muted-foreground/80 mt-0.5 line-clamp-2">
+                          “{c.snippet}”
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function Reels() {
@@ -135,66 +312,18 @@ export default function Reels() {
       </Card>
 
       {isLoading ? (
-        <div className="space-y-3">
-          {[...Array(2)].map((_, i) => <Card key={i} className="animate-pulse h-28 bg-muted" />)}
+        <div className="grid gap-4 md:grid-cols-2">
+          {[...Array(2)].map((_, i) => <Card key={i} className="animate-pulse h-44 bg-muted" />)}
         </div>
       ) : reels?.length ? (
-        <div className="space-y-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {reels.map((r: ReelJob) => (
-            <Card key={r.id}>
-              <CardContent className="py-4">
-                <div className="flex items-start gap-4">
-                  <div className="shrink-0 text-muted-foreground mt-1">
-                    {r.preset === "vertical" ? <Smartphone className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">“{r.prompt}”</span>
-                      <Badge variant="outline" className={statusBadge(r.status)}>{r.status}</Badge>
-                      <Badge variant="outline">{r.clips.length} clip{r.clips.length === 1 ? "" : "s"}</Badge>
-                      {r.preset === "vertical" && <Badge variant="outline">9:16 vertical</Badge>}
-                      {r.burn_captions && (
-                        <Badge variant="outline" className="gap-1"><Captions className="h-3 w-3" /> captions</Badge>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1.5 space-y-0.5 font-mono">
-                      {r.clips.map((c, i) => (
-                        <div key={i} className="truncate">
-                          {c.filename} · {fmtTime(c.start_time)} – {fmtTime(c.end_time)}
-                          {c.snippet ? <span className="text-muted-foreground/60"> — {c.snippet}</span> : null}
-                        </div>
-                      ))}
-                    </div>
-                    {(r.status === "running" || r.status === "pending") && (
-                      <div className="mt-2 flex items-center gap-3">
-                        <Progress value={r.progress} className="h-1.5 flex-1 max-w-md" />
-                        <span className="text-xs text-muted-foreground font-mono">{Math.round(r.progress)}%</span>
-                      </div>
-                    )}
-                    {r.status === "error" && r.error_message && (
-                      <p className="text-xs text-red-400 mt-1 truncate">{r.error_message}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {r.status === "success" && (
-                      <Button size="sm" variant="outline" asChild>
-                        <a href={`/api/reels/${r.id}/download`} download>
-                          <Download className="h-4 w-4 mr-2" /> MP4
-                        </a>
-                      </Button>
-                    )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-muted-foreground hover:text-red-400"
-                      onClick={() => deleteMutation.mutate({ id: r.id }, { onSuccess: invalidate })}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ReelCard
+              key={r.id}
+              reel={r}
+              deleting={deleteMutation.isPending}
+              onDelete={() => deleteMutation.mutate({ id: r.id }, { onSuccess: invalidate })}
+            />
           ))}
         </div>
       ) : (

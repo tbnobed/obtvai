@@ -2387,6 +2387,9 @@ components:
         snippet:
           type: ["string", "null"]
           description: Transcript text that matched the prompt
+        thumbnail_url:
+          type: ["string", "null"]
+          description: Preview frame near the clip start (relative thumbnail path)
 
     ReelJob:
       type: object

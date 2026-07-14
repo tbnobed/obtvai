@@ -153,6 +153,7 @@ def _curate_clips(db, prompt: str, candidates: list[dict]) -> list[dict] | None:
             "start_time": round(float(s), 2),
             "end_time": round(float(e), 2),
             "snippet": snippet,
+            "thumbnail_url": candidates[idx].get("thumbnail_url"),
         })
 
     # Sanity: require a meaningful selection, otherwise keep raw candidates

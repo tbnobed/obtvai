@@ -224,6 +224,7 @@ class ReelClipOut(BaseModel):
     start_time: float
     end_time: float
     snippet: Optional[str] = None
+    thumbnail_url: Optional[str] = None
 
 
 class ReelJobOut(BaseModel):

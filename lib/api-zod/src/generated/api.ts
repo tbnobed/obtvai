@@ -435,7 +435,8 @@ export const CreateRoughCutResponse = zod.object({
   "filename": zod.string(),
   "start_time": zod.number(),
   "end_time": zod.number(),
-  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
   "status": zod.string().describe('pending | running | success | error'),
   "progress": zod.number(),
@@ -1297,7 +1298,8 @@ export const CreateClipListRoughCutResponse = zod.object({
   "filename": zod.string(),
   "start_time": zod.number(),
   "end_time": zod.number(),
-  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
   "status": zod.string().describe('pending | running | success | error'),
   "progress": zod.number(),
@@ -1540,7 +1542,8 @@ export const ListReelsResponseItem = zod.object({
   "filename": zod.string(),
   "start_time": zod.number(),
   "end_time": zod.number(),
-  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
   "status": zod.string().describe('pending | running | success | error'),
   "progress": zod.number(),
@@ -1583,7 +1586,8 @@ export const CreateReelResponse = zod.object({
   "filename": zod.string(),
   "start_time": zod.number(),
   "end_time": zod.number(),
-  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
   "status": zod.string().describe('pending | running | success | error'),
   "progress": zod.number(),
@@ -1612,7 +1616,8 @@ export const GetReelResponse = zod.object({
   "filename": zod.string(),
   "start_time": zod.number(),
   "end_time": zod.number(),
-  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
   "status": zod.string().describe('pending | running | success | error'),
   "progress": zod.number(),

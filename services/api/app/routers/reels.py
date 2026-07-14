@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
-from ..models import ReelJob, MediaAsset, TranscriptSegment
+from ..models import ReelJob, MediaAsset, TranscriptSegment, Scene
 from ..schemas import ReelRequestIn, ReelJobOut, ReelClipOut
 from ..worker_client import enqueue_reel
 
@@ -139,6 +139,28 @@ async def _select_clips(
         c.pop("_score", None)
     # Story order: keep assets grouped and windows chronological within each.
     clips.sort(key=lambda c: (c["media_id"], c["start_time"]))
+
+    # Attach a preview frame: the scene covering (or nearest before) the clip
+    # start, falling back to the asset poster thumbnail.
+    for c in clips:
+        thumb = None
+        try:
+            scene = (await db.execute(
+                select(Scene)
+                .where(Scene.media_id == c["media_id"], Scene.start_time <= c["start_time"])
+                .order_by(Scene.start_time.desc())
+                .limit(1)
+            )).scalar_one_or_none()
+            if scene is not None and scene.thumbnail_url:
+                thumb = scene.thumbnail_url
+            if not thumb:
+                asset = (await db.execute(
+                    select(MediaAsset).where(MediaAsset.id == c["media_id"])
+                )).scalar_one_or_none()
+                thumb = asset.thumbnail_url if asset is not None else None
+        except Exception:
+            logger.exception("Failed to attach thumbnail for reel clip %s", c["media_id"])
+        c["thumbnail_url"] = thumb
     return clips
 
 

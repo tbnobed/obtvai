@@ -736,6 +736,11 @@ export interface ReelClip {
      * @nullable
      */
   snippet?: string | null;
+  /**
+     * Preview frame near the clip start (relative thumbnail path)
+     * @nullable
+     */
+  thumbnail_url?: string | null;
 }
 
 export interface ReelJob {
