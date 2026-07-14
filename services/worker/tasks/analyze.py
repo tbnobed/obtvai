@@ -286,6 +286,30 @@ def analyze_media(self, media_id: str, job_id: str):
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         append_log(db, job_id, f"Analysis complete: {len(key_moments)} key moments, {len(topics)} topics")
 
+        # Chain the creative editor pass: story beats, clip suggestions,
+        # editorial notes. Runs on the gpu queue so it can land on either card.
+        # Guarded separately: analysis has already succeeded and been committed,
+        # so a chaining failure must not flip this job back to error.
+        try:
+            from sqlalchemy import text
+            already_active = db.execute(
+                text("""
+                    SELECT 1 FROM processing_jobs
+                    WHERE media_id = :mid AND job_type = 'creative'
+                      AND status IN ('pending', 'running')
+                    LIMIT 1
+                """),
+                {"mid": media_id},
+            ).fetchone()
+            if not already_active:
+                from tasks.base import create_job
+                creative_job_id = create_job(db, media_id, "creative")
+                from tasks.creative import creative_pass
+                creative_pass.delay(media_id, creative_job_id)
+        except Exception as chain_err:  # noqa: BLE001
+            db.rollback()
+            append_log(db, job_id, f"Could not queue creative pass: {chain_err}")
+
     except Exception as e:
         db.rollback()
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())

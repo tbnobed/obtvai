@@ -7,6 +7,7 @@ import {
   useListJobs, getListJobsQueryKey,
   useDeleteMedia, getListMediaQueryKey,
   useCreateHighlight,
+  useCreateCreativePass,
   useCreateSocialAnalysis,
   useCreateSocialCuts,
   useCreateTranslation,
@@ -15,7 +16,7 @@ import {
   useCreateReel,
   useDeleteReel
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform, ReelJob } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, ReelJob, CreativeAnalysis } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -128,6 +129,19 @@ export default function AssetDetail() {
     });
   };
 
+  const creativeMutation = useCreateCreativePass();
+  const creativeJob = jobs?.find(j => j.job_type === "creative" && (j.status === "pending" || j.status === "running"));
+  const creativeBusy = creativeMutation.isPending || Boolean(creativeJob);
+
+  const startCreative = () => {
+    if (!id) return;
+    creativeMutation.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
+      }
+    });
+  };
+
   const socialMutation = useCreateSocialAnalysis();
   const socialJob = jobs?.find(j => j.job_type === "social" && (j.status === "pending" || j.status === "running"));
   const socialBusy = socialMutation.isPending || Boolean(socialJob);
@@ -230,6 +244,8 @@ export default function AssetDetail() {
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
   const lastSocialStatus = jobs?.filter(j => j.job_type === "social")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
+  const lastCreativeStatus = jobs?.filter(j => j.job_type === "creative")
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
   const lastTranslateJob = jobs?.filter(j => j.job_type === "translate")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0];
   const lastTranslateStatus = lastTranslateJob?.status;
@@ -237,10 +253,10 @@ export default function AssetDetail() {
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0];
   const lastDubStatus = lastDubJob?.status;
   useEffect(() => {
-    if ((lastHighlightStatus === "success" || lastSocialStatus === "success" || lastTranslateStatus === "success" || lastDubStatus === "success") && id) {
+    if ((lastHighlightStatus === "success" || lastSocialStatus === "success" || lastCreativeStatus === "success" || lastTranslateStatus === "success" || lastDubStatus === "success") && id) {
       queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
     }
-  }, [lastHighlightStatus, lastSocialStatus, lastTranslateStatus, lastDubStatus, id, queryClient]);
+  }, [lastHighlightStatus, lastSocialStatus, lastCreativeStatus, lastTranslateStatus, lastDubStatus, id, queryClient]);
 
   useEffect(() => {
     if (timeParam && videoRef.current && asset?.status === 'ready') {
@@ -353,6 +369,10 @@ export default function AssetDetail() {
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Analysis
                 </TabsTrigger>
+                <TabsTrigger value="creative" className="gap-1.5">
+                  <Clapperboard className="h-3.5 w-3.5" />
+                  Creative
+                </TabsTrigger>
                 <TabsTrigger value="highlight" className="gap-1.5">
                   <Film className="h-3.5 w-3.5" />
                   Highlight Reel
@@ -414,6 +434,16 @@ export default function AssetDetail() {
                     or re-run the index job from the Pipeline Jobs tab.
                   </div>
                 )}
+              </TabsContent>
+              <TabsContent value="creative" className="mt-4">
+                <CreativeSection
+                  creative={asset.creative as CreativeAnalysis | null | undefined}
+                  busy={creativeBusy}
+                  progress={creativeJob?.progress ?? null}
+                  error={creativeMutation.isError}
+                  onRun={startCreative}
+                  seekTo={seekTo}
+                />
               </TabsContent>
               <TabsContent value="highlight" className="mt-4 space-y-6">
                 {asset.key_moments && asset.key_moments.length > 0 ? (
@@ -780,6 +810,196 @@ export default function AssetDetail() {
             </TabsContent>
           </Tabs>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const BEAT_COLORS: Record<string, string> = {
+  hook: "bg-amber-500",
+  setup: "bg-sky-500",
+  development: "bg-blue-500",
+  turn: "bg-orange-500",
+  climax: "bg-red-500",
+  resolution: "bg-green-500",
+};
+
+const NOTE_LABELS: Record<string, string> = {
+  pacing: "Pacing",
+  structure: "Structure",
+  cuts: "Cuts",
+  broll: "B-Roll",
+  delivery: "Delivery",
+  best_take: "Best Take",
+};
+
+function CreativeSection({
+  creative,
+  busy,
+  progress,
+  error,
+  onRun,
+  seekTo,
+}: {
+  creative: CreativeAnalysis | null | undefined;
+  busy: boolean;
+  progress: number | null;
+  error: boolean;
+  onRun: () => void;
+  seekTo: (time: number) => void;
+}) {
+  if (!creative || busy) {
+    return (
+      <div className="py-10 flex flex-col items-center text-center gap-3">
+        <Clapperboard className="h-10 w-10 text-muted-foreground" />
+        <Button className="gap-2" onClick={onRun} disabled={busy}>
+          {busy ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Reviewing footage{progress ? ` — ${Math.round(progress)}%` : "..."}
+            </>
+          ) : (
+            <>
+              <Wand2 className="h-4 w-4" />
+              Run Creative Pass
+            </>
+          )}
+        </Button>
+        <p className="text-xs text-muted-foreground max-w-sm">
+          The AI reviews the footage like a story editor: maps the narrative arc, pulls the
+          strongest soundbites as ready-to-cut clips, and writes actionable editing notes.
+        </p>
+        {error && (
+          <p className="text-xs text-destructive">Failed to start creative pass. Check Pipeline Jobs.</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 max-w-4xl">
+      {creative.logline && (
+        <div className="border-l-2 border-primary pl-4">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Logline</h3>
+          <p className="text-sm leading-relaxed italic">{creative.logline}</p>
+        </div>
+      )}
+
+      {creative.story_beats.length > 0 && (
+        <div>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Story Arc</h3>
+          <div className="space-y-1">
+            {creative.story_beats.map((beat, i) => (
+              <div
+                key={i}
+                className="flex gap-3 items-baseline p-2 -mx-2 rounded cursor-pointer hover:bg-muted transition-colors"
+                onClick={() => seekTo(beat.time)}
+              >
+                <span className="text-xs font-mono text-primary shrink-0 w-14 text-right">
+                  {formatTimecode(beat.time)}
+                </span>
+                <span
+                  className={`shrink-0 mt-1 h-2 w-2 rounded-full ${BEAT_COLORS[beat.beat] ?? "bg-muted-foreground"}`}
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium">{beat.title}</span>
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">{beat.beat}</Badge>
+                    {beat.emotion && (
+                      <span className="text-[11px] text-muted-foreground">{beat.emotion}</span>
+                    )}
+                  </div>
+                  {beat.description && (
+                    <div className="text-xs text-muted-foreground">{beat.description}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {creative.clip_suggestions.length > 0 && (
+        <div>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
+            Suggested Clips
+          </h3>
+          <div className="space-y-3">
+            {creative.clip_suggestions.map((clip, i) => (
+              <div
+                key={i}
+                className="border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => seekTo(clip.start)}
+              >
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Scissors className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="text-sm font-medium truncate">{clip.title}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {formatTimecode(clip.start)}–{formatTimecode(clip.end)}
+                      <span className="ml-1 text-muted-foreground/70">
+                        ({Math.round(clip.end - clip.start)}s)
+                      </span>
+                    </span>
+                    {clip.strength != null && (
+                      <span className={`text-xs font-semibold ${scoreColor(clip.strength)}`}>
+                        {clip.strength}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {clip.quote && (
+                  <p className="text-sm text-muted-foreground italic mb-1.5">“{clip.quote}”</p>
+                )}
+                <p className="text-xs text-muted-foreground">{clip.reason}</p>
+                {clip.platforms && clip.platforms.length > 0 && (
+                  <div className="flex gap-1.5 mt-2">
+                    {clip.platforms.map((p) => {
+                      const meta = PLATFORM_META[p];
+                      return meta ? (
+                        <meta.Icon key={p} className={`h-3.5 w-3.5 ${meta.color}`} />
+                      ) : (
+                        <Badge key={p} variant="secondary" className="text-[10px]">{p}</Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {creative.editorial_notes.length > 0 && (
+        <div>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
+            Editorial Notes
+          </h3>
+          <div className="space-y-2">
+            {creative.editorial_notes.map((note, i) => (
+              <div key={i} className="flex gap-3 items-start">
+                <Badge variant="secondary" className="text-[10px] uppercase tracking-wide shrink-0 mt-0.5 w-20 justify-center">
+                  {NOTE_LABELS[note.category] ?? note.category}
+                </Badge>
+                <p className="text-sm text-muted-foreground leading-relaxed">{note.note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-2">
+        <Button variant="outline" size="sm" className="gap-2" onClick={onRun}>
+          <Wand2 className="h-4 w-4" />
+          Re-run Creative Pass
+        </Button>
+        {creative.generated_at && (
+          <span className="text-xs text-muted-foreground">
+            Generated {new Date(creative.generated_at).toLocaleString()}
+          </span>
+        )}
       </div>
     </div>
   );

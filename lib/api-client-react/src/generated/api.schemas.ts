@@ -44,6 +44,65 @@ export interface SocialScore {
   hashtags?: string[] | null;
 }
 
+export interface StoryBeat {
+  /** Timecode in seconds */
+  time: number;
+  /** hook | setup | development | turn | climax | resolution */
+  beat: string;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  /**
+     * Dominant emotional register of the beat
+     * @nullable
+     */
+  emotion?: string | null;
+}
+
+export interface ClipSuggestion {
+  /** In point in seconds */
+  start: number;
+  /** Out point in seconds */
+  end: number;
+  title: string;
+  /**
+     * The strongest line spoken in the clip
+     * @nullable
+     */
+  quote?: string | null;
+  /** Why an editor would pull this clip */
+  reason: string;
+  /**
+     * Editorial strength score 1-100
+     * @nullable
+     */
+  strength?: number | null;
+  /**
+     * Platforms this clip suits best
+     * @nullable
+     */
+  platforms?: string[] | null;
+}
+
+export interface EditorialNote {
+  /** pacing | structure | cuts | broll | delivery | best_take */
+  category: string;
+  note: string;
+}
+
+export interface CreativeAnalysis {
+  /**
+     * One-sentence editorial pitch for the piece
+     * @nullable
+     */
+  logline?: string | null;
+  story_beats: StoryBeat[];
+  clip_suggestions: ClipSuggestion[];
+  editorial_notes: EditorialNote[];
+  /** @nullable */
+  generated_at?: string | null;
+}
+
 export interface KeyMoment {
   /** Timecode in seconds */
   time: number;
@@ -114,6 +173,8 @@ export interface MediaAsset {
      * @nullable
      */
   synopsis?: string | null;
+  /** Creative editor pass — story beats, clip suggestions, editorial notes */
+  creative?: CreativeAnalysis | null;
   /**
      * AI-detected key moments with timecodes
      * @nullable

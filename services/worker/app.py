@@ -16,6 +16,7 @@ celery_app = Celery(
         "tasks.face_detect",
         "tasks.index",
         "tasks.analyze",
+        "tasks.creative",
         "tasks.highlight",
         "tasks.social",
         "tasks.translate",

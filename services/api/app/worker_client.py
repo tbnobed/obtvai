@@ -43,6 +43,7 @@ async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: d
         "face_detect": ("gpu", "tasks.face_detect.detect_faces"),
         "index": ("cpu", "tasks.index.build_index"),
         "analyze": ("gpu", "tasks.analyze.analyze_media"),
+        "creative": ("gpu", "tasks.creative.creative_pass"),
         "highlight": ("cpu", "tasks.highlight.build_highlight"),
         "social": ("gpu", "tasks.social.score_social"),
         "translate": ("gpu", "tasks.translate.translate_transcript"),

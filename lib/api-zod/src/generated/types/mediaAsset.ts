@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreativeAnalysis } from './creativeAnalysis';
 import type { KeyMoment } from './keyMoment';
 import type { SocialScore } from './socialScore';
 
@@ -70,6 +71,8 @@ export interface MediaAsset {
      * @nullable
      */
   synopsis?: string | null;
+  /** Creative editor pass — story beats, clip suggestions, editorial notes */
+  creative?: CreativeAnalysis | null;
   /**
      * AI-detected key moments with timecodes
      * @nullable

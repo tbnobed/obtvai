@@ -1095,6 +1095,77 @@ export const useCreateHighlight = <TError = ErrorType<unknown>,
       return useMutation(getCreateHighlightMutationOptions(options));
     }
 
+export const getCreateCreativePassUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/creative`
+}
+
+/**
+ * @summary Run the creative editor pass (story beats, clip suggestions, editorial notes)
+ */
+export const createCreativePass = async (id: string, options?: RequestInit): Promise<ProcessingJob> => {
+
+  return customFetch<ProcessingJob>(getCreateCreativePassUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateCreativePassMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCreativePass>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCreativePass>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['createCreativePass'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCreativePass>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  createCreativePass(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCreativePassMutationResult = NonNullable<Awaited<ReturnType<typeof createCreativePass>>>
+
+    export type CreateCreativePassMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Run the creative editor pass (story beats, clip suggestions, editorial notes)
+ */
+export const useCreateCreativePass = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCreativePass>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCreativePass>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCreateCreativePassMutationOptions(options));
+    }
+
 export const getCreateSocialAnalysisUrl = (id: string,) => {
 
 

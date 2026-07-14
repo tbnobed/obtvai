@@ -337,6 +337,53 @@ async def create_highlight(id: str, db: AsyncSession = Depends(get_db)):
     return out
 
 
+@router.post("/{id}/creative", response_model=ProcessingJobOut, status_code=202)
+async def create_creative_pass(id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    has_transcript = (
+        await db.execute(
+            select(func.count(TranscriptSegment.id)).where(TranscriptSegment.media_id == id)
+        )
+    ).scalar_one()
+    if not has_transcript:
+        raise HTTPException(
+            status_code=400,
+            detail="No transcript available — the creative pass needs a transcribed asset",
+        )
+
+    existing = (
+        await db.execute(
+            select(ProcessingJob).where(
+                ProcessingJob.media_id == id,
+                ProcessingJob.job_type == "creative",
+                ProcessingJob.status.in_(("pending", "running")),
+            )
+        )
+    ).scalars().first()
+    if existing:
+        out = ProcessingJobOut.model_validate(existing)
+        out.filename = asset.filename
+        return out
+
+    from .jobs import prune_finished_jobs
+    await prune_finished_jobs(db, id, "creative")
+    job = ProcessingJob(media_id=id, job_type="creative", status="pending", logs=[])
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    from ..worker_client import enqueue_job
+    await enqueue_job("creative", id, job.id)
+
+    out = ProcessingJobOut.model_validate(job)
+    out.filename = asset.filename
+    return out
+
+
 @router.post("/{id}/social", response_model=ProcessingJobOut, status_code=202)
 async def create_social_analysis(id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))

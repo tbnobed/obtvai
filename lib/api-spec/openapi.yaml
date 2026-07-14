@@ -315,6 +315,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProcessingJob"
 
+  /media/{id}/creative:
+    post:
+      operationId: createCreativePass
+      tags: [media]
+      summary: Run the creative editor pass (story beats, clip suggestions, editorial notes)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Creative pass job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+
   /media/{id}/social:
     post:
       operationId: createSocialAnalysis
@@ -1282,6 +1301,11 @@ components:
         synopsis:
           type: ["string", "null"]
           description: AI-generated synopsis of the content
+        creative:
+          anyOf:
+            - $ref: "#/components/schemas/CreativeAnalysis"
+            - type: "null"
+          description: Creative editor pass — story beats, clip suggestions, editorial notes
         key_moments:
           type: ["array", "null"]
           description: AI-detected key moments with timecodes
@@ -1308,6 +1332,83 @@ components:
           type: string
         description:
           type: ["string", "null"]
+
+    CreativeAnalysis:
+      type: object
+      required: [story_beats, clip_suggestions, editorial_notes]
+      properties:
+        logline:
+          type: ["string", "null"]
+          description: One-sentence editorial pitch for the piece
+        story_beats:
+          type: array
+          items:
+            $ref: "#/components/schemas/StoryBeat"
+        clip_suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClipSuggestion"
+        editorial_notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditorialNote"
+        generated_at:
+          type: ["string", "null"]
+
+    StoryBeat:
+      type: object
+      required: [time, beat, title]
+      properties:
+        time:
+          type: number
+          description: Timecode in seconds
+        beat:
+          type: string
+          description: "hook | setup | development | turn | climax | resolution"
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        emotion:
+          type: ["string", "null"]
+          description: Dominant emotional register of the beat
+
+    ClipSuggestion:
+      type: object
+      required: [start, end, title, reason]
+      properties:
+        start:
+          type: number
+          description: In point in seconds
+        end:
+          type: number
+          description: Out point in seconds
+        title:
+          type: string
+        quote:
+          type: ["string", "null"]
+          description: The strongest line spoken in the clip
+        reason:
+          type: string
+          description: Why an editor would pull this clip
+        strength:
+          type: ["integer", "null"]
+          description: Editorial strength score 1-100
+        platforms:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: Platforms this clip suits best
+
+    EditorialNote:
+      type: object
+      required: [category, note]
+      properties:
+        category:
+          type: string
+          description: "pacing | structure | cuts | broll | delivery | best_take"
+        note:
+          type: string
 
     MediaListResponse:
       type: object

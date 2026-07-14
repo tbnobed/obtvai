@@ -57,6 +57,30 @@ export const ListMediaResponse = zod.object({
   "hashtags": zod.array(zod.string()).nullish()
 })).nullish().describe('Per-platform social media performance predictions'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "creative": zod.union([zod.object({
+  "logline": zod.string().nullish().describe('One-sentence editorial pitch for the piece'),
+  "story_beats": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "beat": zod.string().describe('hook | setup | development | turn | climax | resolution'),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emotion": zod.string().nullish().describe('Dominant emotional register of the beat')
+})),
+  "clip_suggestions": zod.array(zod.object({
+  "start": zod.number().describe('In point in seconds'),
+  "end": zod.number().describe('Out point in seconds'),
+  "title": zod.string(),
+  "quote": zod.string().nullish().describe('The strongest line spoken in the clip'),
+  "reason": zod.string().describe('Why an editor would pull this clip'),
+  "strength": zod.number().nullish().describe('Editorial strength score 1-100'),
+  "platforms": zod.array(zod.string()).nullish().describe('Platforms this clip suits best')
+})),
+  "editorial_notes": zod.array(zod.object({
+  "category": zod.string().describe('pacing | structure | cuts | broll | delivery | best_take'),
+  "note": zod.string()
+})),
+  "generated_at": zod.string().nullish()
+}),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),
@@ -109,6 +133,30 @@ export const IngestMediaResponse = zod.object({
   "hashtags": zod.array(zod.string()).nullish()
 })).nullish().describe('Per-platform social media performance predictions'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "creative": zod.union([zod.object({
+  "logline": zod.string().nullish().describe('One-sentence editorial pitch for the piece'),
+  "story_beats": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "beat": zod.string().describe('hook | setup | development | turn | climax | resolution'),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emotion": zod.string().nullish().describe('Dominant emotional register of the beat')
+})),
+  "clip_suggestions": zod.array(zod.object({
+  "start": zod.number().describe('In point in seconds'),
+  "end": zod.number().describe('Out point in seconds'),
+  "title": zod.string(),
+  "quote": zod.string().nullish().describe('The strongest line spoken in the clip'),
+  "reason": zod.string().describe('Why an editor would pull this clip'),
+  "strength": zod.number().nullish().describe('Editorial strength score 1-100'),
+  "platforms": zod.array(zod.string()).nullish().describe('Platforms this clip suits best')
+})),
+  "editorial_notes": zod.array(zod.object({
+  "category": zod.string().describe('pacing | structure | cuts | broll | delivery | best_take'),
+  "note": zod.string()
+})),
+  "generated_at": zod.string().nullish()
+}),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),
@@ -159,6 +207,30 @@ export const UploadMediaResponse = zod.object({
   "hashtags": zod.array(zod.string()).nullish()
 })).nullish().describe('Per-platform social media performance predictions'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "creative": zod.union([zod.object({
+  "logline": zod.string().nullish().describe('One-sentence editorial pitch for the piece'),
+  "story_beats": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "beat": zod.string().describe('hook | setup | development | turn | climax | resolution'),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emotion": zod.string().nullish().describe('Dominant emotional register of the beat')
+})),
+  "clip_suggestions": zod.array(zod.object({
+  "start": zod.number().describe('In point in seconds'),
+  "end": zod.number().describe('Out point in seconds'),
+  "title": zod.string(),
+  "quote": zod.string().nullish().describe('The strongest line spoken in the clip'),
+  "reason": zod.string().describe('Why an editor would pull this clip'),
+  "strength": zod.number().nullish().describe('Editorial strength score 1-100'),
+  "platforms": zod.array(zod.string()).nullish().describe('Platforms this clip suits best')
+})),
+  "editorial_notes": zod.array(zod.object({
+  "category": zod.string().describe('pacing | structure | cuts | broll | delivery | best_take'),
+  "note": zod.string()
+})),
+  "generated_at": zod.string().nullish()
+}),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),
@@ -208,6 +280,30 @@ export const GetMediaResponse = zod.object({
   "hashtags": zod.array(zod.string()).nullish()
 })).nullish().describe('Per-platform social media performance predictions'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "creative": zod.union([zod.object({
+  "logline": zod.string().nullish().describe('One-sentence editorial pitch for the piece'),
+  "story_beats": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "beat": zod.string().describe('hook | setup | development | turn | climax | resolution'),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emotion": zod.string().nullish().describe('Dominant emotional register of the beat')
+})),
+  "clip_suggestions": zod.array(zod.object({
+  "start": zod.number().describe('In point in seconds'),
+  "end": zod.number().describe('Out point in seconds'),
+  "title": zod.string(),
+  "quote": zod.string().nullish().describe('The strongest line spoken in the clip'),
+  "reason": zod.string().describe('Why an editor would pull this clip'),
+  "strength": zod.number().nullish().describe('Editorial strength score 1-100'),
+  "platforms": zod.array(zod.string()).nullish().describe('Platforms this clip suits best')
+})),
+  "editorial_notes": zod.array(zod.object({
+  "category": zod.string().describe('pacing | structure | cuts | broll | delivery | best_take'),
+  "note": zod.string()
+})),
+  "generated_at": zod.string().nullish()
+}),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),
@@ -380,6 +476,29 @@ export const CreateHighlightResponse = zod.object({
 
 
 /**
+ * @summary Run the creative editor pass (story beats, clip suggestions, editorial notes)
+ */
+export const CreateCreativePassParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateCreativePassResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
+  "filename": zod.string().nullish(),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
+  "status": zod.string().describe('pending | running | success | error | cancelled'),
+  "progress": zod.number().nullish().describe('0-100'),
+  "error_message": zod.string().nullish(),
+  "logs": zod.array(zod.string()).optional(),
+  "retry_count": zod.number().optional(),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Score the asset's social media potential across platforms
  */
 export const CreateSocialAnalysisParams = zod.object({
@@ -475,6 +594,30 @@ export const GetLibraryStatsResponse = zod.object({
   "hashtags": zod.array(zod.string()).nullish()
 })).nullish().describe('Per-platform social media performance predictions'),
   "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "creative": zod.union([zod.object({
+  "logline": zod.string().nullish().describe('One-sentence editorial pitch for the piece'),
+  "story_beats": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "beat": zod.string().describe('hook | setup | development | turn | climax | resolution'),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emotion": zod.string().nullish().describe('Dominant emotional register of the beat')
+})),
+  "clip_suggestions": zod.array(zod.object({
+  "start": zod.number().describe('In point in seconds'),
+  "end": zod.number().describe('Out point in seconds'),
+  "title": zod.string(),
+  "quote": zod.string().nullish().describe('The strongest line spoken in the clip'),
+  "reason": zod.string().describe('Why an editor would pull this clip'),
+  "strength": zod.number().nullish().describe('Editorial strength score 1-100'),
+  "platforms": zod.array(zod.string()).nullish().describe('Platforms this clip suits best')
+})),
+  "editorial_notes": zod.array(zod.object({
+  "category": zod.string().describe('pacing | structure | cuts | broll | delivery | best_take'),
+  "note": zod.string()
+})),
+  "generated_at": zod.string().nullish()
+}),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),

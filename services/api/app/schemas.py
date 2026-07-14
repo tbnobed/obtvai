@@ -31,6 +31,7 @@ class MediaAssetOut(BaseModel):
     translated_languages: Optional[List[str]] = None
     dubbed_languages: Optional[List[str]] = None
     synopsis: Optional[str] = None
+    creative: Optional[Any] = None
     key_moments: Optional[List[Any]] = None
     topics: Optional[List[str]] = None
     created_at: datetime

@@ -41,6 +41,34 @@ const assets = [
       { time: 1580, title: "2026 bond measure outlook", description: "Closing thoughts on funding prospects and the November ballot." },
     ],
     topics: ["urban planning", "affordable housing", "public transit", "local politics", "development"],
+    creative: {
+      logline:
+        "A city planner stakes her career on a 30% affordability promise — and the merchants fighting her may decide whether downtown survives its own rescue.",
+      story_beats: [
+        { time: 45, beat: "hook", title: "The promise", description: "Chen opens with the task-force mandate — sets stakes for the whole interview. Strong cold-open candidate.", emotion: "confident" },
+        { time: 312, beat: "setup", title: "The 30% target", description: "The affordability requirement is laid out with the developer incentive math — the intellectual spine of the piece.", emotion: "measured" },
+        { time: 705, beat: "development", title: "Rezoning the corridor", description: "Transit-oriented development plan; visual sequence needs maps and B-roll of the light-rail corridor.", emotion: "optimistic" },
+        { time: 1128, beat: "turn", title: "The merchants push back", description: "First real conflict — Chen visibly bristles at the foot-traffic question. This is the dramatic engine of the edit.", emotion: "tense" },
+        { time: 1450, beat: "climax", title: "The data rebuttal", description: "Chen counters with construction-impact data from three comparable cities. Her strongest, most quotable exchange.", emotion: "assertive" },
+        { time: 1580, beat: "resolution", title: "The ballot question", description: "Bond measure outlook — lands the stakes and gives the piece a forward-looking close.", emotion: "resolute" },
+      ],
+      clip_suggestions: [
+        { start: 43, end: 68, title: "Cold open: the mandate", quote: "We have one shot at this — the next five years decide what downtown is for the next fifty.", reason: "Self-contained stakes-setter with a natural hook; works as the opening of any cut.", strength: 88, platforms: ["youtube", "tiktok", "instagram"] },
+        { start: 318, end: 352, title: "The 30% math", quote: "Thirty percent isn't a dream number — the incentive package pays for itself by year six.", reason: "The single clearest explanation of the policy; pull for explainer cuts and the chaptered upload.", strength: 74, platforms: ["youtube", "x"] },
+        { start: 1131, end: 1169, title: "Merchants vs. the plan", quote: "They're telling me construction will kill foot traffic. I'm telling them the alternative is a downtown nobody walks to at all.", reason: "The conflict beat — highest engagement potential; invites debate on X and drives replies.", strength: 92, platforms: ["x", "tiktok", "facebook"] },
+        { start: 1448, end: 1483, title: "The data rebuttal", quote: "Portland, Minneapolis, Denver — every one of them saw retail revenue recover within eighteen months.", reason: "Best delivery of the session; assertive, specific, and quotable. Anchor of the highlight reel.", strength: 90, platforms: ["youtube", "instagram", "x"] },
+        { start: 1583, end: 1614, title: "The ballot close", quote: "If the bond fails in November, this plan doesn't get delayed — it gets buried.", reason: "Time-sensitive news angle and a natural closer for every cut.", strength: 81, platforms: ["youtube", "facebook", "x"] },
+      ],
+      editorial_notes: [
+        { category: "pacing", note: "The 08:00–11:30 stretch on zoning code history drags — cut it to a 20-second summary or lose it entirely; nothing there pays off later." },
+        { category: "structure", note: "Consider opening on the 18:48 merchant-pushback exchange, then rewinding to the mandate — conflict-first structure will hold retention far better than the chronological cut." },
+        { category: "broll", note: "The corridor rezoning section (11:45–18:00) is unwatchable as a talking head — needs map overlays, light-rail footage, and storefront exteriors throughout." },
+        { category: "best_take", note: "Chen's data rebuttal at 24:08 is her best on-camera moment of the session — protect it in every cut, don't trim into the pause before 'every one of them'." },
+        { category: "cuts", note: "Both bond-measure explanations (26:20 and 29:40) cover identical ground — keep the second, it's tighter and lands the 'buried' line." },
+        { category: "delivery", note: "Chen speeds up noticeably when defensive (18:50–19:30) — leave breathing room around her answers there rather than jump-cutting, or she'll read as rattled." },
+      ],
+      generated_at: new Date(Date.now() - 82800000).toISOString(),
+    } as any,
     highlight_url: null as string | null,
     translated_languages: ["es"] as string[] | null,
     dubbed_languages: ["es"] as string[] | null,
@@ -547,6 +575,45 @@ router.post("/media/:id/highlight", (req, res) => {
     job.finished_at = new Date().toISOString();
     job.logs.push("Highlight reel ready: 5 clips");
     (asset as any).highlight_url = `${asset.id}.mp4`;
+  }, 9000);
+  res.status(202).json(job);
+});
+
+router.post("/media/:id/creative", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ error: "Media not found" }); return; }
+  const hasTranscript = transcript.some((s) => s.media_id === asset.id);
+  if (!hasTranscript && !asset.synopsis) {
+    res.status(400).json({ detail: "No transcript available — the creative pass needs a transcribed asset" });
+    return;
+  }
+  const job = {
+    id: `job-cr-${Date.now()}`,
+    media_id: asset.id,
+    filename: asset.filename,
+    job_type: "creative",
+    status: "running",
+    progress: 10,
+    error_message: null as string | null,
+    logs: ["Creative pass over 2 transcript chunk(s)", "Mining soundbites and mapping story arc"],
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    finished_at: null as string | null,
+  };
+  jobs.unshift(job as any);
+  const timer = setInterval(() => {
+    job.progress = Math.min(90, (job.progress ?? 0) + 20);
+  }, 2000);
+  setTimeout(() => {
+    clearInterval(timer);
+    job.status = "success";
+    job.progress = 100;
+    job.finished_at = new Date().toISOString();
+    job.logs.push("Creative pass complete: 6 beats, 5 clip suggestions, 6 editorial notes");
+    if (!(asset as any).creative) {
+      (asset as any).creative = (assets[0] as any).creative;
+    }
   }, 9000);
   res.status(202).json(job);
 });
