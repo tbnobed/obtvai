@@ -1,0 +1,13 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose ps worker-gpu-2
+docker compose exec worker-gpu-2 celery -A app inspect active_queues 2>/dev/null | head -20
+NAME                     IMAGE                  COMMAND                  SERVICE        CREATED         STATUS         PORTS
+obtv-ai-worker-gpu-2-1   obtv-ai-worker-gpu-2   "/opt/nvidia/nvidia_…"   worker-gpu-2   4 minutes ago   Up 4 minutes
+->  worker-gpu-2@7d0bbf0f8687: OK
+    * {'name': 'gpu', 'exchange': {'name': 'gpu', 'type': 'direct', 'arguments': None, 'durable': True, 'passive': False, 'auto_delete': False, 'delivery_mode': None, 'no_declare': False}, 'routing_key': 'gpu', 'queue_arguments': None, 'binding_arguments': None, 'consumer_arguments': None, 'durable': True, 'exclusive': False, 'auto_delete': False, 'no_ack': False, 'alias': None, 'bindings': [], 'no_declare': None, 'expires': None, 'message_ttl': None, 'max_length': None, 'max_length_bytes': None, 'max_priority': None}
+->  celery@60b069a8307e: OK
+    * {'name': 'cpu', 'exchange': {'name': 'cpu', 'type': 'direct', 'arguments': None, 'durable': True, 'passive': False, 'auto_delete': False, 'delivery_mode': None, 'no_declare': False}, 'routing_key': 'cpu', 'queue_arguments': None, 'binding_arguments': None, 'consumer_arguments': None, 'durable': True, 'exclusive': False, 'auto_delete': False, 'no_ack': False, 'alias': None, 'bindings': [], 'no_declare': None, 'expires': None, 'message_ttl': None, 'max_length': None, 'max_length_bytes': None, 'max_priority': None}
+    * {'name': 'ingest', 'exchange': {'name': 'ingest', 'type': 'direct', 'arguments': None, 'durable': True, 'passive': False, 'auto_delete': False, 'delivery_mode': None, 'no_declare': False}, 'routing_key': 'ingest', 'queue_arguments': None, 'binding_arguments': None, 'consumer_arguments': None, 'durable': True, 'exclusive': False, 'auto_delete': False, 'no_ack': False, 'alias': None, 'bindings': [], 'no_declare': None, 'expires': None, 'message_ttl': None, 'max_length': None, 'max_length_bytes': None, 'max_priority': None}
+->  celery@ec28f634e12c: OK
+    * {'name': 'gpu', 'exchange': {'name': 'gpu', 'type': 'direct', 'arguments': None, 'durable': True, 'passive': False, 'auto_delete': False, 'delivery_mode': None, 'no_declare': False}, 'routing_key': 'gpu', 'queue_arguments': None, 'binding_arguments': None, 'consumer_arguments': None, 'durable': True, 'exclusive': False, 'auto_delete': False, 'no_ack': False, 'alias': None, 'bindings': [], 'no_declare': None, 'expires': None, 'message_ttl': None, 'max_length': None, 'max_length_bytes': None, 'max_priority': None}
+
+3 nodes online.
