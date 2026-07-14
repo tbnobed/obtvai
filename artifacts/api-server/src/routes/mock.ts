@@ -993,6 +993,17 @@ router.patch("/clips/:id", (req, res) => {
   if (req.body.name !== undefined) cl.name = req.body.name;
   if (req.body.description !== undefined) cl.description = req.body.description;
   if (req.body.project_id !== undefined) cl.project_id = req.body.project_id;
+  if (req.body.clips !== undefined) {
+    cl.clips = (req.body.clips || []).map((c: any, i: number) => ({
+      id: `clip-${Date.now()}-${i}`,
+      media_id: c.media_id,
+      filename: assets.find((a) => a.id === c.media_id)?.filename || "unknown",
+      start_time: c.start_time,
+      end_time: c.end_time,
+      label: c.label || null,
+      notes: null,
+    }));
+  }
   touchProject(cl.project_id);
   res.json(cl);
 });
