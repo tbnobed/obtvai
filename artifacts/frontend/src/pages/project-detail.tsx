@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -158,6 +158,10 @@ export default function ProjectDetail() {
   const [query, setQuery] = useState("");
   const [targetListId, setTargetListId] = useState<string>("");
   const [lastAdded, setLastAdded] = useState<string | null>(null);
+  // Rapid "Add" clicks race the clip-list refetch: each click would rebuild the
+  // list from stale cache and overwrite the previous add. Track the latest
+  // known clips per list synchronously so consecutive adds accumulate.
+  const pendingClipsRef = useRef<Record<string, ClipListUpdateClipsItem[]>>({});
 
   useEffect(() => {
     if (!targetListId && clipLists?.length) setTargetListId(clipLists[0].id);
@@ -194,16 +198,26 @@ export default function ProjectDetail() {
       invalidateAll();
     };
     if (target) {
-      const clips: ClipListUpdateClipsItem[] = [
-        ...target.clips.map((c) => ({
+      const base: ClipListUpdateClipsItem[] =
+        pendingClipsRef.current[target.id] ??
+        target.clips.map((c) => ({
           media_id: c.media_id,
           start_time: c.start_time,
           end_time: c.end_time,
           label: c.label ?? undefined,
-        })),
-        newClip,
-      ];
-      updateListMutation.mutate({ id: target.id, data: { clips } }, { onSuccess: done });
+        }));
+      const clips = [...base, newClip];
+      pendingClipsRef.current[target.id] = clips;
+      updateListMutation.mutate(
+        { id: target.id, data: { clips } },
+        {
+          onSuccess: done,
+          onError: () => {
+            // Drop the optimistic state so the next add rebuilds from the server.
+            delete pendingClipsRef.current[target.id];
+          },
+        },
+      );
     } else {
       createListMutation.mutate(
         {
@@ -215,6 +229,7 @@ export default function ProjectDetail() {
         },
         {
           onSuccess: (created) => {
+            pendingClipsRef.current[created.id] = [newClip];
             setTargetListId(created.id);
             done();
           },
