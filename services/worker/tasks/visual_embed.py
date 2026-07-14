@@ -40,8 +40,22 @@ def embed_scenes(self, media_id: str, job_id: str):
         qdrant = QdrantClient(url=QDRANT_URL)
         _ensure_collection(qdrant, "scenes", model.config.projection_dim)
 
+        # Idempotent retry: remove points from any previous run for this asset
+        # so re-detected scenes don't leave orphaned vectors behind.
+        from qdrant_client.models import Filter, FieldCondition, MatchValue, FilterSelector
+        try:
+            qdrant.delete(
+                collection_name="scenes",
+                points_selector=FilterSelector(filter=Filter(must=[
+                    FieldCondition(key="media_id", match=MatchValue(value=media_id)),
+                ])),
+            )
+        except Exception as e:
+            append_log(db, job_id, f"Stale point cleanup skipped: {e}")
+
         embedded = 0
         attempted = 0
+        skipped_black = 0
         for scene_id, thumb_url in scenes:
             if not thumb_url:
                 continue
@@ -51,6 +65,14 @@ def embed_scenes(self, media_id: str, job_id: str):
             attempted += 1
             try:
                 img = Image.open(thumb_file).convert("RGB")
+                # Near-black/uniform frames (fades, textless-master gaps) embed
+                # as noise and poison visual search — skip them.
+                import numpy as np
+                arr = np.asarray(img.resize((64, 64)))
+                if arr.mean() < 10 or arr.std() < 5:
+                    skipped_black += 1
+                    attempted -= 1
+                    continue
                 inputs = processor(images=img, return_tensors="pt").to(device)
                 with torch.no_grad():
                     feats = model.get_image_features(**inputs)
@@ -81,7 +103,7 @@ def embed_scenes(self, media_id: str, job_id: str):
             )
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         update_asset(db, media_id, processing_stage="visual_embed_complete", processing_progress=90.0)
-        append_log(db, job_id, f"Embedded {embedded} scenes ({attempted - embedded} failed)")
+        append_log(db, job_id, f"Embedded {embedded} scenes ({attempted - embedded} failed, {skipped_black} near-black skipped)")
 
     except Exception as e:
         db.rollback()

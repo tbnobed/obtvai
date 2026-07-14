@@ -34,23 +34,49 @@ def detect_scenes(self, media_id: str, job_id: str):
         scene_list = scene_manager.get_scene_list()
 
         os.makedirs(THUMBNAILS_DIR, exist_ok=True)
+
+        # Idempotent retry: drop scenes from any previous run so we never
+        # accumulate duplicates.
+        db.execute(text("DELETE FROM scenes WHERE media_id = :mid"), {"mid": media_id})
+
+        import subprocess
         inserted = 0
+        thumb_failures = 0
         for scene_start, scene_end in scene_list:
             scene_id = str(uuid.uuid4())
             start_sec = scene_start.get_seconds()
             end_sec = scene_end.get_seconds()
+            duration = max(0.1, end_sec - start_sec)
 
             thumb_name = f"scene_{scene_id}.jpg"
             thumb_path = os.path.join(THUMBNAILS_DIR, thumb_name)
 
-            import subprocess
-            subprocess.run(
+            # Pick a *representative* frame, not a blind midpoint grab.
+            # Textless masters and fades often have black frames at/around
+            # cuts; ffmpeg's `thumbnail` filter scans sampled frames and picks
+            # the most representative one (histogram-based), which avoids
+            # black/uniform frames. Sample up to ~30s of the scene at 2fps.
+            sample_span = min(duration, 30.0)
+            batch = max(2, int(sample_span * 2))
+            proc = subprocess.run(
                 [
-                    "ffmpeg", "-y", "-ss", str(start_sec + (end_sec - start_sec) / 2),
-                    "-i", video_path, "-vframes", "1", "-q:v", "3", thumb_path,
+                    "ffmpeg", "-y", "-ss", str(start_sec),
+                    "-i", video_path, "-t", str(sample_span),
+                    "-vf", f"fps=2,thumbnail={batch}",
+                    "-frames:v", "1", "-q:v", "3", thumb_path,
                 ],
-                capture_output=True, timeout=30,
+                capture_output=True, timeout=120,
             )
+            if proc.returncode != 0 or not os.path.exists(thumb_path):
+                thumb_failures += 1
+                # Fallback: plain midpoint grab so we at least have something.
+                subprocess.run(
+                    [
+                        "ffmpeg", "-y", "-ss", str(start_sec + duration / 2),
+                        "-i", video_path, "-vframes", "1", "-q:v", "3", thumb_path,
+                    ],
+                    capture_output=True, timeout=30,
+                )
 
             db.execute(
                 text("""
@@ -71,6 +97,8 @@ def detect_scenes(self, media_id: str, job_id: str):
         update_asset(db, media_id, scene_count=inserted, processing_stage="scenes_detected", processing_progress=60.0)
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         append_log(db, job_id, f"Detected {inserted} scenes")
+        if thumb_failures:
+            append_log(db, job_id, f"{thumb_failures} scene(s) needed midpoint-frame fallback for thumbnails")
 
         # Queue visual embedding
         vis_job_id = create_job(db, media_id, "visual_embed")
