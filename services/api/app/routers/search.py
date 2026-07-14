@@ -21,11 +21,34 @@ router = APIRouter(prefix="/search", tags=["search"])
 # 0-1 band before merging.
 _CLIP_SCORE_FLOOR = 0.15
 _CLIP_SCORE_CEIL = 0.35
+# Below this rescaled score a visual hit is essentially noise — CLIP assigns
+# ~floor-level similarity to *everything*, including black frames, so weak
+# hits must be dropped rather than shown.
+_MIN_VISUAL_SCORE = 0.25
 
 
 def _rescale_clip_score(score: float) -> float:
     span = _CLIP_SCORE_CEIL - _CLIP_SCORE_FLOOR
     return max(0.0, min(1.0, (score - _CLIP_SCORE_FLOOR) / span))
+
+
+def _is_black_thumbnail(thumbnail_url: str | None) -> bool:
+    """Query-time guard against black/uniform scenes that were embedded before
+    the worker learned to skip them (legacy vectors persist in Qdrant)."""
+    if not thumbnail_url:
+        return False
+    import os
+    path = os.path.join(settings.thumbnails_dir, os.path.basename(thumbnail_url))
+    if not os.path.exists(path):
+        return False
+    try:
+        from PIL import Image
+        import numpy as np
+        with Image.open(path) as img:
+            arr = np.asarray(img.convert("RGB").resize((64, 64)))
+        return bool(arr.mean() < 10 or arr.std() < 5)
+    except Exception:
+        return False
 
 
 @router.post("", response_model=SearchResponse)
@@ -88,13 +111,18 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                 row = scene_q.first()
                 if row:
                     scene, asset = row
+                    rescaled = _rescale_clip_score(hit.score)
+                    if rescaled < _MIN_VISUAL_SCORE:
+                        continue
+                    if _is_black_thumbnail(scene.thumbnail_url):
+                        continue
                     results.append(SearchResultOut(
                         media_id=asset.id,
                         filename=asset.filename,
                         thumbnail_url=scene.thumbnail_url or asset.thumbnail_url,
                         start_time=scene.start_time,
                         end_time=scene.end_time,
-                        score=_rescale_clip_score(hit.score),
+                        score=rescaled,
                         match_type="visual",
                         snippet=scene.description,
                     ))
