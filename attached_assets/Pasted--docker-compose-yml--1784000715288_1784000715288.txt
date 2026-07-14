@@ -1,0 +1,42 @@
+ docker-compose.yml                                                                               |  8 ++++++--
+ 4 files changed, 69 insertions(+), 3 deletions(-)
+ create mode 100644 attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-docker-compose-cp-worker-_1784000555038.txt
+ create mode 100644 attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-docker-compose-exec-worke_1784000343248.txt
+[+] up 3/3
+ ✔ Container obtv-ai-postgres-1   Healthy                                                                                                                                                                   3.0s
+ ✔ Container obtv-ai-redis-1      Healthy                                                                                                                                                                   3.0s
+ ✔ Container obtv-ai-worker-cpu-1 Started                                                                                                                                                                   3.3s
+obtv-admin@obtv-llm-2:~/obtv-ai$ # the new library should now be present
+docker compose exec worker-cpu sh -c 'ldconfig -p | grep gpucomp'
+
+# and NVENC should open a session (expect frame= 30, no errors)
+docker compose exec worker-cpu ffmpeg -f lavfi -i testsrc=duration=1:size=640x360:rate=30 -c:v h264_nvenc -f null -
+        libnvidia-gpucomp.so.580.126.20 (libc6,x86-64) => /lib/x86_64-linux-gnu/libnvidia-gpucomp.so.580.126.20
+ffmpeg version n8.1.2-22-g94138f6973-20260713 Copyright (c) 2000-2026 the FFmpeg developers
+  built with gcc 15.2.0 (crosstool-NG 1.28.0.23_185f348)
+  configuration: --prefix=/ffbuild/prefix --pkg-config-flags=--static --pkg-config=pkg-config --cross-prefix=x86_64-ffbuild-linux-gnu- --arch=x86_64 --target-os=linux --enable-gpl --enable-version3 --disable-debug --enable-iconv --enable-zlib --enable-libxml2 --enable-libsoxr --enable-openssl --enable-libvmaf --enable-fontconfig --enable-libharfbuzz --enable-libfreetype --enable-libfribidi --enable-vulkan --enable-libshaderc --enable-libvorbis --enable-libxcb --enable-xlib --enable-libpulse --enable-gmp --enable-lzma --enable-liblcevc-dec --enable-opencl --enable-amf --enable-libaom --enable-libaribb24 --enable-avisynth --enable-chromaprint --enable-libdav1d --enable-libdavs2 --enable-libdvdread --enable-libdvdnav --disable-libfdk-aac --enable-ffnvcodec --enable-cuda-llvm --enable-frei0r --enable-libgme --enable-libkvazaar --enable-libaribcaption --enable-libass --enable-libbluray --enable-libjxl --enable-libmp3lame --enable-libopus --enable-libplacebo --enable-librist --enable-libssh --enable-libtheora --enable-libvpx --enable-libwebp --enable-libzmq --enable-lv2 --enable-libvpl --enable-openal --enable-liboapv --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenh264 --enable-libopenjpeg --enable-libopenmpt --enable-librav1e --enable-librubberband --disable-schannel --enable-sdl2 --enable-libsnappy --enable-libsrt --enable-libsvtav1 --enable-libtwolame --enable-libuavs3d --enable-libdrm --enable-vaapi --enable-libvidstab --enable-libvvenc --disable-whisper --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxvid --enable-libzimg --enable-libzvbi --extra-cflags=-DLIBTWOLAME_STATIC --extra-cxxflags= --extra-libs='-lgomp -ldl' --extra-ldflags=-pthread --extra-ldexeflags=-pie --cc=x86_64-ffbuild-linux-gnu-gcc --cxx=x86_64-ffbuild-linux-gnu-g++ --ar=x86_64-ffbuild-linux-gnu-gcc-ar --ranlib=x86_64-ffbuild-linux-gnu-gcc-ranlib --nm=x86_64-ffbuild-linux-gnu-gcc-nm --extra-version=20260713
+  libavutil      60. 26.102 / 60. 26.102
+  libavcodec     62. 28.102 / 62. 28.102
+  libavformat    62. 12.102 / 62. 12.102
+  libavdevice    62.  3.102 / 62.  3.102
+  libavfilter    11. 14.102 / 11. 14.102
+  libswscale      9.  5.102 /  9.  5.102
+  libswresample   6.  3.102 /  6.  3.102
+Input #0, lavfi, from 'testsrc=duration=1:size=640x360:rate=30':
+  Duration: N/A, start: 0.000000, bitrate: N/A
+  Stream #0:0: Video: wrapped_avframe, rgb24, 640x360 [SAR 1:1 DAR 16:9], 30 fps, 30 tbr, 30 tbn
+Stream mapping:
+  Stream #0:0 -> #0:0 (wrapped_avframe (native) -> h264 (h264_nvenc))
+Press [q] to stop, [?] for help
+[h264_nvenc @ 0x586debe24600] OpenEncodeSessionEx failed: unsupported device (2): (no details)
+[h264_nvenc @ 0x586debe24600] No capable devices found
+[vost#0:0/h264_nvenc @ 0x586debe23a40] [enc:h264_nvenc @ 0x586debe244c0] Error while opening encoder - maybe incorrect parameters such as bit_rate, rate, width or height.
+[vf#0:0 @ 0x586debe3fa00] Error sending frames to consumers: Generic error in an external library
+[vf#0:0 @ 0x586debe3fa00] Task finished with error code: -542398533 (Generic error in an external library)
+[vf#0:0 @ 0x586debe3fa00] Terminating thread with return code -542398533 (Generic error in an external library)
+[vost#0:0/h264_nvenc @ 0x586debe23a40] [enc:h264_nvenc @ 0x586debe244c0] Could not open encoder before EOF
+[vost#0:0/h264_nvenc @ 0x586debe23a40] Task finished with error code: -22 (Invalid argument)
+[vost#0:0/h264_nvenc @ 0x586debe23a40] Terminating thread with return code -22 (Invalid argument)
+[out#0/null @ 0x586debe22e80] Nothing was written into output file, because at least one of its streams received no packets.
+frame=    0 fps=0.0 q=0.0 Lsize=       0KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:00.26
+Conversion failed!
