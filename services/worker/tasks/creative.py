@@ -30,7 +30,7 @@ def creative_pass(self, media_id: str, job_id: str):
         from sqlalchemy import text
         from tasks.analyze import (
             _load_llm, _generate, _extract_json, _build_chunks,
-            _format_timecode, _timecode_to_seconds,
+            _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA,
         )
 
         update_job(db, job_id, status="running", started_at=datetime.utcnow(),
@@ -66,7 +66,7 @@ def creative_pass(self, media_id: str, job_id: str):
         chunk_notes = []
         for i, (chunk_text, c_start, c_end) in enumerate(chunks):
             prompt = (
-                "You are a senior creative video editor reviewing raw footage. Below is "
+                f"You are a senior creative video editor reviewing raw footage. {CREATIVE_PERSONA}\nBelow is "
                 f"a transcript segment covering {_format_timecode(c_start)} to "
                 f"{_format_timecode(c_end)} of a {_format_timecode(duration)} video.\n\n"
                 f"Transcript segment:\n{chunk_text}\n\n"
@@ -147,7 +147,8 @@ def creative_pass(self, media_id: str, job_id: str):
         synopsis = (synopsis_row[0] or "") if synopsis_row else ""
 
         reduce_prompt = (
-            "You are a senior creative video editor delivering an edit review of a "
+            f"You are a senior creative video editor delivering an edit review. {CREATIVE_PERSONA}\n"
+            "The piece under review is a "
             f"{_format_timecode(duration)} video.\n\n"
             + (f"Synopsis: {synopsis[:1200]}\n\n" if synopsis else "")
             + f"Your segment-by-segment observations:\n{notes_input}\n\n"

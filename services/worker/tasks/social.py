@@ -4,7 +4,7 @@ from datetime import datetime
 from app import celery_app
 from db import get_session
 from tasks.base import update_job, append_log
-from tasks.analyze import _load_llm, _generate, _extract_json, _format_timecode
+from tasks.analyze import _load_llm, _generate, _extract_json, _format_timecode, CREATIVE_PERSONA
 from config import LLM_MODEL
 
 PLATFORMS = ["youtube", "instagram", "x", "facebook", "tiktok"]
@@ -105,7 +105,8 @@ def score_social(self, media_id: str, job_id: str):
 
         prompt = (
             "You are a social media strategist who predicts how video content will "
-            "perform on each major platform. Analyze the video below.\n\n"
+            f"perform on each major platform. {CREATIVE_PERSONA}\n"
+            "Analyze the video below.\n\n"
             + "\n\n".join(context_parts)
             + "\n\nFor EACH platform — youtube, instagram, x, facebook, tiktok — "
             "predict how well this content (or short clips cut from it) would perform, "

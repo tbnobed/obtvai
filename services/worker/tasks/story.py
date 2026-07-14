@@ -28,7 +28,7 @@ def build_story(self, story_id: str):
         from sqlalchemy import text
         from tasks.analyze import (
             _load_llm, _generate, _extract_json, _build_chunks,
-            _format_timecode, _timecode_to_seconds,
+            _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA,
         )
         from tasks.creative import _clamp
 
@@ -113,7 +113,8 @@ def build_story(self, story_id: str):
                 chunks = _build_chunks(segs)[:3]
                 for chunk_text, c_start, c_end in chunks:
                     prompt = (
-                        "You are a creative video editor mining raw footage for a "
+                        f"You are a creative video editor. {CREATIVE_PERSONA}\n"
+                        "You are mining raw footage for a "
                         "multi-video story edit.\n\n"
                         f"Source file: {fname}\n"
                         f"Transcript segment ({_format_timecode(c_start)}–{_format_timecode(c_end)}):\n"
@@ -156,7 +157,8 @@ def build_story(self, story_id: str):
         )[:9000]
         direction = f"\nEditorial direction from the editor: {user_prompt}\n" if user_prompt else ""
         reduce_prompt = (
-            "You are a senior story editor assembling ONE story from moments pulled "
+            f"You are a senior story editor. {CREATIVE_PERSONA}\n"
+            "You are assembling ONE story from moments pulled "
             f"across {len(assets)} different videos.{direction}\n"
             f"Available moments:\n{listing}\n\n"
             "Respond with ONLY JSON, exactly this shape:\n"

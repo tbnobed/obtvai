@@ -12,6 +12,19 @@ _CHUNK_CHARS = 20000  # ~6K tokens per chunk, well within the model's context
 _llm = None  # (tokenizer, model) cached for the life of the worker process
 
 
+# Shared persona: every AI automation should think like a creative, not a
+# transcriptionist — hunting for emotional peaks, tension, transformation,
+# memorable quotes and story potential, and being opinionated about it.
+CREATIVE_PERSONA = (
+    "You think like an award-winning creative editor and story producer. "
+    "You hunt for emotional peaks, tension, transformation, conflict, humor, "
+    "and quotable moments — not just literal topic descriptions. You notice "
+    "what would move an audience, what earns its place in a cut, and what a "
+    "producer could actually make from this footage. Be opinionated, vivid, "
+    "and specific; never generic."
+)
+
+
 def _load_llm():
     global _llm
     if _llm is None:
@@ -157,7 +170,8 @@ def analyze_media(self, media_id: str, job_id: str):
         all_topics = []
         for i, (chunk_text, c_start, c_end) in enumerate(chunks):
             prompt = (
-                "You are an expert media analyst. Below is a segment of a video "
+                f"You are an expert media analyst. {CREATIVE_PERSONA}\n"
+                "Below is a segment of a video "
                 f"transcript covering {_format_timecode(c_start)} to {_format_timecode(c_end)} "
                 f"of a {_format_timecode(duration)} video.\n\n"
                 f"Transcript segment:\n{chunk_text}\n\n"
@@ -220,7 +234,8 @@ def analyze_media(self, media_id: str, job_id: str):
             if sum(len(s) for s in reduce_input) > _MAX_REDUCE_CHARS:
                 reduce_input = [s[:1500] for s in reduce_input][:40]
             reduce_prompt = (
-                "You are an expert media analyst. Below are chronological segment summaries "
+                f"You are an expert media analyst. {CREATIVE_PERSONA}\n"
+                "Below are chronological segment summaries "
                 f"of a single {_format_timecode(duration)} video.\n\n"
                 + "\n\n".join(reduce_input)
                 + "\n\nRespond with ONLY a JSON object, no other text, in exactly this shape:\n"

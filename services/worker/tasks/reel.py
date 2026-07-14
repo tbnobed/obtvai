@@ -59,7 +59,7 @@ def _curate_clips(db, prompt: str, candidates: list[dict]) -> list[dict] | None:
     from sqlalchemy import text
     from tasks.analyze import (
         _load_llm, _generate, _extract_json,
-        _format_timecode, _timecode_to_seconds,
+        _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA,
     )
 
     blocks = []
@@ -96,7 +96,7 @@ def _curate_clips(db, prompt: str, candidates: list[dict]) -> list[dict] | None:
 
     tokenizer, model = _load_llm()
     llm_prompt = (
-        "You are a senior video editor cutting a highlight reel.\n"
+        f"You are a senior video editor cutting a highlight reel. {CREATIVE_PERSONA}\n"
         f'Editorial brief: "{prompt}"\n\n'
         "Below are candidate moments found by search, each with surrounding "
         "transcript context and timecodes.\n\n"

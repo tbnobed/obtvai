@@ -71,11 +71,13 @@ def generate_insights(self, job_id: str, media_id: str | None = None):
             for fn, syn in synopses:
                 lines.append(f"- {fn}: {syn[:300]}")
 
+        from tasks.analyze import CREATIVE_PERSONA
         prompt = (
-            "You are a media library analyst. Based on the following overview of a "
+            "You are a media library analyst. " + CREATIVE_PERSONA + "\n"
+            "Based on the following overview of a "
             "video library, produce key insights an archivist or producer would care "
             "about: recurring people and their roles, dominant themes, coverage gaps, "
-            "notable patterns.\n"
+            "story and series opportunities hiding in the footage, notable patterns.\n"
             "Respond with ONLY a JSON object of this exact shape:\n"
             '{"headline": "one-sentence overall takeaway about this library", '
             '"insights": [{"title": "short insight title", "detail": "2-3 sentence explanation"}]}\n'
