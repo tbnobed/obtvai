@@ -150,16 +150,20 @@ services:
     restart: unless-stopped
     # NVENC hardware video encoding for proxy generation (defaults to GPU 0 = RTX 5090).
     # 'video' capability is required for the encoder; 'compute'/'utility' for CUDA basics.
+    # 'graphics' is a workaround for drivers 555+: NVENC code moved into
+    # libnvidia-gpucomp.so, which older nvidia-container-toolkit versions only inject
+    # with the graphics capability — without it NVENC fails in-container with
+    # "OpenEncodeSessionEx failed: unsupported device (2)" while working on the host.
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               device_ids: ["${NVENC_GPU_DEVICE_ID:-0}"]
-              capabilities: [gpu, video]
+              capabilities: [gpu, video, graphics]
     environment:
       <<: *python-env
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video,graphics
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
