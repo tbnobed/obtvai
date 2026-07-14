@@ -3,7 +3,7 @@
 - [Worker task DB/SQL binding rules](celery-redis-pitfalls.md) — cast numpy floats to Python float before SQL binds; long tasks must report throttled progress; make retries idempotent (delete prior rows first).
 - [ffmpeg progress parsing](ffmpeg-progress.md) — use -progress pipe:1 -nostats, merge stderr into stdout (single stream avoids pipe deadlock), out_time_ms is microseconds.
 - [ffmpeg concat -c copy](ffmpeg-progress.md) — pin one encoder for all segments in a job; mixed NVENC/libx264 fallback outputs break lossless concat.
-- [Blackwell NVENC](blackwell-nvenc.md) — RTX 50-series needs ffmpeg >= 7.1 for NVENC; old apt ffmpeg fails "unsupported device" and silently falls back to CPU libx264.
+- [Blackwell NVENC](blackwell-nvenc.md) — ffmpeg NVENC headers must match the driver branch (R580/CUDA 13 needs ffmpeg 8.x; 7.1 also fails "unsupported device"); CPU fallback hides it.
 - [HF loads in Celery prefork](celery-redis-pitfalls.md) — from_pretrained on .bin-only repos spawns a subprocess (daemonic crash); snapshot_download first, load from local path; solo pool breaks job cancel.
 - [Torch stack pinning](torch-pinning.md) — torch/torchvision/torchaudio must all be pinned to the same release (+cu128); an unpinned member drifts on rebuild and breaks with undefined-symbol errors.
 - [PyTorch weights_only checkpoint loads](torch-pinning.md) — torch>=2.6 defaults torch.load weights_only=True; older checkpoints (pyannote) need a temporary patched load with weights_only=False.
