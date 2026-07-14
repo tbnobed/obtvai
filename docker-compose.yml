@@ -148,12 +148,11 @@ services:
     build:
       context: ./services/worker
     restart: unless-stopped
-    # NVENC hardware video encoding for proxy generation (defaults to GPU 0 = RTX 5090).
-    # NVIDIA_DRIVER_CAPABILITIES must be "all" on R580-era drivers: NVENC now depends
-    # on driver libraries spread across multiple capability groups (video alone — and
-    # even video+graphics — is not enough; sessions fail with "OpenEncodeSessionEx
-    # failed: unsupported device (2)" in-container while the host works). Verified
-    # empirically: identical ffmpeg binary succeeds only with capabilities=all.
+    # NVENC hardware video encoding for proxy generation. Pin NVENC_GPU_DEVICE_ID to
+    # a GPU whose encoder actually opens sessions — on driver 580.x the RTX 5090
+    # (GPU 0) rejects NVENC with "unsupported device (2)" while the RTX PRO 6000
+    # (GPU 1) encodes fine; CUDA works on both, so only an encode test reveals it.
+    # NVIDIA_DRIVER_CAPABILITIES=all so every encoder-related driver lib is injected.
     deploy:
       resources:
         reservations:
