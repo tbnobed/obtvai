@@ -318,8 +318,15 @@ const conversations = [
 
 type MockProject = {
   id: string; name: string; description: string | null; script: string | null;
+  status: "active" | "archived";
   created_at: string; updated_at: string | null;
 };
+
+function touchProject(pid: string | null | undefined) {
+  if (!pid) return;
+  const p = projects.find((x) => x.id === pid);
+  if (p) p.updated_at = new Date().toISOString();
+}
 
 const projects: MockProject[] = [
   {
@@ -327,6 +334,7 @@ const projects: MockProject[] = [
     name: "Infrastructure Special",
     description: "Evening special on local AI infrastructure",
     script: "Sarah Chen explains the local AI infrastructure initiative\nCouncil vote on the affordable housing measure",
+    status: "active",
     created_at: new Date(Date.now() - 86400000).toISOString(),
     updated_at: null,
   },
@@ -908,6 +916,7 @@ router.post("/projects", (req, res) => {
     name,
     description: req.body?.description || null,
     script: req.body?.script || null,
+    status: "active",
     created_at: new Date().toISOString(),
     updated_at: null,
   };
@@ -927,6 +936,7 @@ router.patch("/projects/:id", (req, res) => {
   if (req.body.name !== undefined) p.name = req.body.name;
   if (req.body.description !== undefined) p.description = req.body.description;
   if (req.body.script !== undefined) p.script = req.body.script;
+  if (req.body.status === "active" || req.body.status === "archived") p.status = req.body.status;
   p.updated_at = new Date().toISOString();
   res.json(projectOut(p));
 });
@@ -967,6 +977,7 @@ router.post("/clips", (req, res) => {
     })),
   };
   clipLists.unshift(newList);
+  touchProject(newList.project_id);
   res.status(201).json(newList);
 });
 
@@ -982,6 +993,7 @@ router.patch("/clips/:id", (req, res) => {
   if (req.body.name !== undefined) cl.name = req.body.name;
   if (req.body.description !== undefined) cl.description = req.body.description;
   if (req.body.project_id !== undefined) cl.project_id = req.body.project_id;
+  touchProject(cl.project_id);
   res.json(cl);
 });
 
@@ -1041,6 +1053,7 @@ type MockRender = {
 const renders: MockRender[] = [];
 
 function makeRender(mediaId: string, start: number, end: number, preset: string, burnCaptions: boolean, label: string | null, clipListId: string | null, projectId: string | null = null): MockRender {
+  touchProject(projectId);
   return {
     id: `render-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     media_id: mediaId,
@@ -1345,6 +1358,7 @@ router.post("/reels", (req, res) => {
     _startedAt: Date.now(),
   };
   reels.unshift(reel);
+  touchProject(reel.project_id);
   res.status(202).json(reelOut(reel));
 });
 
@@ -1463,6 +1477,7 @@ router.post("/media/:id/tighten", (req, res) => {
 });
 
 function makeMockReel(prompt: string, mediaId: string | null, preset: string, burn: boolean, clips: MockReel["clips"], projectId: string | null = null): MockReel {
+  touchProject(projectId);
   const reel: MockReel = {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     prompt, media_id: mediaId, project_id: projectId, preset, burn_captions: burn, clips,
@@ -1592,6 +1607,7 @@ router.post("/stories", (req, res) => {
     _startedAt: Date.now(),
   };
   stories.unshift(story);
+  touchProject(story.project_id);
   res.status(202).json(storyOut(story));
 });
 

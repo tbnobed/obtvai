@@ -2301,6 +2301,10 @@ components:
         script:
           type: ["string", "null"]
           description: Working script/rundown text used in the Find stage
+        status:
+          type: string
+          enum: [active, archived]
+          default: active
         created_at:
           type: string
         updated_at:
@@ -2340,6 +2344,9 @@ components:
           type: ["string", "null"]
         script:
           type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, archived]
 
     ClipList:
       type: object

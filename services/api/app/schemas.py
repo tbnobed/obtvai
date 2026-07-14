@@ -520,6 +520,7 @@ class ProjectOut(BaseModel):
     name: str
     description: Optional[str] = None
     script: Optional[str] = None
+    status: str = "active"
     created_at: datetime
     updated_at: Optional[datetime] = None
     counts: ProjectCounts
@@ -535,6 +536,7 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1)
     description: Optional[str] = None
     script: Optional[str] = None
+    status: Optional[Literal["active", "archived"]] = None
 
 
 class JobCleanupIn(BaseModel):

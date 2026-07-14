@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
+from .projects import touch_project
 from ..models import ReelJob, MediaAsset, TranscriptSegment, Scene
 from ..schemas import ReelRequestIn, ReelJobOut, ReelClipOut
 from ..worker_client import enqueue_reel
@@ -243,6 +244,7 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         created_at=datetime.utcnow(),
     )
     db.add(r)
+    await touch_project(db, r.project_id)
     await db.commit()
 
     try:

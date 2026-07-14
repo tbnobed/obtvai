@@ -270,8 +270,9 @@ function ReelDetail({
 export default function Reels() {
   const queryClient = useQueryClient();
   const projectId = new URLSearchParams(useSearch()).get("project");
-  const { data: reels, isLoading } = useListReels(undefined, {
-    query: { queryKey: getListReelsQueryKey(), refetchInterval: 3000 },
+  const reelParams = projectId ? { project_id: projectId } : undefined;
+  const { data: reels, isLoading } = useListReels(reelParams, {
+    query: { queryKey: getListReelsQueryKey(reelParams), refetchInterval: 3000 },
   });
   const createMutation = useCreateReel();
   const deleteMutation = useDeleteReel();

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
+from .projects import touch_project
 from ..models import StoryJob, MediaAsset
 from ..schemas import StoryRequestIn, StoryJobOut
 from ..worker_client import enqueue_story
@@ -57,6 +58,7 @@ async def create_story(body: StoryRequestIn, db: AsyncSession = Depends(get_db))
         status="pending",
     )
     db.add(story)
+    await touch_project(db, story.project_id)
     await db.commit()
     await db.refresh(story)
 

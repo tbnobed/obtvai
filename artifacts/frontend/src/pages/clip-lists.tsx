@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListClipLists, useExportClipList, useRenderClipList, useCreateClipListRoughCut } from "@workspace/api-client-react";
+import { useListClipLists, getListClipListsQueryKey, useExportClipList, useRenderClipList, useCreateClipListRoughCut } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Download, Play, Clapperboard, Smartphone, Monitor, ChevronDown, Wand2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 
 const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
   { format: "edl", label: "EDL", hint: "CMX3600 edit decision list" },
@@ -19,7 +19,11 @@ const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
 
 export default function ClipLists() {
   const [, navigate] = useLocation();
-  const { data: lists, isLoading } = useListClipLists();
+  const projectId = new URLSearchParams(useSearch()).get("project");
+  const listParams = projectId ? { project_id: projectId } : undefined;
+  const { data: lists, isLoading } = useListClipLists(listParams, {
+    query: { queryKey: getListClipListsQueryKey(listParams) },
+  });
   const exportMutation = useExportClipList();
   const renderMutation = useRenderClipList();
   const roughCutMutation = useCreateClipListRoughCut();

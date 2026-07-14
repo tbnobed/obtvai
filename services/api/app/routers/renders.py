@@ -13,6 +13,7 @@ from ..schemas import (
 )
 from ..worker_client import enqueue_render, enqueue_publish
 from ..config import settings
+from .projects import touch_project
 
 router = APIRouter(prefix="/renders", tags=["renders"])
 
@@ -139,6 +140,7 @@ async def create_render(body: RenderRequestIn, db: AsyncSession = Depends(get_db
         db, body.media_id, body.start_time, body.end_time,
         body.preset, body.burn_captions, body.label, body.clip_list_id, body.project_id,
     )
+    await touch_project(db, body.project_id)
     await db.commit()
     try:
         await enqueue_render(r.id)
@@ -271,6 +273,7 @@ async def create_renders_for_clip_list(
         created.append(r)
     if not created:
         raise HTTPException(status_code=400, detail="No valid clips to render")
+    await touch_project(db, cl.project_id)
     await db.commit()
 
     outs: list[RenderJobOut] = []

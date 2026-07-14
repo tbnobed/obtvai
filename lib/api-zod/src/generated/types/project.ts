@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ProjectCounts } from './projectCounts';
+import type { ProjectStatus } from './projectStatus';
 
 export interface Project {
   id: string;
@@ -17,6 +18,7 @@ export interface Project {
      * @nullable
      */
   script?: string | null;
+  status?: ProjectStatus;
   created_at: string;
   /** @nullable */
   updated_at?: string | null;

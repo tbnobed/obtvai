@@ -35,7 +35,10 @@ export default function Stories() {
   const queryClient = useQueryClient();
   const projectId = new URLSearchParams(useSearch()).get("project");
   const { data: media } = useListMedia({}, { query: { queryKey: getListMediaQueryKey({}) } });
-  const { data: stories, isLoading } = useListStories();
+  const storyParams = projectId ? { project_id: projectId } : undefined;
+  const { data: stories, isLoading } = useListStories(storyParams, {
+    query: { queryKey: getListStoriesQueryKey(storyParams) },
+  });
   const createMutation = useCreateStory();
   const deleteMutation = useDeleteStory();
 

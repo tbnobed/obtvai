@@ -11,6 +11,15 @@ from ..schemas import ProjectOut, ProjectInput, ProjectUpdate, ProjectCounts
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+async def touch_project(db: AsyncSession, project_id: str | None) -> None:
+    """Bump a project's updated_at when linked work is created/changed. Caller commits."""
+    if not project_id:
+        return
+    await db.execute(
+        update(Project).where(Project.id == project_id).values(updated_at=datetime.utcnow())
+    )
+
+
 async def _counts(db: AsyncSession, project_id: str) -> ProjectCounts:
     async def count(model) -> int:
         return (await db.execute(
@@ -31,6 +40,7 @@ async def _to_out(p: Project, db: AsyncSession) -> ProjectOut:
         name=p.name,
         description=p.description,
         script=p.script,
+        status=p.status or "active",
         created_at=p.created_at,
         updated_at=p.updated_at,
         counts=await _counts(db, p.id),
@@ -82,6 +92,8 @@ async def update_project(id: str, body: ProjectUpdate, db: AsyncSession = Depend
         p.description = body.description
     if "script" in body.model_fields_set:
         p.script = body.script
+    if body.status is not None:
+        p.status = body.status
     p.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(p)

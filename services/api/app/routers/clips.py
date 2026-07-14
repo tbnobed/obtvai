@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
 from ..models import ClipList, Clip, MediaAsset
+from .projects import touch_project
 from ..schemas import (
     ClipListOut, ClipOut, ClipListInput, ClipListUpdate,
     ClipExportInput, ClipExportResult,
@@ -183,6 +184,7 @@ async def create_clip_list(body: ClipListInput, db: AsyncSession = Depends(get_d
         )
         db.add(clip)
 
+    await touch_project(db, cl.project_id)
     await db.commit()
     await db.refresh(cl)
     return await _build_clip_list_out(cl, db)
@@ -218,6 +220,7 @@ async def update_clip_list(id: str, body: ClipListUpdate, db: AsyncSession = Dep
                 position=i,
             )
             db.add(clip)
+    await touch_project(db, cl.project_id)
     await db.commit()
     await db.refresh(cl)
     return await _build_clip_list_out(cl, db)
@@ -316,6 +319,7 @@ async def create_clip_list_rough_cut(
         status="pending",
     )
     db.add(reel)
+    await touch_project(db, cl.project_id)
     await db.commit()
     await db.refresh(reel)
 

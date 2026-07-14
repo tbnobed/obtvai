@@ -548,6 +548,14 @@ export interface Clip {
   notes?: string | null;
 }
 
+export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];
+
+
+export const ProjectStatus = {
+  active: 'active',
+  archived: 'archived',
+} as const;
+
 export type ProjectCounts = {
   clip_lists: number;
   stories: number;
@@ -565,6 +573,7 @@ export interface Project {
      * @nullable
      */
   script?: string | null;
+  status?: ProjectStatus;
   created_at: string;
   /** @nullable */
   updated_at?: string | null;
@@ -580,6 +589,14 @@ export interface ProjectInput {
   script?: string | null;
 }
 
+export type ProjectUpdateStatus = typeof ProjectUpdateStatus[keyof typeof ProjectUpdateStatus];
+
+
+export const ProjectUpdateStatus = {
+  active: 'active',
+  archived: 'archived',
+} as const;
+
 export interface ProjectUpdate {
   /** @minLength 1 */
   name?: string;
@@ -587,6 +604,7 @@ export interface ProjectUpdate {
   description?: string | null;
   /** @nullable */
   script?: string | null;
+  status?: ProjectUpdateStatus;
 }
 
 export interface ClipList {
