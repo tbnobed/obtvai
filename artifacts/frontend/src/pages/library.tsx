@@ -1,12 +1,42 @@
 import { useRef, useState } from "react";
-import { useListMedia, getListMediaQueryKey, useIngestMedia, useUploadMedia } from "@workspace/api-client-react";
+import { useListMedia, getListMediaQueryKey, useIngestMedia } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { Film, Upload, Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+
+// fetch() cannot report upload progress — use XHR so large uploads show a
+// real progress bar instead of an indefinite "uploading..." state.
+function uploadFileWithProgress(
+  file: File,
+  title: string | undefined,
+  onProgress: (percent: number) => void,
+): { promise: Promise<void>; abort: () => void } {
+  const xhr = new XMLHttpRequest();
+  const promise = new Promise<void>((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (title) formData.append("title", title);
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    });
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`HTTP ${xhr.status}`));
+    });
+    xhr.addEventListener("error", () => reject(new Error("Network error during upload")));
+    xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
+
+    xhr.open("POST", "/api/media/upload");
+    xhr.send(formData);
+  });
+  return { promise, abort: () => xhr.abort() };
+}
 
 export default function Library() {
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -31,12 +61,14 @@ export default function Library() {
     });
   };
 
-  const uploadMutation = useUploadMedia();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const abortUploadRef = useRef<(() => void) | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const VIDEO_EXTENSIONS = [".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wmv", ".flv", ".webm"];
@@ -54,27 +86,36 @@ export default function Library() {
   };
 
   const resetUpload = () => {
+    abortUploadRef.current?.();
+    abortUploadRef.current = null;
     setUploadFile(null);
     setUploadTitle("");
     setUploadError(null);
     setDragActive(false);
-    uploadMutation.reset();
+    setUploading(false);
+    setUploadProgress(0);
   };
 
-  const handleUpload = (e: React.FormEvent) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadFile) return;
+    if (!uploadFile || uploading) return;
     setUploadError(null);
-    uploadMutation.mutate({ data: { file: uploadFile, title: uploadTitle || undefined } }, {
-      onSuccess: () => {
-        setUploadOpen(false);
-        resetUpload();
-        queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-      },
-      onError: () => {
-        setUploadError("Upload failed. Check the file and try again.");
-      },
-    });
+    setUploading(true);
+    setUploadProgress(0);
+    const { promise, abort } = uploadFileWithProgress(uploadFile, uploadTitle || undefined, setUploadProgress);
+    abortUploadRef.current = abort;
+    try {
+      await promise;
+      abortUploadRef.current = null;
+      setUploadOpen(false);
+      resetUpload();
+      queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+    } catch (err) {
+      abortUploadRef.current = null;
+      setUploading(false);
+      if (err instanceof Error && err.message === "Upload cancelled") return;
+      setUploadError("Upload failed. Check the file and try again.");
+    }
   };
 
   const formatSize = (bytes: number) => {
@@ -148,8 +189,21 @@ export default function Library() {
                   />
                 </div>
                 {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
-                <Button type="submit" className="w-full" disabled={!uploadFile || uploadMutation.isPending}>
-                  {uploadMutation.isPending ? "Uploading... this may take a while for large files" : "Upload & Process"}
+                {uploading && (
+                  <div className="space-y-1.5">
+                    <Progress value={uploadProgress} />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>
+                        {uploadProgress < 100
+                          ? `Uploading... ${uploadFile ? formatSize(uploadFile.size * uploadProgress / 100) : ""} of ${uploadFile ? formatSize(uploadFile.size) : ""}`
+                          : "Processing upload on server..."}
+                      </span>
+                      <span className="tabular-nums font-medium">{uploadProgress}%</span>
+                    </div>
+                  </div>
+                )}
+                <Button type="submit" className="w-full" disabled={!uploadFile || uploading}>
+                  {uploading ? (uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : "Finalizing...") : "Upload & Process"}
                 </Button>
               </form>
             </DialogContent>
