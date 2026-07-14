@@ -13,6 +13,11 @@ export interface ReelRequest {
      * @minLength 3
      */
   prompt: string;
+  /**
+     * Restrict the reel to one asset, or null/omitted for the whole library
+     * @nullable
+     */
+  media_id?: string | null;
   preset?: ReelRequestPreset;
   burn_captions?: boolean;
   /**

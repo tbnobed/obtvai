@@ -211,6 +211,7 @@ class PublishPlatformsOut(BaseModel):
 
 class ReelRequestIn(BaseModel):
     prompt: str = Field(min_length=3, max_length=500)
+    media_id: Optional[str] = None
     preset: Literal["original", "vertical"] = "original"
     burn_captions: bool = False
     max_clips: int = Field(default=6, ge=1, le=12)
@@ -227,6 +228,7 @@ class ReelClipOut(BaseModel):
 class ReelJobOut(BaseModel):
     id: str
     prompt: str
+    media_id: Optional[str] = None
     preset: str
     burn_captions: bool
     clips: List[ReelClipOut] = []

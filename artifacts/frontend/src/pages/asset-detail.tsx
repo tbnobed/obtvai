@@ -10,17 +10,24 @@ import {
   useCreateSocialAnalysis,
   useCreateSocialCuts,
   useCreateTranslation,
-  useCreateDub
+  useCreateDub,
+  useListReels, getListReelsQueryKey,
+  useCreateReel,
+  useDeleteReel
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, ReelJob } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import AssetChat from "@/components/asset-chat";
 
 const PLATFORM_META: Record<string, { label: string; Icon: typeof Youtube; color: string }> = {
@@ -408,7 +415,7 @@ export default function AssetDetail() {
                   </div>
                 )}
               </TabsContent>
-              <TabsContent value="highlight" className="mt-4">
+              <TabsContent value="highlight" className="mt-4 space-y-6">
                 {asset.key_moments && asset.key_moments.length > 0 ? (
                   asset.highlight_url && !highlightBusy ? (
                     <div className="space-y-3 max-w-5xl">
@@ -459,6 +466,7 @@ export default function AssetDetail() {
                     A highlight reel needs AI-detected key moments. Run AI analysis first.
                   </div>
                 )}
+                <AssetReelSection mediaId={id!} />
               </TabsContent>
               <TabsContent value="socials" className="mt-4">
                 {(asset.social_scores && asset.social_scores.length > 0 && !socialBusy) ? (
@@ -773,6 +781,183 @@ export default function AssetDetail() {
           </Tabs>
         </div>
       </div>
+    </div>
+  );
+}
+
+function reelStatusBadge(status: string) {
+  const map: Record<string, string> = {
+    pending: "bg-yellow-500/15 text-yellow-400",
+    running: "bg-blue-500/15 text-blue-400",
+    success: "bg-green-500/15 text-green-400",
+    error: "bg-red-500/15 text-red-400",
+  };
+  return map[status] || "bg-muted text-muted-foreground";
+}
+
+function AssetReelSection({ mediaId }: { mediaId: string }) {
+  const queryClient = useQueryClient();
+  const listParams = { media_id: mediaId };
+  const { data: reels } = useListReels(listParams, {
+    query: { queryKey: getListReelsQueryKey(listParams), refetchInterval: 3000 },
+  });
+  const createMutation = useCreateReel();
+  const deleteMutation = useDeleteReel();
+
+  const [prompt, setPrompt] = useState("");
+  const [preset, setPreset] = useState<"original" | "vertical">("original");
+  const [burnCaptions, setBurnCaptions] = useState(false);
+  const [maxClips, setMaxClips] = useState(6);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: getListReelsQueryKey(listParams) });
+
+  const submit = () => {
+    if (prompt.trim().length < 3) return;
+    createMutation.mutate(
+      {
+        data: {
+          prompt: prompt.trim(),
+          media_id: mediaId,
+          preset,
+          burn_captions: burnCaptions,
+          max_clips: maxClips,
+        },
+      },
+      {
+        onSuccess: () => {
+          setPrompt("");
+          invalidate();
+        },
+      },
+    );
+  };
+
+  const createError = createMutation.error as { status?: number } | null;
+
+  return (
+    <div className="border-t border-border pt-5 space-y-4 max-w-5xl">
+      <div>
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Wand2 className="h-4 w-4" />
+          Prompt Reel
+        </h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          Describe what to highlight — the best matching moments from this video get stitched into one reel.
+        </p>
+      </div>
+      <div className="space-y-3">
+        <Textarea
+          placeholder='e.g. "every moment about his family" or "the story about the book"'
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={2}
+        />
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Format</Label>
+            <Select value={preset} onValueChange={(v) => setPreset(v as typeof preset)}>
+              <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="original">Original</SelectItem>
+                <SelectItem value="vertical">Vertical 9:16</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Max clips</Label>
+            <Select value={String(maxClips)} onValueChange={(v) => setMaxClips(Number(v))}>
+              <SelectTrigger className="w-20 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[3, 4, 6, 8, 10, 12].map((n) => (
+                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <label className="flex items-center gap-2 pb-2 cursor-pointer text-sm">
+            <Checkbox checked={burnCaptions} onCheckedChange={(v) => setBurnCaptions(v === true)} />
+            Burn in captions
+          </label>
+          <Button
+            className="gap-2 ml-auto"
+            onClick={submit}
+            disabled={prompt.trim().length < 3 || createMutation.isPending}
+          >
+            {createMutation.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Finding moments...</>
+            ) : (
+              <><Wand2 className="h-4 w-4" /> Build Reel</>
+            )}
+          </Button>
+        </div>
+        {createMutation.isError && (
+          <p className="text-sm text-red-400">
+            {createError?.status === 404
+              ? "No moments in this video match that prompt — try different wording."
+              : "Failed to start the reel. Check that the pipeline is running."}
+          </p>
+        )}
+      </div>
+
+      {reels && reels.length > 0 && (
+        <div className="space-y-3">
+          {reels.map((r: ReelJob) => (
+            <div key={r.id} className="border border-border rounded-lg p-4">
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 text-muted-foreground mt-1">
+                  {r.preset === "vertical" ? <Smartphone className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">&ldquo;{r.prompt}&rdquo;</span>
+                    <Badge variant="outline" className={reelStatusBadge(r.status)}>{r.status}</Badge>
+                    <Badge variant="outline">{r.clips.length} clip{r.clips.length === 1 ? "" : "s"}</Badge>
+                    {r.preset === "vertical" && <Badge variant="outline">9:16 vertical</Badge>}
+                    {r.burn_captions && (
+                      <Badge variant="outline" className="gap-1"><Captions className="h-3 w-3" /> captions</Badge>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1.5 space-y-0.5 font-mono">
+                    {r.clips.map((c, i) => (
+                      <div key={i} className="truncate">
+                        {formatTimecode(c.start_time)} – {formatTimecode(c.end_time)}
+                        {c.snippet ? <span className="text-muted-foreground/60"> — {c.snippet}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                  {(r.status === "running" || r.status === "pending") && (
+                    <div className="mt-2 flex items-center gap-3">
+                      <Progress value={r.progress} className="h-1.5 flex-1 max-w-md" />
+                      <span className="text-xs text-muted-foreground font-mono">{Math.round(r.progress)}%</span>
+                    </div>
+                  )}
+                  {r.status === "error" && r.error_message && (
+                    <p className="text-xs text-red-400 mt-1 truncate">{r.error_message}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {r.status === "success" && (
+                    <Button size="sm" variant="outline" asChild>
+                      <a href={`/api/reels/${r.id}/download`} download>
+                        <Download className="h-4 w-4 mr-2" /> MP4
+                      </a>
+                    </Button>
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-muted-foreground hover:text-red-400"
+                    onClick={() => deleteMutation.mutate({ id: r.id }, { onSuccess: invalidate })}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

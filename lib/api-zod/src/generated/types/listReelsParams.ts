@@ -8,4 +8,8 @@
 
 export type ListReelsParams = {
 limit?: number;
+/**
+ * Only reels scoped to this asset
+ */
+media_id?: string;
 };

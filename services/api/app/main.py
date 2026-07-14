@@ -29,6 +29,7 @@ _COLUMN_MIGRATIONS = [
     ("transcript_segments", "translations", "JSONB"),
     ("media_assets", "speaker_embeddings", "JSONB"),
     ("face_clusters", "embedding", "JSONB"),
+    ("reel_jobs", "media_id", "TEXT"),
 ]
 
 

@@ -1259,12 +1259,14 @@ export const GetPublishPlatformsResponse = zod.object({
 export const listReelsQueryLimitDefault = 100;
 
 export const ListReelsQueryParams = zod.object({
-  "limit": zod.coerce.number().default(listReelsQueryLimitDefault)
+  "limit": zod.coerce.number().default(listReelsQueryLimitDefault),
+  "media_id": zod.coerce.string().optional().describe('Only reels scoped to this asset')
 })
 
 export const ListReelsResponseItem = zod.object({
   "id": zod.string(),
   "prompt": zod.string(),
+  "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1298,6 +1300,7 @@ export const createReelBodyMaxClipsMax = 12;
 
 export const CreateReelBody = zod.object({
   "prompt": zod.string().min(createReelBodyPromptMin).describe('What to highlight, e.g. \"the fact about faith\"'),
+  "media_id": zod.string().nullish().describe('Restrict the reel to one asset, or null\/omitted for the whole library'),
   "preset": zod.enum(['original', 'vertical']).default(createReelBodyPresetDefault),
   "burn_captions": zod.boolean().default(createReelBodyBurnCaptionsDefault),
   "max_clips": zod.number().min(1).max(createReelBodyMaxClipsMax).default(createReelBodyMaxClipsDefault)
@@ -1306,6 +1309,7 @@ export const CreateReelBody = zod.object({
 export const CreateReelResponse = zod.object({
   "id": zod.string(),
   "prompt": zod.string(),
+  "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1334,6 +1338,7 @@ export const GetReelParams = zod.object({
 export const GetReelResponse = zod.object({
   "id": zod.string(),
   "prompt": zod.string(),
+  "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({

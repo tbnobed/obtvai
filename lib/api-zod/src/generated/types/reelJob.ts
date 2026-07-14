@@ -10,6 +10,11 @@ import type { ReelClip } from './reelClip';
 export interface ReelJob {
   id: string;
   prompt: string;
+  /**
+     * Set when the reel is scoped to one asset
+     * @nullable
+     */
+  media_id?: string | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;

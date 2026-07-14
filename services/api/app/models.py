@@ -183,6 +183,7 @@ class ReelJob(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    media_id: Mapped[str | None] = mapped_column(String, nullable=True)
     preset: Mapped[str] = mapped_column(String, default="original")
     burn_captions: Mapped[bool] = mapped_column(Boolean, default=False)
     clips: Mapped[list] = mapped_column(JSONB, default=list)

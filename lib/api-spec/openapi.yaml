@@ -1053,6 +1053,12 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: media_id
+          in: query
+          required: false
+          description: Only reels scoped to this asset
+          schema:
+            type: string
       responses:
         "200":
           description: OK
@@ -2049,6 +2055,9 @@ components:
           type: string
           minLength: 3
           description: 'What to highlight, e.g. "the fact about faith"'
+        media_id:
+          type: ["string", "null"]
+          description: Restrict the reel to one asset, or null/omitted for the whole library
         preset:
           type: string
           enum: [original, vertical]
@@ -2086,6 +2095,9 @@ components:
           type: string
         prompt:
           type: string
+        media_id:
+          type: ["string", "null"]
+          description: Set when the reel is scoped to one asset
         preset:
           type: string
           description: original | vertical

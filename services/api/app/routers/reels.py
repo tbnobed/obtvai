@@ -32,6 +32,7 @@ def _to_out(r: ReelJob) -> ReelJobOut:
     return ReelJobOut(
         id=r.id,
         prompt=r.prompt,
+        media_id=r.media_id,
         preset=r.preset,
         burn_captions=r.burn_captions,
         clips=[ReelClipOut(**c) for c in (r.clips or [])],
@@ -75,9 +76,11 @@ def _merge_overlaps(clips: list[dict]) -> list[dict]:
     return out
 
 
-async def _select_clips(prompt: str, max_clips: int, db: AsyncSession) -> list[dict]:
-    """Pick the best transcript moments for the prompt across the whole library."""
-    hits: list[tuple[str, float, float, str | None, float]] = []  # (seg_id, ...) via rows below
+async def _select_clips(
+    prompt: str, max_clips: int, db: AsyncSession, media_id: str | None = None
+) -> list[dict]:
+    """Pick the best transcript moments for the prompt — across the whole
+    library, or within one asset when media_id is set."""
     clips: list[dict] = []
 
     try:
@@ -86,7 +89,7 @@ async def _select_clips(prompt: str, max_clips: int, db: AsyncSession) -> list[d
 
         vec = await get_text_embedding(prompt)
         vector_hits = await search_vectors(
-            collection="transcripts", vector=vec, limit=max_clips * 3, media_id=None,
+            collection="transcripts", vector=vec, limit=max_clips * 3, media_id=media_id,
         )
         for hit in vector_hits:
             seg_id = hit.payload.get("segment_id")
@@ -111,12 +114,14 @@ async def _select_clips(prompt: str, max_clips: int, db: AsyncSession) -> list[d
         logger.exception("Vector search failed for reel prompt %r — falling back to text search", prompt)
 
     if not clips:
-        rows = (await db.execute(
+        q = (
             select(TranscriptSegment, MediaAsset)
             .join(MediaAsset, TranscriptSegment.media_id == MediaAsset.id)
             .where(TranscriptSegment.text.ilike(f"%{prompt}%"))
-            .limit(max_clips * 3)
-        )).all()
+        )
+        if media_id:
+            q = q.where(TranscriptSegment.media_id == media_id)
+        rows = (await db.execute(q.limit(max_clips * 3))).all()
         for seg, asset in rows:
             s, e = _window(seg.start_time, seg.end_time, float(asset.duration_seconds or 0))
             clips.append({
@@ -138,10 +143,13 @@ async def _select_clips(prompt: str, max_clips: int, db: AsyncSession) -> list[d
 
 
 @router.get("", response_model=list[ReelJobOut])
-async def list_reels(limit: int = 100, db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(
-        select(ReelJob).order_by(desc(ReelJob.created_at)).limit(min(max(limit, 1), 500))
-    )).scalars().all()
+async def list_reels(
+    limit: int = 100, media_id: str | None = None, db: AsyncSession = Depends(get_db)
+):
+    q = select(ReelJob).order_by(desc(ReelJob.created_at))
+    if media_id:
+        q = q.where(ReelJob.media_id == media_id)
+    rows = (await db.execute(q.limit(min(max(limit, 1), 500)))).scalars().all()
     return [_to_out(r) for r in rows]
 
 
@@ -154,16 +162,28 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Preset must be original or vertical")
     max_clips = min(max(body.max_clips, 1), 12)
 
-    clips = await _select_clips(prompt, max_clips, db)
+    if body.media_id:
+        asset = (await db.execute(
+            select(MediaAsset).where(MediaAsset.id == body.media_id)
+        )).scalar_one_or_none()
+        if not asset:
+            raise HTTPException(status_code=404, detail="Media asset not found")
+
+    clips = await _select_clips(prompt, max_clips, db, media_id=body.media_id)
     if not clips:
         raise HTTPException(
             status_code=404,
-            detail="No moments in the library match that prompt — try different wording",
+            detail=(
+                "No moments in this video match that prompt — try different wording"
+                if body.media_id
+                else "No moments in the library match that prompt — try different wording"
+            ),
         )
 
     r = ReelJob(
         id=str(uuid.uuid4()),
         prompt=prompt,
+        media_id=body.media_id,
         preset=body.preset,
         burn_captions=body.burn_captions,
         clips=clips,

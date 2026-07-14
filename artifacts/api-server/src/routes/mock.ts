@@ -1009,7 +1009,7 @@ router.post("/media/:id/social/cuts", (req, res) => {
 // ── Reels (prompt-based highlight reels) ─────────────────────────────────────
 
 type MockReel = {
-  id: string; prompt: string; preset: string; burn_captions: boolean;
+  id: string; prompt: string; media_id: string | null; preset: string; burn_captions: boolean;
   clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null }[];
   status: string; progress: number;
   output_url: string | null; error_message: string | null;
@@ -1040,9 +1040,11 @@ function reelOut(r: MockReel) {
   return out;
 }
 
-router.get("/reels", (_req, res) => {
+router.get("/reels", (req, res) => {
   reels.forEach(tickReel);
-  res.json(reels.map(reelOut));
+  const mediaId = typeof req.query.media_id === "string" ? req.query.media_id : null;
+  const list = mediaId ? reels.filter((r) => r.media_id === mediaId) : reels;
+  res.json(list.map(reelOut));
 });
 
 router.post("/reels", (req, res) => {
@@ -1051,10 +1053,16 @@ router.post("/reels", (req, res) => {
   const preset = req.body.preset || "original";
   const burn = !!req.body.burn_captions;
   const maxClips = Math.min(Math.max(req.body.max_clips || 6, 1), 12);
+  const mediaId: string | null = req.body.media_id || null;
+  if (mediaId && !assets.find((a) => a.id === mediaId)) {
+    res.status(404).json({ detail: "Media asset not found" });
+    return;
+  }
+  const pool = mediaId ? transcript.filter((seg) => seg.media_id === mediaId) : transcript;
 
   // Same keyword scoring the mock script-match uses.
   const words = prompt.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
-  const scored = transcript
+  const scored = pool
     .map((seg) => {
       const text = seg.text.toLowerCase();
       const hits = words.filter((w) => text.includes(w)).length;
@@ -1064,9 +1072,13 @@ router.post("/reels", (req, res) => {
     .sort((a, b) => b.score - a.score)
     .slice(0, maxClips);
 
-  const picked = scored.length ? scored.map((s) => s.seg) : transcript.slice(0, Math.min(maxClips, 4));
+  const picked = scored.length ? scored.map((s) => s.seg) : pool.slice(0, Math.min(maxClips, 4));
   if (!picked.length) {
-    res.status(404).json({ detail: "No moments in the library match that prompt — try different wording" });
+    res.status(404).json({
+      detail: mediaId
+        ? "No moments in this video match that prompt — try different wording"
+        : "No moments in the library match that prompt — try different wording",
+    });
     return;
   }
 
@@ -1088,6 +1100,7 @@ router.post("/reels", (req, res) => {
   const reel: MockReel = {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     prompt,
+    media_id: mediaId,
     preset,
     burn_captions: burn,
     clips,

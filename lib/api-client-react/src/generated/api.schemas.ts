@@ -651,6 +651,11 @@ export interface ReelRequest {
      * @minLength 3
      */
   prompt: string;
+  /**
+     * Restrict the reel to one asset, or null/omitted for the whole library
+     * @nullable
+     */
+  media_id?: string | null;
   preset?: ReelRequestPreset;
   burn_captions?: boolean;
   /**
@@ -675,6 +680,11 @@ export interface ReelClip {
 export interface ReelJob {
   id: string;
   prompt: string;
+  /**
+     * Set when the reel is scoped to one asset
+     * @nullable
+     */
+  media_id?: string | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;
@@ -766,5 +776,9 @@ limit?: number;
 
 export type ListReelsParams = {
 limit?: number;
+/**
+ * Only reels scoped to this asset
+ */
+media_id?: string;
 };
 
