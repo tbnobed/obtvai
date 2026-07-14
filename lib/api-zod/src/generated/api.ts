@@ -1023,6 +1023,16 @@ export const ListConversationsResponse = zod.array(ListConversationsResponseItem
 
 
 /**
+ * @summary Delete a conversation and all of its messages
+ */
+export const DeleteConversationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteConversationResponse = zod.void()
+
+
+/**
  * @summary Get all messages in a conversation
  */
 export const GetConversationMessagesParams = zod.object({

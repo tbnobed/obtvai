@@ -747,6 +747,23 @@ paths:
                 items:
                   $ref: "#/components/schemas/Conversation"
 
+  /ai/conversations/{id}:
+    delete:
+      operationId: deleteConversation
+      tags: [ai]
+      summary: Delete a conversation and all of its messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Conversation not found
+
   /ai/conversations/{id}/messages:
     get:
       operationId: getConversationMessages

@@ -846,6 +846,17 @@ router.get("/ai/conversations", (_req, res) => {
   res.json(conversations);
 });
 
+router.delete("/ai/conversations/:id", (req, res) => {
+  const idx = conversations.findIndex(c => c.id === req.params.id);
+  if (idx === -1) {
+    res.status(404).json({ detail: "Conversation not found" });
+    return;
+  }
+  conversations.splice(idx, 1);
+  delete conversationMessages[req.params.id];
+  res.status(204).end();
+});
+
 router.get("/ai/conversations/:id/messages", (req, res) => {
   const msgs = conversationMessages[req.params.id];
   if (!msgs) {

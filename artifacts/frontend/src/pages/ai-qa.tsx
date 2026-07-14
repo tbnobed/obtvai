@@ -3,12 +3,13 @@ import {
   useAskAI,
   useListConversations, getListConversationsQueryKey,
   useGetConversationMessages, getGetConversationMessagesQueryKey,
+  useDeleteConversation,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, User, Bot, Plus, MessageSquare } from "lucide-react";
+import { Send, User, Bot, Plus, MessageSquare, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
 
@@ -54,6 +55,20 @@ export default function AIQA() {
   const newChat = () => {
     setConversationId(null);
     setPendingMessages([]);
+  };
+
+  const deleteMutation = useDeleteConversation();
+  const deleteConversation = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    deleteMutation.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          if (id === conversationId) newChat();
+          queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+        },
+      }
+    );
   };
 
   const handleAsk = (e: React.FormEvent) => {
@@ -103,16 +118,29 @@ export default function AIQA() {
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
             {conversations?.map(conv => (
-              <button
+              <div
                 key={conv.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => selectConversation(conv.id)}
-                className={`w-full text-left p-2 rounded text-sm transition-colors flex gap-2 items-start ${
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") selectConversation(conv.id);
+                }}
+                className={`group w-full text-left p-2 rounded text-sm transition-colors flex gap-2 items-start cursor-pointer ${
                   conv.id === conversationId ? "bg-muted" : "hover:bg-muted/50"
                 }`}
               >
                 <MessageSquare className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-                <span className="line-clamp-2">{conv.title || "Untitled conversation"}</span>
-              </button>
+                <span className="line-clamp-2 flex-1 min-w-0">{conv.title || "Untitled conversation"}</span>
+                <button
+                  onClick={(e) => deleteConversation(e, conv.id)}
+                  disabled={deleteMutation.isPending}
+                  title="Delete chat"
+                  className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ))}
             {!conversations?.length && (
               <div className="text-xs text-muted-foreground text-center py-6">

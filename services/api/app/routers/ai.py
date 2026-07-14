@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, delete
 from ..database import get_db
 from ..models import (
     AIConversation, AIMessage, MediaAsset, TranscriptSegment,
@@ -248,6 +248,17 @@ async def get_conversation_messages(id: str, db: AsyncSession = Depends(get_db))
         .order_by(AIMessage.created_at)
     )
     return [AIMessageOut.model_validate(m) for m in result.scalars().all()]
+
+
+@router.delete("/conversations/{id}", status_code=204)
+async def delete_conversation(id: str, db: AsyncSession = Depends(get_db)):
+    conv_result = await db.execute(select(AIConversation).where(AIConversation.id == id))
+    conv = conv_result.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    await db.execute(delete(AIMessage).where(AIMessage.conversation_id == id))
+    await db.delete(conv)
+    await db.commit()
 
 
 @router.get("/conversations", response_model=list[ConversationOut])
