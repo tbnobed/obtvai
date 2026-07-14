@@ -14,6 +14,19 @@ from ..config import settings
 
 router = APIRouter(prefix="/search", tags=["search"])
 
+# CLIP text->image cosine scores live in a much lower band (~0.15-0.35) than
+# sentence-transformer text-text scores (~0.3-0.6). Sorting the merged list by
+# raw score buries every visual hit below the transcript hits, so visual
+# results never survive the top-N cut. Rescale CLIP scores into a comparable
+# 0-1 band before merging.
+_CLIP_SCORE_FLOOR = 0.15
+_CLIP_SCORE_CEIL = 0.35
+
+
+def _rescale_clip_score(score: float) -> float:
+    span = _CLIP_SCORE_CEIL - _CLIP_SCORE_FLOOR
+    return max(0.0, min(1.0, (score - _CLIP_SCORE_FLOOR) / span))
+
 
 @router.post("", response_model=SearchResponse)
 async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db)):
@@ -55,8 +68,10 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                     ))
 
         if body.search_type in ("visual", "combined"):
-            # Visual search must query in CLIP space, not sentence-transformer space
-            clip_query_embedding = await get_clip_text_embedding(body.query)
+            # Visual search must query in CLIP space, not sentence-transformer space.
+            # CLIP was trained on captioned photos — "a photo of a watch" retrieves
+            # far better than the bare word "watch".
+            clip_query_embedding = await get_clip_text_embedding(f"a photo of {body.query}")
             visual_hits = await search_vectors(
                 collection="scenes",
                 vector=clip_query_embedding,
@@ -79,7 +94,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                         thumbnail_url=scene.thumbnail_url or asset.thumbnail_url,
                         start_time=scene.start_time,
                         end_time=scene.end_time,
-                        score=hit.score,
+                        score=_rescale_clip_score(hit.score),
                         match_type="visual",
                         snippet=scene.description,
                     ))
@@ -94,7 +109,19 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
         results = await _fallback_text_search(body, db)
 
     results.sort(key=lambda r: r.score, reverse=True)
-    results = results[: body.limit]
+    if body.search_type == "combined":
+        # Guarantee visual representation: even after rescaling, a wall of
+        # transcript hits must not push every visual match past the cut.
+        visual = [r for r in results if r.match_type == "visual"]
+        transcript_r = [r for r in results if r.match_type != "visual"]
+        reserve = min(len(visual), body.limit, max(3, body.limit // 4))
+        kept = transcript_r[: max(0, body.limit - reserve)] + visual[:reserve]
+        # Anything left competes for remaining slots on score alone.
+        leftover = [r for r in results if r not in kept]
+        kept += leftover[: body.limit - len(kept)]
+        results = sorted(kept, key=lambda r: r.score, reverse=True)
+    else:
+        results = results[: body.limit]
 
     hist = SearchHistory(
         id=str(uuid.uuid4()),

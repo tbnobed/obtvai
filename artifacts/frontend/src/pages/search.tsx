@@ -2,17 +2,21 @@ import { useState } from "react";
 import { useSemanticSearch } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search as SearchIcon, Play } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search as SearchIcon, Play, MessageSquareText, Eye } from "lucide-react";
 import { Link } from "wouter";
+
+type SearchType = "combined" | "transcript" | "visual";
 
 export default function Search() {
   const [query, setQuery] = useState("");
+  const [searchType, setSearchType] = useState<SearchType>("combined");
   const searchMutation = useSemanticSearch();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
-    searchMutation.mutate({ data: { query } });
+    searchMutation.mutate({ data: { query, search_type: searchType } });
   };
 
   return (
@@ -26,11 +30,31 @@ export default function Search() {
             placeholder="Search by speech, visual content, or description..."
             className="flex-1"
           />
+          <Select value={searchType} onValueChange={(v) => setSearchType(v as SearchType)}>
+            <SelectTrigger className="w-44 shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="combined">
+                <span className="flex items-center gap-2"><SearchIcon className="h-3.5 w-3.5" /> All matches</span>
+              </SelectItem>
+              <SelectItem value="transcript">
+                <span className="flex items-center gap-2"><MessageSquareText className="h-3.5 w-3.5" /> Speech only</span>
+              </SelectItem>
+              <SelectItem value="visual">
+                <span className="flex items-center gap-2"><Eye className="h-3.5 w-3.5" /> Visual only</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <Button type="submit" disabled={searchMutation.isPending} className="gap-2">
             <SearchIcon className="h-4 w-4" />
             Search
           </Button>
         </form>
+        <p className="text-xs text-muted-foreground mt-2 max-w-3xl">
+          Visual matches find what's on screen (objects, settings, people) — use "Visual only" when
+          words like "watch" also appear in speech.
+        </p>
       </div>
       
       <div className="flex-1 overflow-y-auto p-8">

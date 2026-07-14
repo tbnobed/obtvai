@@ -414,11 +414,18 @@ router.get("/media/:id/faces", (req, res) => {
 // ── Search ────────────────────────────────────────────────────────────────────
 router.post("/search", (req, res) => {
   const query = (req.body.query || "").toLowerCase();
-  const results = transcript
-    .filter((s) => s.text.toLowerCase().includes(query.split(" ")[0] || query))
-    .map((s) => {
+  const searchType: string = req.body.search_type || "combined";
+  const results: {
+    media_id: string; filename: string; thumbnail_url: string | null;
+    start_time: number; end_time: number; score: number;
+    match_type: string; snippet: string | null;
+  }[] = [];
+
+  if (searchType === "transcript" || searchType === "combined") {
+    for (const s of transcript) {
+      if (!s.text.toLowerCase().includes(query.split(" ")[0] || query)) continue;
       const asset = assets.find((a) => a.id === s.media_id);
-      return {
+      results.push({
         media_id: s.media_id,
         filename: asset?.filename || "unknown",
         thumbnail_url: null,
@@ -427,8 +434,31 @@ router.post("/search", (req, res) => {
         score: 0.72 + Math.random() * 0.25,
         match_type: "transcript",
         snippet: s.text,
-      };
-    });
+      });
+    }
+  }
+
+  if (searchType === "visual" || searchType === "combined") {
+    // Keyword match against scene descriptions stands in for CLIP visual search.
+    const words = query.split(/\W+/).filter((w: string) => w.length > 2);
+    for (const sc of scenes) {
+      const desc = (sc.description || "").toLowerCase();
+      if (!words.length || !words.some((w: string) => desc.includes(w))) continue;
+      const asset = assets.find((a) => a.id === sc.media_id);
+      results.push({
+        media_id: sc.media_id,
+        filename: asset?.filename || "unknown",
+        thumbnail_url: sc.thumbnail_url,
+        start_time: sc.start_time,
+        end_time: sc.end_time,
+        score: 0.6 + Math.random() * 0.3,
+        match_type: "visual",
+        snippet: sc.description,
+      });
+    }
+  }
+
+  results.sort((a, b) => b.score - a.score);
   setTimeout(() => res.json({ results, query: req.body.query, took_ms: 42 + Math.random() * 80 }), 150);
 });
 
