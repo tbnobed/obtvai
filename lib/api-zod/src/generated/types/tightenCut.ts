@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ClipExportInput {
-  /** edl | csv | json | fcpxml | otio */
-  format: string;
+export interface TightenCut {
+  start: number;
+  end: number;
+  /** silence | filler */
+  reason: string;
 }

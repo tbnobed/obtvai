@@ -18,6 +18,7 @@ import ScriptMatch from "@/pages/script-match";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
 import Insights from "@/pages/insights";
+import Stories from "@/pages/stories";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/ai" component={AIQA} />
         <Route path="/clips" component={ClipLists} />
         <Route path="/reels" component={Reels} />
+        <Route path="/stories" component={Stories} />
         <Route path="/exports" component={Exports} />
         <Route path="/script-match" component={ScriptMatch} />
         <Route component={NotFound} />

@@ -196,6 +196,22 @@ class ReelJob(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class StoryJob(Base):
+    __tablename__ = "story_jobs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    asset_ids: Mapped[list] = mapped_column(JSONB, default=list)
+    status: Mapped[str] = mapped_column(String, default="pending")
+    progress: Mapped[float] = mapped_column(Float, default=0.0)
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
+    narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
+    clip_list_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class SearchHistory(Base):
     __tablename__ = "search_history"
 

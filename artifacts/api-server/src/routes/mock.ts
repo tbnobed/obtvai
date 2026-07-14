@@ -914,6 +914,30 @@ router.post("/clips/:id/export", (req, res) => {
     ? JSON.stringify({ name: cl.name, clips: cl.clips }, null, 2)
     : fmt === "csv"
     ? ["clip_id,filename,start_time,end_time,label", ...cl.clips.map((c) => `${c.id},${c.filename},${c.start_time},${c.end_time},${c.label || ""}`)].join("\n")
+    : fmt === "fcpxml"
+    ? `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE fcpxml>\n<fcpxml version="1.9">\n  <resources>\n    <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080"/>\n${[...new Set(cl.clips.map((c) => c.filename))].map((f, i) => `    <asset id="r${i + 2}" name="${f}" start="0s" hasVideo="1" hasAudio="1" format="r1"/>`).join("\n")}\n  </resources>\n  <library>\n    <event name="${cl.name}">\n      <project name="${cl.name}">\n        <sequence format="r1">\n          <spine>\n${cl.clips.map((c) => `            <asset-clip name="${c.label || c.filename}" start="${Math.round(c.start_time * 25)}/25s" duration="${Math.round((c.end_time - c.start_time) * 25)}/25s" format="r1"/>`).join("\n")}\n          </spine>\n        </sequence>\n      </project>\n    </event>\n  </library>\n</fcpxml>\n`
+    : fmt === "otio"
+    ? JSON.stringify({
+        OTIO_SCHEMA: "Timeline.1",
+        name: cl.name,
+        tracks: {
+          OTIO_SCHEMA: "Stack.1", name: "tracks",
+          children: [{
+            OTIO_SCHEMA: "Track.1", name: "V1", kind: "Video",
+            children: cl.clips.map((c) => ({
+              OTIO_SCHEMA: "Clip.2",
+              name: c.label || c.filename,
+              source_range: {
+                OTIO_SCHEMA: "TimeRange.1",
+                start_time: { OTIO_SCHEMA: "RationalTime.1", rate: 25, value: c.start_time * 25 },
+                duration: { OTIO_SCHEMA: "RationalTime.1", rate: 25, value: (c.end_time - c.start_time) * 25 },
+              },
+              media_references: { DEFAULT_MEDIA: { OTIO_SCHEMA: "ExternalReference.1", target_url: c.filename } },
+              active_media_reference_key: "DEFAULT_MEDIA",
+            })),
+          }],
+        },
+      }, null, 2)
     : `TITLE: ${cl.name}\nFCM: NON-DROP FRAME\n`;
   res.json({ format: fmt, content, filename: `${cl.name.replace(/ /g, "_")}.${fmt}` });
 });
@@ -1247,6 +1271,236 @@ router.get("/reels/:id/download", (req, res) => {
   res.setHeader("Content-Type", "video/mp4");
   res.setHeader("Content-Disposition", `attachment; filename="reel_${safe}_${r.id.slice(-8)}.mp4"`);
   res.send(Buffer.from("mock reel mp4 — real file is produced by the production reel worker"));
+});
+
+// ── Captions, tighten, rough cuts, stories ───────────────────────────────────
+
+function captionTs(sec: number, vtt: boolean): string {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
+  const ms = Math.round((sec % 1) * 1000);
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}${vtt ? "." : ","}${pad(ms, 3)}`;
+}
+
+router.get("/media/:id/captions", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ detail: "Media not found" }); return; }
+  const fmt = String(req.query.format || "").toLowerCase();
+  if (fmt !== "srt" && fmt !== "vtt") { res.status(400).json({ detail: "Format must be srt or vtt" }); return; }
+  const lang = typeof req.query.lang === "string" ? req.query.lang : null;
+  const segs = transcript.filter((s) => s.media_id === asset.id);
+  if (!segs.length) { res.status(404).json({ detail: "No transcript available" }); return; }
+  const vtt = fmt === "vtt";
+  const lines: string[] = vtt ? ["WEBVTT", ""] : [];
+  segs.forEach((s, i) => {
+    const text = lang && s.translations?.[lang] ? s.translations[lang] : s.text;
+    if (!vtt) lines.push(String(i + 1));
+    lines.push(`${captionTs(s.start_time, vtt)} --> ${captionTs(s.end_time, vtt)}`);
+    lines.push(s.speaker ? `${s.speaker}: ${text}` : text);
+    lines.push("");
+  });
+  const stem = asset.filename.replace(/\.[^.]+$/, "");
+  res.json({ format: fmt, content: lines.join("\n"), filename: `${stem}${lang ? "." + lang : ""}.${fmt}` });
+});
+
+const FILLERS = new Set(["um", "uh", "uhm", "erm", "er", "hmm", "hm", "mhm", "mm", "ah", "eh", "like", "so", "well", "right", "okay", "ok", "yeah"]);
+
+router.post("/media/:id/tighten", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ detail: "Media not found" }); return; }
+  const threshold = Math.max(0.3, Number(req.body?.silence_threshold ?? 1.25));
+  const removeFillers = req.body?.remove_fillers !== false;
+  const segs = transcript.filter((s) => s.media_id === asset.id).sort((a, b) => a.start_time - b.start_time);
+  if (!segs.length) { res.status(404).json({ detail: "No transcript available" }); return; }
+  const duration = asset.duration_seconds || segs[segs.length - 1].end_time;
+
+  const cuts: { start: number; end: number; reason: string }[] = [];
+  const kept: [number, number][] = [];
+  let cursor = 0;
+  for (const s of segs) {
+    if (s.start_time - cursor >= threshold) cuts.push({ start: cursor, end: s.start_time, reason: "silence" });
+    const words = s.text.toLowerCase().replace(/[^a-z' ]/g, " ").split(/\s+/).filter(Boolean);
+    const isFiller = removeFillers && words.length > 0 && words.length <= 4 && words.every((w) => FILLERS.has(w));
+    if (isFiller) {
+      cuts.push({ start: s.start_time, end: s.end_time, reason: "filler" });
+      cursor = Math.max(cursor, s.end_time);
+      continue;
+    }
+    const ps = Math.max(cursor, s.start_time - 0.15);
+    const pe = Math.min(duration, s.end_time + 0.15);
+    if (kept.length && ps - kept[kept.length - 1][1] < threshold) kept[kept.length - 1][1] = pe;
+    else kept.push([ps, pe]);
+    cursor = Math.max(cursor, s.end_time);
+  }
+  if (duration - cursor >= threshold) cuts.push({ start: cursor, end: duration, reason: "silence" });
+
+  const removed = cuts.reduce((acc, c) => acc + (c.end - c.start), 0);
+  const stem = asset.filename.replace(/\.[^.]+$/, "");
+  const newList = {
+    id: `cl-${Date.now()}`,
+    name: `${stem} — tightened`,
+    description: `Auto-tightened cut: ${cuts.length} cuts, ${removed.toFixed(1)}s removed`,
+    created_at: new Date().toISOString(),
+    clips: kept.map(([ks, ke], i) => ({
+      id: `clip-${Date.now()}-${i}`,
+      media_id: asset.id,
+      filename: asset.filename,
+      start_time: Math.round(ks * 100) / 100,
+      end_time: Math.round(ke * 100) / 100,
+      label: `Keep ${String(i + 1).padStart(2, "0")}`,
+      notes: null,
+    })),
+  };
+  clipLists.unshift(newList as any);
+  res.status(201).json({
+    media_id: asset.id,
+    clip_list_id: newList.id,
+    kept_segments: kept.length,
+    cuts,
+    removed_seconds: Math.round(removed * 100) / 100,
+    original_duration: Math.round(duration * 100) / 100,
+  });
+});
+
+function makeMockReel(prompt: string, mediaId: string | null, preset: string, burn: boolean, clips: MockReel["clips"]): MockReel {
+  const reel: MockReel = {
+    id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    prompt, media_id: mediaId, preset, burn_captions: burn, clips,
+    status: "pending", progress: 0, output_url: null, error_message: null,
+    created_at: new Date().toISOString(), finished_at: null, _startedAt: Date.now(),
+  };
+  reels.unshift(reel);
+  return reel;
+}
+
+router.post("/media/:id/roughcut", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ detail: "Media not found" }); return; }
+  const preset = req.body?.preset || "original";
+  if (preset !== "original" && preset !== "vertical") { res.status(400).json({ detail: "Preset must be original or vertical" }); return; }
+  const suggestions = (asset as any).creative?.clip_suggestions || [];
+  if (!suggestions.length) {
+    res.status(409).json({ detail: "No creative clip suggestions yet — run the creative pass first" });
+    return;
+  }
+  const clips = [...suggestions]
+    .sort((a: any, b: any) => a.start - b.start)
+    .map((c: any) => ({
+      media_id: asset.id, filename: asset.filename,
+      start_time: c.start, end_time: c.end, snippet: c.title || c.quote || null,
+    }));
+  const reel = makeMockReel(`Rough cut — ${asset.filename}`, asset.id, preset, !!req.body?.burn_captions, clips);
+  res.status(202).json(reelOut(reel));
+});
+
+router.post("/clips/:id/roughcut", (req, res) => {
+  const cl = clipLists.find((c) => c.id === req.params.id);
+  if (!cl) { res.status(404).json({ detail: "Clip list not found" }); return; }
+  if (!cl.clips.length) { res.status(409).json({ detail: "Clip list is empty" }); return; }
+  const preset = req.body?.preset || "original";
+  if (preset !== "original" && preset !== "vertical") { res.status(400).json({ detail: "Preset must be original or vertical" }); return; }
+  const clips = cl.clips.map((c) => ({
+    media_id: c.media_id, filename: c.filename,
+    start_time: c.start_time, end_time: c.end_time, snippet: c.label || null,
+  }));
+  const reel = makeMockReel(`Rough cut — ${cl.name}`, null, preset, !!req.body?.burn_captions, clips);
+  res.status(202).json(reelOut(reel));
+});
+
+// ── Stories ──────────────────────────────────────────────────────────────────
+
+type MockStory = {
+  id: string; prompt: string | null; asset_ids: string[];
+  status: string; progress: number;
+  title: string | null; narrative: string | null; clip_list_id: string | null;
+  error_message: string | null; created_at: string; finished_at: string | null;
+  _startedAt: number;
+};
+
+const stories: MockStory[] = [];
+
+function tickStory(s: MockStory) {
+  if (s.status !== "pending" && s.status !== "running") return;
+  const elapsed = (Date.now() - s._startedAt) / 1000;
+  if (elapsed < 1.5) { s.status = "pending"; return; }
+  if (elapsed < 14) {
+    s.status = "running";
+    s.progress = Math.min(99, Math.round(((elapsed - 1.5) / 12.5) * 100));
+    return;
+  }
+  s.status = "success";
+  s.progress = 100;
+  s.finished_at = new Date().toISOString();
+  s.title = s.title || "Downtown at a Crossroads";
+  s.narrative = s.narrative ||
+    "The cut opens on the mandate to set stakes, moves through the affordability math and the merchant conflict, and closes on the ballot deadline. Interleaving the field-report reaction against the planner's data rebuttal turns two separate videos into one argument, and the bond-measure close gives the piece a ticking clock.";
+  if (!s.clip_list_id) {
+    const picked: any[] = [];
+    for (const mid of s.asset_ids) {
+      const a = assets.find((x) => x.id === mid);
+      const sugg = (a as any)?.creative?.clip_suggestions || [];
+      const source = sugg.length
+        ? sugg.slice(0, 3).map((c: any) => ({ start: c.start, end: c.end, label: c.title }))
+        : transcript.filter((t) => t.media_id === mid).slice(0, 2).map((t) => ({ start: Math.max(0, t.start_time - 1), end: t.end_time + 1, label: t.text.slice(0, 60) }));
+      for (const c of source) picked.push({ media_id: mid, filename: a?.filename || "unknown.mp4", ...c });
+    }
+    const newList = {
+      id: `cl-${Date.now()}`,
+      name: `Story — ${s.title}`,
+      description: s.narrative,
+      created_at: new Date().toISOString(),
+      clips: picked.map((c, i) => ({
+        id: `clip-${Date.now()}-${i}`,
+        media_id: c.media_id, filename: c.filename,
+        start_time: c.start, end_time: c.end, label: c.label || null, notes: null,
+      })),
+    };
+    clipLists.unshift(newList as any);
+    s.clip_list_id = newList.id;
+  }
+}
+
+function storyOut(s: MockStory) {
+  const { _startedAt, ...out } = s;
+  return out;
+}
+
+router.get("/stories", (_req, res) => {
+  stories.forEach(tickStory);
+  res.json(stories.map(storyOut));
+});
+
+router.post("/stories", (req, res) => {
+  const assetIds: string[] = [...new Set((req.body?.asset_ids || []) as string[])].filter(Boolean);
+  if (!assetIds.length) { res.status(400).json({ detail: "Pick at least one asset" }); return; }
+  const missing = assetIds.filter((id) => !assets.find((a) => a.id === id));
+  if (missing.length) { res.status(404).json({ detail: `Unknown assets: ${missing.join(", ")}` }); return; }
+  const story: MockStory = {
+    id: `story-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    prompt: (req.body?.prompt || "").trim() || null,
+    asset_ids: assetIds,
+    status: "pending", progress: 0,
+    title: null, narrative: null, clip_list_id: null,
+    error_message: null,
+    created_at: new Date().toISOString(), finished_at: null,
+    _startedAt: Date.now(),
+  };
+  stories.unshift(story);
+  res.status(202).json(storyOut(story));
+});
+
+router.get("/stories/:id", (req, res) => {
+  const s = stories.find((x) => x.id === req.params.id);
+  if (!s) { res.status(404).json({ detail: "Story not found" }); return; }
+  tickStory(s);
+  res.json(storyOut(s));
+});
+
+router.delete("/stories/:id", (req, res) => {
+  const idx = stories.findIndex((x) => x.id === req.params.id);
+  if (idx === -1) { res.status(404).json({ detail: "Story not found" }); return; }
+  stories.splice(idx, 1);
+  res.status(204).send();
 });
 
 // ── Script match ─────────────────────────────────────────────────────────────

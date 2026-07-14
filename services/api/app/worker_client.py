@@ -69,6 +69,11 @@ async def enqueue_reel(reel_id: str) -> str:
     return reel_id
 
 
+async def enqueue_story(story_id: str) -> str:
+    await _publish("gpu", "tasks.story.build_story", {"story_id": story_id}, str(uuid.uuid4()))
+    return story_id
+
+
 async def enqueue_publish(render_id: str) -> str:
     await _publish("cpu", "tasks.publish.publish_render", {"render_id": render_id}, str(uuid.uuid4()))
     return render_id

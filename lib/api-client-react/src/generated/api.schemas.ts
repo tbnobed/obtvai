@@ -789,8 +789,73 @@ export interface SocialCutsRequest {
 }
 
 export interface ClipExportInput {
-  /** edl | csv | json */
+  /** edl | csv | json | fcpxml | otio */
   format: string;
+}
+
+export interface TightenInput {
+  /** Minimum gap between speech segments (seconds) to cut, default 1.25 */
+  silence_threshold?: number;
+  /** Also cut segments that are only filler words, default true */
+  remove_fillers?: boolean;
+}
+
+export interface TightenCut {
+  start: number;
+  end: number;
+  /** silence | filler */
+  reason: string;
+}
+
+export interface TightenResult {
+  media_id: string;
+  /** Clip list containing the kept segments, ready for export or rough cut */
+  clip_list_id: string;
+  kept_segments: number;
+  cuts: TightenCut[];
+  removed_seconds: number;
+  original_duration: number;
+}
+
+export interface RoughCutInput {
+  /** original | vertical, default original */
+  preset?: string;
+  /** Burn subtitles into the video, default false */
+  burn_captions?: boolean;
+}
+
+export interface StoryRequestIn {
+  /** @minItems 1 */
+  asset_ids: string[];
+  /**
+     * Optional editorial direction for the storyline
+     * @nullable
+     */
+  prompt?: string | null;
+}
+
+export interface StoryJob {
+  id: string;
+  /** @nullable */
+  prompt?: string | null;
+  asset_ids: string[];
+  /** pending | running | success | error */
+  status: string;
+  progress: number;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  narrative?: string | null;
+  /**
+     * Clip list with the ordered cross-asset clips
+     * @nullable
+     */
+  clip_list_id?: string | null;
+  /** @nullable */
+  error_message?: string | null;
+  created_at: string;
+  /** @nullable */
+  finished_at?: string | null;
 }
 
 export interface ClipExportResult {
@@ -811,6 +876,22 @@ export type GetMediaTranscriptParams = {
  */
 lang?: string;
 };
+
+export type GetCaptionsParams = {
+format: GetCaptionsFormat;
+/**
+ * Translation language code, omit for original
+ */
+lang?: string;
+};
+
+export type GetCaptionsFormat = typeof GetCaptionsFormat[keyof typeof GetCaptionsFormat];
+
+
+export const GetCaptionsFormat = {
+  srt: 'srt',
+  vtt: 'vtt',
+} as const;
 
 export type ListPeopleParams = {
 /**

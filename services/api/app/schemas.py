@@ -359,6 +359,50 @@ class ClipExportResult(BaseModel):
     filename: str
 
 
+class TightenInput(BaseModel):
+    silence_threshold: float = 1.25
+    remove_fillers: bool = True
+
+
+class TightenCut(BaseModel):
+    start: float
+    end: float
+    reason: str  # silence | filler
+
+
+class TightenResult(BaseModel):
+    media_id: str
+    clip_list_id: str
+    kept_segments: int
+    cuts: List[TightenCut] = []
+    removed_seconds: float
+    original_duration: float
+
+
+class RoughCutInput(BaseModel):
+    preset: str = "original"
+    burn_captions: bool = False
+
+
+class StoryRequestIn(BaseModel):
+    asset_ids: List[str]
+    prompt: Optional[str] = None
+
+
+class StoryJobOut(BaseModel):
+    id: str
+    prompt: Optional[str] = None
+    asset_ids: List[str] = []
+    status: str
+    progress: float
+    title: Optional[str] = None
+    narrative: Optional[str] = None
+    clip_list_id: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    finished_at: Optional[datetime] = None
+
+
 # ── People ────────────────────────────────────────────────────────────────────
 
 class PersonOut(BaseModel):

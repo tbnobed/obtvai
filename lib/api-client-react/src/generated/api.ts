@@ -31,6 +31,7 @@ import type {
   Conversation,
   DubRequest,
   FaceCluster,
+  GetCaptionsParams,
   GetMediaTranscriptParams,
   HealthStatus,
   JobCleanupRequest,
@@ -61,6 +62,7 @@ import type {
   RenderJob,
   RenderPresetInput,
   RenderRequest,
+  RoughCutInput,
   Scene,
   ScriptMatchRequest,
   ScriptMatchResponse,
@@ -68,6 +70,10 @@ import type {
   SearchQuery,
   SearchResponse,
   SocialCutsRequest,
+  StoryJob,
+  StoryRequestIn,
+  TightenInput,
+  TightenResult,
   TranscriptSegment,
   TranslateRequest
 } from './api.schemas';
@@ -720,6 +726,239 @@ export function useGetMediaTranscript<TData = Awaited<ReturnType<typeof getMedia
 
 
 
+
+export const getGetCaptionsUrl = (id: string,
+    params: GetCaptionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/media/${id}/captions?${stringifiedParams}` : `/api/media/${id}/captions`
+}
+
+/**
+ * @summary Export the transcript as SRT or VTT captions
+ */
+export const getCaptions = async (id: string,
+    params: GetCaptionsParams, options?: RequestInit): Promise<ClipExportResult> => {
+
+  return customFetch<ClipExportResult>(getGetCaptionsUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCaptionsQueryKey = (id: string,
+    params?: GetCaptionsParams,) => {
+    return [
+    `/api/media/${id}/captions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCaptionsQueryOptions = <TData = Awaited<ReturnType<typeof getCaptions>>, TError = ErrorType<void>>(id: string,
+    params: GetCaptionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCaptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCaptionsQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCaptions>>> = ({ signal }) => getCaptions(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCaptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCaptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getCaptions>>>
+export type GetCaptionsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Export the transcript as SRT or VTT captions
+ */
+
+export function useGetCaptions<TData = Awaited<ReturnType<typeof getCaptions>>, TError = ErrorType<void>>(
+ id: string,
+    params: GetCaptionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCaptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCaptionsQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getTightenMediaUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/tighten`
+}
+
+/**
+ * @summary Silence & filler cutter — compute a tightened cut of the asset
+ */
+export const tightenMedia = async (id: string,
+    tightenInput?: TightenInput, options?: RequestInit): Promise<TightenResult> => {
+
+  return customFetch<TightenResult>(getTightenMediaUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tightenInput)
+  }
+);}
+
+
+
+
+
+export const getTightenMediaMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tightenMedia>>, TError,{id: string;data?: BodyType<TightenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof tightenMedia>>, TError,{id: string;data?: BodyType<TightenInput>}, TContext> => {
+
+const mutationKey = ['tightenMedia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tightenMedia>>, {id: string;data?: BodyType<TightenInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  tightenMedia(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TightenMediaMutationResult = NonNullable<Awaited<ReturnType<typeof tightenMedia>>>
+    export type TightenMediaMutationBody = BodyType<TightenInput> | undefined
+    export type TightenMediaMutationError = ErrorType<void>
+
+    /**
+ * @summary Silence & filler cutter — compute a tightened cut of the asset
+ */
+export const useTightenMedia = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tightenMedia>>, TError,{id: string;data?: BodyType<TightenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof tightenMedia>>,
+        TError,
+        {id: string;data?: BodyType<TightenInput>},
+        TContext
+      > => {
+      return useMutation(getTightenMediaMutationOptions(options));
+    }
+
+export const getCreateRoughCutUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/roughcut`
+}
+
+/**
+ * @summary Stitch the creative pass clip suggestions into a rough cut video
+ */
+export const createRoughCut = async (id: string,
+    roughCutInput?: RoughCutInput, options?: RequestInit): Promise<ReelJob> => {
+
+  return customFetch<ReelJob>(getCreateRoughCutUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(roughCutInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRoughCutMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRoughCut>>, TError,{id: string;data?: BodyType<RoughCutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRoughCut>>, TError,{id: string;data?: BodyType<RoughCutInput>}, TContext> => {
+
+const mutationKey = ['createRoughCut'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRoughCut>>, {id: string;data?: BodyType<RoughCutInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createRoughCut(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRoughCutMutationResult = NonNullable<Awaited<ReturnType<typeof createRoughCut>>>
+    export type CreateRoughCutMutationBody = BodyType<RoughCutInput> | undefined
+    export type CreateRoughCutMutationError = ErrorType<void>
+
+    /**
+ * @summary Stitch the creative pass clip suggestions into a rough cut video
+ */
+export const useCreateRoughCut = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRoughCut>>, TError,{id: string;data?: BodyType<RoughCutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRoughCut>>,
+        TError,
+        {id: string;data?: BodyType<RoughCutInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRoughCutMutationOptions(options));
+    }
 
 export const getCreateTranslationUrl = (id: string,) => {
 
@@ -3177,7 +3416,7 @@ export const getExportClipListUrl = (id: string,) => {
 }
 
 /**
- * @summary Export a clip list (EDL/CSV/JSON)
+ * @summary Export a clip list (EDL/CSV/JSON/FCPXML/OTIO)
  */
 export const exportClipList = async (id: string,
     clipExportInput: ClipExportInput, options?: RequestInit): Promise<ClipExportResult> => {
@@ -3227,7 +3466,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ExportClipListMutationError = ErrorType<unknown>
 
     /**
- * @summary Export a clip list (EDL/CSV/JSON)
+ * @summary Export a clip list (EDL/CSV/JSON/FCPXML/OTIO)
  */
 export const useExportClipList = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportClipList>>, TError,{id: string;data: BodyType<ClipExportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -3238,6 +3477,78 @@ export const useExportClipList = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getExportClipListMutationOptions(options));
+    }
+
+export const getCreateClipListRoughCutUrl = (id: string,) => {
+
+
+
+
+  return `/api/clips/${id}/roughcut`
+}
+
+/**
+ * @summary Stitch every clip in a clip list into one rough cut video
+ */
+export const createClipListRoughCut = async (id: string,
+    roughCutInput?: RoughCutInput, options?: RequestInit): Promise<ReelJob> => {
+
+  return customFetch<ReelJob>(getCreateClipListRoughCutUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(roughCutInput)
+  }
+);}
+
+
+
+
+
+export const getCreateClipListRoughCutMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClipListRoughCut>>, TError,{id: string;data?: BodyType<RoughCutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClipListRoughCut>>, TError,{id: string;data?: BodyType<RoughCutInput>}, TContext> => {
+
+const mutationKey = ['createClipListRoughCut'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClipListRoughCut>>, {id: string;data?: BodyType<RoughCutInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createClipListRoughCut(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateClipListRoughCutMutationResult = NonNullable<Awaited<ReturnType<typeof createClipListRoughCut>>>
+    export type CreateClipListRoughCutMutationBody = BodyType<RoughCutInput> | undefined
+    export type CreateClipListRoughCutMutationError = ErrorType<void>
+
+    /**
+ * @summary Stitch every clip in a clip list into one rough cut video
+ */
+export const useCreateClipListRoughCut = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClipListRoughCut>>, TError,{id: string;data?: BodyType<RoughCutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createClipListRoughCut>>,
+        TError,
+        {id: string;data?: BodyType<RoughCutInput>},
+        TContext
+      > => {
+      return useMutation(getCreateClipListRoughCutMutationOptions(options));
     }
 
 export const getRenderClipListUrl = (id: string,) => {
@@ -4220,6 +4531,302 @@ export function useDownloadReel<TData = Awaited<ReturnType<typeof downloadReel>>
 
 
 
+
+export const getListStoriesUrl = () => {
+
+
+
+
+  return `/api/stories`
+}
+
+/**
+ * @summary List multi-video story builder jobs, newest first
+ */
+export const listStories = async ( options?: RequestInit): Promise<StoryJob[]> => {
+
+  return customFetch<StoryJob[]>(getListStoriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListStoriesQueryKey = () => {
+    return [
+    `/api/stories`
+    ] as const;
+    }
+
+
+export const getListStoriesQueryOptions = <TData = Awaited<ReturnType<typeof listStories>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListStoriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listStories>>> = ({ signal }) => listStories({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listStories>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListStoriesQueryResult = NonNullable<Awaited<ReturnType<typeof listStories>>>
+export type ListStoriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List multi-video story builder jobs, newest first
+ */
+
+export function useListStories<TData = Awaited<ReturnType<typeof listStories>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListStoriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateStoryUrl = () => {
+
+
+
+
+  return `/api/stories`
+}
+
+/**
+ * @summary Build one storyline across several assets (LLM creative pass)
+ */
+export const createStory = async (storyRequestIn: StoryRequestIn, options?: RequestInit): Promise<StoryJob> => {
+
+  return customFetch<StoryJob>(getCreateStoryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(storyRequestIn)
+  }
+);}
+
+
+
+
+
+export const getCreateStoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStory>>, TError,{data: BodyType<StoryRequestIn>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createStory>>, TError,{data: BodyType<StoryRequestIn>}, TContext> => {
+
+const mutationKey = ['createStory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createStory>>, {data: BodyType<StoryRequestIn>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createStory(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateStoryMutationResult = NonNullable<Awaited<ReturnType<typeof createStory>>>
+    export type CreateStoryMutationBody = BodyType<StoryRequestIn>
+    export type CreateStoryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Build one storyline across several assets (LLM creative pass)
+ */
+export const useCreateStory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStory>>, TError,{data: BodyType<StoryRequestIn>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createStory>>,
+        TError,
+        {data: BodyType<StoryRequestIn>},
+        TContext
+      > => {
+      return useMutation(getCreateStoryMutationOptions(options));
+    }
+
+export const getGetStoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/stories/${id}`
+}
+
+/**
+ * @summary Get a story job
+ */
+export const getStory = async (id: string, options?: RequestInit): Promise<StoryJob> => {
+
+  return customFetch<StoryJob>(getGetStoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStoryQueryKey = (id: string,) => {
+    return [
+    `/api/stories/${id}`
+    ] as const;
+    }
+
+
+export const getGetStoryQueryOptions = <TData = Awaited<ReturnType<typeof getStory>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStory>>> = ({ signal }) => getStory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStoryQueryResult = NonNullable<Awaited<ReturnType<typeof getStory>>>
+export type GetStoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a story job
+ */
+
+export function useGetStory<TData = Awaited<ReturnType<typeof getStory>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStoryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteStoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/stories/${id}`
+}
+
+/**
+ * @summary Delete a story job
+ */
+export const deleteStory = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteStoryUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteStoryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteStory>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteStory>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteStory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteStory>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteStory(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteStoryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteStory>>>
+
+    export type DeleteStoryMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a story job
+ */
+export const useDeleteStory = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteStory>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteStory>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteStoryMutationOptions(options));
+    }
 
 export const getScriptMatchUrl = () => {
 

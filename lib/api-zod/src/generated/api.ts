@@ -368,6 +368,85 @@ export const GetMediaTranscriptResponse = zod.array(GetMediaTranscriptResponseIt
 
 
 /**
+ * @summary Export the transcript as SRT or VTT captions
+ */
+export const GetCaptionsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetCaptionsQueryParams = zod.object({
+  "format": zod.enum(['srt', 'vtt']),
+  "lang": zod.coerce.string().optional().describe('Translation language code, omit for original')
+})
+
+export const GetCaptionsResponse = zod.object({
+  "format": zod.string(),
+  "content": zod.string(),
+  "filename": zod.string().optional()
+})
+
+
+/**
+ * @summary Silence & filler cutter — compute a tightened cut of the asset
+ */
+export const TightenMediaParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const TightenMediaBody = zod.object({
+  "silence_threshold": zod.number().optional().describe('Minimum gap between speech segments (seconds) to cut, default 1.25'),
+  "remove_fillers": zod.boolean().optional().describe('Also cut segments that are only filler words, default true')
+})
+
+export const TightenMediaResponse = zod.object({
+  "media_id": zod.string(),
+  "clip_list_id": zod.string().describe('Clip list containing the kept segments, ready for export or rough cut'),
+  "kept_segments": zod.number(),
+  "cuts": zod.array(zod.object({
+  "start": zod.number(),
+  "end": zod.number(),
+  "reason": zod.string().describe('silence | filler')
+})),
+  "removed_seconds": zod.number(),
+  "original_duration": zod.number()
+})
+
+
+/**
+ * @summary Stitch the creative pass clip suggestions into a rough cut video
+ */
+export const CreateRoughCutParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateRoughCutBody = zod.object({
+  "preset": zod.string().optional().describe('original | vertical, default original'),
+  "burn_captions": zod.boolean().optional().describe('Burn subtitles into the video, default false')
+})
+
+export const CreateRoughCutResponse = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+})),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+
+
+/**
  * @summary Translate the transcript into a target language
  */
 export const CreateTranslationParams = zod.object({
@@ -1178,20 +1257,54 @@ export const DeleteClipListResponse = zod.void()
 
 
 /**
- * @summary Export a clip list (EDL/CSV/JSON)
+ * @summary Export a clip list (EDL/CSV/JSON/FCPXML/OTIO)
  */
 export const ExportClipListParams = zod.object({
   "id": zod.coerce.string()
 })
 
 export const ExportClipListBody = zod.object({
-  "format": zod.string().describe('edl | csv | json')
+  "format": zod.string().describe('edl | csv | json | fcpxml | otio')
 })
 
 export const ExportClipListResponse = zod.object({
   "format": zod.string(),
   "content": zod.string(),
   "filename": zod.string().optional()
+})
+
+
+/**
+ * @summary Stitch every clip in a clip list into one rough cut video
+ */
+export const CreateClipListRoughCutParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateClipListRoughCutBody = zod.object({
+  "preset": zod.string().optional().describe('original | vertical, default original'),
+  "burn_captions": zod.boolean().optional().describe('Burn subtitles into the video, default false')
+})
+
+export const CreateClipListRoughCutResponse = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt')
+})),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
 })
 
 
@@ -1528,6 +1641,83 @@ export const DownloadReelParams = zod.object({
 })
 
 export const DownloadReelResponse = zod.unknown()
+
+
+/**
+ * @summary List multi-video story builder jobs, newest first
+ */
+export const ListStoriesResponseItem = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string().nullish(),
+  "asset_ids": zod.array(zod.string()),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "title": zod.string().nullish(),
+  "narrative": zod.string().nullish(),
+  "clip_list_id": zod.string().nullish().describe('Clip list with the ordered cross-asset clips'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string(),
+  "finished_at": zod.string().nullish()
+})
+export const ListStoriesResponse = zod.array(ListStoriesResponseItem)
+
+
+/**
+ * @summary Build one storyline across several assets (LLM creative pass)
+ */
+
+
+
+export const CreateStoryBody = zod.object({
+  "asset_ids": zod.array(zod.string()).min(1),
+  "prompt": zod.string().nullish().describe('Optional editorial direction for the storyline')
+})
+
+export const CreateStoryResponse = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string().nullish(),
+  "asset_ids": zod.array(zod.string()),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "title": zod.string().nullish(),
+  "narrative": zod.string().nullish(),
+  "clip_list_id": zod.string().nullish().describe('Clip list with the ordered cross-asset clips'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get a story job
+ */
+export const GetStoryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetStoryResponse = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string().nullish(),
+  "asset_ids": zod.array(zod.string()),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "title": zod.string().nullish(),
+  "narrative": zod.string().nullish(),
+  "clip_list_id": zod.string().nullish().describe('Clip list with the ordered cross-asset clips'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Delete a story job
+ */
+export const DeleteStoryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteStoryResponse = zod.void()
 
 
 /**

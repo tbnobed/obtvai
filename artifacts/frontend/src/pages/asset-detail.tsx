@@ -14,9 +14,12 @@ import {
   useCreateDub,
   useListReels, getListReelsQueryKey,
   useCreateReel,
-  useDeleteReel
+  useDeleteReel,
+  useCreateRoughCut,
+  useTightenMedia,
+  getCaptions
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform, ReelJob, CreativeAnalysis } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, ReelJob, CreativeAnalysis, TightenResult } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -140,6 +143,44 @@ export default function AssetDetail() {
         queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
       }
     });
+  };
+
+  const roughCutMutation = useCreateRoughCut();
+  const startRoughCut = () => {
+    if (!id) return;
+    roughCutMutation.mutate(
+      { id, data: { preset: "original", burn_captions: false } },
+      { onSuccess: () => navigate("/reels") },
+    );
+  };
+
+  const tightenMutation = useTightenMedia();
+  const [tightenResult, setTightenResult] = useState<TightenResult | null>(null);
+  const startTighten = () => {
+    if (!id) return;
+    tightenMutation.mutate(
+      { id, data: { silence_threshold: 1.25, remove_fillers: true } },
+      { onSuccess: (res) => setTightenResult(res) },
+    );
+  };
+
+  const [captionsBusy, setCaptionsBusy] = useState<string | null>(null);
+  const downloadCaptions = async (format: "srt" | "vtt") => {
+    if (!id) return;
+    setCaptionsBusy(format);
+    try {
+      const lang = transcriptLang !== "original" && langAvailable ? transcriptLang : undefined;
+      const res = await getCaptions(id, lang ? { format, lang } : { format });
+      const blob = new Blob([res.content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.filename ?? `captions.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setCaptionsBusy(null);
+    }
   };
 
   const socialMutation = useCreateSocialAnalysis();
@@ -363,6 +404,37 @@ export default function AssetDetail() {
               </DialogContent>
             </Dialog>
 
+            <Dialog open={!!tightenResult} onOpenChange={(open) => !open && setTightenResult(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Scissors className="h-5 w-5" /> Tightened cut ready
+                  </DialogTitle>
+                </DialogHeader>
+                {tightenResult && (
+                  <div className="space-y-3 text-sm">
+                    <p className="text-muted-foreground">
+                      Removed <span className="font-medium text-foreground">{tightenResult.removed_seconds}s</span> of
+                      silence and filler across {tightenResult.cuts.length} cuts —{" "}
+                      {tightenResult.kept_segments} keep-segments saved as a clip list.
+                    </p>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {tightenResult.cuts.slice(0, 40).map((c, i) => (
+                        <div key={i} className="flex items-center justify-between bg-muted/50 rounded px-2 py-1 text-xs font-mono">
+                          <span>{c.start.toFixed(1)}s → {c.end.toFixed(1)}s</span>
+                          <Badge variant="outline" className="text-[10px] uppercase">{c.reason}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button variant="outline" onClick={() => setTightenResult(null)}>Close</Button>
+                      <Button onClick={() => navigate("/clips")}>Open Clip Lists</Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+
             <Tabs defaultValue={hasAnalysis ? "analysis" : "scenes"}>
               <TabsList>
                 <TabsTrigger value="analysis" className="gap-1.5">
@@ -443,6 +515,8 @@ export default function AssetDetail() {
                   error={creativeMutation.isError}
                   onRun={startCreative}
                   seekTo={seekTo}
+                  onRoughCut={startRoughCut}
+                  roughCutPending={roughCutMutation.isPending}
                 />
               </TabsContent>
               <TabsContent value="highlight" className="mt-4 space-y-6">
@@ -705,6 +779,38 @@ export default function AssetDetail() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="px-3 pt-2 shrink-0 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-1.5 h-8 text-xs"
+                  onClick={() => downloadCaptions("srt")}
+                  disabled={captionsBusy !== null}
+                >
+                  {captionsBusy === "srt" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Captions className="h-3.5 w-3.5" />}
+                  SRT
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-1.5 h-8 text-xs"
+                  onClick={() => downloadCaptions("vtt")}
+                  disabled={captionsBusy !== null}
+                >
+                  {captionsBusy === "vtt" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Captions className="h-3.5 w-3.5" />}
+                  VTT
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-1.5 h-8 text-xs"
+                  onClick={startTighten}
+                  disabled={tightenMutation.isPending}
+                >
+                  {tightenMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scissors className="h-3.5 w-3.5" />}
+                  Tighten
+                </Button>
+              </div>
               {transcriptLang !== "original" && langAvailable && (
                 <div className="px-3 pt-2 shrink-0">
                   {dubAvailable ? (
@@ -840,6 +946,8 @@ function CreativeSection({
   error,
   onRun,
   seekTo,
+  onRoughCut,
+  roughCutPending,
 }: {
   creative: CreativeAnalysis | null | undefined;
   busy: boolean;
@@ -847,6 +955,8 @@ function CreativeSection({
   error: boolean;
   onRun: () => void;
   seekTo: (time: number) => void;
+  onRoughCut?: () => void;
+  roughCutPending?: boolean;
 }) {
   if (!creative || busy) {
     return (
@@ -878,6 +988,20 @@ function CreativeSection({
 
   return (
     <div className="space-y-8 max-w-4xl">
+      {onRoughCut && creative.clip_suggestions.length > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-border p-3">
+          <div>
+            <div className="text-sm font-medium">Assemble rough cut</div>
+            <p className="text-xs text-muted-foreground">
+              Stitches the {creative.clip_suggestions.length} suggested clips into one reel, in story order.
+            </p>
+          </div>
+          <Button size="sm" className="gap-2 shrink-0" onClick={onRoughCut} disabled={roughCutPending}>
+            {roughCutPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clapperboard className="h-4 w-4" />}
+            Rough Cut
+          </Button>
+        </div>
+      )}
       {creative.logline && (
         <div className="border-l-2 border-primary pl-4">
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Logline</h3>

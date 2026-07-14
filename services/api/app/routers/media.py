@@ -12,7 +12,10 @@ from ..schemas import (
     LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance,
     ProcessingJobOut, TranslateRequest, DubRequest,
     SocialCutsRequestIn, RenderJobOut,
+    ClipExportResult, TightenInput, TightenCut, TightenResult,
+    RoughCutInput, ReelJobOut,
 )
+from ..models import ClipList, Clip, ReelJob
 from ..config import settings
 import redis.asyncio as aioredis
 
@@ -382,6 +385,197 @@ async def create_creative_pass(id: str, db: AsyncSession = Depends(get_db)):
     out = ProcessingJobOut.model_validate(job)
     out.filename = asset.filename
     return out
+
+
+def _caption_ts(seconds: float, vtt: bool) -> str:
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    ms = int((seconds % 1) * 1000)
+    sep = "." if vtt else ","
+    return f"{h:02d}:{m:02d}:{s:02d}{sep}{ms:03d}"
+
+
+@router.get("/{id}/captions", response_model=ClipExportResult)
+async def get_captions(
+    id: str, format: str = Query(...), lang: str | None = None, db: AsyncSession = Depends(get_db)
+):
+    fmt = format.lower()
+    if fmt not in ("srt", "vtt"):
+        raise HTTPException(status_code=400, detail="Format must be srt or vtt")
+
+    asset = (await db.execute(select(MediaAsset).where(MediaAsset.id == id))).scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    segments = (await db.execute(
+        select(TranscriptSegment)
+        .where(TranscriptSegment.media_id == id)
+        .order_by(TranscriptSegment.start_time)
+    )).scalars().all()
+    if not segments:
+        raise HTTPException(status_code=404, detail="No transcript available")
+
+    vtt = fmt == "vtt"
+    lines: list[str] = ["WEBVTT", ""] if vtt else []
+    for i, s in enumerate(segments, 1):
+        text = s.text
+        if lang and s.translations and s.translations.get(lang):
+            text = s.translations[lang]
+        if not vtt:
+            lines.append(str(i))
+        lines.append(f"{_caption_ts(s.start_time, vtt)} --> {_caption_ts(s.end_time, vtt)}")
+        lines.append(f"{s.speaker}: {text}" if s.speaker else text)
+        lines.append("")
+
+    stem = os.path.splitext(asset.filename)[0]
+    suffix = f".{lang}" if lang else ""
+    return ClipExportResult(
+        format=fmt, content="\n".join(lines), filename=f"{stem}{suffix}.{fmt}"
+    )
+
+
+_FILLER_TOKENS = {
+    "um", "uh", "uhm", "erm", "er", "hmm", "hm", "mhm", "mm", "ah", "eh",
+    "you know", "i mean", "like", "so", "well", "right", "okay", "ok", "yeah",
+}
+
+
+def _is_filler(text: str) -> bool:
+    """True when a segment carries no content beyond filler words."""
+    import re as _re
+    words = [w for w in _re.sub(r"[^a-z' ]", " ", text.lower()).split() if w]
+    if not words or len(words) > 4:
+        return False
+    return all(w in _FILLER_TOKENS for w in words)
+
+
+@router.post("/{id}/tighten", response_model=TightenResult, status_code=201)
+async def tighten_media(
+    id: str, body: TightenInput | None = None, db: AsyncSession = Depends(get_db)
+):
+    body = body or TightenInput()
+    threshold = max(0.3, float(body.silence_threshold))
+
+    asset = (await db.execute(select(MediaAsset).where(MediaAsset.id == id))).scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    segments = (await db.execute(
+        select(TranscriptSegment)
+        .where(TranscriptSegment.media_id == id)
+        .order_by(TranscriptSegment.start_time)
+    )).scalars().all()
+    if not segments:
+        raise HTTPException(status_code=404, detail="No transcript available")
+
+    duration = float(asset.duration_seconds or segments[-1].end_time)
+    cuts: list[TightenCut] = []
+    kept: list[tuple[float, float]] = []  # merged keep windows
+    cursor = 0.0
+
+    for s in segments:
+        start, end = float(s.start_time), float(s.end_time)
+        if start - cursor >= threshold:
+            cuts.append(TightenCut(start=cursor, end=start, reason="silence"))
+        if body.remove_fillers and _is_filler(s.text or ""):
+            cuts.append(TightenCut(start=start, end=end, reason="filler"))
+            cursor = max(cursor, end)
+            continue
+        # Keep this segment: extend the previous keep window when contiguous.
+        pad_start = max(cursor, start - 0.15)
+        pad_end = min(duration, end + 0.15)
+        if kept and pad_start - kept[-1][1] < threshold:
+            kept[-1] = (kept[-1][0], pad_end)
+        else:
+            kept.append((pad_start, pad_end))
+        cursor = max(cursor, end)
+
+    if duration - cursor >= threshold:
+        cuts.append(TightenCut(start=cursor, end=duration, reason="silence"))
+
+    if not kept:
+        raise HTTPException(status_code=400, detail="Nothing left after tightening")
+
+    removed = sum(c.end - c.start for c in cuts)
+    stem = os.path.splitext(asset.filename)[0]
+    clip_list = ClipList(
+        name=f"{stem} — tightened",
+        description=(
+            f"Auto-tightened cut: {len(cuts)} cuts, {removed:.1f}s removed "
+            f"(silence ≥ {threshold:.2f}s{', fillers' if body.remove_fillers else ''})"
+        ),
+    )
+    db.add(clip_list)
+    await db.flush()
+    for pos, (ks, ke) in enumerate(kept):
+        db.add(Clip(
+            clip_list_id=clip_list.id, media_id=id,
+            start_time=round(ks, 2), end_time=round(ke, 2),
+            label=f"Keep {pos + 1:02d}", position=pos,
+        ))
+    await db.commit()
+
+    return TightenResult(
+        media_id=id,
+        clip_list_id=clip_list.id,
+        kept_segments=len(kept),
+        cuts=cuts,
+        removed_seconds=round(removed, 2),
+        original_duration=round(duration, 2),
+    )
+
+
+@router.post("/{id}/roughcut", response_model=ReelJobOut, status_code=202)
+async def create_rough_cut(
+    id: str, body: RoughCutInput | None = None, db: AsyncSession = Depends(get_db)
+):
+    body = body or RoughCutInput()
+    if body.preset not in ("original", "vertical"):
+        raise HTTPException(status_code=400, detail="Preset must be original or vertical")
+
+    asset = (await db.execute(select(MediaAsset).where(MediaAsset.id == id))).scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    suggestions = ((asset.creative or {}).get("clip_suggestions") or [])
+    if not suggestions:
+        raise HTTPException(
+            status_code=409,
+            detail="No creative clip suggestions yet — run the creative pass first",
+        )
+
+    clips = [
+        {
+            "media_id": id,
+            "filename": asset.filename,
+            "start_time": float(c["start"]),
+            "end_time": float(c["end"]),
+            "snippet": c.get("title") or c.get("quote"),
+        }
+        for c in sorted(suggestions, key=lambda c: float(c.get("start", 0)))
+        if c.get("start") is not None and c.get("end") is not None
+    ]
+    if not clips:
+        raise HTTPException(status_code=409, detail="Creative suggestions have no usable clips")
+
+    reel = ReelJob(
+        prompt=f"Rough cut — {asset.filename}",
+        media_id=id,
+        preset=body.preset,
+        burn_captions=body.burn_captions,
+        clips=clips,
+        status="pending",
+    )
+    db.add(reel)
+    await db.commit()
+    await db.refresh(reel)
+
+    from ..worker_client import enqueue_reel
+    await enqueue_reel(reel.id)
+
+    from .reels import _to_out
+    return _to_out(reel)
 
 
 @router.post("/{id}/social", response_model=ProcessingJobOut, status_code=202)

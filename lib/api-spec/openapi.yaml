@@ -190,6 +190,93 @@ paths:
                 items:
                   $ref: "#/components/schemas/TranscriptSegment"
 
+  /media/{id}/captions:
+    get:
+      operationId: getCaptions
+      tags: [media]
+      summary: Export the transcript as SRT or VTT captions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [srt, vtt]
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Translation language code, omit for original
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipExportResult"
+        "404":
+          description: No transcript available
+
+  /media/{id}/tighten:
+    post:
+      operationId: tightenMedia
+      tags: [media]
+      summary: Silence & filler cutter — compute a tightened cut of the asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TightenInput"
+      responses:
+        "201":
+          description: Tightened cut computed; a clip list with the kept segments was created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TightenResult"
+        "404":
+          description: No transcript available
+
+  /media/{id}/roughcut:
+    post:
+      operationId: createRoughCut
+      tags: [media]
+      summary: Stitch the creative pass clip suggestions into a rough cut video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoughCutInput"
+      responses:
+        "202":
+          description: Rough cut job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelJob"
+        "409":
+          description: Asset has no creative clip suggestions yet
+
   /media/{id}/translate:
     post:
       operationId: createTranslation
@@ -879,7 +966,7 @@ paths:
     post:
       operationId: exportClipList
       tags: [clips]
-      summary: Export a clip list (EDL/CSV/JSON)
+      summary: Export a clip list (EDL/CSV/JSON/FCPXML/OTIO)
       parameters:
         - name: id
           in: path
@@ -899,6 +986,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClipExportResult"
+
+  /clips/{id}/roughcut:
+    post:
+      operationId: createClipListRoughCut
+      tags: [clips]
+      summary: Stitch every clip in a clip list into one rough cut video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoughCutInput"
+      responses:
+        "202":
+          description: Rough cut job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelJob"
+        "409":
+          description: Clip list is empty
 
   /clips/{id}/render:
     post:
@@ -1181,6 +1295,75 @@ paths:
                 format: binary
         "404":
           description: Not found or not finished
+
+  # ── Stories ────────────────────────────────────────────────────────────────
+  /stories:
+    get:
+      operationId: listStories
+      tags: [stories]
+      summary: List multi-video story builder jobs, newest first
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StoryJob"
+    post:
+      operationId: createStory
+      tags: [stories]
+      summary: Build one storyline across several assets (LLM creative pass)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoryRequestIn"
+      responses:
+        "202":
+          description: Story job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoryJob"
+
+  /stories/{id}:
+    get:
+      operationId: getStory
+      tags: [stories]
+      summary: Get a story job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoryJob"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteStory
+      tags: [stories]
+      summary: Delete a story job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
 
   /search/script-match:
     post:
@@ -2256,7 +2439,103 @@ components:
       properties:
         format:
           type: string
-          description: "edl | csv | json"
+          description: "edl | csv | json | fcpxml | otio"
+
+    TightenInput:
+      type: object
+      properties:
+        silence_threshold:
+          type: number
+          description: Minimum gap between speech segments (seconds) to cut, default 1.25
+        remove_fillers:
+          type: boolean
+          description: Also cut segments that are only filler words, default true
+
+    TightenCut:
+      type: object
+      required: [start, end, reason]
+      properties:
+        start:
+          type: number
+        end:
+          type: number
+        reason:
+          type: string
+          description: "silence | filler"
+
+    TightenResult:
+      type: object
+      required: [media_id, clip_list_id, kept_segments, cuts, removed_seconds, original_duration]
+      properties:
+        media_id:
+          type: string
+        clip_list_id:
+          type: string
+          description: Clip list containing the kept segments, ready for export or rough cut
+        kept_segments:
+          type: integer
+        cuts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TightenCut"
+        removed_seconds:
+          type: number
+        original_duration:
+          type: number
+
+    RoughCutInput:
+      type: object
+      properties:
+        preset:
+          type: string
+          description: "original | vertical, default original"
+        burn_captions:
+          type: boolean
+          description: Burn subtitles into the video, default false
+
+    StoryRequestIn:
+      type: object
+      required: [asset_ids]
+      properties:
+        asset_ids:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        prompt:
+          type: ["string", "null"]
+          description: Optional editorial direction for the storyline
+
+    StoryJob:
+      type: object
+      required: [id, asset_ids, status, progress, created_at]
+      properties:
+        id:
+          type: string
+        prompt:
+          type: ["string", "null"]
+        asset_ids:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          description: "pending | running | success | error"
+        progress:
+          type: number
+        title:
+          type: ["string", "null"]
+        narrative:
+          type: ["string", "null"]
+        clip_list_id:
+          type: ["string", "null"]
+          description: Clip list with the ordered cross-asset clips
+        error_message:
+          type: ["string", "null"]
+        created_at:
+          type: string
+        finished_at:
+          type: ["string", "null"]
 
     ClipExportResult:
       type: object

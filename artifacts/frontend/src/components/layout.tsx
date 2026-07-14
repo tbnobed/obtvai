@@ -11,7 +11,8 @@ import {
   Sparkles,
   Clapperboard,
   FileText,
-  Wand2
+  Wand2,
+  BookOpen
 } from "lucide-react";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
 
@@ -33,6 +34,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/clips", label: "Clip Lists", icon: Scissors },
     { href: "/script-match", label: "Script Match", icon: FileText },
     { href: "/reels", label: "Highlight Reels", icon: Wand2 },
+    { href: "/stories", label: "Story Builder", icon: BookOpen },
     { href: "/exports", label: "Exports", icon: Clapperboard },
   ];
 

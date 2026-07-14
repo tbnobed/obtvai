@@ -1,20 +1,31 @@
 import { useState } from "react";
-import { useListClipLists, getListClipListsQueryKey, useExportClipList, useRenderClipList } from "@workspace/api-client-react";
+import { useListClipLists, getListClipListsQueryKey, useExportClipList, useRenderClipList, useCreateClipListRoughCut } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Download, Play, Clapperboard, Smartphone, Monitor } from "lucide-react";
+import { Download, Play, Clapperboard, Smartphone, Monitor, ChevronDown, Wand2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Link, useLocation } from "wouter";
+
+const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
+  { format: "edl", label: "EDL", hint: "CMX3600 edit decision list" },
+  { format: "fcpxml", label: "FCPXML", hint: "Final Cut Pro / DaVinci Resolve" },
+  { format: "otio", label: "OTIO", hint: "OpenTimelineIO timeline" },
+  { format: "csv", label: "CSV", hint: "Spreadsheet" },
+  { format: "json", label: "JSON", hint: "Raw clip data" },
+];
 
 export default function ClipLists() {
   const [, navigate] = useLocation();
   const { data: lists, isLoading } = useListClipLists({ query: { queryKey: getListClipListsQueryKey() } });
   const exportMutation = useExportClipList();
   const renderMutation = useRenderClipList();
+  const roughCutMutation = useCreateClipListRoughCut();
 
   const [exportData, setExportData] = useState<string | null>(null);
+  const [exportFilename, setExportFilename] = useState<string | null>(null);
   const [renderTarget, setRenderTarget] = useState<{ id: string; name: string; clipCount: number } | null>(null);
   const [preset, setPreset] = useState<"original" | "vertical">("original");
   const [burnCaptions, setBurnCaptions] = useState(false);
@@ -23,7 +34,25 @@ export default function ClipLists() {
     exportMutation.mutate({ id: listId, data: { format } }, {
       onSuccess: (res) => {
         setExportData(res.content);
+        setExportFilename(res.filename ?? `export.${format}`);
       }
+    });
+  };
+
+  const downloadExport = () => {
+    if (!exportData) return;
+    const blob = new Blob([exportData], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = exportFilename || "export.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const startRoughCut = (listId: string) => {
+    roughCutMutation.mutate({ id: listId, data: { preset: "original", burn_captions: false } }, {
+      onSuccess: () => navigate("/reels"),
     });
   };
 
@@ -61,7 +90,12 @@ export default function ClipLists() {
           <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono max-h-96">
             {exportData}
           </pre>
-          <Button onClick={() => navigator.clipboard.writeText(exportData || "")}>Copy to Clipboard</Button>
+          <div className="flex gap-2">
+            <Button onClick={downloadExport}>
+              <Download className="h-4 w-4 mr-2" /> Download {exportFilename}
+            </Button>
+            <Button variant="outline" onClick={() => navigator.clipboard.writeText(exportData || "")}>Copy to Clipboard</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -137,8 +171,32 @@ export default function ClipLists() {
                   <p className="text-sm text-muted-foreground mt-1">{list.description}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleExport(list.id, "edl")}>
-                    <Download className="h-4 w-4 mr-2" /> EDL
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline">
+                        <Download className="h-4 w-4 mr-2" /> Export <ChevronDown className="h-3 w-3 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {EXPORT_FORMATS.map((f) => (
+                        <DropdownMenuItem key={f.format} onClick={() => handleExport(list.id, f.format)}>
+                          <div>
+                            <div className="font-medium">{f.label}</div>
+                            <div className="text-xs text-muted-foreground">{f.hint}</div>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => startRoughCut(list.id)}
+                    disabled={!list.clips.length || roughCutMutation.isPending}
+                  >
+                    {roughCutMutation.isPending
+                      ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      : <Wand2 className="h-4 w-4 mr-2" />} Rough Cut
                   </Button>
                   <Button size="sm" onClick={() => openRender(list)} disabled={!list.clips.length}>
                     <Clapperboard className="h-4 w-4 mr-2" /> Render

@@ -25,6 +25,7 @@ celery_app = Celery(
         "tasks.insights",
         "tasks.render",
         "tasks.reel",
+        "tasks.story",
         "tasks.publish",
     ],
 )

@@ -12,7 +12,100 @@ from ..schemas import (
     ClipListOut, ClipOut, ClipListInput, ClipListUpdate,
     ClipExportInput, ClipExportResult,
     RenderPresetInput, RenderJobOut,
+    RoughCutInput, ReelJobOut,
 )
+
+_FPS = 25
+
+
+def _rational(seconds: float) -> str:
+    """FCPXML rational time at 25fps, e.g. 253/25s."""
+    return f"{int(round(seconds * _FPS))}/{_FPS}s"
+
+
+def _fcpxml(name: str, clips) -> str:
+    from xml.sax.saxutils import escape, quoteattr
+    assets = {}
+    for c in clips:
+        if c.media_id not in assets:
+            assets[c.media_id] = c.filename or c.media_id
+    resources = ['    <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080"/>']
+    asset_ids = {}
+    for i, (mid, fname) in enumerate(assets.items(), 2):
+        rid = f"r{i}"
+        asset_ids[mid] = rid
+        resources.append(
+            f'    <asset id={quoteattr(rid)} name={quoteattr(fname)} start="0s" hasVideo="1" hasAudio="1" format="r1">\n'
+            f'      <media-rep kind="original-media" src={quoteattr("file:///" + fname)}/>\n'
+            f'    </asset>'
+        )
+    offset = 0.0
+    spine = []
+    for c in clips:
+        dur = max(0.04, c.end_time - c.start_time)
+        label = c.label or c.filename or "clip"
+        spine.append(
+            f'          <asset-clip ref={quoteattr(asset_ids[c.media_id])} name={quoteattr(label)} '
+            f'offset={quoteattr(_rational(offset))} start={quoteattr(_rational(c.start_time))} '
+            f'duration={quoteattr(_rational(dur))} format="r1"/>'
+        )
+        offset += dur
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<!DOCTYPE fcpxml>\n'
+        '<fcpxml version="1.9">\n'
+        '  <resources>\n' + "\n".join(resources) + "\n  </resources>\n"
+        f'  <library>\n    <event name={quoteattr(escape(name))}>\n'
+        f'      <project name={quoteattr(escape(name))}>\n'
+        f'        <sequence format="r1" duration={quoteattr(_rational(offset))}>\n'
+        '          <spine>\n' + "\n".join(f"  {s}" for s in spine) + "\n          </spine>\n"
+        '        </sequence>\n      </project>\n    </event>\n  </library>\n'
+        '</fcpxml>\n'
+    )
+
+
+def _otio(name: str, clips) -> str:
+    def rt(seconds: float) -> dict:
+        return {
+            "OTIO_SCHEMA": "RationalTime.1",
+            "rate": float(_FPS),
+            "value": round(seconds * _FPS, 3),
+        }
+
+    children = []
+    for c in clips:
+        children.append({
+            "OTIO_SCHEMA": "Clip.2",
+            "name": c.label or c.filename or "clip",
+            "source_range": {
+                "OTIO_SCHEMA": "TimeRange.1",
+                "start_time": rt(c.start_time),
+                "duration": rt(max(0.04, c.end_time - c.start_time)),
+            },
+            "media_references": {
+                "DEFAULT_MEDIA": {
+                    "OTIO_SCHEMA": "ExternalReference.1",
+                    "target_url": c.filename or c.media_id,
+                }
+            },
+            "active_media_reference_key": "DEFAULT_MEDIA",
+        })
+    timeline = {
+        "OTIO_SCHEMA": "Timeline.1",
+        "name": name,
+        "global_start_time": rt(0),
+        "tracks": {
+            "OTIO_SCHEMA": "Stack.1",
+            "name": "tracks",
+            "children": [{
+                "OTIO_SCHEMA": "Track.1",
+                "name": "V1",
+                "kind": "Video",
+                "children": children,
+            }],
+        },
+    }
+    return json.dumps(timeline, indent=2)
 
 router = APIRouter(prefix="/clips", tags=["clips"])
 
@@ -138,10 +231,18 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
     cl_out = await _build_clip_list_out(cl, db)
 
     fmt = body.format.lower()
-    if fmt not in ("edl", "csv", "json"):
-        raise HTTPException(status_code=400, detail="Format must be edl, csv, or json")
+    if fmt not in ("edl", "csv", "json", "fcpxml", "otio"):
+        raise HTTPException(status_code=400, detail="Format must be edl, csv, json, fcpxml, or otio")
 
-    if fmt == "json":
+    if fmt == "fcpxml":
+        content = _fcpxml(cl_out.name, cl_out.clips)
+        filename = f"{cl_out.name.replace(' ', '_')}.fcpxml"
+
+    elif fmt == "otio":
+        content = _otio(cl_out.name, cl_out.clips)
+        filename = f"{cl_out.name.replace(' ', '_')}.otio"
+
+    elif fmt == "json":
         content = json.dumps(
             {"name": cl_out.name, "clips": [c.model_dump() for c in cl_out.clips]},
             indent=2, default=str,
@@ -175,6 +276,48 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
         filename = f"{cl_out.name.replace(' ', '_')}.edl"
 
     return ClipExportResult(format=fmt, content=content, filename=filename)
+
+
+@router.post("/{id}/roughcut", response_model=ReelJobOut, status_code=202)
+async def create_clip_list_rough_cut(
+    id: str, body: RoughCutInput | None = None, db: AsyncSession = Depends(get_db)
+):
+    body = body or RoughCutInput()
+    if body.preset not in ("original", "vertical"):
+        raise HTTPException(status_code=400, detail="Preset must be original or vertical")
+
+    cl = await _load_clip_list(id, db)
+    cl_out = await _build_clip_list_out(cl, db)
+    if not cl_out.clips:
+        raise HTTPException(status_code=409, detail="Clip list is empty")
+
+    from ..models import ReelJob
+    reel = ReelJob(
+        prompt=f"Rough cut — {cl_out.name}",
+        media_id=None,
+        preset=body.preset,
+        burn_captions=body.burn_captions,
+        clips=[
+            {
+                "media_id": c.media_id,
+                "filename": c.filename,
+                "start_time": c.start_time,
+                "end_time": c.end_time,
+                "snippet": c.label,
+            }
+            for c in cl_out.clips
+        ],
+        status="pending",
+    )
+    db.add(reel)
+    await db.commit()
+    await db.refresh(reel)
+
+    from ..worker_client import enqueue_reel
+    await enqueue_reel(reel.id)
+
+    from .reels import _to_out
+    return _to_out(reel)
 
 
 @router.post("/{id}/render", response_model=list[RenderJobOut], status_code=202)
