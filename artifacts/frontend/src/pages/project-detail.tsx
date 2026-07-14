@@ -841,7 +841,7 @@ export default function ProjectDetail() {
               {stories?.length ? (
                 <div className="space-y-2 pt-2">
                   {stories.map((s) => (
-                    <Link key={s.id} href={`/stories/${s.id}`}>
+                    <Link key={s.id} href={`/stories?project=${id}`}>
                       <div className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm cursor-pointer hover:bg-muted">
                         <span className="truncate pr-4">{s.prompt || `${s.asset_ids.length} assets`}</span>
                         <JobStatusBadge status={s.status} />
