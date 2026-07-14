@@ -6,10 +6,11 @@ and concatenate the chosen windows.
 """
 import logging
 import os
+import re
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
@@ -140,8 +141,13 @@ async def _select_clips(
     # Story order: keep assets grouped and windows chronological within each.
     clips.sort(key=lambda c: (c["media_id"], c["start_time"]))
 
-    # Attach a preview frame: the scene covering (or nearest before) the clip
-    # start, falling back to the asset poster thumbnail.
+    await _attach_thumbnails(clips, db)
+    return clips
+
+
+async def _attach_thumbnails(clips: list[dict], db: AsyncSession) -> None:
+    """Attach a preview frame to each clip: the scene covering (or nearest
+    before) the clip start, falling back to the asset poster thumbnail."""
     for c in clips:
         thumb = None
         try:
@@ -161,7 +167,23 @@ async def _select_clips(
         except Exception:
             logger.exception("Failed to attach thumbnail for reel clip %s", c["media_id"])
         c["thumbnail_url"] = thumb
-    return clips
+
+
+async def _backfill_thumbnails(r: ReelJob, db: AsyncSession) -> None:
+    """Reels created before clip previews existed have no thumbnail_url on
+    their clips — attach and persist them once, on read."""
+    clips = r.clips or []
+    if not clips or all(c.get("thumbnail_url") for c in clips):
+        return
+    try:
+        clips = [dict(c) for c in clips]
+        await _attach_thumbnails(clips, db)
+        r.clips = clips
+        db.add(r)
+        await db.commit()
+    except Exception:
+        logger.exception("Thumbnail backfill failed for reel %s", r.id)
+        await db.rollback()
 
 
 @router.get("", response_model=list[ReelJobOut])
@@ -172,6 +194,8 @@ async def list_reels(
     if media_id:
         q = q.where(ReelJob.media_id == media_id)
     rows = (await db.execute(q.limit(min(max(limit, 1), 500)))).scalars().all()
+    for r in rows:
+        await _backfill_thumbnails(r, db)
     return [_to_out(r) for r in rows]
 
 
@@ -234,6 +258,7 @@ async def get_reel(id: str, db: AsyncSession = Depends(get_db)):
     r = (await db.execute(select(ReelJob).where(ReelJob.id == id))).scalar_one_or_none()
     if not r:
         raise HTTPException(status_code=404, detail="Reel not found")
+    await _backfill_thumbnails(r, db)
     return _to_out(r)
 
 
@@ -252,11 +277,51 @@ async def delete_reel(id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{id}/download")
-async def download_reel(id: str, db: AsyncSession = Depends(get_db)):
+async def download_reel(id: str, request: Request, db: AsyncSession = Depends(get_db)):
     r = (await db.execute(select(ReelJob).where(ReelJob.id == id))).scalar_one_or_none()
     if not r:
         raise HTTPException(status_code=404, detail="Reel not found")
     if r.status != "success" or not r.output_path or not os.path.exists(r.output_path):
         raise HTTPException(status_code=404, detail="Reel output not available")
+
+    # Byte-range support so the browser <video> player can seek.
+    range_header = request.headers.get("range")
+    if range_header:
+        file_size = os.path.getsize(r.output_path)
+        m = re.match(r"bytes=(\d*)-(\d*)$", range_header.strip())
+        if m:
+            start_s, end_s = m.groups()
+            start = int(start_s) if start_s else 0
+            end = int(end_s) if end_s else file_size - 1
+            end = min(end, file_size - 1)
+            if start <= end:
+                length = end - start + 1
+
+                def _iter(path: str, offset: int, remaining: int, chunk: int = 1024 * 1024):
+                    with open(path, "rb") as f:
+                        f.seek(offset)
+                        while remaining > 0:
+                            data = f.read(min(chunk, remaining))
+                            if not data:
+                                break
+                            remaining -= len(data)
+                            yield data
+
+                return StreamingResponse(
+                    _iter(r.output_path, start, length),
+                    status_code=206,
+                    media_type="video/mp4",
+                    headers={
+                        "Content-Range": f"bytes {start}-{end}/{file_size}",
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": str(length),
+                    },
+                )
+
     safe = "".join(ch if ch.isalnum() else "_" for ch in r.prompt[:40]).strip("_") or "reel"
-    return FileResponse(r.output_path, media_type="video/mp4", filename=f"reel_{safe}_{r.id[:8]}.mp4")
+    return FileResponse(
+        r.output_path,
+        media_type="video/mp4",
+        filename=f"reel_{safe}_{r.id[:8]}.mp4",
+        headers={"Accept-Ranges": "bytes"},
+    )

@@ -158,6 +158,25 @@ function ReelCard({
           )}
         </div>
 
+        {reel.status === "success" && reel.output_url && (
+          <div className="px-4 pb-3">
+            <video
+              controls
+              preload="metadata"
+              playsInline
+              poster={
+                reel.clips.find((c) => c.thumbnail_url)?.thumbnail_url
+                  ? `/api/thumbnails/${reel.clips.find((c) => c.thumbnail_url)!.thumbnail_url}`
+                  : undefined
+              }
+              src={reel.output_url}
+              className={`w-full rounded-md bg-black border border-border/60 ${
+                vertical ? "max-h-[420px]" : "aspect-video"
+              }`}
+            />
+          </div>
+        )}
+
         {reel.clips.length > 0 && (
           <div className="px-4 pb-3">
             <div className="flex gap-2 overflow-x-auto pb-1">
