@@ -133,6 +133,22 @@ export default function ProjectDetail() {
     );
   };
 
+  // ---- Media pool: restrict Find to selected assets ----
+  const mediaPool = useMemo(() => project?.media_ids ?? [], [project?.media_ids]);
+  const poolAssets = useMemo(
+    () => (mediaPool.length ? media?.items?.filter((a) => mediaPool.includes(a.id)) ?? [] : media?.items ?? []),
+    [media?.items, mediaPool],
+  );
+
+  const toggleMediaPool = (assetId: string, checked: boolean) => {
+    const next = checked ? [...mediaPool, assetId] : mediaPool.filter((x) => x !== assetId);
+    updateMutation.mutate({ id, data: { media_ids: next } }, { onSuccess: invalidateAll });
+  };
+
+  const clearMediaPool = () => {
+    updateMutation.mutate({ id, data: { media_ids: [] } }, { onSuccess: invalidateAll });
+  };
+
   // ---- Find: search + script match + add-to-list ----
   const searchMutation = useSemanticSearch();
   const matchMutation = useScriptMatch();
@@ -149,12 +165,20 @@ export default function ProjectDetail() {
 
   const runSearch = () => {
     if (query.trim().length < 2) return;
-    searchMutation.mutate({ data: { query: query.trim() } });
+    searchMutation.mutate({
+      data: { query: query.trim(), ...(mediaPool.length ? { media_ids: mediaPool } : {}) },
+    });
   };
 
   const runScriptMatch = () => {
     if (!script.trim()) return;
-    matchMutation.mutate({ data: { script: script.trim(), matches_per_line: 3 } });
+    matchMutation.mutate({
+      data: {
+        script: script.trim(),
+        matches_per_line: 3,
+        ...(mediaPool.length ? { media_ids: mediaPool } : {}),
+      },
+    });
   };
 
   const addResultToList = (r: SearchResult) => {
@@ -456,6 +480,42 @@ export default function ProjectDetail() {
         {/* ------------------------------ FIND ------------------------------ */}
         <TabsContent value="find" className="space-y-6">
           <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 flex-wrap gap-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Clapperboard className="h-4 w-4" /> Project Media
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">
+                  {mediaPool.length ? `${mediaPool.length} selected` : "Whole library"}
+                </Badge>
+                {mediaPool.length > 0 && (
+                  <Button size="sm" variant="ghost" onClick={clearMediaPool} disabled={updateMutation.isPending}>
+                    Use whole library
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-3">
+                Pick the assets this project works with — search and script matching stay within this media.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-48 overflow-y-auto">
+                {media?.items?.length ? media.items.map((a) => (
+                  <label key={a.id} className="flex items-center gap-2 text-sm bg-muted/50 rounded p-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={mediaPool.includes(a.id)}
+                      disabled={updateMutation.isPending}
+                      onChange={(e) => toggleMediaPool(a.id, e.target.checked)}
+                    />
+                    <span className="truncate">{a.filename}</span>
+                  </label>
+                )) : <p className="text-sm text-muted-foreground">No indexed media yet.</p>}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FileText className="h-4 w-4" /> Working Script
@@ -670,7 +730,7 @@ export default function ProjectDetail() {
               <div>
                 <Label className="mb-2 block">Source assets</Label>
                 <div className="grid gap-2 sm:grid-cols-2 max-h-48 overflow-y-auto">
-                  {media?.items?.length ? media.items.map((a) => (
+                  {poolAssets.length ? poolAssets.map((a) => (
                     <label key={a.id} className="flex items-center gap-2 text-sm bg-muted/50 rounded p-2 cursor-pointer">
                       <input
                         type="checkbox"

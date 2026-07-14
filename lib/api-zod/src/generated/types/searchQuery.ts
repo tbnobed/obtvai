@@ -13,6 +13,11 @@ export interface SearchQuery {
      * @nullable
      */
   media_id?: string | null;
+  /**
+     * Restrict search to a set of assets (e.g. a project's media pool)
+     * @nullable
+     */
+  media_ids?: string[] | null;
   /** transcript | visual | combined */
   search_type?: string;
   limit?: number;

@@ -319,6 +319,7 @@ const conversations = [
 type MockProject = {
   id: string; name: string; description: string | null; script: string | null;
   status: "active" | "archived";
+  media_ids: string[];
   created_at: string; updated_at: string | null;
 };
 
@@ -335,6 +336,7 @@ const projects: MockProject[] = [
     description: "Evening special on local AI infrastructure",
     script: "Sarah Chen explains the local AI infrastructure initiative\nCouncil vote on the affordable housing measure",
     status: "active",
+    media_ids: [],
     created_at: new Date(Date.now() - 86400000).toISOString(),
     updated_at: null,
   },
@@ -468,6 +470,9 @@ router.get("/media/:id/faces", (req, res) => {
 router.post("/search", (req, res) => {
   const query = (req.body.query || "").toLowerCase();
   const searchType: string = req.body.search_type || "combined";
+  const mediaIds: string[] | null = Array.isArray(req.body.media_ids) && req.body.media_ids.length ? req.body.media_ids : null;
+  const inPool = (id: string) =>
+    (!mediaIds || mediaIds.includes(id)) && (!req.body.media_id || req.body.media_id === id);
   const results: {
     media_id: string; filename: string; thumbnail_url: string | null;
     start_time: number; end_time: number; score: number;
@@ -476,6 +481,7 @@ router.post("/search", (req, res) => {
 
   if (searchType === "transcript" || searchType === "combined") {
     for (const s of transcript) {
+      if (!inPool(s.media_id)) continue;
       if (!s.text.toLowerCase().includes(query.split(" ")[0] || query)) continue;
       const asset = assets.find((a) => a.id === s.media_id);
       results.push({
@@ -495,6 +501,7 @@ router.post("/search", (req, res) => {
     // Keyword match against scene descriptions stands in for CLIP visual search.
     const words = query.split(/\W+/).filter((w: string) => w.length > 2);
     for (const sc of scenes) {
+      if (!inPool(sc.media_id)) continue;
       const desc = (sc.description || "").toLowerCase();
       if (!words.length || !words.some((w: string) => desc.includes(w))) continue;
       const asset = assets.find((a) => a.id === sc.media_id);
@@ -917,6 +924,7 @@ router.post("/projects", (req, res) => {
     description: req.body?.description || null,
     script: req.body?.script || null,
     status: "active",
+    media_ids: Array.isArray(req.body?.media_ids) ? req.body.media_ids : [],
     created_at: new Date().toISOString(),
     updated_at: null,
   };
@@ -937,6 +945,7 @@ router.patch("/projects/:id", (req, res) => {
   if (req.body.description !== undefined) p.description = req.body.description;
   if (req.body.script !== undefined) p.script = req.body.script;
   if (req.body.status === "active" || req.body.status === "archived") p.status = req.body.status;
+  if (req.body.media_ids !== undefined) p.media_ids = Array.isArray(req.body.media_ids) ? req.body.media_ids : [];
   p.updated_at = new Date().toISOString();
   res.json(projectOut(p));
 });
@@ -1641,6 +1650,10 @@ router.delete("/stories/:id", (req, res) => {
 router.post("/search/script-match", (req, res) => {
   const script: string = req.body.script || "";
   const perLine = Math.min(Math.max(req.body.matches_per_line || 3, 1), 10);
+  const smMediaIds: string[] | null = Array.isArray(req.body.media_ids) && req.body.media_ids.length ? req.body.media_ids : null;
+  const smInPool = (id: string) =>
+    (!smMediaIds || smMediaIds.includes(id)) && (!req.body.media_id || req.body.media_id === id);
+  const pool = transcript.filter((seg) => smInPool(seg.media_id));
   const lines = script
     .split("\n")
     .map((l: string) => l.trim())
@@ -1649,7 +1662,7 @@ router.post("/search/script-match", (req, res) => {
 
   const out = lines.map((line: string) => {
     const words = line.toLowerCase().split(/\W+/).filter((w: string) => w.length > 3);
-    const scored = transcript
+    const scored = pool
       .map((seg) => {
         const text = seg.text.toLowerCase();
         const hits = words.filter((w: string) => text.includes(w)).length;
@@ -1658,7 +1671,7 @@ router.post("/search/script-match", (req, res) => {
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, perLine);
-    const matches = (scored.length ? scored : transcript.slice(0, 1).map((seg) => ({ seg, score: 0.42 })))
+    const matches = (scored.length ? scored : pool.slice(0, 1).map((seg) => ({ seg, score: 0.42 })))
       .map(({ seg, score }) => {
         const asset = assets.find((a) => a.id === seg.media_id);
         return {

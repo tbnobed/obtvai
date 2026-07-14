@@ -15,4 +15,6 @@ export interface ProjectUpdate {
   /** @nullable */
   script?: string | null;
   status?: ProjectUpdateStatus;
+  /** @nullable */
+  media_ids?: string[] | null;
 }

@@ -18,6 +18,11 @@ export interface ScriptMatchRequest {
      */
   media_id?: string | null;
   /**
+     * Restrict matching to a set of assets (e.g. a project's media pool)
+     * @nullable
+     */
+  media_ids?: string[] | null;
+  /**
      * @minimum 1
      * @maximum 10
      */

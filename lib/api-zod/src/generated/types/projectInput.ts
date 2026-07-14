@@ -13,4 +13,6 @@ export interface ProjectInput {
   description?: string | null;
   /** @nullable */
   script?: string | null;
+  /** @nullable */
+  media_ids?: string[] | null;
 }

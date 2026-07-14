@@ -36,6 +36,7 @@ _COLUMN_MIGRATIONS = [
     ("reel_jobs", "project_id", "TEXT"),
     ("story_jobs", "project_id", "TEXT"),
     ("projects", "status", "TEXT NOT NULL DEFAULT 'active'"),
+    ("projects", "media_ids", "JSONB"),
 ]
 
 

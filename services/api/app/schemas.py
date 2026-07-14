@@ -112,6 +112,7 @@ class FaceClusterOut(BaseModel):
 class SearchQuery(BaseModel):
     query: str
     media_id: Optional[str] = None
+    media_ids: Optional[List[str]] = None
     search_type: str = "combined"
     limit: int = 20
 
@@ -145,6 +146,7 @@ class SearchHistoryItemOut(BaseModel):
 class ScriptMatchRequest(BaseModel):
     script: str
     media_id: Optional[str] = None
+    media_ids: Optional[List[str]] = None
     matches_per_line: int = 3
 
 
@@ -521,6 +523,7 @@ class ProjectOut(BaseModel):
     description: Optional[str] = None
     script: Optional[str] = None
     status: str = "active"
+    media_ids: List[str] = []
     created_at: datetime
     updated_at: Optional[datetime] = None
     counts: ProjectCounts
@@ -530,6 +533,7 @@ class ProjectInput(BaseModel):
     name: str = Field(min_length=1)
     description: Optional[str] = None
     script: Optional[str] = None
+    media_ids: Optional[List[str]] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -537,6 +541,7 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
     script: Optional[str] = None
     status: Optional[Literal["active", "archived"]] = None
+    media_ids: Optional[List[str]] = None
 
 
 class JobCleanupIn(BaseModel):

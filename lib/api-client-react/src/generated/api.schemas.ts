@@ -392,6 +392,11 @@ export interface SearchQuery {
      * @nullable
      */
   media_id?: string | null;
+  /**
+     * Restrict search to a set of assets (e.g. a project's media pool)
+     * @nullable
+     */
+  media_ids?: string[] | null;
   /** transcript | visual | combined */
   search_type?: string;
   limit?: number;
@@ -431,6 +436,11 @@ export interface ScriptMatchRequest {
      * @nullable
      */
   media_id?: string | null;
+  /**
+     * Restrict matching to a set of assets (e.g. a project's media pool)
+     * @nullable
+     */
+  media_ids?: string[] | null;
   /**
      * @minimum 1
      * @maximum 10
@@ -574,6 +584,8 @@ export interface Project {
      */
   script?: string | null;
   status?: ProjectStatus;
+  /** Media pool — asset ids this project works with; empty means the whole library */
+  media_ids?: string[];
   created_at: string;
   /** @nullable */
   updated_at?: string | null;
@@ -587,6 +599,8 @@ export interface ProjectInput {
   description?: string | null;
   /** @nullable */
   script?: string | null;
+  /** @nullable */
+  media_ids?: string[] | null;
 }
 
 export type ProjectUpdateStatus = typeof ProjectUpdateStatus[keyof typeof ProjectUpdateStatus];
@@ -605,6 +619,8 @@ export interface ProjectUpdate {
   /** @nullable */
   script?: string | null;
   status?: ProjectUpdateStatus;
+  /** @nullable */
+  media_ids?: string[] | null;
 }
 
 export interface ClipList {

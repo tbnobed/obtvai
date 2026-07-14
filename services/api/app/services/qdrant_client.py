@@ -65,12 +65,18 @@ async def search_vectors(
     vector: list[float],
     limit: int = 20,
     media_id: Optional[str] = None,
+    media_ids: Optional[list[str]] = None,
 ):
     client = get_client()
     query_filter = None
     if media_id:
         query_filter = Filter(
             must=[FieldCondition(key="media_id", match=MatchValue(value=media_id))]
+        )
+    elif media_ids:
+        from qdrant_client.models import MatchAny
+        query_filter = Filter(
+            must=[FieldCondition(key="media_id", match=MatchAny(any=media_ids))]
         )
     results = await client.search(
         collection_name=collection,

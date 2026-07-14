@@ -68,6 +68,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                 vector=query_embedding,
                 limit=body.limit,
                 media_id=body.media_id,
+                media_ids=body.media_ids,
             )
             for hit in transcript_hits:
                 seg_id = hit.payload.get("segment_id")
@@ -100,6 +101,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                 vector=clip_query_embedding,
                 limit=body.limit,
                 media_id=body.media_id,
+                media_ids=body.media_ids,
             )
             for hit in visual_hits:
                 scene_id = hit.payload.get("scene_id")
@@ -172,6 +174,8 @@ async def _fallback_text_search(body: SearchQuery, db: AsyncSession) -> list[Sea
     )
     if body.media_id:
         q = q.where(TranscriptSegment.media_id == body.media_id)
+    elif body.media_ids:
+        q = q.where(TranscriptSegment.media_id.in_(body.media_ids))
     q = q.limit(body.limit)
     rows = (await db.execute(q)).all()
     return [
@@ -224,6 +228,7 @@ async def script_match(body: ScriptMatchRequest, db: AsyncSession = Depends(get_
                     vector=vec,
                     limit=per_line,
                     media_id=body.media_id,
+                    media_ids=body.media_ids,
                 )
                 for hit in hits:
                     seg_id = hit.payload.get("segment_id")
@@ -251,7 +256,7 @@ async def script_match(body: ScriptMatchRequest, db: AsyncSession = Depends(get_
                 )
         if not matches:
             fallback_query = SearchQuery(
-                query=line, media_id=body.media_id,
+                query=line, media_id=body.media_id, media_ids=body.media_ids,
                 search_type="transcript", limit=per_line,
             )
             matches = await _fallback_text_search(fallback_query, db)

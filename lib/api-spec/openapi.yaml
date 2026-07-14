@@ -2046,6 +2046,11 @@ components:
         media_id:
           type: ["string", "null"]
           description: Restrict search to a specific asset
+        media_ids:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: Restrict search to a set of assets (e.g. a project's media pool)
         search_type:
           type: string
           description: "transcript | visual | combined"
@@ -2101,6 +2106,11 @@ components:
         media_id:
           type: ["string", "null"]
           description: Restrict matching to one asset
+        media_ids:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: Restrict matching to a set of assets (e.g. a project's media pool)
         matches_per_line:
           type: integer
           default: 3
@@ -2305,6 +2315,12 @@ components:
           type: string
           enum: [active, archived]
           default: active
+        media_ids:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Media pool — asset ids this project works with; empty means the whole library
         created_at:
           type: string
         updated_at:
@@ -2333,6 +2349,10 @@ components:
           type: ["string", "null"]
         script:
           type: ["string", "null"]
+        media_ids:
+          type: ["array", "null"]
+          items:
+            type: string
 
     ProjectUpdate:
       type: object
@@ -2347,6 +2367,10 @@ components:
         status:
           type: string
           enum: [active, archived]
+        media_ids:
+          type: ["array", "null"]
+          items:
+            type: string
 
     ClipList:
       type: object
