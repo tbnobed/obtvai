@@ -10,6 +10,8 @@ export interface StoryJob {
   id: string;
   /** @nullable */
   prompt?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   asset_ids: string[];
   /** pending | running | success | error */
   status: string;

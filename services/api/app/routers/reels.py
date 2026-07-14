@@ -34,6 +34,7 @@ def _to_out(r: ReelJob) -> ReelJobOut:
         id=r.id,
         prompt=r.prompt,
         media_id=r.media_id,
+        project_id=r.project_id,
         preset=r.preset,
         burn_captions=r.burn_captions,
         clips=[ReelClipOut(**c) for c in (r.clips or [])],
@@ -188,11 +189,14 @@ async def _backfill_thumbnails(r: ReelJob, db: AsyncSession) -> None:
 
 @router.get("", response_model=list[ReelJobOut])
 async def list_reels(
-    limit: int = 100, media_id: str | None = None, db: AsyncSession = Depends(get_db)
+    limit: int = 100, media_id: str | None = None, project_id: str | None = None,
+    db: AsyncSession = Depends(get_db)
 ):
     q = select(ReelJob).order_by(desc(ReelJob.created_at))
     if media_id:
         q = q.where(ReelJob.media_id == media_id)
+    if project_id:
+        q = q.where(ReelJob.project_id == project_id)
     rows = (await db.execute(q.limit(min(max(limit, 1), 500)))).scalars().all()
     for r in rows:
         await _backfill_thumbnails(r, db)
@@ -230,6 +234,7 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         id=str(uuid.uuid4()),
         prompt=prompt,
         media_id=body.media_id,
+        project_id=body.project_id,
         preset=body.preset,
         burn_captions=body.burn_captions,
         clips=clips,

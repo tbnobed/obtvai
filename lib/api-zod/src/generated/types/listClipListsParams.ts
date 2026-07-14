@@ -6,11 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListRendersParams = {
-clip_list_id?: string;
+export type ListClipListsParams = {
 /**
- * Only renders linked to this project
+ * Only clip lists linked to this project
  */
 project_id?: string;
-limit?: number;
 };

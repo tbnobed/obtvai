@@ -23,7 +23,7 @@ import {
   Download, Trash2, Wand2, Loader2, Smartphone, Captions, Film, Clock,
   Play, AlertCircle,
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 
 const PAGE_SIZE = 12;
 
@@ -269,6 +269,7 @@ function ReelDetail({
 
 export default function Reels() {
   const queryClient = useQueryClient();
+  const projectId = new URLSearchParams(useSearch()).get("project");
   const { data: reels, isLoading } = useListReels(undefined, {
     query: { queryKey: getListReelsQueryKey(), refetchInterval: 3000 },
   });
@@ -296,7 +297,7 @@ export default function Reels() {
   const submit = () => {
     if (prompt.trim().length < 3) return;
     createMutation.mutate(
-      { data: { prompt: prompt.trim(), preset, burn_captions: burnCaptions, max_clips: maxClips } },
+      { data: { prompt: prompt.trim(), preset, burn_captions: burnCaptions, max_clips: maxClips, project_id: projectId || undefined } },
       {
         onSuccess: () => {
           setPrompt("");

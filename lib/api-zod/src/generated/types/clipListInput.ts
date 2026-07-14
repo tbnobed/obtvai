@@ -10,5 +10,7 @@ import type { ClipListInputClipsItem } from './clipListInputClipsItem';
 export interface ClipListInput {
   name: string;
   description?: string;
+  /** @nullable */
+  project_id?: string | null;
   clips?: ClipListInputClipsItem[];
 }

@@ -194,13 +194,19 @@ def build_story(self, story_id: str):
 
         # ── Write result as a clip list ──────────────────────────────────────
         cl_id = str(uuid.uuid4())
+        proj_row = db.execute(
+            text("SELECT project_id FROM story_jobs WHERE id = :sid"),
+            {"sid": story_id},
+        ).fetchone()
         db.execute(
             text("""
-                INSERT INTO clip_lists (id, name, description, created_at)
-                VALUES (:id, :name, :descr, :now)
+                INSERT INTO clip_lists (id, name, description, project_id, created_at)
+                VALUES (:id, :name, :descr, :pid, :now)
             """),
             {"id": cl_id, "name": f"Story — {title}"[:200],
-             "descr": (narrative or "")[:2000], "now": datetime.utcnow()},
+             "descr": (narrative or "")[:2000],
+             "pid": proj_row[0] if proj_row else None,
+             "now": datetime.utcnow()},
         )
         for pos, c in enumerate(ordered):
             db.execute(

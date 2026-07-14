@@ -15,6 +15,8 @@ export interface ReelJob {
      * @nullable
      */
   media_id?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;

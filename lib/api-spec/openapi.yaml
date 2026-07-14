@@ -874,12 +874,113 @@ paths:
         "404":
           description: Conversation not found
 
+  # ── Projects ──────────────────────────────────────────────────────────────
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List projects, newest first
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project (linked items are kept, unlinked)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
   # ── Clips ─────────────────────────────────────────────────────────────────
   /clips:
     get:
       operationId: listClipLists
       tags: [clips]
       summary: List all clip lists
+      parameters:
+        - name: project_id
+          in: query
+          required: false
+          description: Only clip lists linked to this project
+          schema:
+            type: string
       responses:
         "200":
           description: OK
@@ -1055,6 +1156,12 @@ paths:
           required: false
           schema:
             type: string
+        - name: project_id
+          in: query
+          required: false
+          description: Only renders linked to this project
+          schema:
+            type: string
         - name: limit
           in: query
           required: false
@@ -1209,6 +1316,12 @@ paths:
           description: Only reels scoped to this asset
           schema:
             type: string
+        - name: project_id
+          in: query
+          required: false
+          description: Only reels linked to this project
+          schema:
+            type: string
       responses:
         "200":
           description: OK
@@ -1302,6 +1415,13 @@ paths:
       operationId: listStories
       tags: [stories]
       summary: List multi-video story builder jobs, newest first
+      parameters:
+        - name: project_id
+          in: query
+          required: false
+          description: Only stories linked to this project
+          schema:
+            type: string
       responses:
         "200":
           description: OK
@@ -2167,6 +2287,60 @@ components:
         notes:
           type: ["string", "null"]
 
+    # ── Projects ──────────────────────────────────────────────────────────────
+    Project:
+      type: object
+      required: [id, name, created_at, counts]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        script:
+          type: ["string", "null"]
+          description: Working script/rundown text used in the Find stage
+        created_at:
+          type: string
+        updated_at:
+          type: ["string", "null"]
+        counts:
+          type: object
+          required: [clip_lists, stories, reels, renders]
+          properties:
+            clip_lists:
+              type: integer
+            stories:
+              type: integer
+            reels:
+              type: integer
+            renders:
+              type: integer
+
+    ProjectInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: ["string", "null"]
+        script:
+          type: ["string", "null"]
+
+    ProjectUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: ["string", "null"]
+        script:
+          type: ["string", "null"]
+
     ClipList:
       type: object
       required: [id, name, created_at, clips]
@@ -2176,6 +2350,8 @@ components:
         name:
           type: string
         description:
+          type: ["string", "null"]
+        project_id:
           type: ["string", "null"]
         created_at:
           type: string
@@ -2192,6 +2368,8 @@ components:
           type: string
         description:
           type: string
+        project_id:
+          type: ["string", "null"]
         clips:
           type: array
           items:
@@ -2214,6 +2392,8 @@ components:
           type: string
         description:
           type: string
+        project_id:
+          type: ["string", "null"]
         clips:
           type: array
           items:
@@ -2259,6 +2439,8 @@ components:
           type: ["string", "null"]
         clip_list_id:
           type: ["string", "null"]
+        project_id:
+          type: ["string", "null"]
         preset:
           type: string
           enum: [original, vertical]
@@ -2279,6 +2461,8 @@ components:
           type: ["string", "null"]
           description: Source asset filename
         clip_list_id:
+          type: ["string", "null"]
+        project_id:
           type: ["string", "null"]
         label:
           type: ["string", "null"]
@@ -2359,6 +2543,8 @@ components:
         media_id:
           type: ["string", "null"]
           description: Restrict the reel to one asset, or null/omitted for the whole library
+        project_id:
+          type: ["string", "null"]
         preset:
           type: string
           enum: [original, vertical]
@@ -2402,6 +2588,8 @@ components:
         media_id:
           type: ["string", "null"]
           description: Set when the reel is scoped to one asset
+        project_id:
+          type: ["string", "null"]
         preset:
           type: string
           description: original | vertical
@@ -2508,6 +2696,8 @@ components:
         prompt:
           type: ["string", "null"]
           description: Optional editorial direction for the storyline
+        project_id:
+          type: ["string", "null"]
 
     StoryJob:
       type: object
@@ -2516,6 +2706,8 @@ components:
         id:
           type: string
         prompt:
+          type: ["string", "null"]
+        project_id:
           type: ["string", "null"]
         asset_ids:
           type: array

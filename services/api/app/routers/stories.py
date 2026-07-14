@@ -15,6 +15,7 @@ def _to_out(s: StoryJob) -> StoryJobOut:
     return StoryJobOut(
         id=s.id,
         prompt=s.prompt,
+        project_id=s.project_id,
         asset_ids=list(s.asset_ids or []),
         status=s.status,
         progress=s.progress or 0.0,
@@ -28,10 +29,11 @@ def _to_out(s: StoryJob) -> StoryJobOut:
 
 
 @router.get("", response_model=list[StoryJobOut])
-async def list_stories(limit: int = 100, db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(
-        select(StoryJob).order_by(desc(StoryJob.created_at)).limit(min(max(limit, 1), 500))
-    )).scalars().all()
+async def list_stories(limit: int = 100, project_id: str | None = None, db: AsyncSession = Depends(get_db)):
+    q = select(StoryJob).order_by(desc(StoryJob.created_at))
+    if project_id:
+        q = q.where(StoryJob.project_id == project_id)
+    rows = (await db.execute(q.limit(min(max(limit, 1), 500)))).scalars().all()
     return [_to_out(s) for s in rows]
 
 
@@ -50,6 +52,7 @@ async def create_story(body: StoryRequestIn, db: AsyncSession = Depends(get_db))
 
     story = StoryJob(
         prompt=(body.prompt or "").strip() or None,
+        project_id=body.project_id,
         asset_ids=asset_ids,
         status="pending",
     )

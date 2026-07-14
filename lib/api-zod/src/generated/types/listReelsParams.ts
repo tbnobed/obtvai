@@ -12,4 +12,8 @@ limit?: number;
  * Only reels scoped to this asset
  */
 media_id?: string;
+/**
+ * Only reels linked to this project
+ */
+project_id?: string;
 };

@@ -161,6 +161,7 @@ class RenderJob(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     media_id: Mapped[str] = mapped_column(String, ForeignKey("media_assets.id"), nullable=False)
     clip_list_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    project_id: Mapped[str | None] = mapped_column(String, nullable=True)
     label: Mapped[str | None] = mapped_column(String, nullable=True)
     start_time: Mapped[float] = mapped_column(Float, nullable=False)
     end_time: Mapped[float] = mapped_column(Float, nullable=False)
@@ -185,6 +186,7 @@ class ReelJob(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     media_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    project_id: Mapped[str | None] = mapped_column(String, nullable=True)
     preset: Mapped[str] = mapped_column(String, default="original")
     burn_captions: Mapped[bool] = mapped_column(Boolean, default=False)
     clips: Mapped[list] = mapped_column(JSONB, default=list)
@@ -201,6 +203,7 @@ class StoryJob(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    project_id: Mapped[str | None] = mapped_column(String, nullable=True)
     asset_ids: Mapped[list] = mapped_column(JSONB, default=list)
     status: Mapped[str] = mapped_column(String, default="pending")
     progress: Mapped[float] = mapped_column(Float, default=0.0)
@@ -244,12 +247,24 @@ class AIMessage(Base):
     conversation: Mapped["AIConversation"] = relationship("AIConversation", back_populates="messages")
 
 
+class Project(Base):
+    __tablename__ = "projects"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    script: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+
 class ClipList(Base):
     __tablename__ = "clip_lists"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    project_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     clips: Mapped[list["Clip"]] = relationship("Clip", back_populates="clip_list", cascade="all, delete-orphan", order_by="Clip.position")

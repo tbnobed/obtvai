@@ -18,6 +18,8 @@ export interface ReelRequest {
      * @nullable
      */
   media_id?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   preset?: ReelRequestPreset;
   burn_captions?: boolean;
   /**

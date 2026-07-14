@@ -17,6 +17,8 @@ export interface RenderRequest {
   label?: string | null;
   /** @nullable */
   clip_list_id?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   preset?: RenderRequestPreset;
   burn_captions?: boolean;
 }

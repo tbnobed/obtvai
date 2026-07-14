@@ -316,11 +316,28 @@ const conversations = [
   { id: "conv-002", title: "Housing vote discussion at city council", created_at: new Date(Date.now() - 86400000).toISOString(), message_count: 6 },
 ];
 
+type MockProject = {
+  id: string; name: string; description: string | null; script: string | null;
+  created_at: string; updated_at: string | null;
+};
+
+const projects: MockProject[] = [
+  {
+    id: "proj-001",
+    name: "Infrastructure Special",
+    description: "Evening special on local AI infrastructure",
+    script: "Sarah Chen explains the local AI infrastructure initiative\nCouncil vote on the affordable housing measure",
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    updated_at: null,
+  },
+];
+
 const clipLists = [
   {
     id: "cl-001",
     name: "Infrastructure Interview Highlights",
-    description: "Key moments from the Sarah Chen infrastructure interview",
+    description: "Key moments from the Sarah Chen interview",
+    project_id: "proj-001" as string | null,
     created_at: new Date(Date.now() - 7200000).toISOString(),
     clips: [
       { id: "clip-001", media_id: "asset-001", filename: "interview_sarah_chen.mp4", start_time: 15.5, end_time: 71.3, label: "On local AI infrastructure", notes: null },
@@ -866,9 +883,70 @@ router.get("/ai/conversations/:id/messages", (req, res) => {
   res.json(msgs);
 });
 
+// ── Projects ──────────────────────────────────────────────────────────────────
+function projectOut(p: MockProject) {
+  return {
+    ...p,
+    counts: {
+      clip_lists: clipLists.filter((c) => c.project_id === p.id).length,
+      stories: stories.filter((s) => s.project_id === p.id).length,
+      reels: reels.filter((r) => r.project_id === p.id).length,
+      renders: renders.filter((r) => r.project_id === p.id).length,
+    },
+  };
+}
+
+router.get("/projects", (_req, res) => {
+  res.json(projects.map(projectOut));
+});
+
+router.post("/projects", (req, res) => {
+  const name = (req.body?.name || "").trim();
+  if (!name) { res.status(400).json({ detail: "Name is required" }); return; }
+  const p: MockProject = {
+    id: `proj-${Date.now()}`,
+    name,
+    description: req.body?.description || null,
+    script: req.body?.script || null,
+    created_at: new Date().toISOString(),
+    updated_at: null,
+  };
+  projects.unshift(p);
+  res.status(201).json(projectOut(p));
+});
+
+router.get("/projects/:id", (req, res) => {
+  const p = projects.find((x) => x.id === req.params.id);
+  if (!p) { res.status(404).json({ detail: "Project not found" }); return; }
+  res.json(projectOut(p));
+});
+
+router.patch("/projects/:id", (req, res) => {
+  const p = projects.find((x) => x.id === req.params.id);
+  if (!p) { res.status(404).json({ detail: "Project not found" }); return; }
+  if (req.body.name !== undefined) p.name = req.body.name;
+  if (req.body.description !== undefined) p.description = req.body.description;
+  if (req.body.script !== undefined) p.script = req.body.script;
+  p.updated_at = new Date().toISOString();
+  res.json(projectOut(p));
+});
+
+router.delete("/projects/:id", (req, res) => {
+  const idx = projects.findIndex((x) => x.id === req.params.id);
+  if (idx === -1) { res.status(404).json({ detail: "Project not found" }); return; }
+  const pid = projects[idx].id;
+  projects.splice(idx, 1);
+  clipLists.forEach((c) => { if (c.project_id === pid) c.project_id = null; });
+  stories.forEach((s) => { if (s.project_id === pid) s.project_id = null; });
+  reels.forEach((r) => { if (r.project_id === pid) r.project_id = null; });
+  renders.forEach((r) => { if (r.project_id === pid) r.project_id = null; });
+  res.status(204).send();
+});
+
 // ── Clips ─────────────────────────────────────────────────────────────────────
-router.get("/clips", (_req, res) => {
-  res.json(clipLists);
+router.get("/clips", (req, res) => {
+  const pid = typeof req.query.project_id === "string" ? req.query.project_id : null;
+  res.json(pid ? clipLists.filter((c) => c.project_id === pid) : clipLists);
 });
 
 router.post("/clips", (req, res) => {
@@ -876,6 +954,7 @@ router.post("/clips", (req, res) => {
     id: `cl-${Date.now()}`,
     name: req.body.name,
     description: req.body.description || null,
+    project_id: (req.body.project_id as string | null) || null,
     created_at: new Date().toISOString(),
     clips: (req.body.clips || []).map((c: any, i: number) => ({
       id: `clip-${Date.now()}-${i}`,
@@ -887,6 +966,7 @@ router.post("/clips", (req, res) => {
       notes: null,
     })),
   };
+  clipLists.unshift(newList);
   res.status(201).json(newList);
 });
 
@@ -899,7 +979,10 @@ router.get("/clips/:id", (req, res) => {
 router.patch("/clips/:id", (req, res) => {
   const cl = clipLists.find((c) => c.id === req.params.id);
   if (!cl) { res.status(404).json({ error: "Not found" }); return; }
-  res.json({ ...cl, ...req.body });
+  if (req.body.name !== undefined) cl.name = req.body.name;
+  if (req.body.description !== undefined) cl.description = req.body.description;
+  if (req.body.project_id !== undefined) cl.project_id = req.body.project_id;
+  res.json(cl);
 });
 
 router.delete("/clips/:id", (_req, res) => {
@@ -946,6 +1029,7 @@ router.post("/clips/:id/export", (req, res) => {
 
 type MockRender = {
   id: string; media_id: string; filename: string | null; clip_list_id: string | null;
+  project_id: string | null;
   label: string | null; start_time: number; end_time: number;
   preset: string; burn_captions: boolean; status: string; progress: number;
   output_url: string | null; error_message: string | null;
@@ -956,12 +1040,13 @@ type MockRender = {
 
 const renders: MockRender[] = [];
 
-function makeRender(mediaId: string, start: number, end: number, preset: string, burnCaptions: boolean, label: string | null, clipListId: string | null): MockRender {
+function makeRender(mediaId: string, start: number, end: number, preset: string, burnCaptions: boolean, label: string | null, clipListId: string | null, projectId: string | null = null): MockRender {
   return {
     id: `render-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     media_id: mediaId,
     filename: assets.find((a) => a.id === mediaId)?.filename || null,
     clip_list_id: clipListId,
+    project_id: projectId,
     label,
     start_time: start,
     end_time: end,
@@ -1021,7 +1106,7 @@ router.post("/clips/:id/render", (req, res) => {
   if (!cl.clips.length) { res.status(400).json({ detail: "Clip list has no clips" }); return; }
   const preset = req.body.preset || "original";
   const burn = !!req.body.burn_captions;
-  const created = cl.clips.map((c) => makeRender(c.media_id, c.start_time, c.end_time, preset, burn, c.label, cl.id));
+  const created = cl.clips.map((c) => makeRender(c.media_id, c.start_time, c.end_time, preset, burn, c.label, cl.id, cl.project_id ?? null));
   renders.unshift(...created);
   res.status(202).json(created.map(renderOut));
 });
@@ -1030,6 +1115,7 @@ router.get("/renders", (req, res) => {
   renders.forEach(tickRender);
   let out = renders;
   if (req.query.clip_list_id) out = out.filter((r) => r.clip_list_id === req.query.clip_list_id);
+  if (req.query.project_id) out = out.filter((r) => r.project_id === req.query.project_id);
   res.json(out.map(renderOut));
 });
 
@@ -1039,7 +1125,7 @@ router.post("/renders", (req, res) => {
   const r = makeRender(
     req.body.media_id, req.body.start_time, req.body.end_time,
     req.body.preset || "original", !!req.body.burn_captions,
-    req.body.label || null, req.body.clip_list_id || null,
+    req.body.label || null, req.body.clip_list_id || null, req.body.project_id || null,
   );
   renders.unshift(r);
   res.status(202).json(renderOut(r));
@@ -1141,7 +1227,7 @@ router.post("/media/:id/social/cuts", (req, res) => {
 // ── Reels (prompt-based highlight reels) ─────────────────────────────────────
 
 type MockReel = {
-  id: string; prompt: string; media_id: string | null; preset: string; burn_captions: boolean;
+  id: string; prompt: string; media_id: string | null; project_id: string | null; preset: string; burn_captions: boolean;
   clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null; thumbnail_url: string | null }[];
   status: string; progress: number;
   output_url: string | null; error_message: string | null;
@@ -1182,7 +1268,9 @@ function reelOut(r: MockReel) {
 router.get("/reels", (req, res) => {
   reels.forEach(tickReel);
   const mediaId = typeof req.query.media_id === "string" ? req.query.media_id : null;
-  const list = mediaId ? reels.filter((r) => r.media_id === mediaId) : reels;
+  const pid = typeof req.query.project_id === "string" ? req.query.project_id : null;
+  let list = mediaId ? reels.filter((r) => r.media_id === mediaId) : reels;
+  if (pid) list = list.filter((r) => r.project_id === pid);
   res.json(list.map(reelOut));
 });
 
@@ -1244,6 +1332,7 @@ router.post("/reels", (req, res) => {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     prompt,
     media_id: mediaId,
+    project_id: (req.body.project_id as string | null) || null,
     preset,
     burn_captions: burn,
     clips,
@@ -1373,10 +1462,10 @@ router.post("/media/:id/tighten", (req, res) => {
   });
 });
 
-function makeMockReel(prompt: string, mediaId: string | null, preset: string, burn: boolean, clips: MockReel["clips"]): MockReel {
+function makeMockReel(prompt: string, mediaId: string | null, preset: string, burn: boolean, clips: MockReel["clips"], projectId: string | null = null): MockReel {
   const reel: MockReel = {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-    prompt, media_id: mediaId, preset, burn_captions: burn, clips,
+    prompt, media_id: mediaId, project_id: projectId, preset, burn_captions: burn, clips,
     status: "pending", progress: 0, output_url: null, error_message: null,
     created_at: new Date().toISOString(), finished_at: null, _startedAt: Date.now(),
   };
@@ -1416,14 +1505,14 @@ router.post("/clips/:id/roughcut", (req, res) => {
     start_time: c.start_time, end_time: c.end_time, snippet: c.label || null,
     thumbnail_url: nearestSceneThumb(c.media_id, c.start_time),
   }));
-  const reel = makeMockReel(`Rough cut — ${cl.name}`, null, preset, !!req.body?.burn_captions, clips);
+  const reel = makeMockReel(`Rough cut — ${cl.name}`, null, preset, !!req.body?.burn_captions, clips, cl.project_id ?? null);
   res.status(202).json(reelOut(reel));
 });
 
 // ── Stories ──────────────────────────────────────────────────────────────────
 
 type MockStory = {
-  id: string; prompt: string | null; asset_ids: string[];
+  id: string; prompt: string | null; project_id: string | null; asset_ids: string[];
   status: string; progress: number;
   title: string | null; narrative: string | null; clip_list_id: string | null;
   error_message: string | null; created_at: string; finished_at: string | null;
@@ -1461,6 +1550,7 @@ function tickStory(s: MockStory) {
       id: `cl-${Date.now()}`,
       name: `Story — ${s.title}`,
       description: s.narrative,
+      project_id: s.project_id,
       created_at: new Date().toISOString(),
       clips: picked.map((c, i) => ({
         id: `clip-${Date.now()}-${i}`,
@@ -1478,9 +1568,11 @@ function storyOut(s: MockStory) {
   return out;
 }
 
-router.get("/stories", (_req, res) => {
+router.get("/stories", (req, res) => {
   stories.forEach(tickStory);
-  res.json(stories.map(storyOut));
+  const pid = typeof req.query.project_id === "string" ? req.query.project_id : null;
+  const list = pid ? stories.filter((s) => s.project_id === pid) : stories;
+  res.json(list.map(storyOut));
 });
 
 router.post("/stories", (req, res) => {
@@ -1491,6 +1583,7 @@ router.post("/stories", (req, res) => {
   const story: MockStory = {
     id: `story-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     prompt: (req.body?.prompt || "").trim() || null,
+    project_id: (req.body?.project_id as string | null) || null,
     asset_ids: assetIds,
     status: "pending", progress: 0,
     title: null, narrative: null, clip_list_id: null,

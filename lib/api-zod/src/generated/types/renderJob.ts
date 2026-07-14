@@ -17,6 +17,8 @@ export interface RenderJob {
   /** @nullable */
   clip_list_id?: string | null;
   /** @nullable */
+  project_id?: string | null;
+  /** @nullable */
   label?: string | null;
   start_time: number;
   end_time: number;

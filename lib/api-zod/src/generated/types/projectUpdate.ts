@@ -5,15 +5,12 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { Clip } from './clip';
 
-export interface ClipList {
-  id: string;
-  name: string;
+export interface ProjectUpdate {
+  /** @minLength 1 */
+  name?: string;
   /** @nullable */
   description?: string | null;
   /** @nullable */
-  project_id?: string | null;
-  created_at: string;
-  clips: Clip[];
+  script?: string | null;
 }

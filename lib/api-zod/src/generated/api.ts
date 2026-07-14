@@ -428,6 +428,7 @@ export const CreateRoughCutResponse = zod.object({
   "id": zod.string(),
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
+  "project_id": zod.string().nullish(),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -617,6 +618,7 @@ export const CreateSocialCutsResponseItem = zod.object({
   "media_id": zod.string(),
   "filename": zod.string().nullish().describe('Source asset filename'),
   "clip_list_id": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "label": zod.string().nullish(),
   "start_time": zod.number(),
   "end_time": zod.number(),
@@ -1137,12 +1139,130 @@ export const GetConversationMessagesResponse = zod.array(GetConversationMessages
 
 
 /**
+ * @summary List projects, newest first
+ */
+export const ListProjectsResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
+  "created_at": zod.string(),
+  "updated_at": zod.string().nullish(),
+  "counts": zod.object({
+  "clip_lists": zod.number(),
+  "stories": zod.number(),
+  "reels": zod.number(),
+  "renders": zod.number()
+})
+})
+export const ListProjectsResponse = zod.array(ListProjectsResponseItem)
+
+
+/**
+ * @summary Create a project
+ */
+
+
+
+export const CreateProjectBody = zod.object({
+  "name": zod.string().min(1),
+  "description": zod.string().nullish(),
+  "script": zod.string().nullish()
+})
+
+export const CreateProjectResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
+  "created_at": zod.string(),
+  "updated_at": zod.string().nullish(),
+  "counts": zod.object({
+  "clip_lists": zod.number(),
+  "stories": zod.number(),
+  "reels": zod.number(),
+  "renders": zod.number()
+})
+})
+
+
+/**
+ * @summary Get a project
+ */
+export const GetProjectParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetProjectResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
+  "created_at": zod.string(),
+  "updated_at": zod.string().nullish(),
+  "counts": zod.object({
+  "clip_lists": zod.number(),
+  "stories": zod.number(),
+  "reels": zod.number(),
+  "renders": zod.number()
+})
+})
+
+
+/**
+ * @summary Update a project
+ */
+export const UpdateProjectParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpdateProjectBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "description": zod.string().nullish(),
+  "script": zod.string().nullish()
+})
+
+export const UpdateProjectResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
+  "created_at": zod.string(),
+  "updated_at": zod.string().nullish(),
+  "counts": zod.object({
+  "clip_lists": zod.number(),
+  "stories": zod.number(),
+  "reels": zod.number(),
+  "renders": zod.number()
+})
+})
+
+
+/**
+ * @summary Delete a project (linked items are kept, unlinked)
+ */
+export const DeleteProjectParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteProjectResponse = zod.void()
+
+
+/**
  * @summary List all clip lists
  */
+export const ListClipListsQueryParams = zod.object({
+  "project_id": zod.coerce.string().optional().describe('Only clip lists linked to this project')
+})
+
 export const ListClipListsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "description": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "created_at": zod.string(),
   "clips": zod.array(zod.object({
   "id": zod.string(),
@@ -1163,6 +1283,7 @@ export const ListClipListsResponse = zod.array(ListClipListsResponseItem)
 export const CreateClipListBody = zod.object({
   "name": zod.string(),
   "description": zod.string().optional(),
+  "project_id": zod.string().nullish(),
   "clips": zod.array(zod.object({
   "media_id": zod.string(),
   "start_time": zod.number(),
@@ -1175,6 +1296,7 @@ export const CreateClipListResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "description": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "created_at": zod.string(),
   "clips": zod.array(zod.object({
   "id": zod.string(),
@@ -1199,6 +1321,7 @@ export const GetClipListResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "description": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "created_at": zod.string(),
   "clips": zod.array(zod.object({
   "id": zod.string(),
@@ -1222,6 +1345,7 @@ export const UpdateClipListParams = zod.object({
 export const UpdateClipListBody = zod.object({
   "name": zod.string().optional(),
   "description": zod.string().optional(),
+  "project_id": zod.string().nullish(),
   "clips": zod.array(zod.object({
   "media_id": zod.string(),
   "start_time": zod.number(),
@@ -1234,6 +1358,7 @@ export const UpdateClipListResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "description": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "created_at": zod.string(),
   "clips": zod.array(zod.object({
   "id": zod.string(),
@@ -1291,6 +1416,7 @@ export const CreateClipListRoughCutResponse = zod.object({
   "id": zod.string(),
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
+  "project_id": zod.string().nullish(),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1330,6 +1456,7 @@ export const RenderClipListResponseItem = zod.object({
   "media_id": zod.string(),
   "filename": zod.string().nullish().describe('Source asset filename'),
   "clip_list_id": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "label": zod.string().nullish(),
   "start_time": zod.number(),
   "end_time": zod.number(),
@@ -1355,6 +1482,7 @@ export const listRendersQueryLimitDefault = 100;
 
 export const ListRendersQueryParams = zod.object({
   "clip_list_id": zod.coerce.string().optional(),
+  "project_id": zod.coerce.string().optional().describe('Only renders linked to this project'),
   "limit": zod.coerce.number().default(listRendersQueryLimitDefault)
 })
 
@@ -1363,6 +1491,7 @@ export const ListRendersResponseItem = zod.object({
   "media_id": zod.string(),
   "filename": zod.string().nullish().describe('Source asset filename'),
   "clip_list_id": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "label": zod.string().nullish(),
   "start_time": zod.number(),
   "end_time": zod.number(),
@@ -1397,6 +1526,7 @@ export const CreateRenderBody = zod.object({
   "end_time": zod.number().min(createRenderBodyEndTimeMin),
   "label": zod.string().nullish(),
   "clip_list_id": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "preset": zod.enum(['original', 'vertical']).default(createRenderBodyPresetDefault),
   "burn_captions": zod.boolean().default(createRenderBodyBurnCaptionsDefault)
 })
@@ -1406,6 +1536,7 @@ export const CreateRenderResponse = zod.object({
   "media_id": zod.string(),
   "filename": zod.string().nullish().describe('Source asset filename'),
   "clip_list_id": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "label": zod.string().nullish(),
   "start_time": zod.number(),
   "end_time": zod.number(),
@@ -1435,6 +1566,7 @@ export const GetRenderResponse = zod.object({
   "media_id": zod.string(),
   "filename": zod.string().nullish().describe('Source asset filename'),
   "clip_list_id": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "label": zod.string().nullish(),
   "start_time": zod.number(),
   "end_time": zod.number(),
@@ -1496,6 +1628,7 @@ export const PublishRenderResponse = zod.object({
   "media_id": zod.string(),
   "filename": zod.string().nullish().describe('Source asset filename'),
   "clip_list_id": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "label": zod.string().nullish(),
   "start_time": zod.number(),
   "end_time": zod.number(),
@@ -1528,13 +1661,15 @@ export const listReelsQueryLimitDefault = 100;
 
 export const ListReelsQueryParams = zod.object({
   "limit": zod.coerce.number().default(listReelsQueryLimitDefault),
-  "media_id": zod.coerce.string().optional().describe('Only reels scoped to this asset')
+  "media_id": zod.coerce.string().optional().describe('Only reels scoped to this asset'),
+  "project_id": zod.coerce.string().optional().describe('Only reels linked to this project')
 })
 
 export const ListReelsResponseItem = zod.object({
   "id": zod.string(),
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
+  "project_id": zod.string().nullish(),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1570,6 +1705,7 @@ export const createReelBodyMaxClipsMax = 12;
 export const CreateReelBody = zod.object({
   "prompt": zod.string().min(createReelBodyPromptMin).describe('What to highlight, e.g. \"the fact about faith\"'),
   "media_id": zod.string().nullish().describe('Restrict the reel to one asset, or null\/omitted for the whole library'),
+  "project_id": zod.string().nullish(),
   "preset": zod.enum(['original', 'vertical']).default(createReelBodyPresetDefault),
   "burn_captions": zod.boolean().default(createReelBodyBurnCaptionsDefault),
   "max_clips": zod.number().min(1).max(createReelBodyMaxClipsMax).default(createReelBodyMaxClipsDefault)
@@ -1579,6 +1715,7 @@ export const CreateReelResponse = zod.object({
   "id": zod.string(),
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
+  "project_id": zod.string().nullish(),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1609,6 +1746,7 @@ export const GetReelResponse = zod.object({
   "id": zod.string(),
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
+  "project_id": zod.string().nullish(),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1651,9 +1789,14 @@ export const DownloadReelResponse = zod.unknown()
 /**
  * @summary List multi-video story builder jobs, newest first
  */
+export const ListStoriesQueryParams = zod.object({
+  "project_id": zod.coerce.string().optional().describe('Only stories linked to this project')
+})
+
 export const ListStoriesResponseItem = zod.object({
   "id": zod.string(),
   "prompt": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "asset_ids": zod.array(zod.string()),
   "status": zod.string().describe('pending | running | success | error'),
   "progress": zod.number(),
@@ -1675,12 +1818,14 @@ export const ListStoriesResponse = zod.array(ListStoriesResponseItem)
 
 export const CreateStoryBody = zod.object({
   "asset_ids": zod.array(zod.string()).min(1),
-  "prompt": zod.string().nullish().describe('Optional editorial direction for the storyline')
+  "prompt": zod.string().nullish().describe('Optional editorial direction for the storyline'),
+  "project_id": zod.string().nullish()
 })
 
 export const CreateStoryResponse = zod.object({
   "id": zod.string(),
   "prompt": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "asset_ids": zod.array(zod.string()),
   "status": zod.string().describe('pending | running | success | error'),
   "progress": zod.number(),
@@ -1703,6 +1848,7 @@ export const GetStoryParams = zod.object({
 export const GetStoryResponse = zod.object({
   "id": zod.string(),
   "prompt": zod.string().nullish(),
+  "project_id": zod.string().nullish(),
   "asset_ids": zod.array(zod.string()),
   "status": zod.string().describe('pending | running | success | error'),
   "progress": zod.number(),

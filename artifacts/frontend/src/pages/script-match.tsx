@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FileText, Play, ListPlus, Check } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 
 function fmtTime(s: number) {
   const m = Math.floor(s / 60);
@@ -22,6 +22,7 @@ type Selected = { line: string; match: SearchResult };
 
 export default function ScriptMatch() {
   const [, navigate] = useLocation();
+  const projectId = new URLSearchParams(useSearch()).get("project");
   const [script, setScript] = useState("");
   const [result, setResult] = useState<ScriptMatchResponse | null>(null);
   const [selected, setSelected] = useState<Map<string, Selected>>(new Map());
@@ -57,6 +58,7 @@ export default function ScriptMatch() {
         data: {
           name: listName,
           description: "Created from script match",
+          project_id: projectId || undefined,
           clips: Array.from(selected.values()).map(({ line, match }) => ({
             media_id: match.media_id,
             start_time: match.start_time,

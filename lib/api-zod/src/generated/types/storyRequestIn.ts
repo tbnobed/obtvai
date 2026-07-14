@@ -14,4 +14,6 @@ export interface StoryRequestIn {
      * @nullable
      */
   prompt?: string | null;
+  /** @nullable */
+  project_id?: string | null;
 }

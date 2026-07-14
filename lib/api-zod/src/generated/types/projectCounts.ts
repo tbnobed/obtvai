@@ -6,11 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListRendersParams = {
-clip_list_id?: string;
-/**
- * Only renders linked to this project
- */
-project_id?: string;
-limit?: number;
+export type ProjectCounts = {
+  clip_lists: number;
+  stories: number;
+  reels: number;
+  renders: number;
 };

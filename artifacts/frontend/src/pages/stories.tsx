@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { BookOpen, Loader2, Trash2, ListVideo, Clock } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 
 function formatDuration(seconds: number | null | undefined): string {
   if (!seconds) return "—";
@@ -33,10 +33,9 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function Stories() {
   const queryClient = useQueryClient();
+  const projectId = new URLSearchParams(useSearch()).get("project");
   const { data: media } = useListMedia({}, { query: { queryKey: getListMediaQueryKey({}) } });
-  const { data: stories, isLoading } = useListStories(
-    { query: { queryKey: getListStoriesQueryKey() } },
-  );
+  const { data: stories, isLoading } = useListStories();
   const createMutation = useCreateStory();
   const deleteMutation = useDeleteStory();
 
@@ -59,7 +58,7 @@ export default function Stories() {
 
   const submit = () => {
     createMutation.mutate(
-      { data: { asset_ids: selected, prompt: prompt.trim() || undefined } },
+      { data: { asset_ids: selected, prompt: prompt.trim() || undefined, project_id: projectId || undefined } },
       {
         onSuccess: () => {
           setSelected([]);

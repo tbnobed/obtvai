@@ -143,16 +143,18 @@ async def _build_clip_list_out(cl: ClipList, db: AsyncSession) -> ClipListOut:
         id=cl.id,
         name=cl.name,
         description=cl.description,
+        project_id=cl.project_id,
         created_at=cl.created_at,
         clips=clip_outs,
     )
 
 
 @router.get("", response_model=list[ClipListOut])
-async def list_clip_lists(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(ClipList).order_by(desc(ClipList.created_at))
-    )
+async def list_clip_lists(project_id: str | None = None, db: AsyncSession = Depends(get_db)):
+    q = select(ClipList).order_by(desc(ClipList.created_at))
+    if project_id:
+        q = q.where(ClipList.project_id == project_id)
+    result = await db.execute(q)
     cls = result.scalars().all()
     return [await _build_clip_list_out(cl, db) for cl in cls]
 
@@ -163,6 +165,7 @@ async def create_clip_list(body: ClipListInput, db: AsyncSession = Depends(get_d
         id=str(uuid.uuid4()),
         name=body.name,
         description=body.description,
+        project_id=body.project_id,
         created_at=datetime.utcnow(),
     )
     db.add(cl)
@@ -198,6 +201,8 @@ async def update_clip_list(id: str, body: ClipListUpdate, db: AsyncSession = Dep
         cl.name = body.name
     if body.description is not None:
         cl.description = body.description
+    if "project_id" in body.model_fields_set:
+        cl.project_id = body.project_id
     if body.clips is not None:
         existing_q = await db.execute(select(Clip).where(Clip.clip_list_id == cl.id))
         for c in existing_q.scalars().all():
@@ -295,6 +300,7 @@ async def create_clip_list_rough_cut(
     reel = ReelJob(
         prompt=f"Rough cut — {cl_out.name}",
         media_id=None,
+        project_id=cl.project_id,
         preset=body.preset,
         burn_captions=body.burn_captions,
         clips=[

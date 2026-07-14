@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListClipLists, getListClipListsQueryKey, useExportClipList, useRenderClipList, useCreateClipListRoughCut } from "@workspace/api-client-react";
+import { useListClipLists, useExportClipList, useRenderClipList, useCreateClipListRoughCut } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,7 @@ const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
 
 export default function ClipLists() {
   const [, navigate] = useLocation();
-  const { data: lists, isLoading } = useListClipLists({ query: { queryKey: getListClipListsQueryKey() } });
+  const { data: lists, isLoading } = useListClipLists();
   const exportMutation = useExportClipList();
   const renderMutation = useRenderClipList();
   const roughCutMutation = useCreateClipListRoughCut();

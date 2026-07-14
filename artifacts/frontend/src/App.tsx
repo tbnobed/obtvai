@@ -19,6 +19,8 @@ import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
 import Insights from "@/pages/insights";
 import Stories from "@/pages/stories";
+import Projects from "@/pages/projects";
+import ProjectDetail from "@/pages/project-detail";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +29,8 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/projects" component={Projects} />
+        <Route path="/projects/:id" component={ProjectDetail} />
         <Route path="/library" component={Library} />
         <Route path="/library/:id" component={AssetDetail} />
         <Route path="/search" component={Search} />

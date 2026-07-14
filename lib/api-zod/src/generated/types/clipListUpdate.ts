@@ -10,5 +10,7 @@ import type { ClipListUpdateClipsItem } from './clipListUpdateClipsItem';
 export interface ClipListUpdate {
   name?: string;
   description?: string;
+  /** @nullable */
+  project_id?: string | null;
   clips?: ClipListUpdateClipsItem[];
 }

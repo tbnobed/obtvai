@@ -548,11 +548,54 @@ export interface Clip {
   notes?: string | null;
 }
 
+export type ProjectCounts = {
+  clip_lists: number;
+  stories: number;
+  reels: number;
+  renders: number;
+};
+
+export interface Project {
+  id: string;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  /**
+     * Working script/rundown text used in the Find stage
+     * @nullable
+     */
+  script?: string | null;
+  created_at: string;
+  /** @nullable */
+  updated_at?: string | null;
+  counts: ProjectCounts;
+}
+
+export interface ProjectInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  script?: string | null;
+}
+
+export interface ProjectUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  script?: string | null;
+}
+
 export interface ClipList {
   id: string;
   name: string;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   created_at: string;
   clips: Clip[];
 }
@@ -567,6 +610,8 @@ export type ClipListInputClipsItem = {
 export interface ClipListInput {
   name: string;
   description?: string;
+  /** @nullable */
+  project_id?: string | null;
   clips?: ClipListInputClipsItem[];
 }
 
@@ -580,6 +625,8 @@ export type ClipListUpdateClipsItem = {
 export interface ClipListUpdate {
   name?: string;
   description?: string;
+  /** @nullable */
+  project_id?: string | null;
   clips?: ClipListUpdateClipsItem[];
 }
 
@@ -619,6 +666,8 @@ export interface RenderRequest {
   label?: string | null;
   /** @nullable */
   clip_list_id?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   preset?: RenderRequestPreset;
   burn_captions?: boolean;
 }
@@ -633,6 +682,8 @@ export interface RenderJob {
   filename?: string | null;
   /** @nullable */
   clip_list_id?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   /** @nullable */
   label?: string | null;
   start_time: number;
@@ -717,6 +768,8 @@ export interface ReelRequest {
      * @nullable
      */
   media_id?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   preset?: ReelRequestPreset;
   burn_captions?: boolean;
   /**
@@ -751,6 +804,8 @@ export interface ReelJob {
      * @nullable
      */
   media_id?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;
@@ -837,12 +892,16 @@ export interface StoryRequestIn {
      * @nullable
      */
   prompt?: string | null;
+  /** @nullable */
+  project_id?: string | null;
 }
 
 export interface StoryJob {
   id: string;
   /** @nullable */
   prompt?: string | null;
+  /** @nullable */
+  project_id?: string | null;
   asset_ids: string[];
   /** pending | running | success | error */
   status: string;
@@ -916,8 +975,19 @@ status?: string;
 limit?: number;
 };
 
+export type ListClipListsParams = {
+/**
+ * Only clip lists linked to this project
+ */
+project_id?: string;
+};
+
 export type ListRendersParams = {
 clip_list_id?: string;
+/**
+ * Only renders linked to this project
+ */
+project_id?: string;
 limit?: number;
 };
 
@@ -927,5 +997,16 @@ limit?: number;
  * Only reels scoped to this asset
  */
 media_id?: string;
+/**
+ * Only reels linked to this project
+ */
+project_id?: string;
+};
+
+export type ListStoriesParams = {
+/**
+ * Only stories linked to this project
+ */
+project_id?: string;
 };
 

@@ -33,6 +33,7 @@ def _to_out(r: RenderJob, filename: str | None) -> RenderJobOut:
         media_id=r.media_id,
         filename=filename,
         clip_list_id=r.clip_list_id,
+        project_id=r.project_id,
         label=r.label,
         start_time=r.start_time,
         end_time=r.end_time,
@@ -87,11 +88,13 @@ async def _create_render(
     burn_captions: bool,
     label: str | None = None,
     clip_list_id: str | None = None,
+    project_id: str | None = None,
 ) -> RenderJob:
     r = RenderJob(
         id=str(uuid.uuid4()),
         media_id=media_id,
         clip_list_id=clip_list_id,
+        project_id=project_id,
         label=label,
         start_time=start_time,
         end_time=end_time,
@@ -108,6 +111,7 @@ async def _create_render(
 @router.get("", response_model=list[RenderJobOut])
 async def list_renders(
     clip_list_id: str | None = None,
+    project_id: str | None = None,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
 ):
@@ -119,6 +123,8 @@ async def list_renders(
     )
     if clip_list_id:
         q = q.where(RenderJob.clip_list_id == clip_list_id)
+    if project_id:
+        q = q.where(RenderJob.project_id == project_id)
     rows = (await db.execute(q)).all()
     return [_to_out(r, fn) for r, fn in rows]
 
@@ -131,7 +137,7 @@ async def create_render(body: RenderRequestIn, db: AsyncSession = Depends(get_db
         raise HTTPException(status_code=404, detail="Media not found")
     r = await _create_render(
         db, body.media_id, body.start_time, body.end_time,
-        body.preset, body.burn_captions, body.label, body.clip_list_id,
+        body.preset, body.burn_captions, body.label, body.clip_list_id, body.project_id,
     )
     await db.commit()
     try:
@@ -260,7 +266,7 @@ async def create_renders_for_clip_list(
             continue
         r = await _create_render(
             db, c.media_id, c.start_time, c.end_time,
-            preset, burn_captions, c.label, clip_list_id,
+            preset, burn_captions, c.label, clip_list_id, cl.project_id,
         )
         created.append(r)
     if not created:

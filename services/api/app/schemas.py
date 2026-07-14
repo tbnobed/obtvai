@@ -171,6 +171,7 @@ class RenderRequestIn(BaseModel):
     end_time: float
     label: Optional[str] = None
     clip_list_id: Optional[str] = None
+    project_id: Optional[str] = None
     preset: str = "original"
     burn_captions: bool = False
 
@@ -180,6 +181,7 @@ class RenderJobOut(BaseModel):
     media_id: str
     filename: Optional[str] = None
     clip_list_id: Optional[str] = None
+    project_id: Optional[str] = None
     label: Optional[str] = None
     start_time: float
     end_time: float
@@ -213,6 +215,7 @@ class PublishPlatformsOut(BaseModel):
 class ReelRequestIn(BaseModel):
     prompt: str = Field(min_length=3, max_length=500)
     media_id: Optional[str] = None
+    project_id: Optional[str] = None
     preset: Literal["original", "vertical"] = "original"
     burn_captions: bool = False
     max_clips: int = Field(default=6, ge=1, le=12)
@@ -231,6 +234,7 @@ class ReelJobOut(BaseModel):
     id: str
     prompt: str
     media_id: Optional[str] = None
+    project_id: Optional[str] = None
     preset: str
     burn_captions: bool
     clips: List[ReelClipOut] = []
@@ -325,6 +329,7 @@ class ClipListOut(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
+    project_id: Optional[str] = None
     created_at: datetime
     clips: List[ClipOut] = []
 
@@ -341,12 +346,14 @@ class ClipInput(BaseModel):
 class ClipListInput(BaseModel):
     name: str
     description: Optional[str] = None
+    project_id: Optional[str] = None
     clips: List[ClipInput] = []
 
 
 class ClipListUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    project_id: Optional[str] = None
     clips: Optional[List[ClipInput]] = None
 
 
@@ -388,11 +395,13 @@ class RoughCutInput(BaseModel):
 class StoryRequestIn(BaseModel):
     asset_ids: List[str]
     prompt: Optional[str] = None
+    project_id: Optional[str] = None
 
 
 class StoryJobOut(BaseModel):
     id: str
     prompt: Optional[str] = None
+    project_id: Optional[str] = None
     asset_ids: List[str] = []
     status: str
     progress: float
@@ -495,6 +504,37 @@ class LibraryInsightsOut(BaseModel):
     stats: LibraryInsightsStatsOut
     top_people: List[TopPersonOut] = []
     top_topics: List[TopTopicOut] = []
+
+
+# ── Projects ──────────────────────────────────────────────────────────────────
+
+class ProjectCounts(BaseModel):
+    clip_lists: int = 0
+    stories: int = 0
+    reels: int = 0
+    renders: int = 0
+
+
+class ProjectOut(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    script: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    counts: ProjectCounts
+
+
+class ProjectInput(BaseModel):
+    name: str = Field(min_length=1)
+    description: Optional[str] = None
+    script: Optional[str] = None
+
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1)
+    description: Optional[str] = None
+    script: Optional[str] = None
 
 
 class JobCleanupIn(BaseModel):
