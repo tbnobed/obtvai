@@ -155,7 +155,8 @@ def creative_pass(self, media_id: str, job_id: str):
             "Respond with ONLY a JSON object, no other text, in exactly this shape:\n"
             "{\n"
             '  "logline": "one-sentence editorial pitch for this piece",\n'
-            '  "story_beats": [{"time": "MM:SS or HH:MM:SS", '
+            '  "story_beats": [{"time": "MM:SS or HH:MM:SS — the timecode where this beat '
+            'happens, copied from the bracketed [start–end] ranges in the observations above", '
             '"beat": "hook|setup|development|turn|climax|resolution", '
             '"title": "short beat title", "description": "what happens and why it matters '
             'to the edit", "emotion": "dominant emotional register"}],\n'
@@ -163,7 +164,9 @@ def creative_pass(self, media_id: str, job_id: str):
             '"pacing|structure|cuts|broll|delivery|best_take", '
             '"note": "specific, actionable editing note"}]\n'
             "}\n\n"
-            "Rules: 4-8 story beats in chronological order spanning the full runtime; "
+            "Rules: 4-8 story beats in strictly increasing chronological order spanning the "
+            "full runtime — every beat needs a distinct, real timecode taken from the "
+            "observations, never 00:00 unless the beat truly opens the video; "
             "4-8 editorial notes an editor could act on today (what drags, what to cut, "
             "where B-roll is needed, which takes are strongest)."
         )
@@ -182,8 +185,12 @@ def creative_pass(self, media_id: str, job_id: str):
                 beat = str(b.get("beat", "")).strip().lower()
                 if beat not in _BEATS:
                     beat = "development"
+                raw_time = next(
+                    (b[k] for k in ("time", "timecode", "timestamp", "start", "at") if b.get(k) not in (None, "")),
+                    0,
+                )
                 story_beats.append({
-                    "time": round(_clamp(_timecode_to_seconds(b.get("time", 0)), 0.0, duration), 1),
+                    "time": round(_clamp(_timecode_to_seconds(raw_time), 0.0, duration), 1),
                     "beat": beat,
                     "title": str(b["title"]).strip()[:120],
                     "description": (str(b.get("description", "")).strip()[:400] or None),
@@ -201,6 +208,25 @@ def creative_pass(self, media_id: str, job_id: str):
                 })
         except (ValueError, json.JSONDecodeError):
             append_log(db, job_id, "Story-arc output unparseable — keeping clip suggestions only")
+
+        # Repair degenerate arcs: if the model failed to give real timecodes
+        # (all beats collapse to ~0:00 or a single timestamp), anchor them to
+        # the flagged clips' times, or spread them across the runtime.
+        if len(story_beats) >= 2:
+            times = [b["time"] for b in story_beats]
+            degenerate = max(times) - min(times) < max(2.0, duration * 0.02)
+            if degenerate and duration > 0:
+                anchors = sorted(c["start"] for c in all_clips)
+                n = len(story_beats)
+                if len(anchors) >= n:
+                    idxs = [round(i * (len(anchors) - 1) / (n - 1)) for i in range(n)]
+                    new_times = [anchors[j] for j in idxs]
+                else:
+                    new_times = [duration * i / n for i in range(n)]
+                for b, t in zip(story_beats, new_times):
+                    b["time"] = round(_clamp(float(t), 0.0, duration), 1)
+                append_log(db, job_id,
+                           "Story beat timecodes were missing/degenerate; re-anchored to clip times")
 
         story_beats.sort(key=lambda b: b["time"])
         story_beats = story_beats[:10]
