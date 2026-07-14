@@ -1,0 +1,35 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ # A. Same bare Ubuntu, but pinned to device 0 (tests device selection)
+docker run --rm --gpus 'device=0' -e NVIDIA_DRIVER_CAPABILITIES=all \
+  -v /tmp/ffmpeg8:/f:ro ubuntu:22.04 \
+  /f -f lavfi -i testsrc=duration=1:size=640x360:rate=30 -c:v h264_nvenc -f null - 2>&1 | tail -3
+
+# B. Same CUDA base image as the worker, all GPUs (tests the base image)
+docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all \
+  -v /tmp/ffmpeg8:/f:ro nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04 \
+  /f -f lavfi -i testsrc=duration=1:size=640x360:rate=30 -c:v h264_nvenc -f null - 2>&1 | tail -3
+
+# C. Which libcuda does the worker container actually resolve?
+docker compose exec worker-cpu sh -c 'ldconfig -p | grep libcuda; ls -l /usr/local/cuda/compat 2>/dev/null && echo COMPAT-PRESENT'
+[out#0/null @ 0x649d8fc1be80] Nothing was written into output file, because at least one of its streams received no packets.
+frame=    0 fps=0.0 q=0.0 Lsize=       0KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:00.28
+Conversion failed!
+      CPB properties: bitrate max/min/avg: 0/0/2000000 buffer size: 4000000 vbv_delay: N/A
+[out#0/null @ 0x60910e1afe80] video:94KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+frame=   30 fps=0.0 q=10.0 Lsize=N/A time=00:00:00.90 bitrate=N/A speed=4.64x elapsed=0:00:00.19
+        libcudart.so.12 (libc6,x86-64) => /usr/local/cuda/targets/x86_64-linux/lib/libcudart.so.12
+        libcudadebugger.so.1 (libc6,x86-64) => /lib/x86_64-linux-gnu/libcudadebugger.so.1
+        libcuda.so.1 (libc6,x86-64) => /lib/x86_64-linux-gnu/libcuda.so.1
+        libcuda.so (libc6,x86-64) => /lib/x86_64-linux-gnu/libcuda.so
+total 197128
+lrwxrwxrwx 1 root root       12 Feb 26  2025 libcuda.so -> libcuda.so.1
+lrwxrwxrwx 1 root root       21 Feb 26  2025 libcuda.so.1 -> libcuda.so.570.124.06
+-rw-r--r-- 1 root root 71373816 Feb 26  2025 libcuda.so.570.124.06
+lrwxrwxrwx 1 root root       29 Feb 26  2025 libcudadebugger.so.1 -> libcudadebugger.so.570.124.06
+-rw-r--r-- 1 root root 10244640 Feb 26  2025 libcudadebugger.so.570.124.06
+lrwxrwxrwx 1 root root       19 Feb 26  2025 libnvidia-nvvm.so -> libnvidia-nvvm.so.4
+lrwxrwxrwx 1 root root       28 Feb 26  2025 libnvidia-nvvm.so.4 -> libnvidia-nvvm.so.570.124.06
+-rw-r--r-- 1 root root 81978912 Feb 26  2025 libnvidia-nvvm.so.570.124.06
+lrwxrwxrwx 1 root root       38 Feb 26  2025 libnvidia-ptxjitcompiler.so.1 -> libnvidia-ptxjitcompiler.so.570.124.06
+-rw-r--r-- 1 root root 38251952 Feb 26  2025 libnvidia-ptxjitcompiler.so.570.124.06
+COMPAT-PRESENT
+obtv-admin@obtv-llm-2:~/obtv-ai$
