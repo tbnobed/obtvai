@@ -802,13 +802,26 @@ export interface ReelRequest {
      * @nullable
      */
   media_id?: string | null;
+  /**
+     * Restrict the reel to a set of assets (e.g. a project's media pool)
+     * @nullable
+     */
+  media_ids?: string[] | null;
   /** @nullable */
   project_id?: string | null;
+  /**
+     * Desired run time in seconds; the builder selects enough material to reach it (up to 4 hours)
+     * @minimum 30
+     * @maximum 14400
+     * @nullable
+     */
+  target_duration_seconds?: number | null;
   preset?: ReelRequestPreset;
   burn_captions?: boolean;
   /**
+     * Clip cap when no target duration is given
      * @minimum 1
-     * @maximum 12
+     * @maximum 500
      */
   max_clips?: number;
 }
@@ -840,6 +853,11 @@ export interface ReelJob {
   media_id?: string | null;
   /** @nullable */
   project_id?: string | null;
+  /**
+     * Requested run time in seconds, when one was given
+     * @nullable
+     */
+  target_duration_seconds?: number | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;

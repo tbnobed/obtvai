@@ -429,6 +429,7 @@ export const CreateRoughCutResponse = zod.object({
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
+  "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1441,6 +1442,7 @@ export const CreateClipListRoughCutResponse = zod.object({
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
+  "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1694,6 +1696,7 @@ export const ListReelsResponseItem = zod.object({
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
+  "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1719,20 +1722,25 @@ export const ListReelsResponse = zod.array(ListReelsResponseItem)
  */
 export const createReelBodyPromptMin = 3;
 
+export const createReelBodyTargetDurationSecondsMin = 30;
+export const createReelBodyTargetDurationSecondsMax = 14400;
+
 export const createReelBodyPresetDefault = `original`;
 export const createReelBodyBurnCaptionsDefault = false;
 export const createReelBodyMaxClipsDefault = 6;
-export const createReelBodyMaxClipsMax = 12;
+export const createReelBodyMaxClipsMax = 500;
 
 
 
 export const CreateReelBody = zod.object({
   "prompt": zod.string().min(createReelBodyPromptMin).describe('What to highlight, e.g. \"the fact about faith\"'),
   "media_id": zod.string().nullish().describe('Restrict the reel to one asset, or null\/omitted for the whole library'),
+  "media_ids": zod.array(zod.string()).nullish().describe('Restrict the reel to a set of assets (e.g. a project\'s media pool)'),
   "project_id": zod.string().nullish(),
+  "target_duration_seconds": zod.number().min(createReelBodyTargetDurationSecondsMin).max(createReelBodyTargetDurationSecondsMax).nullish().describe('Desired run time in seconds; the builder selects enough material to reach it (up to 4 hours)'),
   "preset": zod.enum(['original', 'vertical']).default(createReelBodyPresetDefault),
   "burn_captions": zod.boolean().default(createReelBodyBurnCaptionsDefault),
-  "max_clips": zod.number().min(1).max(createReelBodyMaxClipsMax).default(createReelBodyMaxClipsDefault)
+  "max_clips": zod.number().min(1).max(createReelBodyMaxClipsMax).default(createReelBodyMaxClipsDefault).describe('Clip cap when no target duration is given')
 })
 
 export const CreateReelResponse = zod.object({
@@ -1740,6 +1748,7 @@ export const CreateReelResponse = zod.object({
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
+  "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({
@@ -1771,6 +1780,7 @@ export const GetReelResponse = zod.object({
   "prompt": zod.string(),
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
+  "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "clips": zod.array(zod.object({

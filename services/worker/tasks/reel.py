@@ -49,7 +49,10 @@ _CURATE_MAX_CLIP = 45.0
 _CONTEXT_PAD = 25.0
 
 
-def _curate_clips(db, prompt: str, candidates: list[dict]) -> list[dict] | None:
+def _curate_clips(
+    db, prompt: str, candidates: list[dict],
+    target_duration: float | None = None,
+) -> list[dict] | None:
     """Story-editor pass over the API's semantic-search candidates.
 
     Shows the LLM each candidate with surrounding transcript context and asks
@@ -94,6 +97,11 @@ def _curate_clips(db, prompt: str, candidates: list[dict]) -> list[dict] | None:
     if not blocks:
         return None
 
+    # Duration-aware clip length cap: long-form targets allow longer clips.
+    max_clip = _CURATE_MAX_CLIP
+    if target_duration:
+        max_clip = max(_CURATE_MAX_CLIP, min(300.0, target_duration / max(len(candidates), 1) * 1.5))
+
     tokenizer, model = _load_llm()
     llm_prompt = (
         f"You are a senior video editor cutting a highlight reel. {CREATIVE_PERSONA}\n"
@@ -106,13 +114,19 @@ def _curate_clips(db, prompt: str, candidates: list[dict]) -> list[dict] | None:
         "self-contained thought — never start or end mid-sentence. Prefer emotionally "
         "strong, quotable moments; drop candidates that are filler or redundant. "
         "Order the clips so the reel builds like a story: a hook first, then "
-        "development, then the strongest emotional beat near the end.\n\n"
+        "development, then the strongest emotional beat near the end.\n"
+        + (
+            f"The finished piece should run close to {int(target_duration // 60)} minutes "
+            "— keep enough material to reach that length; do not over-trim.\n"
+            if target_duration else ""
+        )
+        + "\n"
         "Respond with ONLY a JSON object in exactly this shape:\n"
         '{"clips": [{"candidate": 0, "start": "MM:SS or HH:MM:SS", '
         '"end": "MM:SS or HH:MM:SS", "why": "one line on why this moment earns '
         'its place"}]}\n'
         f"Rules: keep 3 to {len(candidates)} clips, each {int(_CURATE_MIN_CLIP)}-"
-        f"{int(_CURATE_MAX_CLIP)} seconds."
+        f"{int(max_clip)} seconds."
     )
     raw = _generate(tokenizer, model, llm_prompt, max_new_tokens=900)
     data = _extract_json(raw)
@@ -134,8 +148,8 @@ def _curate_clips(db, prompt: str, candidates: list[dict]) -> list[dict] | None:
         e = max(s, min(float(e), ctx_e))
         if e - s < _CURATE_MIN_CLIP:
             e = min(ctx_e, s + _CURATE_MIN_CLIP)
-        if e - s > _CURATE_MAX_CLIP:
-            e = s + _CURATE_MAX_CLIP
+        if e - s > max_clip:
+            e = s + max_clip
         if e - s < 2.0:
             continue
         snippet_rows = db.execute(
@@ -159,6 +173,13 @@ def _curate_clips(db, prompt: str, candidates: list[dict]) -> list[dict] | None:
     # Sanity: require a meaningful selection, otherwise keep raw candidates
     if len(refined) < min(3, len(candidates)):
         return None
+    if target_duration:
+        # Don't let curation gut a long-form build far below the runtime goal
+        # when the raw candidates had the material to reach it.
+        raw_total = sum(float(c["end_time"]) - float(c["start_time"]) for c in candidates)
+        refined_total = sum(c["end_time"] - c["start_time"] for c in refined)
+        if refined_total < 0.6 * min(target_duration, raw_total):
+            return None
     return refined
 
 
@@ -168,12 +189,13 @@ def build_reel(self, reel_id: str):
     try:
         from sqlalchemy import text
         row = db.execute(
-            text("SELECT clips, preset, burn_captions, prompt FROM reel_jobs WHERE id = :rid"),
+            text("SELECT clips, preset, burn_captions, prompt, target_duration_seconds FROM reel_jobs WHERE id = :rid"),
             {"rid": reel_id},
         ).fetchone()
         if not row:
             raise RuntimeError(f"Reel job {reel_id} not found")
-        clips, preset, burn_captions, reel_prompt = row
+        clips, preset, burn_captions, reel_prompt, target_duration = row
+        target_duration = float(target_duration) if target_duration else None
         if isinstance(clips, str):
             clips = json.loads(clips)
         if not clips:
@@ -188,7 +210,7 @@ def build_reel(self, reel_id: str):
         # complete thoughts, drops weak moments, and orders for a real arc.
         if reel_prompt and (reel_prompt or "").strip():
             try:
-                curated = _curate_clips(db, reel_prompt.strip(), clips)
+                curated = _curate_clips(db, reel_prompt.strip(), clips, target_duration)
                 if curated:
                     clips = curated
                     _update_reel(db, reel_id, clips=json.dumps(clips))

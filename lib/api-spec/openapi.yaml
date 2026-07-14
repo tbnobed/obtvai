@@ -2574,8 +2574,18 @@ components:
         media_id:
           type: ["string", "null"]
           description: Restrict the reel to one asset, or null/omitted for the whole library
+        media_ids:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: Restrict the reel to a set of assets (e.g. a project's media pool)
         project_id:
           type: ["string", "null"]
+        target_duration_seconds:
+          type: ["number", "null"]
+          minimum: 30
+          maximum: 14400
+          description: Desired run time in seconds; the builder selects enough material to reach it (up to 4 hours)
         preset:
           type: string
           enum: [original, vertical]
@@ -2587,7 +2597,8 @@ components:
           type: integer
           default: 6
           minimum: 1
-          maximum: 12
+          maximum: 500
+          description: Clip cap when no target duration is given
 
     ReelClip:
       type: object
@@ -2621,6 +2632,9 @@ components:
           description: Set when the reel is scoped to one asset
         project_id:
           type: ["string", "null"]
+        target_duration_seconds:
+          type: ["number", "null"]
+          description: Requested run time in seconds, when one was given
         preset:
           type: string
           description: original | vertical

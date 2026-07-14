@@ -1260,7 +1260,9 @@ router.post("/media/:id/social/cuts", (req, res) => {
 // ── Reels (prompt-based highlight reels) ─────────────────────────────────────
 
 type MockReel = {
-  id: string; prompt: string; media_id: string | null; project_id: string | null; preset: string; burn_captions: boolean;
+  id: string; prompt: string; media_id: string | null; project_id: string | null;
+  target_duration_seconds: number | null;
+  preset: string; burn_captions: boolean;
   clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null; thumbnail_url: string | null }[];
   status: string; progress: number;
   output_url: string | null; error_message: string | null;
@@ -1312,13 +1314,23 @@ router.post("/reels", (req, res) => {
   if (prompt.length < 3) { res.status(400).json({ detail: "Prompt is too short" }); return; }
   const preset = req.body.preset || "original";
   const burn = !!req.body.burn_captions;
-  const maxClips = Math.min(Math.max(req.body.max_clips || 6, 1), 12);
+  const targetDuration: number | null =
+    typeof req.body.target_duration_seconds === "number" && req.body.target_duration_seconds >= 30
+      ? Math.min(req.body.target_duration_seconds, 14400)
+      : null;
+  // With a target run time the clip count is driven by the duration goal.
+  const maxClips = targetDuration
+    ? Math.min(Math.max(Math.ceil(targetDuration / 20), 3), 500)
+    : Math.min(Math.max(req.body.max_clips || 6, 1), 500);
   const mediaId: string | null = req.body.media_id || null;
   if (mediaId && !assets.find((a) => a.id === mediaId)) {
     res.status(404).json({ detail: "Media asset not found" });
     return;
   }
-  const pool = mediaId ? transcript.filter((seg) => seg.media_id === mediaId) : transcript;
+  const reelMediaIds: string[] | null =
+    Array.isArray(req.body.media_ids) && req.body.media_ids.length ? req.body.media_ids : null;
+  const pool = transcript.filter((seg) =>
+    mediaId ? seg.media_id === mediaId : !reelMediaIds || reelMediaIds.includes(seg.media_id));
 
   // Same keyword scoring the mock script-match uses.
   const words = prompt.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
@@ -1332,7 +1344,15 @@ router.post("/reels", (req, res) => {
     .sort((a, b) => b.score - a.score)
     .slice(0, maxClips);
 
-  const picked = scored.length ? scored.map((s) => s.seg) : pool.slice(0, Math.min(maxClips, 4));
+  // For long-form targets, backfill beyond keyword hits so the runtime goal is reachable.
+  let picked = scored.length ? scored.map((s) => s.seg) : pool.slice(0, Math.min(maxClips, 4));
+  if (targetDuration && picked.length < maxClips) {
+    const chosen = new Set(picked.map((s) => s.id));
+    for (const seg of pool) {
+      if (picked.length >= maxClips) break;
+      if (!chosen.has(seg.id)) { picked.push(seg); chosen.add(seg.id); }
+    }
+  }
   if (!picked.length) {
     res.status(404).json({
       detail: mediaId
@@ -1342,6 +1362,8 @@ router.post("/reels", (req, res) => {
     return;
   }
 
+  // Longer targets allow longer individual clips (up to 5 min each).
+  const maxClipLen = targetDuration ? Math.min(300, Math.max(30, targetDuration / Math.max(picked.length, 1))) : 30;
   const clips = picked
     .map((seg) => {
       const asset = assets.find((a) => a.id === seg.media_id);
@@ -1354,7 +1376,7 @@ router.post("/reels", (req, res) => {
         media_id: seg.media_id,
         filename: asset?.filename || "unknown.mp4",
         start_time: start,
-        end_time: Math.min(end, start + 30),
+        end_time: Math.min(end, start + maxClipLen),
         snippet: seg.text,
         thumbnail_url: scene?.thumbnail_url ?? asset?.thumbnail_url ?? null,
       };
@@ -1366,6 +1388,7 @@ router.post("/reels", (req, res) => {
     prompt,
     media_id: mediaId,
     project_id: (req.body.project_id as string | null) || null,
+    target_duration_seconds: targetDuration,
     preset,
     burn_captions: burn,
     clips,
@@ -1500,7 +1523,7 @@ function makeMockReel(prompt: string, mediaId: string | null, preset: string, bu
   touchProject(projectId);
   const reel: MockReel = {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-    prompt, media_id: mediaId, project_id: projectId, preset, burn_captions: burn, clips,
+    prompt, media_id: mediaId, project_id: projectId, target_duration_seconds: null, preset, burn_captions: burn, clips,
     status: "pending", progress: 0, output_url: null, error_message: null,
     created_at: new Date().toISOString(), finished_at: null, _startedAt: Date.now(),
   };

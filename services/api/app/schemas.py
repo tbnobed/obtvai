@@ -217,10 +217,12 @@ class PublishPlatformsOut(BaseModel):
 class ReelRequestIn(BaseModel):
     prompt: str = Field(min_length=3, max_length=500)
     media_id: Optional[str] = None
+    media_ids: Optional[List[str]] = None
     project_id: Optional[str] = None
+    target_duration_seconds: Optional[float] = Field(default=None, ge=30, le=14400)
     preset: Literal["original", "vertical"] = "original"
     burn_captions: bool = False
-    max_clips: int = Field(default=6, ge=1, le=12)
+    max_clips: int = Field(default=6, ge=1, le=500)
 
 
 class ReelClipOut(BaseModel):
@@ -237,6 +239,7 @@ class ReelJobOut(BaseModel):
     prompt: str
     media_id: Optional[str] = None
     project_id: Optional[str] = None
+    target_duration_seconds: Optional[float] = None
     preset: str
     burn_captions: bool
     clips: List[ReelClipOut] = []

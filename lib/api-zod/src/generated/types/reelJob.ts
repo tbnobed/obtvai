@@ -17,6 +17,11 @@ export interface ReelJob {
   media_id?: string | null;
   /** @nullable */
   project_id?: string | null;
+  /**
+     * Requested run time in seconds, when one was given
+     * @nullable
+     */
+  target_duration_seconds?: number | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;

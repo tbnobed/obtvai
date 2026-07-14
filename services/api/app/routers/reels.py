@@ -28,6 +28,11 @@ _VALID_PRESETS = ("original", "vertical")
 _MIN_CLIP_SECONDS = 6.0
 _MAX_CLIP_SECONDS = 30.0
 _LEAD_IN_SECONDS = 1.0
+# Long-form targets: cap individual clip length at 5 minutes, cap clip count at 500.
+_MAX_CLIP_SECONDS_LONGFORM = 300.0
+_MAX_CLIPS_HARD = 500
+# Planning assumption when converting a runtime target into a clip count.
+_ASSUMED_CLIP_SECONDS = 20.0
 
 
 def _to_out(r: ReelJob) -> ReelJobOut:
@@ -36,6 +41,7 @@ def _to_out(r: ReelJob) -> ReelJobOut:
         prompt=r.prompt,
         media_id=r.media_id,
         project_id=r.project_id,
+        target_duration_seconds=r.target_duration_seconds,
         preset=r.preset,
         burn_captions=r.burn_captions,
         clips=[ReelClipOut(**c) for c in (r.clips or [])],
@@ -48,14 +54,17 @@ def _to_out(r: ReelJob) -> ReelJobOut:
     )
 
 
-def _window(start: float, end: float, duration: float) -> tuple[float, float]:
+def _window(
+    start: float, end: float, duration: float,
+    max_clip_seconds: float = _MAX_CLIP_SECONDS,
+) -> tuple[float, float]:
     """Widen a transcript hit into a watchable clip window."""
     s = max(0.0, float(start) - _LEAD_IN_SECONDS)
     e = float(end)
     if e - s < _MIN_CLIP_SECONDS:
         e = s + _MIN_CLIP_SECONDS
-    if e - s > _MAX_CLIP_SECONDS:
-        e = s + _MAX_CLIP_SECONDS
+    if e - s > max_clip_seconds:
+        e = s + max_clip_seconds
     if duration > 0:
         e = min(e, duration)
     return s, e
@@ -80,11 +89,18 @@ def _merge_overlaps(clips: list[dict]) -> list[dict]:
 
 
 async def _select_clips(
-    prompt: str, max_clips: int, db: AsyncSession, media_id: str | None = None
+    prompt: str, max_clips: int, db: AsyncSession,
+    media_id: str | None = None,
+    media_ids: list[str] | None = None,
+    target_duration: float | None = None,
 ) -> list[dict]:
     """Pick the best transcript moments for the prompt — across the whole
-    library, or within one asset when media_id is set."""
+    library, within one asset (media_id), or within a media pool (media_ids).
+
+    With a target_duration, keep adding clips by relevance until the total
+    runtime reaches the target (or the material runs out)."""
     clips: list[dict] = []
+    max_clip_seconds = _MAX_CLIP_SECONDS_LONGFORM if target_duration else _MAX_CLIP_SECONDS
 
     try:
         from ..services.embedding import get_text_embedding
@@ -92,7 +108,9 @@ async def _select_clips(
 
         vec = await get_text_embedding(prompt)
         vector_hits = await search_vectors(
-            collection="transcripts", vector=vec, limit=max_clips * 3, media_id=media_id,
+            collection="transcripts", vector=vec,
+            limit=min(max_clips * 3, 1500),
+            media_id=media_id, media_ids=media_ids,
         )
         for hit in vector_hits:
             seg_id = hit.payload.get("segment_id")
@@ -104,7 +122,7 @@ async def _select_clips(
             if not row:
                 continue
             seg, asset = row
-            s, e = _window(seg.start_time, seg.end_time, float(asset.duration_seconds or 0))
+            s, e = _window(seg.start_time, seg.end_time, float(asset.duration_seconds or 0), max_clip_seconds)
             clips.append({
                 "media_id": asset.id,
                 "filename": asset.filename,
@@ -124,9 +142,11 @@ async def _select_clips(
         )
         if media_id:
             q = q.where(TranscriptSegment.media_id == media_id)
-        rows = (await db.execute(q.limit(max_clips * 3))).all()
+        elif media_ids:
+            q = q.where(TranscriptSegment.media_id.in_(media_ids))
+        rows = (await db.execute(q.limit(min(max_clips * 3, 1500)))).all()
         for seg, asset in rows:
-            s, e = _window(seg.start_time, seg.end_time, float(asset.duration_seconds or 0))
+            s, e = _window(seg.start_time, seg.end_time, float(asset.duration_seconds or 0), max_clip_seconds)
             clips.append({
                 "media_id": asset.id,
                 "filename": asset.filename,
@@ -137,7 +157,21 @@ async def _select_clips(
             })
 
     clips.sort(key=lambda c: c["_score"], reverse=True)
-    clips = _merge_overlaps(clips)[:max_clips]
+    clips = _merge_overlaps(clips)
+    if target_duration:
+        # Accumulate best-first until the runtime target is met.
+        selected: list[dict] = []
+        total = 0.0
+        for c in clips:
+            if len(selected) >= max_clips:
+                break
+            selected.append(c)
+            total += c["end_time"] - c["start_time"]
+            if total >= target_duration:
+                break
+        clips = selected
+    else:
+        clips = clips[:max_clips]
     for c in clips:
         c.pop("_score", None)
     # Story order: keep assets grouped and windows chronological within each.
@@ -211,7 +245,15 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Prompt is too short")
     if body.preset not in _VALID_PRESETS:
         raise HTTPException(status_code=400, detail="Preset must be original or vertical")
-    max_clips = min(max(body.max_clips, 1), 12)
+    if body.target_duration_seconds:
+        # Derive the clip budget from the runtime goal.
+        import math
+        max_clips = min(
+            max(math.ceil(body.target_duration_seconds / _ASSUMED_CLIP_SECONDS), 3),
+            _MAX_CLIPS_HARD,
+        )
+    else:
+        max_clips = min(max(body.max_clips, 1), _MAX_CLIPS_HARD)
 
     if body.media_id:
         asset = (await db.execute(
@@ -220,7 +262,13 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         if not asset:
             raise HTTPException(status_code=404, detail="Media asset not found")
 
-    clips = await _select_clips(prompt, max_clips, db, media_id=body.media_id)
+    media_ids = body.media_ids if body.media_ids else None
+    clips = await _select_clips(
+        prompt, max_clips, db,
+        media_id=body.media_id,
+        media_ids=None if body.media_id else media_ids,
+        target_duration=body.target_duration_seconds,
+    )
     if not clips:
         raise HTTPException(
             status_code=404,
@@ -236,6 +284,7 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         prompt=prompt,
         media_id=body.media_id,
         project_id=body.project_id,
+        target_duration_seconds=body.target_duration_seconds,
         preset=body.preset,
         burn_captions=body.burn_captions,
         clips=clips,

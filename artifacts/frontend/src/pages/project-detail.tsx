@@ -296,11 +296,24 @@ export default function ProjectDetail() {
   const roughCutMutation = useCreateClipListRoughCut();
   const [reelPrompt, setReelPrompt] = useState("");
   const [reelPreset, setReelPreset] = useState<"original" | "vertical">("vertical");
+  const [reelMinutes, setReelMinutes] = useState("");
 
   const submitReel = () => {
     if (reelPrompt.trim().length < 3) return;
+    const mins = parseFloat(reelMinutes);
+    const targetSeconds = Number.isFinite(mins) && mins > 0
+      ? Math.min(Math.max(Math.round(mins * 60), 30), 14400)
+      : null;
     createReelMutation.mutate(
-      { data: { prompt: reelPrompt.trim(), preset: reelPreset, project_id: id } },
+      {
+        data: {
+          prompt: reelPrompt.trim(),
+          preset: reelPreset,
+          project_id: id,
+          ...(targetSeconds ? { target_duration_seconds: targetSeconds } : {}),
+          ...(mediaPool.length ? { media_ids: mediaPool } : {}),
+        },
+      },
       { onSuccess: () => { setReelPrompt(""); invalidateAll(); } },
     );
   };
@@ -783,7 +796,7 @@ export default function ProjectDetail() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Wand2 className="h-4 w-4" /> Highlight Reel
+                <Wand2 className="h-4 w-4" /> Build from Prompt
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -791,8 +804,16 @@ export default function ProjectDetail() {
                 <Input
                   value={reelPrompt}
                   onChange={(e) => setReelPrompt(e.target.value)}
-                  placeholder='What should the reel highlight? e.g. "the strongest soundbites about the vote"'
+                  placeholder='Describe what to build, e.g. "a highlight reel of the strongest soundbites about the vote"'
                   onKeyDown={(e) => e.key === "Enter" && submitReel()}
+                />
+                <Input
+                  value={reelMinutes}
+                  onChange={(e) => setReelMinutes(e.target.value.replace(/[^0-9.]/g, ""))}
+                  placeholder="Auto"
+                  inputMode="decimal"
+                  title="Target run time in minutes (blank = short highlight reel, up to 240 for feature length)"
+                  className="w-24 shrink-0"
                 />
                 <Button variant={reelPreset === "original" ? "default" : "outline"} size="icon"
                   onClick={() => setReelPreset("original")} title="Original framing">
@@ -806,6 +827,10 @@ export default function ProjectDetail() {
                   {createReelMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Target run time in minutes (optional) — leave blank for a short highlight reel, or set up to 240 for feature-length builds.
+                {mediaPool.length ? " Uses this project's media pool." : " Uses the whole library."}
+              </p>
               {createReelMutation.isError && (
                 <p className="text-sm text-red-400">Could not start the reel — try different wording.</p>
               )}

@@ -187,6 +187,7 @@ class ReelJob(Base):
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     media_id: Mapped[str | None] = mapped_column(String, nullable=True)
     project_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    target_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     preset: Mapped[str] = mapped_column(String, default="original")
     burn_captions: Mapped[bool] = mapped_column(Boolean, default=False)
     clips: Mapped[list] = mapped_column(JSONB, default=list)
