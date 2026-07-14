@@ -162,6 +162,8 @@ export default function ProjectDetail() {
   // list from stale cache and overwrite the previous add. Track the latest
   // known clips per list synchronously so consecutive adds accumulate.
   const pendingClipsRef = useRef<Record<string, ClipListUpdateClipsItem[]>>({});
+  // Multi-select of search / script-match results, keyed by row key.
+  const [selectedResults, setSelectedResults] = useState<Record<string, SearchResult>>({});
 
   useEffect(() => {
     if (!targetListId && clipLists?.length) setTargetListId(clipLists[0].id);
@@ -169,6 +171,7 @@ export default function ProjectDetail() {
 
   const runSearch = () => {
     if (query.trim().length < 2) return;
+    setSelectedResults({});
     searchMutation.mutate({
       data: { query: query.trim(), ...(mediaPool.length ? { media_ids: mediaPool } : {}) },
     });
@@ -176,6 +179,7 @@ export default function ProjectDetail() {
 
   const runScriptMatch = () => {
     if (!script.trim()) return;
+    setSelectedResults({});
     matchMutation.mutate({
       data: {
         script: script.trim(),
@@ -185,16 +189,22 @@ export default function ProjectDetail() {
     });
   };
 
-  const addResultToList = (r: SearchResult) => {
-    const newClip: ClipListUpdateClipsItem = {
+  const addResultsToList = (results: SearchResult[]) => {
+    if (!results.length) return;
+    const newClips: ClipListUpdateClipsItem[] = results.map((r) => ({
       media_id: r.media_id,
       start_time: r.start_time,
       end_time: r.end_time,
       label: r.snippet?.slice(0, 80) || r.filename,
-    };
+    }));
     const target = clipLists?.find((l) => l.id === targetListId);
     const done = () => {
-      setLastAdded(`${r.filename} ${fmtTime(r.start_time)}`);
+      setLastAdded(
+        results.length === 1
+          ? `${results[0].filename} ${fmtTime(results[0].start_time)}`
+          : `${results.length} clips`,
+      );
+      setSelectedResults({});
       invalidateAll();
     };
     if (target) {
@@ -206,7 +216,7 @@ export default function ProjectDetail() {
           end_time: c.end_time,
           label: c.label ?? undefined,
         }));
-      const clips = [...base, newClip];
+      const clips = [...base, ...newClips];
       pendingClipsRef.current[target.id] = clips;
       updateListMutation.mutate(
         { id: target.id, data: { clips } },
@@ -224,12 +234,12 @@ export default function ProjectDetail() {
           data: {
             name: `${project?.name ?? "Project"} — selects`,
             project_id: id,
-            clips: [newClip],
+            clips: newClips,
           },
         },
         {
           onSuccess: (created) => {
-            pendingClipsRef.current[created.id] = [newClip];
+            pendingClipsRef.current[created.id] = newClips;
             setTargetListId(created.id);
             done();
           },
@@ -237,6 +247,8 @@ export default function ProjectDetail() {
       );
     }
   };
+
+  const addResultToList = (r: SearchResult) => addResultsToList([r]);
 
   const newEmptyList = () => {
     const name = window.prompt("New clip list name", `${project?.name ?? "Project"} — selects`);
@@ -443,8 +455,38 @@ export default function ProjectDetail() {
     </div>
   );
 
+  const toggleResult = (key: string, r: SearchResult) => {
+    setSelectedResults((prev) => {
+      const next = { ...prev };
+      if (next[key]) delete next[key];
+      else next[key] = r;
+      return next;
+    });
+  };
+
+  const selectedCount = Object.keys(selectedResults).length;
+
+  const addSelectedButton = selectedCount > 0 && (
+    <Button
+      size="sm"
+      onClick={() => addResultsToList(Object.values(selectedResults))}
+      disabled={updateListMutation.isPending || createListMutation.isPending}
+    >
+      {updateListMutation.isPending || createListMutation.isPending
+        ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+        : <Plus className="h-3.5 w-3.5 mr-1" />}
+      Add {selectedCount} selected
+    </Button>
+  );
+
   const resultRow = (r: SearchResult, key: string) => (
     <div key={key} className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm gap-3">
+      <input
+        type="checkbox"
+        className="h-4 w-4 shrink-0 accent-primary cursor-pointer"
+        checked={!!selectedResults[key]}
+        onChange={() => toggleResult(key, r)}
+      />
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{r.filename}</div>
         <div className="text-xs text-muted-foreground truncate">
@@ -580,7 +622,10 @@ export default function ProjectDetail() {
               <CardTitle className="flex items-center gap-2 text-base">
                 <Search className="h-4 w-4" /> Search Footage
               </CardTitle>
-              {addTargetPicker}
+              <div className="flex items-center gap-2 flex-wrap">
+                {addSelectedButton}
+                {addTargetPicker}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
@@ -615,9 +660,12 @@ export default function ProjectDetail() {
           {matchMutation.data && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Wand2 className="h-4 w-4" /> Script Matches
-                </CardTitle>
+                <div className="flex flex-row items-center justify-between flex-wrap gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Wand2 className="h-4 w-4" /> Script Matches
+                  </CardTitle>
+                  {addSelectedButton}
+                </div>
               </CardHeader>
               <CardContent className="space-y-5">
                 {matchMutation.data.lines.map((line, li) => (
