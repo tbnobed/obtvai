@@ -1,0 +1,94 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose ps worker-gpu worker-gpu-2
+NAME                     IMAGE                  COMMAND                  SERVICE        CREATED              STATUS          PORTS
+obtv-ai-worker-gpu-1     obtv-ai-worker-gpu     "/opt/nvidia/nvidia_…"   worker-gpu     About a minute ago   Up 57 seconds
+obtv-ai-worker-gpu-2-1   obtv-ai-worker-gpu-2   "/opt/nvidia/nvidia_…"   worker-gpu-2   About a minute ago   Up 57 seconds
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs --tail 40 worker-gpu worker-gpu-2
+worker-gpu-1    | - ** ---------- .> transport:   redis://redis:6379/0
+worker-gpu-2-1  | - ** ---------- .> transport:   redis://redis:6379/0
+worker-gpu-2-1  | - ** ---------- .> results:     redis://redis:6379/0
+worker-gpu-2-1  | - *** --- * --- .> concurrency: 1 (prefork)
+worker-gpu-1    | - ** ---------- .> results:     redis://redis:6379/0
+worker-gpu-1    | - *** --- * --- .> concurrency: 1 (prefork)
+worker-gpu-1    | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+worker-gpu-1    | --- ***** -----
+worker-gpu-1    |  -------------- [queues]
+worker-gpu-1    |                 .> gpu              exchange=gpu(direct) key=gpu
+worker-gpu-1    |
+worker-gpu-1    |
+worker-gpu-1    | [tasks]
+worker-gpu-1    |   . tasks.analyze.analyze_media
+worker-gpu-1    |   . tasks.audio.extract_audio
+worker-gpu-1    |   . tasks.creative.creative_pass
+worker-gpu-2-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+worker-gpu-2-1  | --- ***** -----
+worker-gpu-2-1  |  -------------- [queues]
+worker-gpu-2-1  |                 .> gpu              exchange=gpu(direct) key=gpu
+worker-gpu-2-1  |
+worker-gpu-1    |   . tasks.diarize.run_diarization
+worker-gpu-1    |   . tasks.dub.generate_dub
+worker-gpu-1    |   . tasks.face_detect.detect_faces
+worker-gpu-1    |   . tasks.highlight.build_highlight
+worker-gpu-2-1  |
+worker-gpu-2-1  | [tasks]
+worker-gpu-2-1  |   . tasks.analyze.analyze_media
+worker-gpu-2-1  |   . tasks.audio.extract_audio
+worker-gpu-2-1  |   . tasks.creative.creative_pass
+worker-gpu-2-1  |   . tasks.diarize.run_diarization
+worker-gpu-2-1  |   . tasks.dub.generate_dub
+worker-gpu-2-1  |   . tasks.face_detect.detect_faces
+worker-gpu-2-1  |   . tasks.highlight.build_highlight
+worker-gpu-1    |   . tasks.identify.identify_people
+worker-gpu-1    |   . tasks.index.build_index
+worker-gpu-1    |   . tasks.ingest.run_ingest_pipeline
+worker-gpu-1    |   . tasks.insights.generate_insights
+worker-gpu-1    |   . tasks.proxy.create_proxy
+worker-gpu-1    |   . tasks.publish.publish_render
+worker-gpu-1    |   . tasks.reel.build_reel
+worker-gpu-1    |   . tasks.render.render_clip
+worker-gpu-1    |   . tasks.scene_detect.detect_scenes
+worker-gpu-1    |   . tasks.social.score_social
+worker-gpu-1    |   . tasks.story.build_story
+worker-gpu-1    |   . tasks.transcribe.transcribe_audio
+worker-gpu-1    |   . tasks.translate.translate_transcript
+worker-gpu-1    |   . tasks.visual_embed.embed_scenes
+worker-gpu-1    |   . tasks.voice.generate_speech
+worker-gpu-1    |   . tasks.voice.prepare_voice_sample
+worker-gpu-1    |
+worker-gpu-1    | [2026-07-16 23:26:49,690: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-gpu-2-1  |   . tasks.identify.identify_people
+worker-gpu-1    | [2026-07-16 23:26:49,691: INFO/MainProcess] mingle: searching for neighbors
+worker-gpu-1    | [2026-07-16 23:26:50,694: INFO/MainProcess] mingle: sync with 1 nodes
+worker-gpu-1    | [2026-07-16 23:26:50,694: INFO/MainProcess] mingle: sync complete
+worker-gpu-2-1  |   . tasks.index.build_index
+worker-gpu-2-1  |   . tasks.ingest.run_ingest_pipeline
+worker-gpu-1    | [2026-07-16 23:26:50,698: INFO/MainProcess] celery@b94b346bc728 ready.
+worker-gpu-1    | [2026-07-16 23:26:55,596: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-gpu-2-1  |   . tasks.insights.generate_insights
+worker-gpu-2-1  |   . tasks.proxy.create_proxy
+worker-gpu-2-1  |   . tasks.publish.publish_render
+worker-gpu-2-1  |   . tasks.reel.build_reel
+worker-gpu-2-1  |   . tasks.render.render_clip
+worker-gpu-2-1  |   . tasks.scene_detect.detect_scenes
+worker-gpu-2-1  |   . tasks.social.score_social
+worker-gpu-2-1  |   . tasks.story.build_story
+worker-gpu-2-1  |   . tasks.transcribe.transcribe_audio
+worker-gpu-2-1  |   . tasks.translate.translate_transcript
+worker-gpu-2-1  |   . tasks.visual_embed.embed_scenes
+worker-gpu-2-1  |   . tasks.voice.generate_speech
+worker-gpu-2-1  |   . tasks.voice.prepare_voice_sample
+worker-gpu-2-1  |
+worker-gpu-2-1  | [2026-07-16 23:26:49,682: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-gpu-2-1  | [2026-07-16 23:26:49,684: INFO/MainProcess] mingle: searching for neighbors
+worker-gpu-2-1  | [2026-07-16 23:26:50,689: INFO/MainProcess] mingle: sync with 1 nodes
+worker-gpu-2-1  | [2026-07-16 23:26:50,689: INFO/MainProcess] mingle: sync complete
+worker-gpu-2-1  | [2026-07-16 23:26:50,694: INFO/MainProcess] worker-gpu-2@c57521930197 ready.
+worker-gpu-2-1  | [2026-07-16 23:26:55,596: INFO/MainProcess] Events of group {task} enabled by remote.
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose exec postgres psql -U obtv -d obtv -c "SELECT id, job_type, status, created_at FROM processing_jobs WHERE job_type IN ('dub','translate') AND status IN ('pending','running') ORDER BY created_at;"
+                  id                  | job_type | status  |         created_at
+--------------------------------------+----------+---------+----------------------------
+ a30ea514-bdad-48c6-b57d-dbc77131d9a7 | dub      | pending | 2026-07-16 22:44:19.015813
+ 0b9005f7-f42e-4200-a86b-f906897263e9 | dub      | pending | 2026-07-16 22:52:04.987555
+ 7f4090d5-7934-49e6-8f8d-433241640bae | dub      | pending | 2026-07-16 23:00:20.988111
+(3 rows)
+
+obtv-admin@obtv-llm-2:~/obtv-ai$
