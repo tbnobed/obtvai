@@ -749,6 +749,11 @@ async def create_translation(id: str, body: TranslateRequest, db: AsyncSession =
     ).scalars().all()
     existing = next((j for j in active if marker in (j.logs or [])), None)
     if existing:
+        if existing.status == "pending":
+            # Stuck "pending" usually means the queue message was lost
+            # (worker restart/rebuild). Re-enqueue; the task is idempotent.
+            from ..worker_client import enqueue_job
+            await enqueue_job("translate", id, existing.id, extra={"target_language": target})
         out = ProcessingJobOut.model_validate(existing)
         out.filename = asset.filename
         return out
@@ -809,6 +814,14 @@ async def create_dub(id: str, body: DubRequest, db: AsyncSession = Depends(get_d
     ).scalars().all()
     existing = next((j for j in active if marker in (j.logs or [])), None)
     if existing:
+        if existing.status == "pending":
+            # Stuck "pending" usually means the queue message was lost
+            # (worker restart/rebuild). Re-enqueue; the task is idempotent.
+            from ..worker_client import enqueue_job
+            await enqueue_job(
+                "dub", id, existing.id,
+                extra={"target_language": target, "use_cloned_voices": bool(body.use_cloned_voices)},
+            )
         out = ProcessingJobOut.model_validate(existing)
         out.filename = asset.filename
         return out
