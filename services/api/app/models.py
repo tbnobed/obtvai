@@ -127,6 +127,39 @@ class PersonAppearance(Base):
     asset: Mapped["MediaAsset"] = relationship("MediaAsset")
 
 
+class VoiceSample(Base):
+    __tablename__ = "voice_samples"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    person_id: Mapped[str] = mapped_column(String, ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
+    source: Mapped[str] = mapped_column(String, nullable=False)  # segment | upload
+    status: Mapped[str] = mapped_column(String, default="pending")  # pending | ready | error
+    media_id: Mapped[str | None] = mapped_column(String, ForeignKey("media_assets.id", ondelete="SET NULL"), nullable=True)
+    filename: Mapped[str | None] = mapped_column(String, nullable=True)
+    start_time: Mapped[float | None] = mapped_column(Float, nullable=True)
+    end_time: Mapped[float | None] = mapped_column(Float, nullable=True)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    audio_path: Mapped[str | None] = mapped_column(String, nullable=True)  # normalized wav (ready)
+    raw_path: Mapped[str | None] = mapped_column(String, nullable=True)  # original upload awaiting normalization
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class VoiceGeneration(Base):
+    __tablename__ = "voice_generations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    person_id: Mapped[str] = mapped_column(String, ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[str] = mapped_column(String, default="en")
+    status: Mapped[str] = mapped_column(String, default="pending")  # pending | running | success | error
+    progress: Mapped[float] = mapped_column(Float, default=0.0)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    audio_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class LibraryInsight(Base):
     __tablename__ = "library_insights"
 

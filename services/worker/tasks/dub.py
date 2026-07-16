@@ -100,6 +100,55 @@ def _read_wav(path: str):
         return data, wf.getframerate()
 
 
+def _resample(samples, from_rate: int, to_rate: int, workdir: str):
+    if from_rate == to_rate:
+        return samples
+    src = os.path.join(workdir, "resample_in.wav")
+    dst = os.path.join(workdir, "resample_out.wav")
+    _write_wav(src, samples, from_rate)
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-i", src, "-ar", str(to_rate), dst],
+        capture_output=True, text=True, timeout=120,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg resample failed: {result.stderr[-400:]}")
+    data, _ = _read_wav(dst)
+    return data
+
+
+# XTTS-v2 supported languages (voice cloning path).
+XTTS_LANGS = {
+    "en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru",
+    "nl", "cs", "ar", "zh-cn", "ja", "hu", "ko", "hi",
+}
+
+
+def _cloned_voice_map(db, media_id: str) -> dict:
+    """speaker_label → list of ready voice-sample WAV paths for this asset's people."""
+    from sqlalchemy import text
+    from tasks.voice import get_ready_voice_paths
+    rows = db.execute(
+        text("""
+            SELECT speaker_label, person_id FROM person_appearances
+            WHERE media_id = :mid AND speaker_label IS NOT NULL
+        """),
+        {"mid": media_id},
+    ).fetchall()
+    result = {}
+    for speaker_label, person_id in rows:
+        paths = get_ready_voice_paths(db, person_id)
+        if paths:
+            result[speaker_label] = paths[:3]
+    return result
+
+
+def _synthesize_xtts(tts, text_value: str, language: str, speaker_wavs, workdir: str):
+    from tasks.voice import synthesize_cloned
+    out = os.path.join(workdir, "xtts_seg.wav")
+    synthesize_cloned(tts, text_value, language, speaker_wavs, out)
+    return _read_wav(out)
+
+
 def _atempo(samples, sample_rate: int, factor: float, workdir: str):
     """Pitch-preserving speed-up via ffmpeg atempo (chained for factors > 2)."""
     src = os.path.join(workdir, "atempo_in.wav")
@@ -122,7 +171,7 @@ def _atempo(samples, sample_rate: int, factor: float, workdir: str):
 
 
 @celery_app.task(bind=True, name="tasks.dub.generate_dub", queue="gpu")
-def generate_dub(self, media_id: str, job_id: str, target_language: str):
+def generate_dub(self, media_id: str, job_id: str, target_language: str, use_cloned_voices: bool = False):
     db = get_session()
     try:
         import numpy as np
@@ -147,7 +196,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str):
 
         rows = db.execute(
             text("""
-                SELECT start_time, end_time, translations ->> :lang
+                SELECT start_time, end_time, translations ->> :lang, speaker
                 FROM transcript_segments
                 WHERE media_id = :mid AND translations ->> :lang IS NOT NULL
                 ORDER BY start_time
@@ -159,9 +208,30 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str):
                 f"No '{target}' translation found — run translation first"
             )
 
-        append_log(db, job_id, f"Loading TTS model: facebook/mms-tts-{lang3}")
-        update_job(db, job_id, progress=5.0)
-        tokenizer, model, sample_rate = _load_tts(lang3)
+        # Cloned-voice path: map diarized speakers to ready voice profiles.
+        voice_map: dict = {}
+        xtts = None
+        if use_cloned_voices and target in XTTS_LANGS:
+            voice_map = _cloned_voice_map(db, media_id)
+            if voice_map:
+                append_log(db, job_id, f"Loading XTTS-v2 for cloned voices ({len(voice_map)} speaker(s) with ready profiles)")
+                from tasks.voice import _load_xtts
+                xtts = _load_xtts()
+            else:
+                append_log(db, job_id, "Cloned voices requested but no speaker has a ready voice profile — using stock TTS")
+        elif use_cloned_voices:
+            append_log(db, job_id, f"Cloned voices not supported for '{target}' — using stock TTS")
+
+        needs_mms = any(not (xtts and voice_map.get(r[3])) for r in rows)
+        tokenizer = model = None
+        if needs_mms:
+            append_log(db, job_id, f"Loading TTS model: facebook/mms-tts-{lang3}")
+            update_job(db, job_id, progress=5.0)
+            tokenizer, model, sample_rate = _load_tts(lang3)
+        else:
+            sample_rate = 24000  # XTTS output rate
+        if xtts:
+            sample_rate = 24000
 
         duration = float(asset_row[0]) if asset_row[0] else float(rows[-1][1]) + 1.0
         duration = max(duration, float(rows[-1][1]))
@@ -172,12 +242,24 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str):
         last_report = time.monotonic()
         synthesized = 0
 
+        cloned_count = 0
         with tempfile.TemporaryDirectory() as workdir:
-            for i, (start_time, end_time, seg_text) in enumerate(rows):
+            for i, (start_time, end_time, seg_text, speaker) in enumerate(rows):
                 seg_text = (seg_text or "").strip()
                 if not seg_text:
                     continue
-                clip = _synthesize(tokenizer, model, seg_text)
+                speaker_wavs = voice_map.get(speaker) if xtts else None
+                if speaker_wavs:
+                    clip, clip_rate = _synthesize_xtts(xtts, seg_text, target, speaker_wavs, workdir)
+                    clip = _resample(clip, clip_rate, sample_rate, workdir)
+                    cloned_count += 1
+                else:
+                    if model is None:
+                        append_log(db, job_id, f"Loading TTS model: facebook/mms-tts-{lang3}")
+                        tokenizer, model, mms_rate = _load_tts(lang3)
+                    clip = _synthesize(tokenizer, model, seg_text)
+                    if clip is not None and clip.size:
+                        clip = _resample(clip, int(model.config.sampling_rate), sample_rate, workdir)
                 if clip is None or clip.size == 0:
                     continue
 
@@ -240,7 +322,8 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str):
         db.commit()
 
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
-        append_log(db, job_id, f"Dubbed {synthesized}/{total} segments to '{target}' → {os.path.basename(out_path)}")
+        cloned_note = f" ({cloned_count} in cloned voices)" if cloned_count else ""
+        append_log(db, job_id, f"Dubbed {synthesized}/{total} segments to '{target}'{cloned_note} → {os.path.basename(out_path)}")
 
     except Exception as e:
         db.rollback()

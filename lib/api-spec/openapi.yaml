@@ -617,6 +617,213 @@ paths:
         "409":
           description: Cannot split the person's only appearance
 
+  /people/{id}/voice:
+    get:
+      operationId: getVoiceProfile
+      tags: [voice]
+      summary: A person's voice-clone profile — curated samples and readiness
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceProfile"
+        "404":
+          description: Person not found
+
+  /people/{id}/voice/samples:
+    post:
+      operationId: addVoiceSample
+      tags: [voice]
+      summary: Add a clean voice sample cut from a media asset segment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceSampleFromSegment"
+      responses:
+        "202":
+          description: Sample extraction queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceSample"
+        "400":
+          description: Invalid segment (bad range or too long)
+        "404":
+          description: Person or media not found
+
+  /people/{id}/voice/samples/upload:
+    post:
+      operationId: uploadVoiceSample
+      tags: [voice]
+      summary: Upload a clean audio file as a voice sample
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/VoiceSampleUploadInput"
+      responses:
+        "202":
+          description: Sample accepted, normalization queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceSample"
+        "400":
+          description: Unsupported file type
+        "404":
+          description: Person not found
+
+  /voice/samples/{id}:
+    delete:
+      operationId: deleteVoiceSample
+      tags: [voice]
+      summary: Remove a voice sample
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /voice/samples/{id}/audio:
+    get:
+      operationId: streamVoiceSample
+      tags: [voice]
+      summary: Stream a voice sample's audio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: WAV audio
+          content:
+            audio/wav:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found or not ready
+
+  /people/{id}/voice/speak:
+    post:
+      operationId: createVoiceGeneration
+      tags: [voice]
+      summary: Synthesize arbitrary text in this person's cloned voice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceSpeakRequest"
+      responses:
+        "202":
+          description: Generation queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceGeneration"
+        "404":
+          description: Person not found
+        "409":
+          description: Voice profile not ready — add more clean samples first
+
+  /people/{id}/voice/generations:
+    get:
+      operationId: listVoiceGenerations
+      tags: [voice]
+      summary: List this person's speech generations, newest first
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VoiceGeneration"
+
+  /voice/generations/{id}:
+    delete:
+      operationId: deleteVoiceGeneration
+      tags: [voice]
+      summary: Delete a speech generation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /voice/generations/{id}/audio:
+    get:
+      operationId: streamVoiceGeneration
+      tags: [voice]
+      summary: Stream a finished speech generation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: WAV audio
+          content:
+            audio/wav:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found or not finished
+
   /people/reanalyze:
     post:
       operationId: reanalyzePeople
@@ -1535,6 +1742,10 @@ components:
         target_language:
           type: string
           description: "ISO code with MMS-TTS support: es | fr | de | pt | nl | ru | ko | ar | hi"
+        use_cloned_voices:
+          type: boolean
+          default: false
+          description: Speak each segment in the identified speaker's cloned voice when their voice profile is ready; falls back to the stock TTS voice otherwise
 
     SocialScore:
       type: object
@@ -1960,6 +2171,118 @@ components:
         total:
           type: integer
           description: Total number of people in the library
+
+    # ── Voice cloning ─────────────────────────────────────────────────────────
+    VoiceSample:
+      type: object
+      required: [id, person_id, source, status, created_at]
+      properties:
+        id:
+          type: string
+        person_id:
+          type: string
+        source:
+          type: string
+          description: "segment (cut from an indexed asset) | upload (user-provided file)"
+        status:
+          type: string
+          description: "pending | ready | error"
+        media_id:
+          type: ["string", "null"]
+          description: Source asset when the sample was cut from a segment
+        filename:
+          type: ["string", "null"]
+          description: Source asset filename or original uploaded filename
+        start_time:
+          type: ["number", "null"]
+        end_time:
+          type: ["number", "null"]
+        duration_seconds:
+          type: ["number", "null"]
+          description: Length of the normalized sample once ready
+        error_message:
+          type: ["string", "null"]
+        created_at:
+          type: string
+
+    VoiceProfile:
+      type: object
+      required: [person_id, ready, total_sample_seconds, min_sample_seconds, samples]
+      properties:
+        person_id:
+          type: string
+        ready:
+          type: boolean
+          description: True when enough clean sample audio exists to clone the voice
+        total_sample_seconds:
+          type: number
+          description: Total duration of ready samples
+        min_sample_seconds:
+          type: number
+          description: Minimum sample audio required before cloning unlocks
+        samples:
+          type: array
+          items:
+            $ref: "#/components/schemas/VoiceSample"
+
+    VoiceSampleFromSegment:
+      type: object
+      required: [media_id, start_time, end_time]
+      properties:
+        media_id:
+          type: string
+        start_time:
+          type: number
+          minimum: 0
+        end_time:
+          type: number
+          description: Must be after start_time; segment capped at 60 seconds
+
+    VoiceSampleUploadInput:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Audio file (wav, mp3, m4a, flac, ogg)
+
+    VoiceSpeakRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        language:
+          type: string
+          default: en
+          description: "XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi"
+
+    VoiceGeneration:
+      type: object
+      required: [id, person_id, text, language, status, progress, created_at]
+      properties:
+        id:
+          type: string
+        person_id:
+          type: string
+        text:
+          type: string
+        language:
+          type: string
+        status:
+          type: string
+          description: "pending | running | success | error"
+        progress:
+          type: number
+        duration_seconds:
+          type: ["number", "null"]
+        error_message:
+          type: ["string", "null"]
+        created_at:
+          type: string
 
     ReanalyzeResult:
       type: object

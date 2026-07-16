@@ -235,9 +235,10 @@ export default function AssetDetail() {
   const dubJob = jobs?.find(j => j.job_type === "dub" && (j.status === "pending" || j.status === "running") && (j.logs ?? []).includes(`Target language: ${transcriptLang}`));
   const dubBusy = dubMutation.isPending || Boolean(dubJob);
 
+  const [dubClonedVoices, setDubClonedVoices] = useState(false);
   const startDub = (lang: string) => {
     if (!id) return;
-    dubMutation.mutate({ id, data: { target_language: lang } }, {
+    dubMutation.mutate({ id, data: { target_language: lang, use_cloned_voices: dubClonedVoices } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
       }
@@ -851,6 +852,14 @@ export default function AssetDetail() {
                           </>
                         )}
                       </Button>
+                      <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
+                        <Checkbox
+                          checked={dubClonedVoices}
+                          onCheckedChange={(v) => setDubClonedVoices(v === true)}
+                          disabled={dubBusy}
+                        />
+                        Use cloned voices — speakers with a ready voice profile keep their own voice
+                      </label>
                       {dubMutation.isError && (
                         <p className="text-xs text-destructive mt-1.5">Failed to start dubbing. Check Pipeline Jobs.</p>
                       )}

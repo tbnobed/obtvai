@@ -21,6 +21,7 @@ celery_app = Celery(
         "tasks.social",
         "tasks.translate",
         "tasks.dub",
+        "tasks.voice",
         "tasks.identify",
         "tasks.insights",
         "tasks.render",

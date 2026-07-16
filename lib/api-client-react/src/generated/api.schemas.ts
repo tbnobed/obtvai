@@ -17,6 +17,8 @@ export interface TranslateRequest {
 export interface DubRequest {
   /** ISO code with MMS-TTS support: es | fr | de | pt | nl | ru | ko | ar | hi */
   target_language: string;
+  /** Speak each segment in the identified speaker's cloned voice when their voice profile is ready; falls back to the stock TTS voice otherwise */
+  use_cloned_voices?: boolean;
 }
 
 export interface SocialScore {
@@ -335,6 +337,86 @@ export interface PeoplePage {
   items: Person[];
   /** Total number of people in the library */
   total: number;
+}
+
+export interface VoiceSample {
+  id: string;
+  person_id: string;
+  /** segment (cut from an indexed asset) | upload (user-provided file) */
+  source: string;
+  /** pending | ready | error */
+  status: string;
+  /**
+     * Source asset when the sample was cut from a segment
+     * @nullable
+     */
+  media_id?: string | null;
+  /**
+     * Source asset filename or original uploaded filename
+     * @nullable
+     */
+  filename?: string | null;
+  /** @nullable */
+  start_time?: number | null;
+  /** @nullable */
+  end_time?: number | null;
+  /**
+     * Length of the normalized sample once ready
+     * @nullable
+     */
+  duration_seconds?: number | null;
+  /** @nullable */
+  error_message?: string | null;
+  created_at: string;
+}
+
+export interface VoiceProfile {
+  person_id: string;
+  /** True when enough clean sample audio exists to clone the voice */
+  ready: boolean;
+  /** Total duration of ready samples */
+  total_sample_seconds: number;
+  /** Minimum sample audio required before cloning unlocks */
+  min_sample_seconds: number;
+  samples: VoiceSample[];
+}
+
+export interface VoiceSampleFromSegment {
+  media_id: string;
+  /** @minimum 0 */
+  start_time: number;
+  /** Must be after start_time; segment capped at 60 seconds */
+  end_time: number;
+}
+
+export interface VoiceSampleUploadInput {
+  /** Audio file (wav, mp3, m4a, flac, ogg) */
+  file: Blob;
+}
+
+export interface VoiceSpeakRequest {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  text: string;
+  /** XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi */
+  language?: string;
+}
+
+export interface VoiceGeneration {
+  id: string;
+  person_id: string;
+  text: string;
+  language: string;
+  /** pending | running | success | error */
+  status: string;
+  progress: number;
+  /** @nullable */
+  duration_seconds?: number | null;
+  /** @nullable */
+  error_message?: string | null;
+  created_at: string;
 }
 
 export interface ReanalyzeResult {

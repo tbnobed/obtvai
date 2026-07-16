@@ -824,7 +824,7 @@ async def create_dub(id: str, body: DubRequest, db: AsyncSession = Depends(get_d
     await db.refresh(job)
 
     from ..worker_client import enqueue_job
-    await enqueue_job("dub", id, job.id, extra={"target_language": target})
+    await enqueue_job("dub", id, job.id, extra={"target_language": target, "use_cloned_voices": bool(body.use_cloned_voices)})
 
     out = ProcessingJobOut.model_validate(job)
     out.filename = asset.filename

@@ -1904,6 +1904,184 @@ router.post("/people/:id/split", (req, res) => {
   res.json(newPerson);
 });
 
+// ── Voice cloning ────────────────────────────────────────────────────────────
+const MIN_SAMPLE_SECONDS = 10;
+
+const voiceSamples: any[] = [
+  {
+    id: "vsample-001",
+    person_id: "person-001",
+    source: "segment",
+    status: "ready",
+    media_id: "asset-001",
+    filename: "interview_sarah_chen.mp4",
+    start_time: 125.4,
+    end_time: 148.9,
+    duration_seconds: 23.5,
+    error_message: null,
+    created_at: "2026-07-15T10:12:00Z",
+  },
+];
+const voiceGenerations: any[] = [];
+
+function tinyWav(res: any) {
+  // 0.5s of silence, 8kHz mono 16-bit PCM
+  const samples = 4000;
+  const buf = Buffer.alloc(44 + samples * 2);
+  buf.write("RIFF", 0); buf.writeUInt32LE(36 + samples * 2, 4); buf.write("WAVE", 8);
+  buf.write("fmt ", 12); buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(1, 22);
+  buf.writeUInt32LE(8000, 24); buf.writeUInt32LE(16000, 28); buf.writeUInt16LE(2, 32); buf.writeUInt16LE(16, 34);
+  buf.write("data", 36); buf.writeUInt32LE(samples * 2, 40);
+  res.setHeader("Content-Type", "audio/wav");
+  res.send(buf);
+}
+
+function voiceProfile(personId: string) {
+  const samples = voiceSamples.filter((s) => s.person_id === personId);
+  const total = samples
+    .filter((s) => s.status === "ready")
+    .reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
+  return {
+    person_id: personId,
+    ready: total >= MIN_SAMPLE_SECONDS,
+    total_sample_seconds: total,
+    min_sample_seconds: MIN_SAMPLE_SECONDS,
+    samples,
+  };
+}
+
+router.get("/people/:id/voice", (req, res) => {
+  if (!people.find((p) => p.id === req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(voiceProfile(req.params.id));
+});
+
+router.post("/people/:id/voice/samples", (req, res) => {
+  const person = people.find((p) => p.id === req.params.id);
+  if (!person) { res.status(404).json({ error: "Not found" }); return; }
+  const mediaId = String(req.body?.media_id ?? "");
+  const asset = assets.find((a: any) => a.id === mediaId);
+  if (!asset) { res.status(404).json({ error: "Media not found" }); return; }
+  const start = Number(req.body?.start_time);
+  const end = Number(req.body?.end_time);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || start < 0) {
+    res.status(400).json({ error: "Invalid segment range" }); return;
+  }
+  if (end - start > 60) { res.status(400).json({ error: "Segment capped at 60 seconds" }); return; }
+  const sample: any = {
+    id: `vsample-${Date.now()}`,
+    person_id: person.id,
+    source: "segment",
+    status: "pending",
+    media_id: mediaId,
+    filename: (asset as any).filename,
+    start_time: start,
+    end_time: end,
+    duration_seconds: null,
+    error_message: null,
+    created_at: new Date().toISOString(),
+  };
+  voiceSamples.push(sample);
+  setTimeout(() => {
+    sample.status = "ready";
+    sample.duration_seconds = Math.round((end - start) * 10) / 10;
+  }, 2500);
+  res.status(202).json(sample);
+});
+
+router.post("/people/:id/voice/samples/upload", upload.single("file"), (req, res) => {
+  const person = people.find((p) => p.id === req.params.id);
+  if (!person) { res.status(404).json({ error: "Not found" }); return; }
+  const file = req.file;
+  if (!file) { res.status(400).json({ error: "No file provided" }); return; }
+  if (!/\.(wav|mp3|m4a|flac|ogg)$/i.test(file.originalname)) {
+    res.status(400).json({ error: "Unsupported file type — use wav, mp3, m4a, flac, or ogg" });
+    return;
+  }
+  const sample: any = {
+    id: `vsample-${Date.now()}`,
+    person_id: person.id,
+    source: "upload",
+    status: "pending",
+    media_id: null,
+    filename: file.originalname,
+    start_time: null,
+    end_time: null,
+    duration_seconds: null,
+    error_message: null,
+    created_at: new Date().toISOString(),
+  };
+  voiceSamples.push(sample);
+  setTimeout(() => {
+    sample.status = "ready";
+    sample.duration_seconds = 14.2;
+  }, 2500);
+  res.status(202).json(sample);
+});
+
+router.delete("/voice/samples/:id", (req, res) => {
+  const idx = voiceSamples.findIndex((s) => s.id === req.params.id);
+  if (idx < 0) { res.status(404).json({ error: "Not found" }); return; }
+  voiceSamples.splice(idx, 1);
+  res.status(204).end();
+});
+
+router.get("/voice/samples/:id/audio", (req, res) => {
+  const sample = voiceSamples.find((s) => s.id === req.params.id);
+  if (!sample || sample.status !== "ready") { res.status(404).json({ error: "Not found" }); return; }
+  tinyWav(res);
+});
+
+router.post("/people/:id/voice/speak", (req, res) => {
+  const person = people.find((p) => p.id === req.params.id);
+  if (!person) { res.status(404).json({ error: "Not found" }); return; }
+  const profile = voiceProfile(person.id);
+  if (!profile.ready) {
+    res.status(409).json({ error: `Voice profile not ready — add at least ${MIN_SAMPLE_SECONDS}s of clean samples` });
+    return;
+  }
+  const text = String(req.body?.text ?? "").trim();
+  if (!text) { res.status(400).json({ error: "Text required" }); return; }
+  const gen: any = {
+    id: `vgen-${Date.now()}`,
+    person_id: person.id,
+    text,
+    language: String(req.body?.language ?? "en"),
+    status: "pending",
+    progress: 0,
+    duration_seconds: null,
+    error_message: null,
+    created_at: new Date().toISOString(),
+  };
+  voiceGenerations.unshift(gen);
+  const timer = setInterval(() => {
+    gen.status = "running";
+    gen.progress = Math.min(100, gen.progress + 34);
+    if (gen.progress >= 100) {
+      gen.status = "success";
+      gen.duration_seconds = Math.max(1, Math.round(text.split(/\s+/).length / 2.5));
+      clearInterval(timer);
+    }
+  }, 1200);
+  res.status(202).json(gen);
+});
+
+router.get("/people/:id/voice/generations", (req, res) => {
+  res.json(voiceGenerations.filter((g) => g.person_id === req.params.id));
+});
+
+router.delete("/voice/generations/:id", (req, res) => {
+  const idx = voiceGenerations.findIndex((g) => g.id === req.params.id);
+  if (idx < 0) { res.status(404).json({ error: "Not found" }); return; }
+  voiceGenerations.splice(idx, 1);
+  res.status(204).end();
+});
+
+router.get("/voice/generations/:id/audio", (req, res) => {
+  const gen = voiceGenerations.find((g) => g.id === req.params.id);
+  if (!gen || gen.status !== "success") { res.status(404).json({ error: "Not found" }); return; }
+  tinyWav(res);
+});
+
 router.get("/insights", (_req, res) => {
   res.json({
     generated_at: libraryInsights.generated_at,

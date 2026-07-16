@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRoute, Link } from "wouter";
 import {
   useGetPerson,
@@ -8,20 +8,375 @@ import {
   useMergePerson,
   useSplitPerson,
   useListPeople,
+  useGetVoiceProfile,
+  getGetVoiceProfileQueryKey,
+  useAddVoiceSample,
+  useUploadVoiceSample,
+  useDeleteVoiceSample,
+  useCreateVoiceGeneration,
+  useListVoiceGenerations,
+  getListVoiceGenerationsQueryKey,
+  useDeleteVoiceGeneration,
 } from "@workspace/api-client-react";
+import type { PersonAppearance, VoiceGeneration } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors,
+  AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus,
+} from "lucide-react";
 import { useLocation } from "wouter";
+
+const XTTS_LANGUAGES: { code: string; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Spanish" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "it", label: "Italian" },
+  { code: "pt", label: "Portuguese" },
+  { code: "pl", label: "Polish" },
+  { code: "tr", label: "Turkish" },
+  { code: "ru", label: "Russian" },
+  { code: "nl", label: "Dutch" },
+  { code: "cs", label: "Czech" },
+  { code: "ar", label: "Arabic" },
+  { code: "zh-cn", label: "Chinese" },
+  { code: "ja", label: "Japanese" },
+  { code: "hu", label: "Hungarian" },
+  { code: "ko", label: "Korean" },
+  { code: "hi", label: "Hindi" },
+];
+
+function parseTimecode(v: string): number | null {
+  const t = v.trim();
+  if (!t) return null;
+  if (/^\d+(\.\d+)?$/.test(t)) return parseFloat(t);
+  const parts = t.split(":").map((p) => p.trim());
+  if (parts.some((p) => p === "" || !/^\d+(\.\d+)?$/.test(p))) return null;
+  const nums = parts.map(parseFloat);
+  if (nums.length === 2) return nums[0] * 60 + nums[1];
+  if (nums.length === 3) return nums[0] * 3600 + nums[1] * 60 + nums[2];
+  return null;
+}
+
+function VoiceSection({
+  personId,
+  personName,
+  appearances,
+}: {
+  personId: string;
+  personName: string;
+  appearances: PersonAppearance[];
+}) {
+  const queryClient = useQueryClient();
+  const { data: profile } = useGetVoiceProfile(personId, {
+    query: {
+      queryKey: getGetVoiceProfileQueryKey(personId),
+      enabled: !!personId,
+      refetchInterval: (q) =>
+        q.state.data?.samples?.some((s) => s.status === "pending") ? 2500 : false,
+    },
+  });
+  const { data: generations } = useListVoiceGenerations(personId, {
+    query: {
+      queryKey: getListVoiceGenerationsQueryKey(personId),
+      enabled: !!personId,
+      refetchInterval: (q) =>
+        q.state.data?.some((g) => g.status === "pending" || g.status === "running") ? 2000 : false,
+    },
+  });
+
+  const addSample = useAddVoiceSample();
+  const uploadSample = useUploadVoiceSample();
+  const deleteSample = useDeleteVoiceSample();
+  const createGen = useCreateVoiceGeneration();
+  const deleteGen = useDeleteVoiceGeneration();
+
+  const invalidateProfile = () =>
+    queryClient.invalidateQueries({ queryKey: getGetVoiceProfileQueryKey(personId) });
+  const invalidateGens = () =>
+    queryClient.invalidateQueries({ queryKey: getListVoiceGenerationsQueryKey(personId) });
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [sampleMedia, setSampleMedia] = useState("");
+  const [sampleStart, setSampleStart] = useState("");
+  const [sampleEnd, setSampleEnd] = useState("");
+  const [rangeError, setRangeError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [genText, setGenText] = useState("");
+  const [genLang, setGenLang] = useState("en");
+
+  const speakingAppearances = appearances.filter((a) => a.speaker_label);
+
+  const submitSample = () => {
+    setRangeError(null);
+    const start = parseTimecode(sampleStart);
+    const end = parseTimecode(sampleEnd);
+    if (!sampleMedia || start == null || end == null) {
+      setRangeError("Enter start and end as seconds or hh:mm:ss.");
+      return;
+    }
+    if (end <= start) { setRangeError("End must be after start."); return; }
+    if (end - start > 60) { setRangeError("Keep samples under 60 seconds."); return; }
+    addSample.mutate(
+      { id: personId, data: { media_id: sampleMedia, start_time: start, end_time: end } },
+      {
+        onSuccess: () => {
+          setAddOpen(false);
+          setSampleStart("");
+          setSampleEnd("");
+          invalidateProfile();
+        },
+        onError: () => setRangeError("Could not add the sample — check the time range."),
+      },
+    );
+  };
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadSample.mutate(
+      { id: personId, data: { file } },
+      { onSuccess: invalidateProfile },
+    );
+    e.target.value = "";
+  };
+
+  const submitGeneration = () => {
+    if (!genText.trim()) return;
+    createGen.mutate(
+      { id: personId, data: { text: genText.trim(), language: genLang } },
+      { onSuccess: () => { setGenText(""); invalidateGens(); } },
+    );
+  };
+
+  const readySeconds = profile?.total_sample_seconds ?? 0;
+  const minSeconds = profile?.min_sample_seconds ?? 10;
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <AudioWaveform className="h-5 w-5 text-primary" /> Voice Clone
+        </h2>
+        {profile?.ready ? (
+          <Badge className="bg-green-500/15 text-green-400 border-green-500/30">ready</Badge>
+        ) : (
+          <Badge variant="outline">
+            {Math.round(readySeconds)}s / {minSeconds}s of clean audio
+          </Badge>
+        )}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="border border-border bg-card rounded-md p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h3 className="text-sm font-semibold">Clean Samples</h3>
+            <div className="flex gap-2">
+              <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1.5" disabled={!speakingAppearances.length}>
+                    <Plus className="h-3.5 w-3.5" /> From footage
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add a Voice Sample from Footage</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    <p className="text-sm text-muted-foreground">
+                      Pick a stretch where only {personName} speaks — no music, no crosstalk. 10–30 seconds is ideal.
+                    </p>
+                    <div className="space-y-2">
+                      <Label>Asset</Label>
+                      <Select value={sampleMedia} onValueChange={setSampleMedia}>
+                        <SelectTrigger><SelectValue placeholder="Choose an asset they speak in" /></SelectTrigger>
+                        <SelectContent>
+                          {speakingAppearances.map((a) => (
+                            <SelectItem key={a.media_id} value={a.media_id}>
+                              {a.filename}
+                              {a.first_spoken_at != null ? ` — first speaks at ${formatTimecode(a.first_spoken_at)}` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Start</Label>
+                        <Input value={sampleStart} onChange={(e) => setSampleStart(e.target.value)} placeholder="e.g. 2:05 or 125" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>End</Label>
+                        <Input value={sampleEnd} onChange={(e) => setSampleEnd(e.target.value)} placeholder="e.g. 2:28 or 148" />
+                      </div>
+                    </div>
+                    {rangeError && <p className="text-sm text-red-400">{rangeError}</p>}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+                    <Button onClick={submitSample} disabled={addSample.isPending}>
+                      {addSample.isPending ? "Adding..." : "Add Sample"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".wav,.mp3,.m4a,.flac,.ogg,audio/*"
+                className="hidden"
+                onChange={handleUpload}
+              />
+              <Button size="sm" variant="outline" className="gap-1.5"
+                onClick={() => fileInputRef.current?.click()} disabled={uploadSample.isPending}>
+                {uploadSample.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                Upload
+              </Button>
+            </div>
+          </div>
+          {uploadSample.isError && (
+            <p className="text-xs text-red-400">Upload failed — use wav, mp3, m4a, flac, or ogg.</p>
+          )}
+          {profile?.samples?.length ? (
+            <div className="space-y-2">
+              {profile.samples.map((s) => (
+                <div key={s.id} className="flex items-center gap-3 bg-muted/50 rounded p-2 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate">
+                      {s.filename || (s.source === "upload" ? "Uploaded audio" : "Clip")}
+                      {s.start_time != null && s.end_time != null
+                        ? ` · ${formatTimecode(s.start_time)}–${formatTimecode(s.end_time)}`
+                        : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {s.status === "ready"
+                        ? `${(s.duration_seconds ?? 0).toFixed(1)}s`
+                        : s.status === "error"
+                          ? s.error_message || "Failed"
+                          : "Processing..."}
+                      {" · "}{s.source === "upload" ? "uploaded" : "from footage"}
+                    </p>
+                  </div>
+                  {s.status === "pending" && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />}
+                  {s.status === "error" && <Badge variant="outline" className="bg-red-500/15 text-red-400 shrink-0">error</Badge>}
+                  {s.status === "ready" && (
+                    <audio controls preload="none" src={`/api/voice/samples/${s.id}/audio`} className="h-8 w-44 shrink-0" />
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-red-400 shrink-0"
+                    onClick={() => deleteSample.mutate({ id: s.id }, { onSuccess: invalidateProfile })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No samples yet. Add clean stretches of {personName} speaking — at least {minSeconds} seconds total unlocks cloning and dubbing in their own voice.
+            </p>
+          )}
+        </div>
+
+        <div className="border border-border bg-card rounded-md p-4 space-y-3">
+          <h3 className="text-sm font-semibold">Voice Generator</h3>
+          {profile?.ready ? (
+            <>
+              <Textarea
+                rows={3}
+                value={genText}
+                onChange={(e) => setGenText(e.target.value)}
+                placeholder={`Type anything — hear it in ${personName}'s voice`}
+                maxLength={2000}
+              />
+              <div className="flex items-center gap-2">
+                <Select value={genLang} onValueChange={setGenLang}>
+                  <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {XTTS_LANGUAGES.map((l) => (
+                      <SelectItem key={l.code} value={l.code}>{l.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button className="ml-auto gap-2" onClick={submitGeneration}
+                  disabled={!genText.trim() || createGen.isPending}>
+                  {createGen.isPending
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Queuing...</>
+                    : <><Play className="h-4 w-4" /> Generate</>}
+                </Button>
+              </div>
+              {createGen.isError && (
+                <p className="text-sm text-red-400">Generation failed to start — is the pipeline running?</p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Locked until the voice profile is ready — add {Math.max(0, Math.ceil(minSeconds - readySeconds))} more seconds of clean samples.
+            </p>
+          )}
+
+          {generations?.length ? (
+            <div className="space-y-2 pt-1">
+              {generations.map((g: VoiceGeneration) => (
+                <div key={g.id} className="bg-muted/50 rounded p-2 text-sm space-y-1.5">
+                  <div className="flex items-start gap-2">
+                    <p className="flex-1 min-w-0 text-xs leading-relaxed line-clamp-2">&ldquo;{g.text}&rdquo;</p>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-muted-foreground hover:text-red-400 shrink-0"
+                      onClick={() => deleteGen.mutate({ id: g.id }, { onSuccess: invalidateGens })}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">
+                      {XTTS_LANGUAGES.find((l) => l.code === g.language)?.label ?? g.language}
+                    </Badge>
+                    {g.status === "success" ? (
+                      <>
+                        <audio controls preload="none" src={`/api/voice/generations/${g.id}/audio`} className="h-8 flex-1 min-w-0" />
+                        <a href={`/api/voice/generations/${g.id}/audio`} download className="shrink-0">
+                          <Button size="icon" variant="ghost" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
+                        </a>
+                      </>
+                    ) : g.status === "error" ? (
+                      <span className="text-xs text-red-400 truncate">{g.error_message || "Generation failed"}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Generating… {Math.round(g.progress ?? 0)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function formatDuration(seconds: number | null | undefined) {
   if (!seconds) return "—";
@@ -283,6 +638,8 @@ export default function PersonDetail() {
           ) : null}
         </div>
       ) : null}
+
+      <VoiceSection personId={id} personName={person.display_name} appearances={person.appearances ?? []} />
 
       <h2 className="text-lg font-semibold mb-4">Appearances</h2>
       {person.appearances?.length ? (

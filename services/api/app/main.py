@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects
+from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice
 
 
 # Columns created as `json` by earlier versions must become `jsonb` so workers
@@ -171,6 +171,7 @@ app.include_router(renders.router, prefix="/api")
 app.include_router(reels.router, prefix="/api")
 app.include_router(stories.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
+app.include_router(voice.router, prefix="/api")
 
 
 @app.get("/api/healthz")

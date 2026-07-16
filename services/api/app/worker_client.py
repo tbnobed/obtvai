@@ -74,6 +74,16 @@ async def enqueue_story(story_id: str) -> str:
     return story_id
 
 
+async def enqueue_voice_sample(sample_id: str) -> str:
+    await _publish("cpu", "tasks.voice.prepare_voice_sample", {"sample_id": sample_id}, str(uuid.uuid4()))
+    return sample_id
+
+
+async def enqueue_voice_speak(generation_id: str) -> str:
+    await _publish("gpu", "tasks.voice.generate_speech", {"generation_id": generation_id}, str(uuid.uuid4()))
+    return generation_id
+
+
 async def enqueue_publish(render_id: str) -> str:
     await _publish("cpu", "tasks.publish.publish_render", {"render_id": render_id}, str(uuid.uuid4()))
     return render_id

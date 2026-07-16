@@ -483,8 +483,11 @@ export const CreateDubParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const createDubBodyUseClonedVoicesDefault = false;
+
 export const CreateDubBody = zod.object({
-  "target_language": zod.string().describe('ISO code with MMS-TTS support: es | fr | de | pt | nl | ru | ko | ar | hi')
+  "target_language": zod.string().describe('ISO code with MMS-TTS support: es | fr | de | pt | nl | ru | ko | ar | hi'),
+  "use_cloned_voices": zod.boolean().default(createDubBodyUseClonedVoicesDefault).describe('Speak each segment in the identified speaker\'s cloned voice when their voice profile is ready; falls back to the stock TTS voice otherwise')
 })
 
 export const CreateDubResponse = zod.object({
@@ -862,6 +865,182 @@ export const SplitPersonResponse = zod.object({
   "segment_count": zod.number(),
   "updated_at": zod.string().nullish()
 })
+
+
+/**
+ * @summary A person's voice-clone profile — curated samples and readiness
+ */
+export const GetVoiceProfileParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetVoiceProfileResponse = zod.object({
+  "person_id": zod.string(),
+  "ready": zod.boolean().describe('True when enough clean sample audio exists to clone the voice'),
+  "total_sample_seconds": zod.number().describe('Total duration of ready samples'),
+  "min_sample_seconds": zod.number().describe('Minimum sample audio required before cloning unlocks'),
+  "samples": zod.array(zod.object({
+  "id": zod.string(),
+  "person_id": zod.string(),
+  "source": zod.string().describe('segment (cut from an indexed asset) | upload (user-provided file)'),
+  "status": zod.string().describe('pending | ready | error'),
+  "media_id": zod.string().nullish().describe('Source asset when the sample was cut from a segment'),
+  "filename": zod.string().nullish().describe('Source asset filename or original uploaded filename'),
+  "start_time": zod.number().nullish(),
+  "end_time": zod.number().nullish(),
+  "duration_seconds": zod.number().nullish().describe('Length of the normalized sample once ready'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string()
+}))
+})
+
+
+/**
+ * @summary Add a clean voice sample cut from a media asset segment
+ */
+export const AddVoiceSampleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const addVoiceSampleBodyStartTimeMin = 0;
+
+
+
+export const AddVoiceSampleBody = zod.object({
+  "media_id": zod.string(),
+  "start_time": zod.number().min(addVoiceSampleBodyStartTimeMin),
+  "end_time": zod.number().describe('Must be after start_time; segment capped at 60 seconds')
+})
+
+export const AddVoiceSampleResponse = zod.object({
+  "id": zod.string(),
+  "person_id": zod.string(),
+  "source": zod.string().describe('segment (cut from an indexed asset) | upload (user-provided file)'),
+  "status": zod.string().describe('pending | ready | error'),
+  "media_id": zod.string().nullish().describe('Source asset when the sample was cut from a segment'),
+  "filename": zod.string().nullish().describe('Source asset filename or original uploaded filename'),
+  "start_time": zod.number().nullish(),
+  "end_time": zod.number().nullish(),
+  "duration_seconds": zod.number().nullish().describe('Length of the normalized sample once ready'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Upload a clean audio file as a voice sample
+ */
+export const UploadVoiceSampleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UploadVoiceSampleBody = zod.object({
+  "file": zod.instanceof(File).describe('Audio file (wav, mp3, m4a, flac, ogg)')
+})
+
+export const UploadVoiceSampleResponse = zod.object({
+  "id": zod.string(),
+  "person_id": zod.string(),
+  "source": zod.string().describe('segment (cut from an indexed asset) | upload (user-provided file)'),
+  "status": zod.string().describe('pending | ready | error'),
+  "media_id": zod.string().nullish().describe('Source asset when the sample was cut from a segment'),
+  "filename": zod.string().nullish().describe('Source asset filename or original uploaded filename'),
+  "start_time": zod.number().nullish(),
+  "end_time": zod.number().nullish(),
+  "duration_seconds": zod.number().nullish().describe('Length of the normalized sample once ready'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Remove a voice sample
+ */
+export const DeleteVoiceSampleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteVoiceSampleResponse = zod.void()
+
+
+/**
+ * @summary Stream a voice sample's audio
+ */
+export const StreamVoiceSampleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StreamVoiceSampleResponse = zod.unknown()
+
+
+/**
+ * @summary Synthesize arbitrary text in this person's cloned voice
+ */
+export const CreateVoiceGenerationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const createVoiceGenerationBodyTextMax = 2000;
+
+export const createVoiceGenerationBodyLanguageDefault = `en`;
+
+export const CreateVoiceGenerationBody = zod.object({
+  "text": zod.string().min(1).max(createVoiceGenerationBodyTextMax),
+  "language": zod.string().default(createVoiceGenerationBodyLanguageDefault).describe('XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi')
+})
+
+export const CreateVoiceGenerationResponse = zod.object({
+  "id": zod.string(),
+  "person_id": zod.string(),
+  "text": zod.string(),
+  "language": zod.string(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "duration_seconds": zod.number().nullish(),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary List this person's speech generations, newest first
+ */
+export const ListVoiceGenerationsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListVoiceGenerationsResponseItem = zod.object({
+  "id": zod.string(),
+  "person_id": zod.string(),
+  "text": zod.string(),
+  "language": zod.string(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "duration_seconds": zod.number().nullish(),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string()
+})
+export const ListVoiceGenerationsResponse = zod.array(ListVoiceGenerationsResponseItem)
+
+
+/**
+ * @summary Delete a speech generation
+ */
+export const DeleteVoiceGenerationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteVoiceGenerationResponse = zod.void()
+
+
+/**
+ * @summary Stream a finished speech generation
+ */
+export const StreamVoiceGenerationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StreamVoiceGenerationResponse = zod.unknown()
 
 
 /**

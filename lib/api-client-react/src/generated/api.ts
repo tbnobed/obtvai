@@ -80,7 +80,13 @@ import type {
   TightenInput,
   TightenResult,
   TranscriptSegment,
-  TranslateRequest
+  TranslateRequest,
+  VoiceGeneration,
+  VoiceProfile,
+  VoiceSample,
+  VoiceSampleFromSegment,
+  VoiceSampleUploadInput,
+  VoiceSpeakRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2006,6 +2012,674 @@ export const useSplitPerson = <TError = ErrorType<void>,
       > => {
       return useMutation(getSplitPersonMutationOptions(options));
     }
+
+export const getGetVoiceProfileUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/voice`
+}
+
+/**
+ * @summary A person's voice-clone profile — curated samples and readiness
+ */
+export const getVoiceProfile = async (id: string, options?: RequestInit): Promise<VoiceProfile> => {
+
+  return customFetch<VoiceProfile>(getGetVoiceProfileUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetVoiceProfileQueryKey = (id: string,) => {
+    return [
+    `/api/people/${id}/voice`
+    ] as const;
+    }
+
+
+export const getGetVoiceProfileQueryOptions = <TData = Awaited<ReturnType<typeof getVoiceProfile>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVoiceProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVoiceProfileQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVoiceProfile>>> = ({ signal }) => getVoiceProfile(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVoiceProfile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetVoiceProfileQueryResult = NonNullable<Awaited<ReturnType<typeof getVoiceProfile>>>
+export type GetVoiceProfileQueryError = ErrorType<void>
+
+
+/**
+ * @summary A person's voice-clone profile — curated samples and readiness
+ */
+
+export function useGetVoiceProfile<TData = Awaited<ReturnType<typeof getVoiceProfile>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVoiceProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetVoiceProfileQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddVoiceSampleUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/voice/samples`
+}
+
+/**
+ * @summary Add a clean voice sample cut from a media asset segment
+ */
+export const addVoiceSample = async (id: string,
+    voiceSampleFromSegment: VoiceSampleFromSegment, options?: RequestInit): Promise<VoiceSample> => {
+
+  return customFetch<VoiceSample>(getAddVoiceSampleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(voiceSampleFromSegment)
+  }
+);}
+
+
+
+
+
+export const getAddVoiceSampleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addVoiceSample>>, TError,{id: string;data: BodyType<VoiceSampleFromSegment>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addVoiceSample>>, TError,{id: string;data: BodyType<VoiceSampleFromSegment>}, TContext> => {
+
+const mutationKey = ['addVoiceSample'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addVoiceSample>>, {id: string;data: BodyType<VoiceSampleFromSegment>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addVoiceSample(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddVoiceSampleMutationResult = NonNullable<Awaited<ReturnType<typeof addVoiceSample>>>
+    export type AddVoiceSampleMutationBody = BodyType<VoiceSampleFromSegment>
+    export type AddVoiceSampleMutationError = ErrorType<void>
+
+    /**
+ * @summary Add a clean voice sample cut from a media asset segment
+ */
+export const useAddVoiceSample = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addVoiceSample>>, TError,{id: string;data: BodyType<VoiceSampleFromSegment>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addVoiceSample>>,
+        TError,
+        {id: string;data: BodyType<VoiceSampleFromSegment>},
+        TContext
+      > => {
+      return useMutation(getAddVoiceSampleMutationOptions(options));
+    }
+
+export const getUploadVoiceSampleUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/voice/samples/upload`
+}
+
+/**
+ * @summary Upload a clean audio file as a voice sample
+ */
+export const uploadVoiceSample = async (id: string,
+    voiceSampleUploadInput: VoiceSampleUploadInput, options?: RequestInit): Promise<VoiceSample> => {
+    const formData = new FormData();
+formData.append(`file`, voiceSampleUploadInput.file);
+
+  return customFetch<VoiceSample>(getUploadVoiceSampleUrl(id),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getUploadVoiceSampleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadVoiceSample>>, TError,{id: string;data: BodyType<VoiceSampleUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadVoiceSample>>, TError,{id: string;data: BodyType<VoiceSampleUploadInput>}, TContext> => {
+
+const mutationKey = ['uploadVoiceSample'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadVoiceSample>>, {id: string;data: BodyType<VoiceSampleUploadInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  uploadVoiceSample(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadVoiceSampleMutationResult = NonNullable<Awaited<ReturnType<typeof uploadVoiceSample>>>
+    export type UploadVoiceSampleMutationBody = BodyType<VoiceSampleUploadInput>
+    export type UploadVoiceSampleMutationError = ErrorType<void>
+
+    /**
+ * @summary Upload a clean audio file as a voice sample
+ */
+export const useUploadVoiceSample = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadVoiceSample>>, TError,{id: string;data: BodyType<VoiceSampleUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadVoiceSample>>,
+        TError,
+        {id: string;data: BodyType<VoiceSampleUploadInput>},
+        TContext
+      > => {
+      return useMutation(getUploadVoiceSampleMutationOptions(options));
+    }
+
+export const getDeleteVoiceSampleUrl = (id: string,) => {
+
+
+
+
+  return `/api/voice/samples/${id}`
+}
+
+/**
+ * @summary Remove a voice sample
+ */
+export const deleteVoiceSample = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteVoiceSampleUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteVoiceSampleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVoiceSample>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteVoiceSample>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteVoiceSample'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteVoiceSample>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteVoiceSample(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteVoiceSampleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteVoiceSample>>>
+
+    export type DeleteVoiceSampleMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove a voice sample
+ */
+export const useDeleteVoiceSample = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVoiceSample>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteVoiceSample>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteVoiceSampleMutationOptions(options));
+    }
+
+export const getStreamVoiceSampleUrl = (id: string,) => {
+
+
+
+
+  return `/api/voice/samples/${id}/audio`
+}
+
+/**
+ * @summary Stream a voice sample's audio
+ */
+export const streamVoiceSample = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getStreamVoiceSampleUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamVoiceSampleQueryKey = (id: string,) => {
+    return [
+    `/api/voice/samples/${id}/audio`
+    ] as const;
+    }
+
+
+export const getStreamVoiceSampleQueryOptions = <TData = Awaited<ReturnType<typeof streamVoiceSample>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamVoiceSample>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamVoiceSampleQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamVoiceSample>>> = ({ signal }) => streamVoiceSample(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamVoiceSample>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamVoiceSampleQueryResult = NonNullable<Awaited<ReturnType<typeof streamVoiceSample>>>
+export type StreamVoiceSampleQueryError = ErrorType<void>
+
+
+/**
+ * @summary Stream a voice sample's audio
+ */
+
+export function useStreamVoiceSample<TData = Awaited<ReturnType<typeof streamVoiceSample>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamVoiceSample>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamVoiceSampleQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateVoiceGenerationUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/voice/speak`
+}
+
+/**
+ * @summary Synthesize arbitrary text in this person's cloned voice
+ */
+export const createVoiceGeneration = async (id: string,
+    voiceSpeakRequest: VoiceSpeakRequest, options?: RequestInit): Promise<VoiceGeneration> => {
+
+  return customFetch<VoiceGeneration>(getCreateVoiceGenerationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(voiceSpeakRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateVoiceGenerationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVoiceGeneration>>, TError,{id: string;data: BodyType<VoiceSpeakRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createVoiceGeneration>>, TError,{id: string;data: BodyType<VoiceSpeakRequest>}, TContext> => {
+
+const mutationKey = ['createVoiceGeneration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createVoiceGeneration>>, {id: string;data: BodyType<VoiceSpeakRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createVoiceGeneration(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateVoiceGenerationMutationResult = NonNullable<Awaited<ReturnType<typeof createVoiceGeneration>>>
+    export type CreateVoiceGenerationMutationBody = BodyType<VoiceSpeakRequest>
+    export type CreateVoiceGenerationMutationError = ErrorType<void>
+
+    /**
+ * @summary Synthesize arbitrary text in this person's cloned voice
+ */
+export const useCreateVoiceGeneration = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVoiceGeneration>>, TError,{id: string;data: BodyType<VoiceSpeakRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createVoiceGeneration>>,
+        TError,
+        {id: string;data: BodyType<VoiceSpeakRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateVoiceGenerationMutationOptions(options));
+    }
+
+export const getListVoiceGenerationsUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/voice/generations`
+}
+
+/**
+ * @summary List this person's speech generations, newest first
+ */
+export const listVoiceGenerations = async (id: string, options?: RequestInit): Promise<VoiceGeneration[]> => {
+
+  return customFetch<VoiceGeneration[]>(getListVoiceGenerationsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListVoiceGenerationsQueryKey = (id: string,) => {
+    return [
+    `/api/people/${id}/voice/generations`
+    ] as const;
+    }
+
+
+export const getListVoiceGenerationsQueryOptions = <TData = Awaited<ReturnType<typeof listVoiceGenerations>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVoiceGenerations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListVoiceGenerationsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVoiceGenerations>>> = ({ signal }) => listVoiceGenerations(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listVoiceGenerations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListVoiceGenerationsQueryResult = NonNullable<Awaited<ReturnType<typeof listVoiceGenerations>>>
+export type ListVoiceGenerationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List this person's speech generations, newest first
+ */
+
+export function useListVoiceGenerations<TData = Awaited<ReturnType<typeof listVoiceGenerations>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVoiceGenerations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListVoiceGenerationsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteVoiceGenerationUrl = (id: string,) => {
+
+
+
+
+  return `/api/voice/generations/${id}`
+}
+
+/**
+ * @summary Delete a speech generation
+ */
+export const deleteVoiceGeneration = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteVoiceGenerationUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteVoiceGenerationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVoiceGeneration>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteVoiceGeneration>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteVoiceGeneration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteVoiceGeneration>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteVoiceGeneration(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteVoiceGenerationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteVoiceGeneration>>>
+
+    export type DeleteVoiceGenerationMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a speech generation
+ */
+export const useDeleteVoiceGeneration = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVoiceGeneration>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteVoiceGeneration>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteVoiceGenerationMutationOptions(options));
+    }
+
+export const getStreamVoiceGenerationUrl = (id: string,) => {
+
+
+
+
+  return `/api/voice/generations/${id}/audio`
+}
+
+/**
+ * @summary Stream a finished speech generation
+ */
+export const streamVoiceGeneration = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getStreamVoiceGenerationUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamVoiceGenerationQueryKey = (id: string,) => {
+    return [
+    `/api/voice/generations/${id}/audio`
+    ] as const;
+    }
+
+
+export const getStreamVoiceGenerationQueryOptions = <TData = Awaited<ReturnType<typeof streamVoiceGeneration>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamVoiceGeneration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamVoiceGenerationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamVoiceGeneration>>> = ({ signal }) => streamVoiceGeneration(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamVoiceGeneration>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamVoiceGenerationQueryResult = NonNullable<Awaited<ReturnType<typeof streamVoiceGeneration>>>
+export type StreamVoiceGenerationQueryError = ErrorType<void>
+
+
+/**
+ * @summary Stream a finished speech generation
+ */
+
+export function useStreamVoiceGeneration<TData = Awaited<ReturnType<typeof streamVoiceGeneration>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamVoiceGeneration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamVoiceGenerationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getReanalyzePeopleUrl = () => {
 

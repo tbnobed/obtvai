@@ -63,6 +63,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 - Re-run codegen after any OpenAPI spec change: `pnpm --filter @workspace/api-spec run codegen`
 - The production stack requires a HuggingFace token for pyannote speaker diarization — see `.env.example`
 - Docker Compose GPU workers require NVIDIA Container Toolkit on the host
+- Voice cloning uses XTTS-v2 (coqui-tts); first run downloads ~2 GB model; `COQUI_TOS_AGREED=1` is set in docker-compose shared env; voice files live under `/artifacts/voices`
 - `BASE_PATH` env var must be set when running `pnpm build` manually (handled automatically by workflows)
 
 ## Pointers

@@ -12,6 +12,8 @@ x-python-env: &python-env
   AUDIO_DIR: "/artifacts/audio"
   REELS_DIR: "/artifacts/reels"
   RENDERS_DIR: "/artifacts/renders"
+  VOICES_DIR: "/artifacts/voices"
+  COQUI_TOS_AGREED: "1"
   YOUTUBE_CLIENT_ID: "${YOUTUBE_CLIENT_ID:-}"
   YOUTUBE_CLIENT_SECRET: "${YOUTUBE_CLIENT_SECRET:-}"
   YOUTUBE_REFRESH_TOKEN: "${YOUTUBE_REFRESH_TOKEN:-}"

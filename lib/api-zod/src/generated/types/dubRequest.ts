@@ -9,4 +9,6 @@
 export interface DubRequest {
   /** ISO code with MMS-TTS support: es | fr | de | pt | nl | ru | ko | ar | hi */
   target_language: string;
+  /** Speak each segment in the identified speaker's cloned voice when their voice profile is ready; falls back to the stock TTS voice otherwise */
+  use_cloned_voices?: boolean;
 }

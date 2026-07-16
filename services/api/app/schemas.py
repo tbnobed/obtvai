@@ -46,6 +46,7 @@ class TranslateRequest(BaseModel):
 
 class DubRequest(BaseModel):
     target_language: str
+    use_cloned_voices: bool = False
 
 
 class MediaListResponse(BaseModel):
@@ -462,6 +463,51 @@ class PersonSplitIn(BaseModel):
     media_id: str
     speaker_label: str | None = None
     face_cluster_id: str | None = None
+
+
+class VoiceSampleOut(BaseModel):
+    id: str
+    person_id: str
+    source: str
+    status: str
+    media_id: Optional[str] = None
+    filename: Optional[str] = None
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+    duration_seconds: Optional[float] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+
+
+class VoiceProfileOut(BaseModel):
+    person_id: str
+    ready: bool
+    total_sample_seconds: float
+    min_sample_seconds: float
+    samples: List[VoiceSampleOut] = []
+
+
+class VoiceSampleFromSegmentIn(BaseModel):
+    media_id: str
+    start_time: float
+    end_time: float
+
+
+class VoiceSpeakIn(BaseModel):
+    text: str
+    language: str = "en"
+
+
+class VoiceGenerationOut(BaseModel):
+    id: str
+    person_id: str
+    text: str
+    language: str
+    status: str
+    progress: float
+    duration_seconds: Optional[float] = None
+    error_message: Optional[str] = None
+    created_at: datetime
 
 
 class ReanalyzeOut(BaseModel):
