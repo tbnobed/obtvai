@@ -852,6 +852,28 @@ async def stream_dub(id: str, lang: str, db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.get("/{id}/dub/{lang}/video")
+async def stream_dub_video(id: str, lang: str, db: AsyncSession = Depends(get_db)):
+    """Dubbed video (source video stream + dubbed audio track muxed)."""
+    from fastapi.responses import FileResponse
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+    lang = lang.strip().lower()
+    if lang not in (asset.dubbed_languages or []):
+        raise HTTPException(status_code=404, detail="No dub for this language")
+    path = os.path.join(settings.artifacts_root, "dubs", f"{id}_{lang}.mp4")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Dubbed video file missing — re-run dubbing to generate it")
+    return FileResponse(
+        path,
+        media_type="video/mp4",
+        filename=f"dub_{lang}_{asset.filename.rsplit('.', 1)[0]}.mp4",
+        content_disposition_type="inline",
+    )
+
+
 @router.get("/{id}/highlight/stream")
 async def stream_highlight(id: str, db: AsyncSession = Depends(get_db)):
     from fastapi.responses import FileResponse

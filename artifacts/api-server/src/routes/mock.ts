@@ -786,6 +786,19 @@ router.post("/media/:id/dub", (req, res) => {
   res.status(202).json(job);
 });
 
+router.get("/media/:id/dub/:lang/video", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  const lang = String(req.params.lang ?? "").toLowerCase();
+  if (!asset || !((asset as any).dubbed_languages ?? []).includes(lang)) {
+    res.status(404).json({ error: "No dub for this language" });
+    return;
+  }
+  // No real media in the mock environment — the production API streams the
+  // muxed dubbed MP4. Redirect to the regular stream so the player toggle
+  // can be exercised.
+  res.redirect(307, `/api/media/${req.params.id}/stream`);
+});
+
 router.get("/media/:id/dub/:lang/stream", (req, res) => {
   const asset = assets.find((a) => a.id === req.params.id);
   const lang = String(req.params.lang ?? "").toLowerCase();

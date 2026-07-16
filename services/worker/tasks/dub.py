@@ -122,6 +122,104 @@ XTTS_LANGS = {
     "nl", "cs", "ar", "zh-cn", "ja", "hu", "ko", "hi",
 }
 
+# XTTS-v2 built-in studio speakers used for gender-matched generic dubbing
+# (no cloned voice profile needed).
+STOCK_VOICES = {"female": "Claribel Dervla", "male": "Damien Black"}
+# Median F0 at/above this → female. Typical male speech 85-155 Hz,
+# female 165-255 Hz.
+_F0_FEMALE_HZ = 155.0
+
+
+def _median_f0(samples, rate: int) -> float | None:
+    """Median fundamental frequency of voiced frames via autocorrelation."""
+    import numpy as np
+    frame = int(rate * 0.04)
+    hop = frame // 2
+    lo_lag = int(rate / 400.0)   # 400 Hz ceiling
+    hi_lag = int(rate / 60.0)    # 60 Hz floor
+    if samples.size < frame or hi_lag <= lo_lag:
+        return None
+    energy_gate = 0.05 * float(np.sqrt(np.mean(samples ** 2)) or 0.0)
+    f0s = []
+    for start in range(0, samples.size - frame, hop):
+        w = samples[start:start + frame]
+        rms = float(np.sqrt(np.mean(w ** 2)))
+        if rms < max(energy_gate, 1e-4):
+            continue
+        w = w - w.mean()
+        ac = np.correlate(w, w, mode="full")[frame - 1:]
+        if ac[0] <= 0:
+            continue
+        seg = ac[lo_lag:hi_lag]
+        if seg.size == 0:
+            continue
+        lag = lo_lag + int(np.argmax(seg))
+        # Voicing confidence: normalized autocorrelation peak
+        if ac[lag] / ac[0] < 0.3:
+            continue
+        f0s.append(rate / lag)
+    if len(f0s) < 10:
+        return None
+    return float(np.median(np.array(f0s)))
+
+
+def _speaker_genders(db, media_id: str, workdir: str) -> dict:
+    """speaker_label → 'male' | 'female', estimated from source audio pitch.
+    Defaults to 'male' when estimation fails (no audio, too little speech)."""
+    from sqlalchemy import text
+    row = db.execute(
+        text("SELECT original_path, proxy_path FROM media_assets WHERE id = :mid"),
+        {"mid": media_id},
+    ).fetchone()
+    src = (row[1] or row[0]) if row else None
+    genders: dict = {}
+    if not src or not os.path.exists(src):
+        return genders
+    segs = db.execute(
+        text("""
+            SELECT DISTINCT ON (speaker, start_time) speaker, start_time, end_time
+            FROM transcript_segments
+            WHERE media_id = :mid AND speaker IS NOT NULL
+              AND end_time - start_time >= 2.0
+            ORDER BY speaker, start_time
+        """),
+        {"mid": media_id},
+    ).fetchall()
+    by_speaker: dict = {}
+    for spk, s, e in segs:
+        by_speaker.setdefault(spk, [])
+        if len(by_speaker[spk]) < 3:
+            by_speaker[spk].append((float(s), float(e)))
+    for spk, windows in by_speaker.items():
+        f0s = []
+        for s, e in windows:
+            wav = os.path.join(workdir, "gender_probe.wav")
+            proc = subprocess.run(
+                ["ffmpeg", "-y", "-ss", str(s), "-to", str(min(e, s + 8.0)),
+                 "-i", src, "-vn", "-ac", "1", "-ar", "16000", wav],
+                capture_output=True, timeout=120,
+            )
+            if proc.returncode != 0 or not os.path.exists(wav):
+                continue
+            try:
+                data, rate = _read_wav(wav)
+                f0 = _median_f0(data, rate)
+                if f0:
+                    f0s.append(f0)
+            except Exception:
+                continue
+        if f0s:
+            import numpy as np
+            med = float(np.median(np.array(f0s)))
+            genders[spk] = "female" if med >= _F0_FEMALE_HZ else "male"
+    return genders
+
+
+def _synthesize_stock(tts, text_value: str, language: str, speaker_name: str, workdir: str):
+    out = os.path.join(workdir, "xtts_stock_seg.wav")
+    tts.tts_to_file(text=text_value, language=language, speaker=speaker_name, file_path=out)
+    return _read_wav(out)
+
 
 def _cloned_voice_map(db, media_id: str) -> dict:
     """speaker_label → list of ready voice-sample WAV paths for this asset's people."""
@@ -178,9 +276,10 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
 
         target = str(target_language).strip().lower()
         lang3 = MMS_LANG_CODES.get(target)
-        if not lang3:
+        if not lang3 and target not in XTTS_LANGS:
+            supported = sorted(set(MMS_LANG_CODES) | XTTS_LANGS)
             raise RuntimeError(
-                f"Dubbing not supported for '{target}'. Supported: {', '.join(sorted(MMS_LANG_CODES))}"
+                f"Dubbing not supported for '{target}'. Supported: {', '.join(supported)}"
             )
 
         update_job(db, job_id, status="running", started_at=datetime.utcnow(),
@@ -188,7 +287,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
 
         from sqlalchemy import text
         asset_row = db.execute(
-            text("SELECT duration_seconds FROM media_assets WHERE id = :mid"),
+            text("SELECT duration_seconds, original_path, proxy_path FROM media_assets WHERE id = :mid"),
             {"mid": media_id},
         ).fetchone()
         if not asset_row:
@@ -214,24 +313,33 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         if use_cloned_voices and target in XTTS_LANGS:
             voice_map = _cloned_voice_map(db, media_id)
             if voice_map:
-                append_log(db, job_id, f"Loading XTTS-v2 for cloned voices ({len(voice_map)} speaker(s) with ready profiles)")
-                from tasks.voice import _load_xtts
-                xtts = _load_xtts()
+                append_log(db, job_id, f"{len(voice_map)} speaker(s) have ready cloned-voice profiles")
             else:
-                append_log(db, job_id, "Cloned voices requested but no speaker has a ready voice profile — using stock TTS")
+                append_log(db, job_id, "Cloned voices requested but no speaker has a ready voice profile — using stock voices")
         elif use_cloned_voices:
-            append_log(db, job_id, f"Cloned voices not supported for '{target}' — using stock TTS")
+            append_log(db, job_id, f"Cloned voices not supported for '{target}' — using stock voices")
 
-        needs_mms = any(not (xtts and voice_map.get(r[3])) for r in rows)
+        # Generic (non-cloned) segments: prefer XTTS stock studio voices,
+        # gender-matched to each diarized speaker's pitch. MMS-TTS (one
+        # androgynous voice per language) is only the fallback for languages
+        # XTTS can't speak.
+        speaker_genders: dict = {}
+        use_xtts_stock = target in XTTS_LANGS
+        if use_xtts_stock or voice_map:
+            append_log(db, job_id, "Loading XTTS-v2")
+            update_job(db, job_id, progress=3.0)
+            from tasks.voice import _load_xtts
+            xtts = _load_xtts()
+
         tokenizer = model = None
-        if needs_mms:
+        if xtts:
+            sample_rate = 24000  # XTTS output rate
+        else:
+            if not lang3:
+                raise RuntimeError(f"No MMS-TTS checkpoint for '{target}'")
             append_log(db, job_id, f"Loading TTS model: facebook/mms-tts-{lang3}")
             update_job(db, job_id, progress=5.0)
             tokenizer, model, sample_rate = _load_tts(lang3)
-        else:
-            sample_rate = 24000  # XTTS output rate
-        if xtts:
-            sample_rate = 24000
 
         duration = float(asset_row[0]) if asset_row[0] else float(rows[-1][1]) + 1.0
         duration = max(duration, float(rows[-1][1]))
@@ -244,6 +352,12 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
 
         cloned_count = 0
         with tempfile.TemporaryDirectory() as workdir:
+            if use_xtts_stock:
+                speaker_genders = _speaker_genders(db, media_id, workdir)
+                if speaker_genders:
+                    summary = ", ".join(f"{s}: {g}" for s, g in sorted(speaker_genders.items()))
+                    append_log(db, job_id, f"Gender-matched stock voices — {summary}")
+
             for i, (start_time, end_time, seg_text, speaker) in enumerate(rows):
                 seg_text = (seg_text or "").strip()
                 if not seg_text:
@@ -253,6 +367,12 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                     clip, clip_rate = _synthesize_xtts(xtts, seg_text, target, speaker_wavs, workdir)
                     clip = _resample(clip, clip_rate, sample_rate, workdir)
                     cloned_count += 1
+                elif use_xtts_stock:
+                    gender = speaker_genders.get(speaker, "male")
+                    clip, clip_rate = _synthesize_stock(
+                        xtts, seg_text, target, STOCK_VOICES[gender], workdir
+                    )
+                    clip = _resample(clip, clip_rate, sample_rate, workdir)
                 else:
                     if model is None:
                         append_log(db, job_id, f"Loading TTS model: facebook/mms-tts-{lang3}")
@@ -305,6 +425,29 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 raise RuntimeError(f"ffmpeg AAC encode failed: {result.stderr[-400:]}")
             import shutil
             shutil.copyfile(tmp_out, out_path)
+
+            # Mux a playable dubbed VIDEO: copy the video stream (no re-encode)
+            # and attach the dubbed track, so the player can switch sources
+            # instead of syncing a separate audio element.
+            # The player switches its source to this MP4, so a missing mux
+            # must FAIL the job — otherwise the language is advertised as
+            # dubbed and playback 404s.
+            video_src = asset_row[2] or asset_row[1]
+            if not video_src or not os.path.exists(video_src):
+                raise RuntimeError("Source video unavailable — cannot produce dubbed video")
+            append_log(db, job_id, "Muxing dubbed video")
+            update_job(db, job_id, progress=96.0)
+            tmp_mp4 = os.path.join(workdir, "dub_video.mp4")
+            result = subprocess.run(
+                ["ffmpeg", "-y", "-i", video_src, "-i", tmp_out,
+                 "-map", "0:v:0", "-map", "1:a:0",
+                 "-c:v", "copy", "-c:a", "copy",
+                 "-movflags", "+faststart", "-shortest", tmp_mp4],
+                capture_output=True, text=True, timeout=1800,
+            )
+            if result.returncode != 0 or not os.path.exists(tmp_mp4):
+                raise RuntimeError(f"Dubbed video mux failed: {result.stderr[-300:]}")
+            shutil.copyfile(tmp_mp4, os.path.join(DUBS_DIR, f"{media_id}_{target}.mp4"))
 
         db.execute(
             text("""

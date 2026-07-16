@@ -248,45 +248,30 @@ export default function AssetDetail() {
   const dubSupported = DUB_LANGUAGES.includes(transcriptLang);
   const dubAvailable = dubSupported && (asset?.dubbed_languages ?? []).includes(transcriptLang);
   const [dubOn, setDubOn] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Turn dubbed audio off whenever it stops being applicable.
+  // Turn dubbed playback off whenever it stops being applicable.
   useEffect(() => {
     if (!dubAvailable && dubOn) setDubOn(false);
   }, [dubAvailable, dubOn]);
 
-  // Keep the dubbed audio track in lockstep with the video element.
-  useEffect(() => {
+  // Toggling dub switches the player's SOURCE to the muxed dubbed video —
+  // preserve position and play state across the swap.
+  const toggleDub = () => {
     const video = videoRef.current;
-    const audio = audioRef.current;
-    if (!video || !audio || !dubOn) return;
-    video.muted = true;
-    const syncPlay = () => { audio.currentTime = video.currentTime; audio.play().catch(() => {}); };
-    const syncPause = () => audio.pause();
-    const syncSeek = () => { audio.currentTime = video.currentTime; };
-    const syncRate = () => { audio.playbackRate = video.playbackRate; };
-    const fixDrift = () => {
-      if (!video.paused && Math.abs(audio.currentTime - video.currentTime) > 0.35) {
-        audio.currentTime = video.currentTime;
-      }
-    };
-    video.addEventListener("play", syncPlay);
-    video.addEventListener("pause", syncPause);
-    video.addEventListener("seeked", syncSeek);
-    video.addEventListener("ratechange", syncRate);
-    video.addEventListener("timeupdate", fixDrift);
-    syncRate();
-    if (!video.paused) syncPlay();
-    return () => {
-      video.removeEventListener("play", syncPlay);
-      video.removeEventListener("pause", syncPause);
-      video.removeEventListener("seeked", syncSeek);
-      video.removeEventListener("ratechange", syncRate);
-      video.removeEventListener("timeupdate", fixDrift);
-      audio.pause();
-      video.muted = false;
-    };
-  }, [dubOn, transcriptLang, id]);
+    const t = video?.currentTime ?? 0;
+    const wasPlaying = video ? !video.paused : false;
+    setDubOn(v => !v);
+    requestAnimationFrame(() => {
+      const v = videoRef.current;
+      if (!v) return;
+      const restore = () => {
+        v.currentTime = t;
+        if (wasPlaying) v.play().catch(() => {});
+        v.removeEventListener("loadedmetadata", restore);
+      };
+      v.addEventListener("loadedmetadata", restore);
+    });
+  };
 
   // When a highlight/social/translate job finishes, refresh the asset so results appear.
   const lastHighlightStatus = jobs?.filter(j => j.job_type === "highlight")
@@ -349,20 +334,14 @@ export default function AssetDetail() {
             {asset.status === 'ready' ? (
               <video 
                 ref={videoRef}
-                src={`/api/media/${id}/stream`} 
+                src={dubOn && dubAvailable
+                  ? `/api/media/${id}/dub/${transcriptLang}/video`
+                  : `/api/media/${id}/stream`} 
                 controls 
                 className="w-full max-h-[60vh] object-contain bg-black"
               />
             ) : (
               undefined
-            )}
-            {asset.status === 'ready' && dubAvailable && (
-              <audio
-                ref={audioRef}
-                src={`/api/media/${id}/dub/${transcriptLang}/stream`}
-                preload="auto"
-                className="hidden"
-              />
             )}
             {asset.status !== 'ready' && (
               <div className="w-full h-64 bg-muted flex flex-col items-center justify-center">
@@ -826,10 +805,10 @@ export default function AssetDetail() {
                       size="sm"
                       variant={dubOn ? "default" : "outline"}
                       className="w-full gap-2"
-                      onClick={() => setDubOn(v => !v)}
+                      onClick={toggleDub}
                     >
                       <Volume2 className="h-4 w-4" />
-                      {dubOn ? "Dubbed audio on — click to switch off" : "Play dubbed audio"}
+                      {dubOn ? "Dubbed version playing — click for original" : "Play dubbed version"}
                     </Button>
                   ) : dubSupported ? (
                     <>
