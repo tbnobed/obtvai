@@ -43,6 +43,7 @@ def _person_out(person: Person, asset_count: int, speaking: float, segments: int
         total_speaking_seconds=float(speaking or 0),
         segment_count=int(segments or 0),
         updated_at=person.updated_at,
+        voice_preset=person.voice_preset,
     )
 
 

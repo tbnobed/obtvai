@@ -2079,8 +2079,14 @@ router.post("/people/:id/voice/speak", (req, res) => {
     duration_seconds: null,
     error_message: null,
     created_at: new Date().toISOString(),
+    preset: null,
   };
   voiceGenerations.unshift(gen);
+  simulateGen(gen, text);
+  res.status(202).json(gen);
+});
+
+function simulateGen(gen: any, text: string) {
   const timer = setInterval(() => {
     gen.status = "running";
     gen.progress = Math.min(100, gen.progress + 34);
@@ -2090,7 +2096,49 @@ router.post("/people/:id/voice/speak", (req, res) => {
       clearInterval(timer);
     }
   }, 1200);
-  res.status(202).json(gen);
+}
+
+const VOICE_PRESETS = ["natural", "expressive", "steady", "warm"];
+
+router.post("/people/:id/voice/tune", (req, res) => {
+  const person = people.find((p) => p.id === req.params.id);
+  if (!person) { res.status(404).json({ error: "Not found" }); return; }
+  const profile = voiceProfile(person.id);
+  if (!profile.ready) {
+    res.status(409).json({ error: `Voice profile not ready — add at least ${MIN_SAMPLE_SECONDS}s of clean samples` });
+    return;
+  }
+  const text = String(req.body?.text ?? "").trim();
+  if (!text) { res.status(400).json({ error: "Text required" }); return; }
+  const gens = VOICE_PRESETS.map((preset, i) => ({
+    id: `vgen-${Date.now()}-${i}`,
+    person_id: person.id,
+    text,
+    language: String(req.body?.language ?? "en"),
+    status: "pending",
+    progress: 0,
+    duration_seconds: null,
+    error_message: null,
+    created_at: new Date().toISOString(),
+    preset,
+  }));
+  for (const gen of gens) {
+    voiceGenerations.unshift(gen);
+    simulateGen(gen, text);
+  }
+  res.status(202).json(gens);
+});
+
+router.put("/people/:id/voice/preset", (req, res) => {
+  const person: any = people.find((p) => p.id === req.params.id);
+  if (!person) { res.status(404).json({ error: "Not found" }); return; }
+  const preset = String(req.body?.preset ?? "").trim().toLowerCase();
+  if (!VOICE_PRESETS.includes(preset)) {
+    res.status(400).json({ error: `Unknown preset. Choose one of: ${VOICE_PRESETS.join(", ")}` });
+    return;
+  }
+  person.voice_preset = preset;
+  res.status(204).end();
 });
 
 router.get("/people/:id/voice/generations", (req, res) => {

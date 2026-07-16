@@ -433,6 +433,7 @@ class PersonOut(BaseModel):
     total_speaking_seconds: float = 0
     segment_count: int = 0
     updated_at: Optional[datetime] = None
+    voice_preset: Optional[str] = None
 
 
 class PersonAppearanceOut(BaseModel):
@@ -498,6 +499,15 @@ class VoiceSpeakIn(BaseModel):
     language: str = "en"
 
 
+class VoiceTuneIn(BaseModel):
+    text: str
+    language: str = "en"
+
+
+class VoicePresetIn(BaseModel):
+    preset: str
+
+
 class VoiceGenerationOut(BaseModel):
     id: str
     person_id: str
@@ -508,6 +518,7 @@ class VoiceGenerationOut(BaseModel):
     duration_seconds: Optional[float] = None
     error_message: Optional[str] = None
     created_at: datetime
+    preset: Optional[str] = None
 
 
 class ReanalyzeOut(BaseModel):

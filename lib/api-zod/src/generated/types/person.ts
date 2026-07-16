@@ -32,4 +32,9 @@ export interface Person {
   segment_count: number;
   /** @nullable */
   updated_at?: string | null;
+  /**
+     * Saved synthesis style for this person's cloned voice
+     * @nullable
+     */
+  voice_preset?: string | null;
 }

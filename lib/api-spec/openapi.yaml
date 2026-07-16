@@ -779,6 +779,62 @@ paths:
         "409":
           description: Voice profile not ready — add more clean samples first
 
+  /people/{id}/voice/tune:
+    post:
+      operationId: tuneVoice
+      tags: [voice]
+      summary: Generate the same text in several synthesis styles so the user can pick the most natural one
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceTuneRequest"
+      responses:
+        "202":
+          description: One generation queued per style
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VoiceGeneration"
+        "404":
+          description: Person not found
+        "409":
+          description: Voice profile not ready — add more clean samples first
+
+  /people/{id}/voice/preset:
+    put:
+      operationId: setVoicePreset
+      tags: [voice]
+      summary: Save the synthesis style used for all future speech and dubbing in this person's voice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoicePresetRequest"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          description: Unknown preset
+        "404":
+          description: Person not found
+
   /people/{id}/voice/generations:
     get:
       operationId: listVoiceGenerations
@@ -2107,6 +2163,9 @@ components:
           type: integer
         updated_at:
           type: ["string", "null"]
+        voice_preset:
+          type: ["string", "null"]
+          description: Saved synthesis style for this person's cloned voice
 
     PersonAppearance:
       type: object
@@ -2275,6 +2334,26 @@ components:
           default: en
           description: "XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi"
 
+    VoiceTuneRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 400
+        language:
+          type: string
+          default: en
+
+    VoicePresetRequest:
+      type: object
+      required: [preset]
+      properties:
+        preset:
+          type: string
+          description: "natural | expressive | steady | warm"
+
     VoiceGeneration:
       type: object
       required: [id, person_id, text, language, status, progress, created_at]
@@ -2298,6 +2377,9 @@ components:
           type: ["string", "null"]
         created_at:
           type: string
+        preset:
+          type: ["string", "null"]
+          description: Synthesis style this clip was generated with (tuning runs)
 
     ReanalyzeResult:
       type: object

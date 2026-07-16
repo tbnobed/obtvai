@@ -100,6 +100,7 @@ class Person(Base):
     face_embedding: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     voice_embedding: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     speech_style: Mapped[str | None] = mapped_column(Text, nullable=True)
+    voice_preset: Mapped[str | None] = mapped_column(String, nullable=True)
     key_topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -158,6 +159,7 @@ class VoiceGeneration(Base):
     audio_path: Mapped[str | None] = mapped_column(String, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    preset: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class LibraryInsight(Base):

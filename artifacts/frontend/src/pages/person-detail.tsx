@@ -17,6 +17,8 @@ import {
   useListVoiceGenerations,
   getListVoiceGenerationsQueryKey,
   useDeleteVoiceGeneration,
+  useTuneVoice,
+  useSetVoicePreset,
 } from "@workspace/api-client-react";
 import type { PersonAppearance, VoiceGeneration } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,7 +40,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors,
-  AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus,
+  AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -74,14 +76,23 @@ function parseTimecode(v: string): number | null {
   return null;
 }
 
+const PRESET_LABELS: Record<string, string> = {
+  natural: "Natural",
+  expressive: "Expressive",
+  steady: "Steady",
+  warm: "Warm",
+};
+
 function VoiceSection({
   personId,
   personName,
   appearances,
+  voicePreset,
 }: {
   personId: string;
   personName: string;
   appearances: PersonAppearance[];
+  voicePreset: string | null | undefined;
 }) {
   const queryClient = useQueryClient();
   const { data: profile } = useGetVoiceProfile(personId, {
@@ -106,6 +117,8 @@ function VoiceSection({
   const deleteSample = useDeleteVoiceSample();
   const createGen = useCreateVoiceGeneration();
   const deleteGen = useDeleteVoiceGeneration();
+  const tuneVoice = useTuneVoice();
+  const setPreset = useSetVoicePreset();
 
   const invalidateProfile = () =>
     queryClient.invalidateQueries({ queryKey: getGetVoiceProfileQueryKey(personId) });
@@ -163,6 +176,25 @@ function VoiceSection({
     createGen.mutate(
       { id: personId, data: { text: genText.trim(), language: genLang } },
       { onSuccess: () => { setGenText(""); invalidateGens(); } },
+    );
+  };
+
+  const submitTune = () => {
+    const text = genText.trim();
+    if (!text) return;
+    tuneVoice.mutate(
+      { id: personId, data: { text: text.slice(0, 400), language: genLang } },
+      { onSuccess: () => { setGenText(""); invalidateGens(); } },
+    );
+  };
+
+  const choosePreset = (preset: string) => {
+    setPreset.mutate(
+      { id: personId, data: { preset } },
+      {
+        onSuccess: () =>
+          queryClient.invalidateQueries({ queryKey: getGetPersonQueryKey(personId) }),
+      },
     );
   };
 
@@ -298,7 +330,14 @@ function VoiceSection({
         </div>
 
         <div className="border border-border bg-card rounded-md p-4 space-y-3">
-          <h3 className="text-sm font-semibold">Voice Generator</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-sm font-semibold">Voice Generator</h3>
+            {voicePreset ? (
+              <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">
+                style: {PRESET_LABELS[voicePreset] ?? voicePreset}
+              </Badge>
+            ) : null}
+          </div>
           {profile?.ready ? (
             <>
               <Textarea
@@ -317,14 +356,21 @@ function VoiceSection({
                     ))}
                   </SelectContent>
                 </Select>
-                <Button className="ml-auto gap-2" onClick={submitGeneration}
+                <Button variant="outline" className="ml-auto gap-2" onClick={submitTune}
+                  disabled={!genText.trim() || tuneVoice.isPending}
+                  title="Generate the same line in 4 synthesis styles, then pick the one that sounds best">
+                  {tuneVoice.isPending
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Queuing...</>
+                    : <><Sparkles className="h-4 w-4" /> Compare styles</>}
+                </Button>
+                <Button className="gap-2" onClick={submitGeneration}
                   disabled={!genText.trim() || createGen.isPending}>
                   {createGen.isPending
                     ? <><Loader2 className="h-4 w-4 animate-spin" /> Queuing...</>
                     : <><Play className="h-4 w-4" /> Generate</>}
                 </Button>
               </div>
-              {createGen.isError && (
+              {(createGen.isError || tuneVoice.isError) && (
                 <p className="text-sm text-red-400">Generation failed to start — is the pipeline running?</p>
               )}
             </>
@@ -353,9 +399,25 @@ function VoiceSection({
                     <Badge variant="outline" className="text-[10px]">
                       {XTTS_LANGUAGES.find((l) => l.code === g.language)?.label ?? g.language}
                     </Badge>
+                    {g.preset ? (
+                      <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">
+                        {PRESET_LABELS[g.preset] ?? g.preset}
+                      </Badge>
+                    ) : null}
                     {g.status === "success" ? (
                       <>
                         <audio controls preload="none" src={`/api/voice/generations/${g.id}/audio`} className="h-8 flex-1 min-w-0" />
+                        {g.preset ? (
+                          g.preset === voicePreset ? (
+                            <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] shrink-0">in use</Badge>
+                          ) : (
+                            <Button size="sm" variant="outline" className="h-7 text-xs shrink-0"
+                              disabled={setPreset.isPending}
+                              onClick={() => choosePreset(g.preset!)}>
+                              Use this style
+                            </Button>
+                          )
+                        ) : null}
                         <a href={`/api/voice/generations/${g.id}/audio`} download className="shrink-0">
                           <Button size="icon" variant="ghost" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
                         </a>
@@ -639,7 +701,7 @@ export default function PersonDetail() {
         </div>
       ) : null}
 
-      <VoiceSection personId={id} personName={person.display_name} appearances={person.appearances ?? []} />
+      <VoiceSection personId={id} personName={person.display_name} appearances={person.appearances ?? []} voicePreset={person.voice_preset} />
 
       <h2 className="text-lg font-semibold mb-4">Appearances</h2>
       {person.appearances?.length ? (

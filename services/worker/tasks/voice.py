@@ -160,16 +160,27 @@ def get_ready_voice_paths(db, person_id: str) -> list[str]:
     return paths if total >= MIN_SAMPLE_SECONDS else []
 
 
-def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[str], out_path: str):
-    # Use XTTS-v2's stock inference settings — hand-tuned sampling overrides
-    # (low temperature / high repetition penalty) made output flatter and
-    # MORE robotic in practice. Condition on few, long, clean references.
+# Synthesis style presets for A/B tuning. "natural" = XTTS-v2 stock
+# defaults (hand-tuned overrides proved worse across the board, but taste
+# varies per voice — the user picks the winner and it's saved per person).
+PRESET_SETTINGS = {
+    "natural": {},
+    "expressive": {"temperature": 0.85, "top_p": 0.9},
+    "steady": {"temperature": 0.5, "top_k": 30, "top_p": 0.7},
+    "warm": {"temperature": 0.75, "repetition_penalty": 7.0, "top_p": 0.85},
+}
+
+
+def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[str], out_path: str,
+                      preset: str | None = None):
+    settings = PRESET_SETTINGS.get(preset or "natural", {})
     tts.tts_to_file(
         text=text_value,
         language=language,
         speaker_wav=speaker_wavs,
         file_path=out_path,
         split_sentences=True,
+        **settings,
     )
 
 
@@ -179,12 +190,17 @@ def generate_speech(self, generation_id: str):
     try:
         from sqlalchemy import text
         row = db.execute(
-            text("SELECT person_id, text, language FROM voice_generations WHERE id = :gid"),
+            text("""
+                SELECT g.person_id, g.text, g.language, g.preset, p.voice_preset
+                FROM voice_generations g JOIN people p ON p.id = g.person_id
+                WHERE g.id = :gid
+            """),
             {"gid": generation_id},
         ).fetchone()
         if not row:
             return
-        person_id, text_value, language = row
+        person_id, text_value, language, gen_preset, person_preset = row
+        preset = gen_preset or person_preset  # tuning run overrides saved style
 
         _update_generation(db, generation_id, status="running", progress=5.0)
 
@@ -202,7 +218,7 @@ def generate_speech(self, generation_id: str):
 
         started = time.monotonic()
         # Longest 1-2 clean references beat a pile of mixed recordings.
-        synthesize_cloned(tts, text_value, language, speaker_wavs[:2], out_path)
+        synthesize_cloned(tts, text_value, language, speaker_wavs[:2], out_path, preset=preset)
         elapsed = time.monotonic() - started
 
         duration = _probe_duration(out_path)

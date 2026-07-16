@@ -286,6 +286,11 @@ export interface Person {
   segment_count: number;
   /** @nullable */
   updated_at?: string | null;
+  /**
+     * Saved synthesis style for this person's cloned voice
+     * @nullable
+     */
+  voice_preset?: string | null;
 }
 
 export interface PersonAppearance {
@@ -404,6 +409,20 @@ export interface VoiceSpeakRequest {
   language?: string;
 }
 
+export interface VoiceTuneRequest {
+  /**
+     * @minLength 1
+     * @maxLength 400
+     */
+  text: string;
+  language?: string;
+}
+
+export interface VoicePresetRequest {
+  /** natural | expressive | steady | warm */
+  preset: string;
+}
+
 export interface VoiceGeneration {
   id: string;
   person_id: string;
@@ -417,6 +436,11 @@ export interface VoiceGeneration {
   /** @nullable */
   error_message?: string | null;
   created_at: string;
+  /**
+     * Synthesis style this clip was generated with (tuning runs)
+     * @nullable
+     */
+  preset?: string | null;
 }
 
 export interface ReanalyzeResult {

@@ -744,7 +744,8 @@ export const ListPeopleResponse = zod.object({
   "asset_count": zod.number(),
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
-  "updated_at": zod.string().nullish()
+  "updated_at": zod.string().nullish(),
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
 })),
   "total": zod.number().describe('Total number of people in the library')
 })
@@ -768,7 +769,8 @@ export const GetPersonResponse = zod.object({
   "asset_count": zod.number(),
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
-  "updated_at": zod.string().nullish()
+  "updated_at": zod.string().nullish(),
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
 }).and(zod.object({
   "appearances": zod.array(zod.object({
   "media_id": zod.string(),
@@ -819,7 +821,8 @@ export const UpdatePersonResponse = zod.object({
   "asset_count": zod.number(),
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
-  "updated_at": zod.string().nullish()
+  "updated_at": zod.string().nullish(),
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
 })
 
 
@@ -845,7 +848,8 @@ export const MergePersonResponse = zod.object({
   "asset_count": zod.number(),
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
-  "updated_at": zod.string().nullish()
+  "updated_at": zod.string().nullish(),
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
 })
 
 
@@ -873,7 +877,8 @@ export const SplitPersonResponse = zod.object({
   "asset_count": zod.number(),
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
-  "updated_at": zod.string().nullish()
+  "updated_at": zod.string().nullish(),
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
 })
 
 
@@ -1008,8 +1013,54 @@ export const CreateVoiceGenerationResponse = zod.object({
   "progress": zod.number(),
   "duration_seconds": zod.number().nullish(),
   "error_message": zod.string().nullish(),
-  "created_at": zod.string()
+  "created_at": zod.string(),
+  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)')
 })
+
+
+/**
+ * @summary Generate the same text in several synthesis styles so the user can pick the most natural one
+ */
+export const TuneVoiceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const tuneVoiceBodyTextMax = 400;
+
+export const tuneVoiceBodyLanguageDefault = `en`;
+
+export const TuneVoiceBody = zod.object({
+  "text": zod.string().min(1).max(tuneVoiceBodyTextMax),
+  "language": zod.string().default(tuneVoiceBodyLanguageDefault)
+})
+
+export const TuneVoiceResponseItem = zod.object({
+  "id": zod.string(),
+  "person_id": zod.string(),
+  "text": zod.string(),
+  "language": zod.string(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "duration_seconds": zod.number().nullish(),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string(),
+  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)')
+})
+export const TuneVoiceResponse = zod.array(TuneVoiceResponseItem)
+
+
+/**
+ * @summary Save the synthesis style used for all future speech and dubbing in this person's voice
+ */
+export const SetVoicePresetParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SetVoicePresetBody = zod.object({
+  "preset": zod.string().describe('natural | expressive | steady | warm')
+})
+
+export const SetVoicePresetResponse = zod.void()
 
 
 /**
@@ -1028,7 +1079,8 @@ export const ListVoiceGenerationsResponseItem = zod.object({
   "progress": zod.number(),
   "duration_seconds": zod.number().nullish(),
   "error_message": zod.string().nullish(),
-  "created_at": zod.string()
+  "created_at": zod.string(),
+  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)')
 })
 export const ListVoiceGenerationsResponse = zod.array(ListVoiceGenerationsResponseItem)
 

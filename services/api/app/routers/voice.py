@@ -14,6 +14,8 @@ from ..schemas import (
     VoiceSampleOut,
     VoiceSampleFromSegmentIn,
     VoiceSpeakIn,
+    VoiceTuneIn,
+    VoicePresetIn,
     VoiceGenerationOut,
 )
 from .. import worker_client
@@ -28,6 +30,8 @@ XTTS_LANGUAGES = {
     "en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru",
     "nl", "cs", "ar", "zh-cn", "ja", "hu", "ko", "hi",
 }
+# Must match PRESET_SETTINGS in services/worker/tasks/voice.py
+VOICE_PRESETS = ["natural", "expressive", "steady", "warm"]
 
 
 def _sample_out(s: VoiceSample) -> VoiceSampleOut:
@@ -57,6 +61,7 @@ def _gen_out(g: VoiceGeneration) -> VoiceGenerationOut:
         duration_seconds=g.duration_seconds,
         error_message=g.error_message,
         created_at=g.created_at,
+        preset=g.preset,
     )
 
 
@@ -205,6 +210,51 @@ async def create_voice_generation(id: str, body: VoiceSpeakIn, db: AsyncSession 
     await db.refresh(gen)
     await worker_client.enqueue_voice_speak(gen.id)
     return _gen_out(gen)
+
+
+@router.post("/people/{id}/voice/tune", response_model=list[VoiceGenerationOut], status_code=202)
+async def tune_voice(id: str, body: VoiceTuneIn, db: AsyncSession = Depends(get_db)):
+    """Queue the same text once per synthesis style so the user can A/B them."""
+    await _get_person(db, id)
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Text required")
+    if len(text) > 400:
+        raise HTTPException(status_code=400, detail="Keep tuning text under 400 characters")
+    language = (body.language or "en").strip().lower()
+    if language not in XTTS_LANGUAGES:
+        raise HTTPException(status_code=400, detail=f"Unsupported language '{language}'")
+
+    profile = await _profile(db, id)
+    if not profile.ready:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Voice profile not ready — add at least {int(MIN_SAMPLE_SECONDS)}s of clean samples",
+        )
+
+    gens = []
+    for preset in VOICE_PRESETS:
+        gen = VoiceGeneration(
+            person_id=id, text=text, language=language,
+            status="pending", progress=0.0, preset=preset,
+        )
+        db.add(gen)
+        gens.append(gen)
+    await db.commit()
+    for gen in gens:
+        await db.refresh(gen)
+        await worker_client.enqueue_voice_speak(gen.id)
+    return [_gen_out(g) for g in gens]
+
+
+@router.put("/people/{id}/voice/preset", status_code=204)
+async def set_voice_preset(id: str, body: VoicePresetIn, db: AsyncSession = Depends(get_db)):
+    person = await _get_person(db, id)
+    preset = body.preset.strip().lower()
+    if preset not in VOICE_PRESETS:
+        raise HTTPException(status_code=400, detail=f"Unknown preset. Choose one of: {', '.join(VOICE_PRESETS)}")
+    person.voice_preset = preset
+    await db.commit()
 
 
 @router.get("/people/{id}/voice/generations", response_model=list[VoiceGenerationOut])

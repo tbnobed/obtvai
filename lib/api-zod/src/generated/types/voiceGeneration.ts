@@ -19,4 +19,9 @@ export interface VoiceGeneration {
   /** @nullable */
   error_message?: string | null;
   created_at: string;
+  /**
+     * Synthesis style this clip was generated with (tuning runs)
+     * @nullable
+     */
+  preset?: string | null;
 }
