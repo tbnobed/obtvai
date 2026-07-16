@@ -1156,6 +1156,12 @@ paths:
           required: false
           schema:
             type: string
+        - name: media_id
+          in: query
+          required: false
+          description: Only renders of this asset
+          schema:
+            type: string
         - name: project_id
           in: query
           required: false

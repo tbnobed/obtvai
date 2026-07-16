@@ -13,13 +13,14 @@ import {
   useCreateTranslation,
   useCreateDub,
   useListReels, getListReelsQueryKey,
+  useListRenders, getListRendersQueryKey,
   useCreateReel,
   useDeleteReel,
   useCreateRoughCut,
   useTightenMedia,
   getCaptions
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform, ReelJob, CreativeAnalysis, TightenResult } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, ReelJob, RenderJob, CreativeAnalysis, TightenResult } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -150,7 +151,11 @@ export default function AssetDetail() {
     if (!id) return;
     roughCutMutation.mutate(
       { id, data: { preset: "original", burn_captions: false } },
-      { onSuccess: () => navigate("/reels") },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListReelsQueryKey({ media_id: id }) });
+        },
+      },
     );
   };
 
@@ -205,7 +210,9 @@ export default function AssetDetail() {
     cutsMutation.mutate(
       { id, data: platform ? { platform } : {} },
       {
-        onSuccess: () => navigate("/exports"),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListRendersQueryKey({ media_id: id }) });
+        },
         onSettled: () => setCutsPlatform(null),
       },
     );
@@ -427,8 +434,7 @@ export default function AssetDetail() {
                       ))}
                     </div>
                     <div className="flex justify-end gap-2 pt-1">
-                      <Button variant="outline" onClick={() => setTightenResult(null)}>Close</Button>
-                      <Button onClick={() => navigate("/clips")}>Open Clip Lists</Button>
+                      <Button onClick={() => setTightenResult(null)}>Done</Button>
                     </div>
                   </div>
                 )}
@@ -571,6 +577,7 @@ export default function AssetDetail() {
                   </div>
                 )}
                 <AssetReelSection mediaId={id!} />
+                <AssetRendersSection mediaId={id!} />
               </TabsContent>
               <TabsContent value="socials" className="mt-4">
                 {(asset.social_scores && asset.social_scores.length > 0 && !socialBusy) ? (
@@ -1137,6 +1144,55 @@ function reelStatusBadge(status: string) {
     error: "bg-red-500/15 text-red-400",
   };
   return map[status] || "bg-muted text-muted-foreground";
+}
+
+function AssetRendersSection({ mediaId }: { mediaId: string }) {
+  const listParams = { media_id: mediaId };
+  const { data: renders } = useListRenders(listParams, {
+    query: {
+      queryKey: getListRendersQueryKey(listParams),
+      refetchInterval: (q) =>
+        q.state.data?.some((r) => r.status === "pending" || r.status === "running") ? 3000 : false,
+    },
+  });
+
+  if (!renders?.length) return null;
+
+  return (
+    <div className="border-t border-border pt-5 space-y-3 max-w-5xl">
+      <div>
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Clapperboard className="h-4 w-4" /> Renders
+        </h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          Clips and social cuts rendered from this video.
+        </p>
+      </div>
+      <div className="space-y-2">
+        {renders.map((r: RenderJob) => (
+          <div key={r.id} className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate">{r.label || r.filename || r.media_id}</div>
+              <div className="text-xs text-muted-foreground">
+                {formatTimecode(r.start_time)}–{formatTimecode(r.end_time)} · {r.preset}
+                {r.status === "running" ? ` · ${Math.round(r.progress ?? 0)}%` : ""}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge variant="outline" className={reelStatusBadge(r.status)}>{r.status}</Badge>
+              {r.status === "success" && (
+                <Button size="sm" variant="outline" asChild>
+                  <a href={`/api/renders/${r.id}/download`} download>
+                    <Download className="h-4 w-4 mr-2" /> MP4
+                  </a>
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function AssetReelSection({ mediaId }: { mediaId: string }) {

@@ -1148,6 +1148,7 @@ router.get("/renders", (req, res) => {
   renders.forEach(tickRender);
   let out = renders;
   if (req.query.clip_list_id) out = out.filter((r) => r.clip_list_id === req.query.clip_list_id);
+  if (req.query.media_id) out = out.filter((r) => r.media_id === req.query.media_id);
   if (req.query.project_id) out = out.filter((r) => r.project_id === req.query.project_id);
   res.json(out.map(renderOut));
 });

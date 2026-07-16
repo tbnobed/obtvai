@@ -13,9 +13,12 @@ import {
   useListStories,
   getListStoriesQueryKey,
   useCreateStory,
+  useDeleteStory,
   useListReels,
   getListReelsQueryKey,
   useCreateReel,
+  useDeleteReel,
+  useDeleteRender,
   useCreateClipListRoughCut,
   useListRenders,
   getListRendersQueryKey,
@@ -51,9 +54,13 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   ArrowLeft, Search, FileText, Scissors, BookOpen, Wand2, Clapperboard,
   Play, Download, Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown,
   Monitor, Smartphone, ChevronDown, Upload, Archive, ArchiveRestore,
+  ExternalLink,
 } from "lucide-react";
 
 const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
@@ -368,6 +375,10 @@ export default function ProjectDetail() {
   const [publishTarget, setPublishTarget] = useState<RenderJob | null>(null);
   const [pubTitle, setPubTitle] = useState("");
   const [pubDescription, setPubDescription] = useState("");
+  const [pubPrivacy, setPubPrivacy] = useState<"public" | "unlisted" | "private">("unlisted");
+  const deleteStoryMutation = useDeleteStory();
+  const deleteReelMutation = useDeleteReel();
+  const deleteRenderMutation = useDeleteRender();
 
   const submitRender = () => {
     if (!renderTarget) return;
@@ -400,7 +411,7 @@ export default function ProjectDetail() {
   const submitPublish = () => {
     if (!publishTarget || !pubTitle.trim()) return;
     publishMutation.mutate(
-      { id: publishTarget.id, data: { platform: "youtube", title: pubTitle.trim(), description: pubDescription.trim() || null, privacy: "unlisted" } },
+      { id: publishTarget.id, data: { platform: "youtube", title: pubTitle.trim(), description: pubDescription.trim() || null, privacy: pubPrivacy } },
       { onSuccess: () => { setPublishTarget(null); invalidateAll(); } },
     );
   };
@@ -841,12 +852,31 @@ export default function ProjectDetail() {
               {stories?.length ? (
                 <div className="space-y-2 pt-2">
                   {stories.map((s) => (
-                    <Link key={s.id} href={`/stories?project=${id}`}>
-                      <div className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm cursor-pointer hover:bg-muted">
-                        <span className="truncate pr-4">{s.prompt || `${s.asset_ids.length} assets`}</span>
-                        <JobStatusBadge status={s.status} />
+                    <div key={s.id} className="bg-muted/50 p-2.5 rounded text-sm space-y-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="truncate font-medium">{s.title || s.prompt || `${s.asset_ids.length} assets`}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <JobStatusBadge status={s.status} />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                            onClick={() => deleteStoryMutation.mutate({ id: s.id }, { onSuccess: invalidateAll })}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                    </Link>
+                      {s.status === "running" && (
+                        <p className="text-xs text-muted-foreground">Building… {Math.round(s.progress ?? 0)}%</p>
+                      )}
+                      {s.status === "error" && s.error_message && (
+                        <p className="text-xs text-red-400">{s.error_message}</p>
+                      )}
+                      {s.narrative && (
+                        <p className="text-xs text-muted-foreground leading-relaxed">{s.narrative}</p>
+                      )}
+                    </div>
                   ))}
                 </div>
               ) : null}
@@ -930,7 +960,17 @@ export default function ProjectDetail() {
                 <Card key={reel.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-base truncate pr-3">{reel.prompt}</CardTitle>
-                    <JobStatusBadge status={reel.status} />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <JobStatusBadge status={reel.status} />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                        onClick={() => deleteReelMutation.mutate({ id: reel.id }, { onSuccess: invalidateAll })}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {reel.status === "success" && reel.output_url ? (
@@ -1020,25 +1060,53 @@ export default function ProjectDetail() {
                         {fmtTime(r.start_time)}–{fmtTime(r.end_time)} · {r.preset}
                         {r.status === "running" ? ` · ${Math.round(r.progress ?? 0)}%` : ""}
                       </div>
+                      {r.publish_status === "error" && r.publish_error && (
+                        <p className="text-xs text-red-400 mt-0.5 truncate">Publish failed: {r.publish_error}</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {r.publish_status && (
+                        <Badge variant="outline" className={r.publish_status === "success" ? "bg-green-500/15 text-green-400" : r.publish_status === "error" ? "bg-red-500/15 text-red-400" : "bg-blue-500/15 text-blue-400"}>
+                          {r.publish_status === "success" ? "published" : `publish: ${r.publish_status}`}
+                        </Badge>
+                      )}
                       <JobStatusBadge status={r.status} />
+                      {r.publish_url && (
+                        <a href={r.publish_url} target="_blank" rel="noreferrer">
+                          <Button size="sm" variant="outline"><ExternalLink className="h-3.5 w-3.5 mr-2" /> Watch</Button>
+                        </a>
+                      )}
                       {r.status === "success" && (
                         <>
                           <a href={`/api/renders/${r.id}/download`} download>
                             <Button size="icon" variant="ghost" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
                           </a>
-                          {platforms?.youtube && (
-                            <Button size="sm" variant="outline" onClick={() => {
-                              setPublishTarget(r);
-                              setPubTitle(r.label || project.name);
-                              setPubDescription("");
-                            }}>
-                              <Upload className="h-3.5 w-3.5 mr-2" /> Publish
+                          {platforms?.youtube && !r.publish_url && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={r.publish_status === "pending" || r.publish_status === "running"}
+                              onClick={() => {
+                                setPublishTarget(r);
+                                setPubTitle(r.label || project.name);
+                                setPubDescription("");
+                                setPubPrivacy("unlisted");
+                              }}
+                            >
+                              <Upload className="h-3.5 w-3.5 mr-2" />
+                              {r.publish_status === "pending" || r.publish_status === "running" ? "Publishing..." : "Publish"}
                             </Button>
                           )}
                         </>
                       )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                        onClick={() => deleteRenderMutation.mutate({ id: r.id }, { onSuccess: invalidateAll })}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -1123,7 +1191,17 @@ export default function ProjectDetail() {
               <Label htmlFor="pub-desc">Description (optional)</Label>
               <Textarea id="pub-desc" rows={3} value={pubDescription} onChange={(e) => setPubDescription(e.target.value)} />
             </div>
-            <p className="text-xs text-muted-foreground">Uploads as unlisted — switch visibility on YouTube afterwards.</p>
+            <div className="space-y-2">
+              <Label>Visibility</Label>
+              <Select value={pubPrivacy} onValueChange={(v) => setPubPrivacy(v as typeof pubPrivacy)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unlisted">Unlisted</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="public">Public</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {publishMutation.isError && (
               <p className="text-sm text-red-400">Publish failed — check the YouTube connection.</p>
             )}

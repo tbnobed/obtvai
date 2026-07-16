@@ -1508,6 +1508,7 @@ export const listRendersQueryLimitDefault = 100;
 
 export const ListRendersQueryParams = zod.object({
   "clip_list_id": zod.coerce.string().optional(),
+  "media_id": zod.coerce.string().optional().describe('Only renders of this asset'),
   "project_id": zod.coerce.string().optional().describe('Only renders linked to this project'),
   "limit": zod.coerce.number().default(listRendersQueryLimitDefault)
 })

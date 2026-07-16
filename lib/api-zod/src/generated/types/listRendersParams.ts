@@ -9,6 +9,10 @@
 export type ListRendersParams = {
 clip_list_id?: string;
 /**
+ * Only renders of this asset
+ */
+media_id?: string;
+/**
  * Only renders linked to this project
  */
 project_id?: string;

@@ -112,6 +112,7 @@ async def _create_render(
 @router.get("", response_model=list[RenderJobOut])
 async def list_renders(
     clip_list_id: str | None = None,
+    media_id: str | None = None,
     project_id: str | None = None,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
@@ -124,6 +125,8 @@ async def list_renders(
     )
     if clip_list_id:
         q = q.where(RenderJob.clip_list_id == clip_list_id)
+    if media_id:
+        q = q.where(RenderJob.media_id == media_id)
     if project_id:
         q = q.where(RenderJob.project_id == project_id)
     rows = (await db.execute(q)).all()

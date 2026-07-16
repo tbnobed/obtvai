@@ -3,16 +3,10 @@ import { Link, useLocation } from "wouter";
 import { 
   LayoutGrid, 
   Film, 
-  Search, 
   Activity, 
   MessageSquare, 
-  Scissors,
   Users,
   Sparkles,
-  Clapperboard,
-  FileText,
-  Wand2,
-  BookOpen,
   FolderKanban
 } from "lucide-react";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
@@ -28,16 +22,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/", label: "Dashboard", icon: LayoutGrid },
     { href: "/projects", label: "Projects", icon: FolderKanban },
     { href: "/library", label: "Media Library", icon: Film },
-    { href: "/search", label: "Semantic Search", icon: Search },
     { href: "/people", label: "People", icon: Users },
     { href: "/insights", label: "Insights", icon: Sparkles },
-    { href: "/jobs", label: "Processing Pipeline", icon: Activity },
     { href: "/ai", label: "AI Q&A", icon: MessageSquare },
-    { href: "/clips", label: "Clip Lists", icon: Scissors },
-    { href: "/script-match", label: "Script Match", icon: FileText },
-    { href: "/reels", label: "Highlight Reels", icon: Wand2 },
-    { href: "/stories", label: "Story Builder", icon: BookOpen },
-    { href: "/exports", label: "Exports", icon: Clapperboard },
+    { href: "/jobs", label: "Processing Pipeline", icon: Activity },
   ];
 
   return (

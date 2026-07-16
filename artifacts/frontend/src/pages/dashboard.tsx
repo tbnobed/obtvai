@@ -23,9 +23,9 @@ export default function Dashboard() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
         <Button asChild>
-          <Link href="/search" className="gap-2">
+          <Link href="/projects" className="gap-2">
             <Search className="h-4 w-4" />
-            Quick Search
+            Find Footage
           </Link>
         </Button>
       </div>
