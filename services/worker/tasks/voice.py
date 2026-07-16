@@ -82,8 +82,13 @@ def prepare_voice_sample(self, sample_id: str):
         result = subprocess.run(
             ["ffmpeg", "-y", *cut_args, "-i", src,
              "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE),
-             "-af", "silenceremove=start_periods=1:start_threshold=-45dB:"
-                    "stop_periods=1:stop_threshold=-45dB,loudnorm=I=-20:TP=-2",
+             # Trim leading silence, then trailing silence via reverse →
+             # trim-lead → reverse. (stop_periods=1 is NOT "trim the end":
+             # it cuts the output at the FIRST mid-speech pause, which
+             # truncated multi-minute samples to under a second.)
+             "-af", "silenceremove=start_periods=1:start_threshold=-45dB,"
+                    "areverse,silenceremove=start_periods=1:start_threshold=-45dB,"
+                    "areverse,loudnorm=I=-20:TP=-2",
              "-c:a", "pcm_s16le", out_path],
             capture_output=True, text=True, timeout=600,
         )
