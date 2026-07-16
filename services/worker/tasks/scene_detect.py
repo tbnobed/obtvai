@@ -31,7 +31,11 @@ def detect_scenes(self, media_id: str, job_id: str):
         scene_manager = SceneManager()
         scene_manager.add_detector(ContentDetector(threshold=27.0))
         scene_manager.detect_scenes(video, show_progress=False)
-        scene_list = scene_manager.get_scene_list()
+        # start_in_scene=True: a video with no cuts (single continuous shot,
+        # e.g. a talking-head piece) is returned as ONE full-length scene
+        # instead of an empty list — otherwise face detection and thumbnails
+        # get nothing to work with.
+        scene_list = scene_manager.get_scene_list(start_in_scene=True)
 
         os.makedirs(THUMBNAILS_DIR, exist_ok=True)
 
