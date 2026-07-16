@@ -236,7 +236,7 @@ def _cloned_voice_map(db, media_id: str) -> dict:
     for speaker_label, person_id in rows:
         paths = get_ready_voice_paths(db, person_id)
         if paths:
-            result[speaker_label] = paths[:3]
+            result[speaker_label] = paths[:6]
     return result
 
 
