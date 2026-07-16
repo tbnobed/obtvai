@@ -17,10 +17,12 @@ from config import THUMBNAILS_DIR
 FRAMES_PER_SCENE_MAX = 4      # sample up to this many frames per scene
 FRAME_SAMPLE_EVERY = 4.0      # ~one sample per this many seconds of scene
 TOTAL_FRAME_CAP = 500         # hard cap of sampled frames per asset
-MIN_FACE_PROB = 0.95          # MTCNN detection confidence floor (0.90 let
-                              # hands / necks / graphics through as "faces";
-                              # 0.98 rejected soft/filtered 720p footage —
-                              # geometry gates below catch the false positives)
+MIN_FACE_PROB = 0.90          # MTCNN detection confidence floor. Soft/filtered
+                              # 720p footage scores 0.90-0.95, so higher floors
+                              # miss real on-camera speakers entirely. The
+                              # geometry gates below (landmark layout, eye
+                              # spacing) plus identify's face-only person rule
+                              # handle the hands/necks/graphics that 0.90 admits.
 MIN_FACE_SIDE = 36            # ignore tiny background faces (pixels)
 MIN_ASPECT = 0.5              # face box width/height sanity range —
 MAX_ASPECT = 1.25             # hands and neck closeups produce odd boxes
