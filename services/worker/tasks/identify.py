@@ -450,6 +450,14 @@ def identify_people(self, media_id: str, job_id: str):
         db.commit()
 
         # ── AI profiles for everyone touched ────────────────────────────────
+        # Release the global lock first: matching/writes above are done, and
+        # profiling is pure LLM work + per-person UPDATEs that are safe to run
+        # concurrently. Holding the lock here serialized all identify jobs and
+        # left the second GPU idle during library re-analysis.
+        db.execute(text("SELECT pg_advisory_unlock(hashtext('obtv_identify'))"))
+        db.commit()
+        locked = False
+
         touched = list(dict.fromkeys(touched))
         if touched:
             update_job(db, job_id, progress=60.0)
