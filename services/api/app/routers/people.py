@@ -132,7 +132,7 @@ async def reanalyze_people(db: AsyncSession = Depends(get_db)):
             await db.execute(
                 select(ProcessingJob.id).where(
                     ProcessingJob.media_id == media_id,
-                    ProcessingJob.job_type.in_(("diarize", "face_detect", "identify")),
+                    ProcessingJob.job_type.in_(("diarize", "scene_detect", "face_detect", "identify")),
                     ProcessingJob.status.in_(("pending", "running")),
                 )
             )
@@ -140,8 +140,19 @@ async def reanalyze_people(db: AsyncSession = Depends(get_db)):
         if active:
             continue
 
+        # Assets processed before the start_in_scene fix can have ZERO scenes
+        # (uncut talking-head footage) — face_detect then exits immediately
+        # with "No scenes for face detection". Re-run scene_detect for those;
+        # it chains into face_detect (and visual_embed) itself.
+        has_scenes = (
+            await db.execute(
+                text("SELECT 1 FROM scenes WHERE media_id = :mid LIMIT 1"),
+                {"mid": media_id},
+            )
+        ).first()
+
         queued_any = False
-        for job_type in ("diarize", "face_detect"):
+        for job_type in ("diarize", "face_detect" if has_scenes else "scene_detect"):
             await prune_finished_jobs(db, media_id, job_type)
             job = ProcessingJob(media_id=media_id, job_type=job_type, status="pending", logs=[])
             db.add(job)

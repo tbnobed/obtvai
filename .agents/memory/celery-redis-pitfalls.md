@@ -35,3 +35,8 @@ Loading a hub repo id directly via `from_pretrained` can crash Celery prefork ta
 The api warms models in a background daemon thread at startup (non-blocking, healthchecks pass), and the lazy loaders use double-checked locking (`threading.Lock`) so a request racing the warm-up can't load the model twice (double VRAM).
 **Why:** first /ai/ask otherwise blocks minutes on model load; an unlocked `if _model is None` check loaded twice under the warm-up race.
 **How to apply:** spawn `threading.Thread(target=_warm, daemon=True)` in the FastAPI lifespan after migrations; keep `_load()` guards as `if None: with lock: if None:`.
+
+## Backfill endpoints must check upstream-stage outputs
+Re-analyze/backfill endpoints that re-queue mid-pipeline tasks (e.g. face_detect) silently no-op for assets whose upstream outputs (scenes) are missing — a fix to an upstream task only takes effect if the backfill re-runs that stage when its output table is empty.
+**Why:** scene_detect start_in_scene fix was deployed but reanalyze only queued diarize+face_detect; zero-scene assets kept logging "No faces" and two threshold changes were blind guesses.
+**How to apply:** when adding a backfill route, for each queued stage verify its input rows exist; if not, queue the producing stage instead (it chains downstream).
