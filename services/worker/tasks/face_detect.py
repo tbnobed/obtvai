@@ -17,8 +17,10 @@ from config import THUMBNAILS_DIR
 FRAMES_PER_SCENE_MAX = 4      # sample up to this many frames per scene
 FRAME_SAMPLE_EVERY = 4.0      # ~one sample per this many seconds of scene
 TOTAL_FRAME_CAP = 500         # hard cap of sampled frames per asset
-MIN_FACE_PROB = 0.98          # MTCNN detection confidence floor (0.90 let
-                              # hands / necks / graphics through as "faces")
+MIN_FACE_PROB = 0.95          # MTCNN detection confidence floor (0.90 let
+                              # hands / necks / graphics through as "faces";
+                              # 0.98 rejected soft/filtered 720p footage —
+                              # geometry gates below catch the false positives)
 MIN_FACE_SIDE = 36            # ignore tiny background faces (pixels)
 MIN_ASPECT = 0.5              # face box width/height sanity range —
 MAX_ASPECT = 1.25             # hands and neck closeups produce odd boxes
@@ -84,6 +86,8 @@ def detect_faces(self, media_id: str, job_id: str):
                 return None
             return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
+        rejects = {"low_prob": 0, "too_small": 0, "aspect": 0, "geometry": 0, "eye_dist": 0}
+
         def _detect(img):
             """Returns list of (box, face_tensor) passing confidence, size and
             facial-geometry gates (kills hands / necks / graphics that MTCNN
@@ -95,19 +99,24 @@ def detect_faces(self, media_id: str, job_id: str):
             for j, box in enumerate(boxes):
                 p = probs[j] if probs is not None else 1.0
                 if p is None or p < MIN_FACE_PROB:
+                    rejects["low_prob"] += 1
                     continue
                 w, h = box[2] - box[0], box[3] - box[1]
                 if w < MIN_FACE_SIDE or h < MIN_FACE_SIDE:
+                    rejects["too_small"] += 1
                     continue
                 if h <= 0 or not (MIN_ASPECT <= w / h <= MAX_ASPECT):
+                    rejects["aspect"] += 1
                     continue
                 # Geometric sanity: a real frontal/profile face has both eyes
                 # above the nose and the nose above the mouth, all inside the box.
                 lm = landmarks[j] if landmarks is not None else None
                 if lm is None:
+                    rejects["geometry"] += 1
                     continue
                 le, re_, nose, ml, mr = lm
                 if not (le[1] < nose[1] and re_[1] < nose[1] and nose[1] < (ml[1] + mr[1]) / 2):
+                    rejects["geometry"] += 1
                     continue
                 pad_x, pad_y = 0.15 * w, 0.15 * h
                 inside = all(
@@ -115,11 +124,13 @@ def detect_faces(self, media_id: str, job_id: str):
                     for px, py in lm
                 )
                 if not inside:
+                    rejects["geometry"] += 1
                     continue
                 # Eye spacing should be a meaningful fraction of box width —
                 # extreme chin/neck closeups fail this.
                 eye_dist = ((le[0] - re_[0]) ** 2 + (le[1] - re_[1]) ** 2) ** 0.5
                 if eye_dist < 0.2 * w:
+                    rejects["eye_dist"] += 1
                     continue
                 keep_boxes.append(box)
             if not keep_boxes:
@@ -177,7 +188,8 @@ def detect_faces(self, media_id: str, job_id: str):
             db.execute(text("DELETE FROM face_clusters WHERE media_id = :mid"), {"mid": media_id})
             db.commit()
             update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
-            append_log(db, job_id, "No faces found")
+            rej_note = ", ".join(f"{k}={v}" for k, v in rejects.items() if v)
+            append_log(db, job_id, f"No faces found (candidates rejected: {rej_note or 'none detected by MTCNN'})")
             # Still re-run identify so person appearances reflect the (now
             # empty) cluster set instead of stale face links from prior runs.
             from tasks.base import create_job
@@ -186,7 +198,8 @@ def detect_faces(self, media_id: str, job_id: str):
             identify_people.delay(media_id, ident_job_id)
             return
 
-        append_log(db, job_id, f"Detected {len(embeddings)} faces across {frames_sampled or len(scenes)} sampled frames")
+        rej_note = ", ".join(f"{k}={v}" for k, v in rejects.items() if v)
+        append_log(db, job_id, f"Detected {len(embeddings)} faces across {frames_sampled or len(scenes)} sampled frames" + (f" (rejected: {rej_note})" if rej_note else ""))
 
         X = np.array(embeddings)
         clustering = DBSCAN(eps=CLUSTER_EPS, min_samples=1, metric="cosine").fit(X)
