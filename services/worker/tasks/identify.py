@@ -19,8 +19,10 @@ from tasks.base import update_job, append_log
 VOICE_SIM_THRESHOLD = 0.75
 FACE_SIM_THRESHOLD = 0.70
 FACE_ATTACH_OVERLAP = 0.25
-FACE_ONLY_MIN_SECONDS = 5.0     # face-only cluster must be on screen this long...
-FACE_ONLY_MIN_APPEARANCES = 3   # ...or seen in at least this many scenes to become a person
+FACE_ONLY_MIN_SECONDS = 10.0    # face-only cluster must be on screen this long...
+FACE_ONLY_MIN_APPEARANCES = 3   # ...AND seen in at least this many scenes to become a person
+                                # (was OR — hands/blurs seen briefly in a few scenes
+                                # became junk "people" with 0 speaking time)
 _PROFILE_CHARS = 12000
 
 
@@ -378,7 +380,7 @@ def identify_people(self, media_id: str, job_id: str):
             if best_p is None:
                 screen_secs = _cluster_screen_seconds(row[3])
                 n_appearances = len(row[3] or [])
-                if screen_secs < FACE_ONLY_MIN_SECONDS and n_appearances < FACE_ONLY_MIN_APPEARANCES:
+                if screen_secs < FACE_ONLY_MIN_SECONDS or n_appearances < FACE_ONLY_MIN_APPEARANCES:
                     append_log(
                         db, job_id,
                         f"Skipped weak face-only cluster {row[0]} ({screen_secs:.1f}s on screen, {n_appearances} appearances)",
