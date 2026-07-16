@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useListPeople, useReanalyzePeople, useUpdatePerson, getListPeopleQueryKey } from "@workspace/api-client-react";
+import { useListPeople, useReanalyzePeople, useUpdatePerson, useDeletePerson, getListPeopleQueryKey } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Users, User, Mic, Film, ScanFace, Pencil, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, User, Mic, Film, ScanFace, Pencil, Check, X, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ export default function People() {
 
   const reanalyzeMutation = useReanalyzePeople();
   const updatePerson = useUpdatePerson();
+  const deletePerson = useDeletePerson();
   const queryClient = useQueryClient();
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,6 +64,20 @@ export default function People() {
           queryClient.invalidateQueries({ queryKey: getListPeopleQueryKey() });
         },
         onError: () => setQueuedMessage("Rename failed — check the API server."),
+      }
+    );
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: string, name: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (deletePerson.isPending) return;
+    if (!window.confirm(`Delete "${name}"? This removes the person, their appearances, and any voice-clone data.`)) return;
+    deletePerson.mutate(
+      { id },
+      {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListPeopleQueryKey() }),
+        onError: () => setQueuedMessage("Delete failed — check the API server."),
       }
     );
   };
@@ -181,6 +196,15 @@ export default function People() {
                         title="Rename"
                       >
                         <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                        onClick={(e) => handleDelete(e, person.id, person.display_name)}
+                        title="Delete person"
+                      >
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   )}

@@ -535,6 +535,21 @@ paths:
                 $ref: "#/components/schemas/PersonDetail"
         "404":
           description: Not found
+    delete:
+      operationId: deletePerson
+      tags: [people]
+      summary: Delete a person (remove false-positive detections) — appearances and voice-clone data are removed too
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
     patch:
       operationId: updatePerson
       tags: [people]

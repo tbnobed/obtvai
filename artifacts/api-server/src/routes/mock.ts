@@ -1847,6 +1847,21 @@ router.patch("/people/:id", (req, res) => {
   res.json(p);
 });
 
+router.delete("/people/:id", (req, res) => {
+  const idx = people.findIndex((x) => x.id === req.params.id);
+  if (idx < 0) { res.status(404).json({ error: "Not found" }); return; }
+  const pid = people[idx].id;
+  delete personAppearances[pid];
+  for (let i = voiceSamples.length - 1; i >= 0; i--) {
+    if (voiceSamples[i].person_id === pid) voiceSamples.splice(i, 1);
+  }
+  for (let i = voiceGenerations.length - 1; i >= 0; i--) {
+    if (voiceGenerations[i].person_id === pid) voiceGenerations.splice(i, 1);
+  }
+  people.splice(idx, 1);
+  res.status(204).end();
+});
+
 router.post("/people/:id/merge", (req, res) => {
   const target = people.find((x) => x.id === req.params.id);
   const sourceId = String(req.body?.source_person_id ?? "");

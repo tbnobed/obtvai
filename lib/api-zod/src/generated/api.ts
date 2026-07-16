@@ -785,6 +785,16 @@ export const GetPersonResponse = zod.object({
 
 
 /**
+ * @summary Delete a person (remove false-positive detections) — appearances and voice-clone data are removed too
+ */
+export const DeletePersonParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeletePersonResponse = zod.void()
+
+
+/**
  * @summary Rename a person
  */
 export const UpdatePersonParams = zod.object({

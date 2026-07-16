@@ -217,6 +217,42 @@ async def update_person(id: str, body: PersonUpdateIn, db: AsyncSession = Depend
     return _person_out(person, assets or 0, speaking or 0, segments or 0)
 
 
+@router.delete("/{id}", status_code=204)
+async def delete_person(id: str, db: AsyncSession = Depends(get_db)):
+    """Remove a person entirely — for deleting false-positive detections.
+    Cleans up appearances and voice-clone data (samples, generations, files)."""
+    import os
+    from sqlalchemy import text
+    from ..models import VoiceSample, VoiceGeneration
+
+    person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
+    if person is None:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    # Same lock the identify worker holds, so a delete can't interleave with
+    # an in-flight identification pass.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_identify'))"))
+
+    audio_files: list[str] = []
+    for vs in (await db.execute(select(VoiceSample).where(VoiceSample.person_id == id))).scalars():
+        audio_files += [p for p in (vs.audio_path, vs.raw_path) if p]
+    for vg in (await db.execute(select(VoiceGeneration).where(VoiceGeneration.person_id == id))).scalars():
+        if vg.audio_path:
+            audio_files.append(vg.audio_path)
+
+    await db.execute(delete(VoiceGeneration).where(VoiceGeneration.person_id == id))
+    await db.execute(delete(VoiceSample).where(VoiceSample.person_id == id))
+    await db.execute(delete(PersonAppearance).where(PersonAppearance.person_id == id))
+    await db.execute(delete(Person).where(Person.id == id))
+    await db.commit()
+
+    for path in audio_files:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 @router.post("/{id}/split", response_model=PersonOut)
 async def split_person(id: str, body: PersonSplitIn, db: AsyncSession = Depends(get_db)):
     """Move one appearance out of a person into a brand-new person — the
