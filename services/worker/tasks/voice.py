@@ -161,18 +161,14 @@ def get_ready_voice_paths(db, person_id: str) -> list[str]:
 
 
 def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[str], out_path: str):
-    # Tuned XTTS-v2 inference: lower temperature and tighter nucleus
-    # sampling reduce the warbly/robotic artifacts of the defaults, and a
-    # strong repetition penalty avoids droning on longer sentences.
+    # Use XTTS-v2's stock inference settings — hand-tuned sampling overrides
+    # (low temperature / high repetition penalty) made output flatter and
+    # MORE robotic in practice. Condition on few, long, clean references.
     tts.tts_to_file(
         text=text_value,
         language=language,
         speaker_wav=speaker_wavs,
         file_path=out_path,
-        temperature=0.65,
-        repetition_penalty=9.0,
-        top_k=50,
-        top_p=0.8,
         split_sentences=True,
     )
 
@@ -205,9 +201,8 @@ def generate_speech(self, generation_id: str):
         out_path = os.path.join(gens_dir, f"{generation_id}.wav")
 
         started = time.monotonic()
-        # More reference audio = better voice conditioning (XTTS uses up to
-        # its gpt_cond_len window across the provided files).
-        synthesize_cloned(tts, text_value, language, speaker_wavs[:6], out_path)
+        # Longest 1-2 clean references beat a pile of mixed recordings.
+        synthesize_cloned(tts, text_value, language, speaker_wavs[:2], out_path)
         elapsed = time.monotonic() - started
 
         duration = _probe_duration(out_path)
