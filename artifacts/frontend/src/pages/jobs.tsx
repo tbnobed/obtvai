@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useListJobs, getListJobsQueryKey, useRetryJob, useCancelJob, useCleanupJobs } from "@workspace/api-client-react";
+import { useListJobs, getListJobsQueryKey, useRetryJob, useCancelJob, useCleanupJobs, useReindexLibrary } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Square, Trash2 } from "lucide-react";
+import { Play, Square, Trash2, DatabaseZap } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Jobs() {
@@ -11,7 +11,24 @@ export default function Jobs() {
   const retryMutation = useRetryJob();
   const cancelMutation = useCancelJob();
   const cleanupMutation = useCleanupJobs();
+  const reindexMutation = useReindexLibrary();
+  const [reindexMessage, setReindexMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  const handleReindex = () => {
+    if (!window.confirm("Rebuild the search index for the whole library? This re-embeds every ready asset (transcript + visual vectors).")) return;
+    reindexMutation.mutate(undefined, {
+      onSuccess: (result) => {
+        setReindexMessage(
+          result.assets_queued > 0
+            ? `Queued ${result.jobs_created} indexing jobs across ${result.assets_queued} assets.`
+            : "Nothing to reindex — all assets are already queued or processing."
+        );
+        queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+      },
+      onError: () => setReindexMessage("Reindex request failed — check the API server."),
+    });
+  };
 
   const handleRetry = (id: string) => {
     retryMutation.mutate({ id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() }) });
@@ -49,6 +66,16 @@ export default function Jobs() {
             <option value="error">Error</option>
             <option value="cancelled">Cancelled</option>
           </select>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={handleReindex}
+            disabled={reindexMutation.isPending}
+          >
+            <DatabaseZap className="h-3.5 w-3.5" />
+            {reindexMutation.isPending ? "Queuing..." : "Rebuild Search Index"}
+          </Button>
           {errorCount > 0 && (
             <Button
               size="sm"
@@ -75,6 +102,12 @@ export default function Jobs() {
           )}
         </div>
       </div>
+
+      {reindexMessage && (
+        <div className="mb-6 px-4 py-3 rounded-md border border-border bg-card text-sm text-muted-foreground">
+          {reindexMessage}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-4">

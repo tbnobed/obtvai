@@ -982,6 +982,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/SearchResponse"
 
+  /search/reindex:
+    post:
+      operationId: reindexLibrary
+      tags: [search]
+      summary: Rebuild visual and text search indexes across the whole library (re-embeds every ready asset)
+      responses:
+        "202":
+          description: Jobs queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReanalyzeResult"
+
   /search/history:
     get:
       operationId: getSearchHistory

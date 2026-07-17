@@ -1,4 +1,9 @@
-"""Transcript translation into multiple languages via a local NLLB model."""
+"""Transcript translation into multiple languages via a local MT model.
+
+Supports MADLAD-400 (default — Apache 2.0, target selected via a "<2xx> "
+text prefix) and NLLB-200 (legacy — target selected via forced BOS token).
+The engine is picked from the TRANSLATE_MODEL name.
+"""
 import json
 import time
 from datetime import datetime
@@ -26,6 +31,13 @@ NLLB_LANG_CODES = {
 _BATCH_SIZE = 16
 _translator = None
 
+# MADLAD-400 supports all our targets via "<2xx>" ISO-639-1 tags.
+MADLAD_LANGS = set(NLLB_LANG_CODES.keys())
+
+
+def _is_madlad() -> bool:
+    return "madlad" in TRANSLATE_MODEL.lower()
+
 
 def _load_translator():
     global _translator
@@ -39,7 +51,10 @@ def _load_translator():
         # subprocess for legacy .bin checkpoints, which daemonic workers can't do
         # ("daemonic processes are not allowed to have children").
         local_dir = snapshot_download(TRANSLATE_MODEL)
-        tokenizer = AutoTokenizer.from_pretrained(local_dir, src_lang="eng_Latn")
+        if _is_madlad():
+            tokenizer = AutoTokenizer.from_pretrained(local_dir)
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(local_dir, src_lang="eng_Latn")
         model = AutoModelForSeq2SeqLM.from_pretrained(
             local_dir,
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
@@ -51,17 +66,25 @@ def _load_translator():
     return _translator
 
 
-def _translate_batch(tokenizer, model, texts: list[str], nllb_code: str) -> list[str]:
+def _translate_batch(tokenizer, model, texts: list[str], target: str, nllb_code: str) -> list[str]:
     import torch
-    inputs = tokenizer(
-        texts, return_tensors="pt", padding=True, truncation=True, max_length=512
-    ).to(model.device)
+    if _is_madlad():
+        batch = [f"<2{target}> {t}" for t in texts]
+        inputs = tokenizer(
+            batch, return_tensors="pt", padding=True, truncation=True, max_length=512
+        ).to(model.device)
+        gen_kwargs = {}
+    else:
+        inputs = tokenizer(
+            texts, return_tensors="pt", padding=True, truncation=True, max_length=512
+        ).to(model.device)
+        gen_kwargs = {"forced_bos_token_id": tokenizer.convert_tokens_to_ids(nllb_code)}
     with torch.no_grad():
         generated = model.generate(
             **inputs,
-            forced_bos_token_id=tokenizer.convert_tokens_to_ids(nllb_code),
             max_new_tokens=512,
             num_beams=4,
+            **gen_kwargs,
         )
     return tokenizer.batch_decode(generated, skip_special_tokens=True)
 
@@ -102,7 +125,7 @@ def translate_transcript(self, media_id: str, job_id: str, target_language: str)
         for start in range(0, total, _BATCH_SIZE):
             batch = rows[start:start + _BATCH_SIZE]
             translated = _translate_batch(
-                tokenizer, model, [r[1] for r in batch], nllb_code
+                tokenizer, model, [r[1] for r in batch], target, nllb_code
             )
             for row, tr in zip(batch, translated):
                 db.execute(

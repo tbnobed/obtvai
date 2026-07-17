@@ -39,8 +39,8 @@ On the GPU server, pre-pull the AI models before starting (optional but prevents
 ```bash
 docker compose run --rm worker-gpu python -c "
 from faster_whisper import WhisperModel; WhisperModel('large-v3', device='cpu', compute_type='int8')
-from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-from transformers import CLIPModel; CLIPModel.from_pretrained('openai/clip-vit-large-patch14')
+from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')
+from transformers import AutoModel; AutoModel.from_pretrained('google/siglip2-so400m-patch14-384')
 "
 ```
 
@@ -97,19 +97,19 @@ When a video is discovered (via the UI or file watcher):
 ## Semantic Search
 
 Search uses dense vector retrieval against:
-- **Transcript embeddings** (all-MiniLM-L6-v2) for speech content
-- **Visual embeddings** (CLIP) for scene content
+- **Transcript embeddings** (BAAI/bge-m3, multilingual) for speech content
+- **Visual embeddings** (SigLIP-2 so400m) for scene content
 
 Both use Qdrant cosine similarity. Results resolve to `(asset_id, start_time, end_time)` and link directly to the video player at the matching timecode.
 
 ## AI Q&A
 
-The AI Q&A page retrieves the most relevant transcript segments via Qdrant, then feeds them as context to a local instruction-tuned LLM (default: Qwen 2.5 7B Instruct — ungated on HuggingFace, no access approval needed). Every answer cites the source asset and timecode.
+The AI Q&A page retrieves the most relevant transcript segments via Qdrant, then feeds them as context to a local instruction-tuned LLM (default: Qwen3 8B — ungated on HuggingFace, no access approval needed). Every answer cites the source asset and timecode.
 
 To change the model, set `LLM_MODEL` in `.env`:
 ```bash
-LLM_MODEL=Qwen/Qwen2.5-3B-Instruct    # faster, ~7 GB VRAM
-LLM_MODEL=Qwen/Qwen2.5-14B-Instruct   # smarter, ~30 GB VRAM
+LLM_MODEL=Qwen/Qwen3-4B               # faster, ~9 GB VRAM
+LLM_MODEL=Qwen/Qwen2.5-7B-Instruct    # previous default
 ```
 
 ## Data Storage
@@ -135,7 +135,9 @@ See `.env.example` for all environment variables.
 | `MEDIA_PATH` | `./sample_media` | Path to your video library |
 | `GPU_DEVICE_ID` | `1` | Which GPU (nvidia-smi index) the stack uses |
 | `WHISPER_MODEL` | `large-v3` | Whisper model size |
-| `LLM_MODEL` | `Qwen/Qwen2.5-7B-Instruct` | Local LLM for AI Q&A (ungated) |
+| `LLM_MODEL` | `Qwen/Qwen3-8B` | Local LLM for AI Q&A (ungated) |
 | `HF_TOKEN` | — | HuggingFace token for pyannote diarization |
-| `EMBEDDINGS_MODEL` | `all-MiniLM-L6-v2` | Text embedding model |
-| `VISION_MODEL` | `clip-vit-large-patch14` | Visual embedding model |
+| `EMBEDDINGS_MODEL` | `BAAI/bge-m3` | Text embedding model (multilingual) |
+| `VISION_MODEL` | `siglip2-so400m-patch14-384` | Visual embedding model |
+| `TRANSLATE_MODEL` | `madlad400-3b-mt` | Translation model |
+| `DIARIZATION_MODEL` | `speaker-diarization-community-1` | pyannote diarization pipeline |

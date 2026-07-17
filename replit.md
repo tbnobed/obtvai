@@ -18,7 +18,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - **Databases:** PostgreSQL + Drizzle ORM (Node.js), SQLAlchemy (Python)
 - **Vector search:** Qdrant
 - **Queue:** Redis + Celery
-- **AI:** faster-whisper (transcription), pyannote.audio (diarization), CLIP (visual embeddings), FaceNet (face clustering), sentence-transformers (text embeddings), Llama 3.2 (Q&A)
+- **AI:** faster-whisper (transcription), pyannote.audio community-1 (diarization), SigLIP-2 (visual embeddings), InsightFace ArcFace (face clustering), BAAI/bge-m3 (text embeddings), Qwen3-8B (Q&A), MADLAD-400 (translation)
 - **Media processing:** FFmpeg, ffprobe, PySceneDetect
 - **Deployment:** Docker Compose (NVIDIA GPU support)
 - **API codegen:** Orval (from OpenAPI spec)
@@ -66,6 +66,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 - Voice cloning uses XTTS-v2 (coqui-tts); first run downloads ~2 GB model; `COQUI_TOS_AGREED=1` is set in docker-compose shared env; voice files live under `/artifacts/voices`
 - Cloned-voice dubbing prefers Chatterbox multilingual (`chatterbox-tts`, installed `--no-deps` to protect the torch pin); first run downloads ~3 GB; falls back to XTTS-v2 per-load and per-segment; force old engine with `DUB_ENGINE=xtts`
 - `BASE_PATH` env var must be set when running `pnpm build` manually (handled automatically by workflows)
+- After changing `EMBEDDINGS_MODEL` or `VISION_MODEL`, the search index must be rebuilt (Jobs page → "Rebuild Search Index" → `POST /search/reindex`); Qdrant collections auto-recreate on dim mismatch
+- FaceNet/pyannote-3.1-era embeddings don't match the new ArcFace/community-1 stack — run People → "Re-analyze Library" after upgrading
 
 ## Pointers
 

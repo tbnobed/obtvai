@@ -9,21 +9,29 @@ from ..models import MediaAsset, TranscriptSegment, Scene, SearchHistory
 from ..schemas import (
     SearchQuery, SearchResponse, SearchResultOut, SearchHistoryItemOut,
     ScriptMatchRequest, ScriptMatchLineOut, ScriptMatchResponse,
+    ReanalyzeOut,
 )
 from ..config import settings
 
 router = APIRouter(prefix="/search", tags=["search"])
 
-# CLIP text->image cosine scores live in a much lower band (~0.15-0.35) than
+# Vision text->image cosine scores live in a much lower band than
 # sentence-transformer text-text scores (~0.3-0.6). Sorting the merged list by
 # raw score buries every visual hit below the transcript hits, so visual
-# results never survive the top-N cut. Rescale CLIP scores into a comparable
-# 0-1 band before merging.
-_CLIP_SCORE_FLOOR = 0.15
-_CLIP_SCORE_CEIL = 0.35
-# Below this rescaled score a visual hit is essentially noise — CLIP assigns
-# ~floor-level similarity to *everything*, including black frames, so weak
-# hits must be dropped rather than shown.
+# results never survive the top-N cut. Rescale vision scores into a comparable
+# 0-1 band before merging. The band is model-family specific:
+# - CLIP: matches land ~0.15-0.35
+# - SigLIP/SigLIP-2 (sigmoid-trained, no softmax calibration): cosine sims are
+#   lower overall — non-matches sit near 0, good matches ~0.05-0.25.
+if "siglip" in settings.vision_model.lower():
+    _CLIP_SCORE_FLOOR = 0.02
+    _CLIP_SCORE_CEIL = 0.22
+else:
+    _CLIP_SCORE_FLOOR = 0.15
+    _CLIP_SCORE_CEIL = 0.35
+# Below this rescaled score a visual hit is essentially noise — the vision
+# model assigns ~floor-level similarity to *everything*, including black
+# frames, so weak hits must be dropped rather than shown.
 _MIN_VISUAL_SCORE = 0.25
 
 
@@ -164,6 +172,73 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
 
     took_ms = (time.time() - t0) * 1000
     return SearchResponse(results=results, query=body.query, took_ms=took_ms)
+
+
+@router.post("/reindex", response_model=ReanalyzeOut, status_code=202)
+async def reindex_library(db: AsyncSession = Depends(get_db)):
+    """Rebuild search indexes across the whole library after an embedding /
+    vision model change: re-runs visual_embed (scene vectors) and index
+    (transcript vectors) on every ready asset. Old-dimension Qdrant
+    collections are auto-recreated by the workers."""
+    from sqlalchemy import text as sa_text
+    from ..models import ProcessingJob
+    from .jobs import prune_finished_jobs
+    from ..worker_client import enqueue_job
+
+    # Serialize concurrent reindex requests: the lock is held until this
+    # transaction commits, so a second caller waits and then sees the pending
+    # jobs the first one created (its active-job check skips those assets).
+    await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext('obtv_reindex'))"))
+
+    assets = (
+        await db.execute(select(MediaAsset.id).where(MediaAsset.status == "ready"))
+    ).scalars().all()
+
+    assets_queued = 0
+    jobs_created = 0
+    pending: list[tuple[str, str, str]] = []
+
+    for media_id in assets:
+        active = (
+            await db.execute(
+                select(ProcessingJob.id).where(
+                    ProcessingJob.media_id == media_id,
+                    ProcessingJob.job_type.in_(("visual_embed", "index")),
+                    ProcessingJob.status.in_(("pending", "running")),
+                )
+            )
+        ).scalars().first()
+        if active:
+            continue
+
+        has_scenes = (
+            await db.execute(
+                sa_text("SELECT 1 FROM scenes WHERE media_id = :mid LIMIT 1"),
+                {"mid": media_id},
+            )
+        ).first()
+
+        queued_any = False
+        job_types = ["index"]
+        if has_scenes:
+            job_types.append("visual_embed")
+        for job_type in job_types:
+            await prune_finished_jobs(db, media_id, job_type)
+            job = ProcessingJob(media_id=media_id, job_type=job_type, status="pending", logs=[])
+            db.add(job)
+            await db.flush()
+            pending.append((job_type, media_id, job.id))
+            jobs_created += 1
+            queued_any = True
+        if queued_any:
+            assets_queued += 1
+
+    await db.commit()
+
+    for job_type, media_id, job_id in pending:
+        await enqueue_job(job_type, media_id, job_id)
+
+    return ReanalyzeOut(assets_queued=assets_queued, jobs_created=jobs_created)
 
 
 async def _fallback_text_search(body: SearchQuery, db: AsyncSession) -> list[SearchResultOut]:

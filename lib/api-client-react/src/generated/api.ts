@@ -3261,6 +3261,77 @@ export const useSemanticSearch = <TError = ErrorType<unknown>,
       return useMutation(getSemanticSearchMutationOptions(options));
     }
 
+export const getReindexLibraryUrl = () => {
+
+
+
+
+  return `/api/search/reindex`
+}
+
+/**
+ * @summary Rebuild visual and text search indexes across the whole library (re-embeds every ready asset)
+ */
+export const reindexLibrary = async ( options?: RequestInit): Promise<ReanalyzeResult> => {
+
+  return customFetch<ReanalyzeResult>(getReindexLibraryUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReindexLibraryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reindexLibrary>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reindexLibrary>>, TError,void, TContext> => {
+
+const mutationKey = ['reindexLibrary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reindexLibrary>>, void> = () => {
+
+
+          return  reindexLibrary(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReindexLibraryMutationResult = NonNullable<Awaited<ReturnType<typeof reindexLibrary>>>
+
+    export type ReindexLibraryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Rebuild visual and text search indexes across the whole library (re-embeds every ready asset)
+ */
+export const useReindexLibrary = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reindexLibrary>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reindexLibrary>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getReindexLibraryMutationOptions(options));
+    }
+
 export const getGetSearchHistoryUrl = () => {
 
 

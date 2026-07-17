@@ -1266,6 +1266,15 @@ export const SemanticSearchResponse = zod.object({
 
 
 /**
+ * @summary Rebuild visual and text search indexes across the whole library (re-embeds every ready asset)
+ */
+export const ReindexLibraryResponse = zod.object({
+  "assets_queued": zod.number().describe('Number of media assets queued for re-analysis'),
+  "jobs_created": zod.number().describe('Total diarize\/face_detect jobs created')
+})
+
+
+/**
  * @summary Recent searches
  */
 export const GetSearchHistoryResponseItem = zod.object({

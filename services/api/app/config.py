@@ -17,10 +17,10 @@ class Settings(BaseSettings):
     youtube_client_id: str = ""
     youtube_client_secret: str = ""
     youtube_refresh_token: str = ""
-    embeddings_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embeddings_model: str = "BAAI/bge-m3"
     # Must match the worker's VISION_MODEL default — text queries and scene
-    # images have to be embedded by the SAME CLIP model or scores are noise.
-    vision_model: str = "openai/clip-vit-large-patch14"
+    # images have to be embedded by the SAME vision model or scores are noise.
+    vision_model: str = "google/siglip2-so400m-patch14-384"
     whisper_model: str = "medium"
     cors_origins: list[str] = ["*"]
 

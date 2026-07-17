@@ -17,7 +17,10 @@ from db import get_session
 from tasks.base import update_job, append_log
 
 VOICE_SIM_THRESHOLD = 0.75
-FACE_SIM_THRESHOLD = 0.70
+FACE_SIM_THRESHOLD = 0.55   # ArcFace (InsightFace buffalo_l) similarities run
+                            # lower than FaceNet's: same-person ~0.5-0.8,
+                            # different-person <0.3. The FaceNet-era 0.70
+                            # would reject almost every true match.
 FACE_ATTACH_OVERLAP = 0.25
 FACE_ONLY_MIN_SECONDS = 10.0    # face-only cluster must be on screen this long...
 FACE_ONLY_MIN_APPEARANCES = 3   # ...AND seen in at least this many scenes to become a person

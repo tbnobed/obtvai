@@ -1,5 +1,5 @@
 """
-Local LLM inference using an instruction-tuned model (default: Qwen 2.5 7B Instruct —
+Local LLM inference using an instruction-tuned model (default: Qwen3 8B —
 ungated on HuggingFace, no access approval required).
 The model is configurable via the LLM_MODEL environment variable.
 
@@ -11,7 +11,7 @@ import asyncio
 import os
 import threading
 
-LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen3-8B")
 
 _llm = None  # (tokenizer, model)
 _llm_lock = threading.Lock()
@@ -60,8 +60,11 @@ def _generate(prompt: str, max_new_tokens: int = 512) -> str:
         },
         {"role": "user", "content": prompt},
     ]
+    # enable_thinking=False: Qwen3 hybrid-reasoning models default to emitting
+    # <think> blocks; disable for direct answers. Older templates ignore the kwarg.
     inputs = tokenizer.apply_chat_template(
-        messages, add_generation_prompt=True, return_tensors="pt"
+        messages, add_generation_prompt=True, return_tensors="pt",
+        enable_thinking=False,
     ).to(model.device)
     attention_mask = torch.ones_like(inputs)
     with torch.no_grad():

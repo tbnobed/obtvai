@@ -1,4 +1,4 @@
-"""Detect and cluster faces across scenes using MTCNN + FaceNet.
+"""Detect and cluster faces across scenes using InsightFace (SCRFD + ArcFace).
 
 Samples MULTIPLE frames per scene from the proxy video (not just the single
 scene thumbnail), so every person visible during a scene can be detected —
@@ -17,17 +17,37 @@ from config import THUMBNAILS_DIR
 FRAMES_PER_SCENE_MAX = 4      # sample up to this many frames per scene
 FRAME_SAMPLE_EVERY = 4.0      # ~one sample per this many seconds of scene
 TOTAL_FRAME_CAP = 500         # hard cap of sampled frames per asset
-MIN_FACE_PROB = 0.90          # MTCNN detection confidence floor. Soft/filtered
-                              # 720p footage scores 0.90-0.95, so higher floors
-                              # miss real on-camera speakers entirely. The
-                              # geometry gates below (landmark layout, eye
-                              # spacing) plus identify's face-only person rule
-                              # handle the hands/necks/graphics that 0.90 admits.
+MIN_DET_SCORE = 0.55          # SCRFD detection confidence floor. SCRFD is far
+                              # more precise than MTCNN — it rarely fires on
+                              # hands/necks/graphics, so no geometry gates are
+                              # needed beyond size/aspect sanity.
 MIN_FACE_SIDE = 36            # ignore tiny background faces (pixels)
-MIN_ASPECT = 0.5              # face box width/height sanity range —
-MAX_ASPECT = 1.25             # hands and neck closeups produce odd boxes
-CLUSTER_EPS = 0.30            # cosine DISTANCE for DBSCAN — 0.6 merged
-                              # different people (sim 0.4!); 0.3 ≈ sim 0.7
+MIN_ASPECT = 0.5              # face box width/height sanity range
+MAX_ASPECT = 1.25
+CLUSTER_EPS = 0.45            # cosine DISTANCE for DBSCAN on ArcFace
+                              # embeddings. ArcFace same-person similarity runs
+                              # lower than FaceNet's (0.5-0.8 vs 0.7+), so the
+                              # FaceNet-era 0.30 would shatter one person into
+                              # many clusters. 0.45 ≈ sim 0.55.
+
+_face_app = None
+
+
+def _load_face_app():
+    """Cached InsightFace FaceAnalysis (SCRFD detector + ArcFace embedder).
+    buffalo_l downloads once to ~/.insightface on first run."""
+    global _face_app
+    if _face_app is None:
+        import torch
+        from insightface.app import FaceAnalysis
+        providers = (
+            ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            if torch.cuda.is_available() else ["CPUExecutionProvider"]
+        )
+        app = FaceAnalysis(name="buffalo_l", providers=providers)
+        app.prepare(ctx_id=0 if torch.cuda.is_available() else -1, det_size=(640, 640))
+        _face_app = app
+    return _face_app
 
 
 def _sample_times(start: float, end: float) -> list[float]:
@@ -62,15 +82,12 @@ def detect_faces(self, media_id: str, job_id: str):
         video_path = (row[1] or row[0]) if row else None
 
         import cv2
-        import torch
         import numpy as np
-        from facenet_pytorch import MTCNN, InceptionResnetV1
         from PIL import Image
         from sklearn.cluster import DBSCAN
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        mtcnn = MTCNN(device=device, keep_all=True)
-        resnet = InceptionResnetV1(pretrained="vggface2").eval().to(device)
+        append_log(db, job_id, "Loading InsightFace (SCRFD + ArcFace)...")
+        face_app = _load_face_app()
 
         if video_path and os.path.exists(video_path):
             cap = cv2.VideoCapture(video_path)
@@ -88,60 +105,26 @@ def detect_faces(self, media_id: str, job_id: str):
                 return None
             return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-        rejects = {"low_prob": 0, "too_small": 0, "aspect": 0, "geometry": 0, "eye_dist": 0}
+        rejects = {"low_prob": 0, "too_small": 0, "aspect": 0}
 
         def _detect(img):
-            """Returns list of (box, face_tensor) passing confidence, size and
-            facial-geometry gates (kills hands / necks / graphics that MTCNN
-            occasionally reports as faces)."""
-            boxes, probs, landmarks = mtcnn.detect(img, landmarks=True)
-            if boxes is None:
-                return []
-            keep, keep_boxes = [], []
-            for j, box in enumerate(boxes):
-                p = probs[j] if probs is not None else 1.0
-                if p is None or p < MIN_FACE_PROB:
+            """Returns list of (box, normed_embedding) passing confidence and
+            size/aspect gates. InsightFace handles alignment internally."""
+            bgr = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
+            keep = []
+            for face in face_app.get(bgr):
+                if float(face.det_score) < MIN_DET_SCORE:
                     rejects["low_prob"] += 1
                     continue
-                w, h = box[2] - box[0], box[3] - box[1]
+                x1, y1, x2, y2 = [float(v) for v in face.bbox]
+                w, h = x2 - x1, y2 - y1
                 if w < MIN_FACE_SIDE or h < MIN_FACE_SIDE:
                     rejects["too_small"] += 1
                     continue
                 if h <= 0 or not (MIN_ASPECT <= w / h <= MAX_ASPECT):
                     rejects["aspect"] += 1
                     continue
-                # Geometric sanity: a real frontal/profile face has both eyes
-                # above the nose and the nose above the mouth, all inside the box.
-                lm = landmarks[j] if landmarks is not None else None
-                if lm is None:
-                    rejects["geometry"] += 1
-                    continue
-                le, re_, nose, ml, mr = lm
-                if not (le[1] < nose[1] and re_[1] < nose[1] and nose[1] < (ml[1] + mr[1]) / 2):
-                    rejects["geometry"] += 1
-                    continue
-                pad_x, pad_y = 0.15 * w, 0.15 * h
-                inside = all(
-                    box[0] - pad_x <= px <= box[2] + pad_x and box[1] - pad_y <= py <= box[3] + pad_y
-                    for px, py in lm
-                )
-                if not inside:
-                    rejects["geometry"] += 1
-                    continue
-                # Eye spacing should be a meaningful fraction of box width —
-                # extreme chin/neck closeups fail this.
-                eye_dist = ((le[0] - re_[0]) ** 2 + (le[1] - re_[1]) ** 2) ** 0.5
-                if eye_dist < 0.2 * w:
-                    rejects["eye_dist"] += 1
-                    continue
-                keep_boxes.append(box)
-            if not keep_boxes:
-                return []
-            faces = mtcnn.extract(img, np.array(keep_boxes), None)
-            if faces is None:
-                return []
-            for j in range(len(keep_boxes)):
-                keep.append((keep_boxes[j], faces[j]))
+                keep.append(([x1, y1, x2, y2], face.normed_embedding))
             return keep
 
         embeddings = []
@@ -171,11 +154,8 @@ def detect_faces(self, media_id: str, job_id: str):
                     detections = _detect(img)
                     if not detections:
                         continue
-                    face_tensors = torch.stack([f for _, f in detections])
-                    with torch.no_grad():
-                        embs = resnet(face_tensors.to(device))
-                    for (box, _f), emb in zip(detections, embs):
-                        embeddings.append(emb.cpu().numpy())
+                    for box, emb in detections:
+                        embeddings.append(np.asarray(emb, dtype=float))
                         scene_meta.append({
                             "scene_id": scene_id,
                             "start_time": start_time,
@@ -191,7 +171,7 @@ def detect_faces(self, media_id: str, job_id: str):
             db.commit()
             update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
             rej_note = ", ".join(f"{k}={v}" for k, v in rejects.items() if v)
-            append_log(db, job_id, f"No faces found (candidates rejected: {rej_note or 'none detected by MTCNN'})")
+            append_log(db, job_id, f"No faces found (candidates rejected: {rej_note or 'none detected by SCRFD'})")
             # Still re-run identify so person appearances reflect the (now
             # empty) cluster set instead of stale face links from prior runs.
             from tasks.base import create_job

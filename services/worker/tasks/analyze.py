@@ -76,8 +76,11 @@ def _build_chunks(rows):
 def _generate(tokenizer, model, prompt: str, max_new_tokens: int = 1500) -> str:
     import torch
     messages = [{"role": "user", "content": prompt}]
+    # enable_thinking=False: Qwen3 hybrid-reasoning models default to emitting
+    # <think> blocks; disable for direct answers. Older templates ignore the kwarg.
     inputs = tokenizer.apply_chat_template(
-        messages, add_generation_prompt=True, return_tensors="pt"
+        messages, add_generation_prompt=True, return_tensors="pt",
+        enable_thinking=False,
     ).to(model.device)
     attention_mask = torch.ones_like(inputs)
     with torch.no_grad():

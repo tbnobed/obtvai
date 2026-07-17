@@ -19,15 +19,21 @@ def _load_model():
     return _model
 
 
+def _is_siglip() -> bool:
+    return "siglip" in settings.vision_model.lower()
+
+
 def _load_clip():
     global _clip_model, _clip_processor, _clip_tokenizer
     if _clip_model is None:
         import torch
-        from transformers import CLIPModel, CLIPProcessor, CLIPTokenizer
+        from transformers import AutoModel, AutoProcessor, AutoTokenizer
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        _clip_model = CLIPModel.from_pretrained(settings.vision_model).to(device)
-        _clip_processor = CLIPProcessor.from_pretrained(settings.vision_model)
-        _clip_tokenizer = CLIPTokenizer.from_pretrained(settings.vision_model)
+        # AutoModel handles both CLIP and SigLIP/SigLIP-2 checkpoints; both
+        # expose get_image_features / get_text_features in a shared space.
+        _clip_model = AutoModel.from_pretrained(settings.vision_model).to(device).eval()
+        _clip_processor = AutoProcessor.from_pretrained(settings.vision_model)
+        _clip_tokenizer = AutoTokenizer.from_pretrained(settings.vision_model)
     return _clip_model, _clip_processor, _clip_tokenizer
 
 
@@ -42,13 +48,19 @@ def get_text_vector_size() -> int:
 
 
 def get_clip_vector_size() -> int:
-    """CLIP projection dim from config metadata only (no full model load)."""
+    """Vision embedding dim from config metadata only (no full model load).
+    CLIP has a projection head; SigLIP/SigLIP-2 embed at the tower hidden size."""
     try:
         from transformers import AutoConfig
-        return AutoConfig.from_pretrained(settings.vision_model).projection_dim
+        cfg = AutoConfig.from_pretrained(settings.vision_model)
+        dim = getattr(cfg, "projection_dim", None)
+        if dim:
+            return int(dim)
+        return int(cfg.text_config.hidden_size)
     except Exception:
         model, _, _ = _load_clip()
-        return model.config.projection_dim
+        cfg = model.config
+        return int(getattr(cfg, "projection_dim", None) or cfg.text_config.hidden_size)
 
 
 async def get_text_embedding(text: str) -> list[float]:
@@ -70,7 +82,15 @@ async def get_clip_text_embedding(text: str) -> list[float]:
     def _run():
         model, _, tokenizer = _load_clip()
         device = next(model.parameters()).device
-        inputs = tokenizer([text], padding=True, truncation=True, return_tensors="pt").to(device)
+        if _is_siglip():
+            # SigLIP text towers are trained with fixed-length 64-token padding;
+            # matching it at query time is required for sane similarity scores.
+            inputs = tokenizer(
+                [text], padding="max_length", max_length=64,
+                truncation=True, return_tensors="pt",
+            ).to(device)
+        else:
+            inputs = tokenizer([text], padding=True, truncation=True, return_tensors="pt").to(device)
         with torch.no_grad():
             features = model.get_text_features(**inputs)
         vec = features[0].cpu().numpy()

@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libpq-dev \
     gcc \
+    g++ \
     libsndfile1 \
     sox \
     xz-utils \
@@ -37,8 +38,7 @@ WORKDIR /worker
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-# facenet-pytorch pins an old torch; install without deps (torch/torchvision already present)
-RUN pip install --no-cache-dir --no-deps facenet-pytorch==2.6.0 && pip install --no-cache-dir requests
+RUN pip install --no-cache-dir requests
 
 # chatterbox-tts pins older torch/transformers versions; install without deps
 # (torch 2.7.1+cu128 and transformers already present) plus its light deps.

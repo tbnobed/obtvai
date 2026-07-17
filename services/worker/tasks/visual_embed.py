@@ -27,18 +27,20 @@ def embed_scenes(self, media_id: str, job_id: str):
             return
 
         import torch
-        from transformers import CLIPProcessor, CLIPModel
+        from transformers import AutoProcessor, AutoModel
         from PIL import Image
         from qdrant_client import QdrantClient
         from qdrant_client.models import Distance, VectorParams, PointStruct
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        append_log(db, job_id, f"Loading CLIP model on {device}...")
-        model = CLIPModel.from_pretrained(VISION_MODEL).to(device)
-        processor = CLIPProcessor.from_pretrained(VISION_MODEL)
+        append_log(db, job_id, f"Loading vision model {VISION_MODEL} on {device}...")
+        # AutoModel handles both CLIP and SigLIP/SigLIP-2 checkpoints; both
+        # expose get_image_features / get_text_features in a shared space.
+        model = AutoModel.from_pretrained(VISION_MODEL).to(device).eval()
+        processor = AutoProcessor.from_pretrained(VISION_MODEL)
 
         qdrant = QdrantClient(url=QDRANT_URL)
-        _ensure_collection(qdrant, "scenes", model.config.projection_dim)
+        _ensure_collection(qdrant, "scenes", _vector_dim(model))
 
         # Idempotent retry: remove points from any previous run for this asset
         # so re-detected scenes don't leave orphaned vectors behind.
@@ -111,6 +113,16 @@ def embed_scenes(self, media_id: str, job_id: str):
         raise
     finally:
         db.close()
+
+
+def _vector_dim(model) -> int:
+    """Output dim of get_image_features: CLIP has a projection head,
+    SigLIP/SigLIP-2 embed at the tower hidden size."""
+    cfg = model.config
+    dim = getattr(cfg, "projection_dim", None)
+    if dim:
+        return int(dim)
+    return int(cfg.text_config.hidden_size)
 
 
 def _ensure_collection(qdrant, name: str, size: int):

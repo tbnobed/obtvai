@@ -24,6 +24,10 @@ def run_diarization(self, media_id: str, job_id: str):
         append_log(db, job_id, "Loading diarization pipeline...")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        DIARIZATION_MODEL = os.getenv(
+            "DIARIZATION_MODEL", "pyannote/speaker-diarization-community-1"
+        )
+
         # PyTorch >=2.6 defaults torch.load to weights_only=True, which rejects
         # pyannote's checkpoint format. The model comes from pyannote's official
         # HF repo (trusted), so temporarily restore the legacy behavior.
@@ -35,21 +39,39 @@ def run_diarization(self, media_id: str, job_id: str):
 
         torch.load = _legacy_load
         try:
-            pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1",
-                use_auth_token=os.getenv("HF_TOKEN", ""),
-            )
+            try:
+                # pyannote.audio >= 4.0
+                pipeline = Pipeline.from_pretrained(
+                    DIARIZATION_MODEL, token=os.getenv("HF_TOKEN", "") or None,
+                )
+            except TypeError:
+                # pyannote.audio 3.x
+                pipeline = Pipeline.from_pretrained(
+                    DIARIZATION_MODEL, use_auth_token=os.getenv("HF_TOKEN", ""),
+                )
         finally:
             torch.load = _orig_torch_load
         if pipeline is None:
             raise RuntimeError(
-                "Failed to load pyannote/speaker-diarization-3.1 — check that HF_TOKEN "
+                f"Failed to load {DIARIZATION_MODEL} — check that HF_TOKEN "
                 "is set and the model's gated-access terms are accepted on Hugging Face"
             )
         pipeline = pipeline.to(device)
 
-        append_log(db, job_id, "Running diarization...")
-        diarization, speaker_embeddings = pipeline(audio_path, return_embeddings=True)
+        append_log(db, job_id, f"Running diarization ({DIARIZATION_MODEL})...")
+        try:
+            result = pipeline(audio_path, return_embeddings=True)
+        except TypeError:
+            # pyannote 4.x pipelines don't take return_embeddings; embeddings
+            # (if available) come back on the output object instead.
+            result = pipeline(audio_path)
+        # pyannote 3.x returns (Annotation, embeddings); 4.x returns an output
+        # object with .speaker_diarization / .speaker_embeddings attributes.
+        if isinstance(result, tuple):
+            diarization, speaker_embeddings = result
+        else:
+            diarization = getattr(result, "speaker_diarization", result)
+            speaker_embeddings = getattr(result, "speaker_embeddings", None)
 
         speaker_map: dict[str, list[tuple[float, float]]] = {}
         for turn, _, speaker in diarization.itertracks(yield_label=True):
@@ -83,11 +105,19 @@ def run_diarization(self, media_id: str, job_id: str):
             emb_map = {}
             labels = list(diarization.labels())
             if speaker_embeddings is not None:
-                for i, label in enumerate(labels):
-                    if i < len(speaker_embeddings):
-                        vec = speaker_embeddings[i]
+                if hasattr(speaker_embeddings, "get") and hasattr(speaker_embeddings, "keys"):
+                    # dict-like: keyed by speaker label (pyannote 4.x variants)
+                    for label in labels:
+                        vec = speaker_embeddings.get(label)
                         if vec is not None:
                             emb_map[label] = [float(x) for x in vec]
+                else:
+                    # array-like: row order matches diarization.labels()
+                    for i, label in enumerate(labels):
+                        if i < len(speaker_embeddings):
+                            vec = speaker_embeddings[i]
+                            if vec is not None:
+                                emb_map[label] = [float(x) for x in vec]
             if emb_map:
                 db.execute(
                     text("UPDATE media_assets SET speaker_embeddings = CAST(:emb AS jsonb) WHERE id = :mid"),

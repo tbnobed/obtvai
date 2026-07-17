@@ -526,6 +526,10 @@ router.get("/search/history", (_req, res) => {
   res.json(searchHistory);
 });
 
+router.post("/search/reindex", (_req, res) => {
+  res.status(202).json({ assets_queued: 3, jobs_created: 5 });
+});
+
 // ── Jobs ─────────────────────────────────────────────────────────────────────
 router.post("/people/reanalyze", (_req, res) => {
   res.status(202).json({ assets_queued: 3, jobs_created: 6 });
