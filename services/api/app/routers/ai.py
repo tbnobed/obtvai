@@ -60,11 +60,64 @@ async def _speaker_names(db: AsyncSession, media_ids: set[str]) -> dict[tuple[st
     return {(mid, label): name for mid, label, name in rows.all() if label}
 
 
+async def _conversation_history(db: AsyncSession, conv_id: str, limit: int = 8) -> list[dict]:
+    """Last N messages of the conversation as chat history for the LLM."""
+    rows = (
+        await db.execute(
+            select(AIMessage)
+            .where(AIMessage.conversation_id == conv_id)
+            .order_by(desc(AIMessage.created_at))
+            .limit(limit)
+        )
+    ).scalars().all()
+    # Cap per-message length so long chats can't blow up the LLM context
+    # window or latency; recent turns matter most, full detail rarely does.
+    return [
+        {"role": m.role, "content": (m.content or "")[:1500]}
+        for m in reversed(rows)
+    ]
+
+
+async def _standalone_question(question: str, history: list[dict]) -> str:
+    """Rewrite a follow-up ("dive deeper", "what about her?") into a standalone
+    question using the chat history, so retrieval searches for the actual topic
+    instead of the literal follow-up words. Falls back to the raw question."""
+    if not history:
+        return question
+    try:
+        from ..services.llm import generate_response
+        transcript = "\n".join(
+            f"{m['role']}: {m['content'][:400]}" for m in history[-6:]
+        )
+        rewritten = await generate_response(
+            (
+                f"Conversation so far:\n{transcript}\n\n"
+                f"Latest user message: {question}\n\n"
+                f"Rewrite the latest user message as a single, fully self-contained "
+                f"question about the video library, resolving references like "
+                f"\"this\", \"her\", or \"dive deeper\" using the conversation. "
+                f"Reply with ONLY the rewritten question."
+            ),
+            system=(
+                "You rewrite follow-up chat messages into standalone search "
+                "questions. Output only the rewritten question, nothing else."
+            ),
+            max_new_tokens=80,
+        )
+        rewritten = rewritten.strip().strip('"')
+        if 5 < len(rewritten) < 400:
+            return rewritten
+    except Exception:
+        pass
+    return question
+
+
 async def _run_qa(
     question: str,
     context_segments: list,
     db: AsyncSession,
     single_asset: bool = False,
+    history: list[dict] | None = None,
 ) -> tuple[str, list[AICitationOut]]:
     """Run local LLM QA over retrieved context segments.
 
@@ -96,6 +149,15 @@ async def _run_qa(
         ))
 
     if not context_parts:
+        if history:
+            # Follow-up with no new retrievable context (e.g. "summarize what we
+            # discussed") — let the LLM answer from the conversation itself.
+            try:
+                from ..services.llm import generate_response
+                answer = await generate_response(question, history=history)
+                return answer, []
+            except Exception:
+                pass
         return "No indexed media content found that matches your question. Make sure videos have been processed and indexed.", []
 
     context_text = "\n".join(context_parts[:12])
@@ -103,28 +165,34 @@ async def _run_qa(
         prompt = (
             f"Transcript excerpts from a single video (format: [timecode] speaker: text):\n{context_text}\n\n"
             f"Question: {question}\n\n"
-            f"Answer the question using only these excerpts. Statements are first-person: "
-            f"when a line is labeled with a speaker's name, facts they state about "
-            f"themselves (\"my wife and I have six children\") are facts about that "
-            f"speaker. Quote or paraphrase the relevant lines and mention their "
-            f"timecodes (e.g. 50:39). Never mention any filename — refer to the "
-            f"content as \"this video\". If the excerpts do not answer the question, "
-            f"say so directly instead of guessing."
+            f"Answer the question using these excerpts as evidence. Statements are "
+            f"first-person: when a line is labeled with a speaker's name, facts they "
+            f"state about themselves (\"my wife and I have six children\") are facts "
+            f"about that speaker. Quote or paraphrase the relevant lines and mention "
+            f"their timecodes (e.g. 50:39). Never mention any filename — refer to the "
+            f"content as \"this video\". Synthesize and interpret: if the excerpts "
+            f"only imply an answer, give your best analytical reading and label it as "
+            f"interpretation. Only say the excerpts don't answer the question if "
+            f"nothing here is relevant. Do not invent quotes or timecodes."
         )
     else:
         prompt = (
             f"Transcript excerpts (format: [filename @ timecode] speaker: text):\n{context_text}\n\n"
             f"Question: {question}\n\n"
-            f"Answer the question using only these excerpts. Statements are first-person: "
-            f"when a line is labeled with a speaker's name, facts they state about "
-            f"themselves are facts about that speaker. Quote or paraphrase the "
-            f"relevant lines and mention their timecodes. If the excerpts do not answer "
-            f"the question, say so directly instead of guessing."
+            f"Answer the question using these excerpts as evidence. Statements are "
+            f"first-person: when a line is labeled with a speaker's name, facts they "
+            f"state about themselves are facts about that speaker. Quote or paraphrase "
+            f"the relevant lines and mention their filenames and timecodes. "
+            f"Synthesize and interpret: look for themes and patterns across excerpts "
+            f"and different videos, and if the excerpts only imply an answer, give "
+            f"your best analytical reading and label it as interpretation. Only say "
+            f"the excerpts don't answer the question if nothing here is relevant. "
+            f"Do not invent quotes or timecodes."
         )
 
     try:
         from ..services.llm import generate_response
-        answer = await generate_response(prompt)
+        answer = await generate_response(prompt, history=history)
     except Exception as e:
         transcript_summary = "\n".join(
             (
@@ -162,6 +230,10 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
         if not conv:
             raise HTTPException(status_code=404, detail="Conversation not found")
 
+    # Load conversation history BEFORE inserting the new user message so the
+    # history reflects prior turns only.
+    history = await _conversation_history(db, conv_id) if body.conversation_id else []
+
     user_msg = AIMessage(
         id=str(uuid.uuid4()),
         conversation_id=conv_id,
@@ -170,6 +242,10 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
         created_at=datetime.utcnow(),
     )
     db.add(user_msg)
+
+    # Follow-ups like "dive deeper" or "what about her?" are useless as
+    # retrieval queries — rewrite them into standalone questions first.
+    retrieval_question = await _standalone_question(body.question, history)
 
     # Hybrid retrieval: vector search finds semantically similar segments, but
     # misses first-person answers (the question names a person, the answer says
@@ -182,7 +258,7 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
         from ..services.embedding import get_text_embedding
         from ..services.qdrant_client import search_vectors
 
-        q_vec = await get_text_embedding(body.question)
+        q_vec = await get_text_embedding(retrieval_question)
         hits = await search_vectors(
             collection="transcripts",
             vector=q_vec,
@@ -205,7 +281,7 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
         pass  # vector search unavailable — keyword results below still apply
 
     try:
-        for row in await _keyword_segments(db, body.question, body.media_id):
+        for row in await _keyword_segments(db, retrieval_question, body.media_id):
             seg = row[0]
             if seg.id not in seen_ids:
                 context_segments.append(row)
@@ -216,7 +292,8 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
     context_segments = context_segments[:12]
 
     answer_text, citations = await _run_qa(
-        body.question, context_segments, db, single_asset=bool(body.media_id)
+        body.question, context_segments, db,
+        single_asset=bool(body.media_id), history=history,
     )
 
     assistant_msg = AIMessage(

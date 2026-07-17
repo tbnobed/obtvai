@@ -45,21 +45,31 @@ def _load_pipeline():
     return _llm
 
 
-def _generate(prompt: str, max_new_tokens: int = 512) -> str:
+_DEFAULT_SYSTEM = (
+    "You are a sharp, analytical media librarian for a video archive. You answer "
+    "questions about the library's video content using the provided transcript "
+    "excerpts as evidence. Be direct and specific: quote or paraphrase relevant "
+    "lines and reference their timecodes. Go beyond restating the excerpts — "
+    "synthesize across them, identify themes and patterns, and draw reasonable "
+    "conclusions, clearly framing interpretation as such (\"based on these "
+    "excerpts, the pattern suggests...\"). Only say the material doesn't answer "
+    "the question when there is genuinely nothing relevant to work with."
+)
+
+
+def _generate(
+    prompt: str,
+    max_new_tokens: int = 512,
+    history: list[dict] | None = None,
+    system: str | None = None,
+) -> str:
     import torch
     tokenizer, model = _load_pipeline()
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are a precise media analyst. You answer questions about video "
-                "content using only the provided transcript excerpts. Be direct and "
-                "specific: quote or paraphrase the relevant lines and reference their "
-                "timecodes. If the excerpts do not contain the answer, say so plainly."
-            ),
-        },
-        {"role": "user", "content": prompt},
-    ]
+    messages = [{"role": "system", "content": system or _DEFAULT_SYSTEM}]
+    for m in history or []:
+        if m.get("role") in ("user", "assistant") and m.get("content"):
+            messages.append({"role": m["role"], "content": m["content"]})
+    messages.append({"role": "user", "content": prompt})
     # enable_thinking=False: Qwen3 hybrid-reasoning models default to emitting
     # <think> blocks; disable for direct answers. Older templates ignore the kwarg.
     inputs = tokenizer.apply_chat_template(
@@ -81,6 +91,13 @@ def _generate(prompt: str, max_new_tokens: int = 512) -> str:
     return tokenizer.decode(output_ids[0][inputs.shape[1]:], skip_special_tokens=True).strip()
 
 
-async def generate_response(prompt: str) -> str:
+async def generate_response(
+    prompt: str,
+    history: list[dict] | None = None,
+    system: str | None = None,
+    max_new_tokens: int = 512,
+) -> str:
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, lambda: _generate(prompt))
+    return await loop.run_in_executor(
+        None, lambda: _generate(prompt, max_new_tokens=max_new_tokens, history=history, system=system)
+    )
