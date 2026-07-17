@@ -122,6 +122,48 @@ XTTS_LANGS = {
     "nl", "cs", "ar", "zh-cn", "ja", "hu", "ko", "hi",
 }
 
+# Chatterbox multilingual (ResembleAI) — preferred cloned-voice engine; more
+# natural than XTTS-v2. Set DUB_ENGINE=xtts to force the old path.
+CHATTERBOX_LANGS = {
+    "ar", "da", "de", "el", "en", "es", "fi", "fr", "he", "hi", "it", "ja",
+    "ko", "ms", "nl", "no", "pl", "pt", "ru", "sv", "sw", "tr", "zh",
+}
+_chatterbox_cache: dict = {}
+
+
+def _to_chatterbox_lang(target: str) -> str | None:
+    lang = "zh" if target == "zh-cn" else target
+    return lang if lang in CHATTERBOX_LANGS else None
+
+
+def _load_chatterbox():
+    """Load Chatterbox multilingual once per worker process (GPU-resident)."""
+    if "model" in _chatterbox_cache:
+        return _chatterbox_cache["model"]
+    import torch
+    from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = ChatterboxMultilingualTTS.from_pretrained(device=device)
+    _chatterbox_cache["model"] = model
+    return model
+
+
+def _synthesize_chatterbox(model, text_value: str, lang_id: str, ref_wav: str,
+                           workdir: str, settings: dict | None):
+    """Cloned-voice synthesis via Chatterbox. Maps our voice settings where the
+    engine has an equivalent: temperature directly, speed via pitch-preserving
+    atempo. top_p / repetition_penalty are XTTS-specific and ignored here."""
+    kwargs = {}
+    if settings and settings.get("temperature") is not None:
+        kwargs["temperature"] = float(settings["temperature"])
+    wav = model.generate(text_value, language_id=lang_id, audio_prompt_path=ref_wav, **kwargs)
+    samples = wav.squeeze(0).float().cpu().numpy()
+    rate = int(model.sr)
+    speed = float(settings.get("speed") or 1.0) if settings else 1.0
+    if abs(speed - 1.0) >= 0.01:
+        samples = _atempo(samples, rate, speed, workdir)
+    return samples, rate
+
 # XTTS-v2 built-in studio speakers used for gender-matched generic dubbing
 # (no cloned voice profile needed).
 STOCK_VOICES = {"female": "Claribel Dervla", "male": "Damien Black"}
@@ -312,6 +354,8 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         # Cloned-voice path: map diarized speakers to ready voice profiles.
         voice_map: dict = {}
         xtts = None
+        chatterbox = None
+        chatterbox_lang = _to_chatterbox_lang(target)
         if use_cloned_voices and target in XTTS_LANGS:
             voice_map = _cloned_voice_map(db, media_id)
             if voice_map:
@@ -320,6 +364,16 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 append_log(db, job_id, "Cloned voices requested but no speaker has a ready voice profile — using stock voices")
         elif use_cloned_voices:
             append_log(db, job_id, f"Cloned voices not supported for '{target}' — using stock voices")
+
+        # Preferred cloned-voice engine: Chatterbox multilingual. Any load
+        # failure (missing package, download issue) falls back to XTTS.
+        if voice_map and chatterbox_lang and os.getenv("DUB_ENGINE", "chatterbox") != "xtts":
+            try:
+                append_log(db, job_id, "Loading Chatterbox multilingual (cloned voices)")
+                update_job(db, job_id, progress=2.0)
+                chatterbox = _load_chatterbox()
+            except Exception as e:
+                append_log(db, job_id, f"Chatterbox unavailable ({e}) — cloned voices will use XTTS-v2")
 
         # Generic (non-cloned) segments: prefer XTTS stock studio voices,
         # gender-matched to each diarized speaker's pitch. MMS-TTS (one
@@ -364,13 +418,23 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 seg_text = (seg_text or "").strip()
                 if not seg_text:
                     continue
-                cloned = voice_map.get(speaker) if xtts else None
+                cloned = voice_map.get(speaker) if (xtts or chatterbox) else None
                 if cloned:
                     speaker_wavs, voice_preset, voice_settings = cloned
-                    clip, clip_rate = _synthesize_xtts(
-                        xtts, seg_text, target, speaker_wavs, workdir,
-                        preset=voice_preset, settings=voice_settings,
-                    )
+                    clip = None
+                    if chatterbox is not None:
+                        try:
+                            clip, clip_rate = _synthesize_chatterbox(
+                                chatterbox, seg_text, chatterbox_lang,
+                                speaker_wavs[0], workdir, voice_settings,
+                            )
+                        except Exception as e:
+                            append_log(db, job_id, f"Chatterbox failed on segment {i + 1} ({e}) — XTTS fallback")
+                    if clip is None:
+                        clip, clip_rate = _synthesize_xtts(
+                            xtts, seg_text, target, speaker_wavs, workdir,
+                            preset=voice_preset, settings=voice_settings,
+                        )
                     clip = _resample(clip, clip_rate, sample_rate, workdir)
                     cloned_count += 1
                 elif use_xtts_stock:
