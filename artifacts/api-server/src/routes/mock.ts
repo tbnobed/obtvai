@@ -9,7 +9,7 @@ const VIDEO_EXTENSIONS = new Set([
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 },
+  limits: { fileSize: 500 * 1024 * 1024 },
 });
 
 const now = new Date().toISOString();

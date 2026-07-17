@@ -333,7 +333,11 @@ function VoiceSection({
             </div>
           </div>
           {uploadSample.isError && (
-            <p className="text-xs text-red-400">Upload failed — use wav, mp3, m4a, flac, or ogg.</p>
+            <p className="text-xs text-red-400">
+              Upload failed —{" "}
+              {(uploadSample.error as { data?: { detail?: string } } | null)?.data?.detail ??
+                "use wav, mp3, m4a, flac, or ogg."}
+            </p>
           )}
           {profile?.samples?.length ? (
             <div className="space-y-2">

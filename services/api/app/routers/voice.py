@@ -162,10 +162,10 @@ async def upload_voice_sample(id: str, file: UploadFile = File(...), db: AsyncSe
     with open(raw_path, "wb") as out:
         while chunk := await file.read(1024 * 1024):
             size += len(chunk)
-            if size > 100 * 1024 * 1024:
+            if size > 500 * 1024 * 1024:
                 out.close()
                 os.unlink(raw_path)
-                raise HTTPException(status_code=400, detail="File too large (100 MB max)")
+                raise HTTPException(status_code=400, detail="File too large (500 MB max)")
             out.write(chunk)
     if size == 0:
         os.unlink(raw_path)
