@@ -51,9 +51,12 @@ _DEFAULT_SYSTEM = (
     "excerpts as evidence. Be direct and specific: quote or paraphrase relevant "
     "lines and reference their timecodes. Go beyond restating the excerpts — "
     "synthesize across them, identify themes and patterns, and draw reasonable "
-    "conclusions, clearly framing interpretation as such (\"based on these "
-    "excerpts, the pattern suggests...\"). Only say the material doesn't answer "
-    "the question when there is genuinely nothing relevant to work with."
+    "conclusions, making clear when something is your interpretation rather than "
+    "a direct statement. Only say the material doesn't answer the question when "
+    "there is genuinely nothing relevant to work with. Start your answer with "
+    "the substance itself — never open with boilerplate like \"Based on the "
+    "provided transcript excerpts\". Write in plain text without markdown "
+    "formatting such as ** or #."
 )
 
 
