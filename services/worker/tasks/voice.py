@@ -171,16 +171,24 @@ PRESET_SETTINGS = {
 }
 
 
+# Custom knobs the API may pass through (validated server-side).
+_ALLOWED_SETTINGS = {"speed", "temperature", "top_p", "top_k", "repetition_penalty"}
+
+
 def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[str], out_path: str,
-                      preset: str | None = None):
-    settings = PRESET_SETTINGS.get(preset or "natural", {})
+                      preset: str | None = None, settings: dict | None = None):
+    kwargs = dict(PRESET_SETTINGS.get(preset or "natural", {}))
+    if settings:
+        # Custom slider values override the preset base.
+        kwargs.update({k: float(v) for k, v in settings.items()
+                       if k in _ALLOWED_SETTINGS and v is not None})
     tts.tts_to_file(
         text=text_value,
         language=language,
         speaker_wav=speaker_wavs,
         file_path=out_path,
         split_sentences=True,
-        **settings,
+        **kwargs,
     )
 
 
@@ -191,7 +199,8 @@ def generate_speech(self, generation_id: str):
         from sqlalchemy import text
         row = db.execute(
             text("""
-                SELECT g.person_id, g.text, g.language, g.preset, p.voice_preset
+                SELECT g.person_id, g.text, g.language, g.preset, g.settings,
+                       p.voice_preset, p.voice_settings
                 FROM voice_generations g JOIN people p ON p.id = g.person_id
                 WHERE g.id = :gid
             """),
@@ -199,8 +208,15 @@ def generate_speech(self, generation_id: str):
         ).fetchone()
         if not row:
             return
-        person_id, text_value, language, gen_preset, person_preset = row
-        preset = gen_preset or person_preset  # tuning run overrides saved style
+        person_id, text_value, language, gen_preset, gen_settings, person_preset, person_settings = row
+        # Precedence: per-generation settings > per-generation preset (tuning
+        # run) > person's saved custom settings > person's saved preset.
+        if gen_settings:
+            preset, settings = None, gen_settings
+        elif gen_preset:
+            preset, settings = gen_preset, None
+        else:
+            preset, settings = person_preset, person_settings
 
         _update_generation(db, generation_id, status="running", progress=5.0)
 
@@ -218,7 +234,8 @@ def generate_speech(self, generation_id: str):
 
         started = time.monotonic()
         # Longest 1-2 clean references beat a pile of mixed recordings.
-        synthesize_cloned(tts, text_value, language, speaker_wavs[:2], out_path, preset=preset)
+        synthesize_cloned(tts, text_value, language, speaker_wavs[:2], out_path,
+                          preset=preset, settings=settings)
         elapsed = time.monotonic() - started
 
         duration = _probe_duration(out_path)

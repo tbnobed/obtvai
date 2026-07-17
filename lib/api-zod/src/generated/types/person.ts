@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { VoiceSettings } from './voiceSettings';
 
 export interface Person {
   id: string;
@@ -37,4 +38,6 @@ export interface Person {
      * @nullable
      */
   voice_preset?: string | null;
+  /** Saved custom synthesis settings (take precedence over voice_preset) */
+  voice_settings?: VoiceSettings;
 }

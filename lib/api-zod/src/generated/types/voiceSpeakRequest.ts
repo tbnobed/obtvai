@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { VoiceSettings } from './voiceSettings';
 
 export interface VoiceSpeakRequest {
   /**
@@ -14,4 +15,6 @@ export interface VoiceSpeakRequest {
   text: string;
   /** XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi */
   language?: string;
+  /** Optional per-generation synthesis overrides */
+  settings?: VoiceSettings;
 }

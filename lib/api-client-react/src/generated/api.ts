@@ -87,6 +87,7 @@ import type {
   VoiceSample,
   VoiceSampleFromSegment,
   VoiceSampleUploadInput,
+  VoiceSettings,
   VoiceSpeakRequest,
   VoiceTuneRequest
 } from './api.schemas';
@@ -2671,6 +2672,78 @@ export const useSetVoicePreset = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSetVoicePresetMutationOptions(options));
+    }
+
+export const getSetVoiceSettingsUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/voice/settings`
+}
+
+/**
+ * @summary Save custom synthesis settings used for all future speech and dubbing in this person's voice
+ */
+export const setVoiceSettings = async (id: string,
+    voiceSettings: VoiceSettings, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getSetVoiceSettingsUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(voiceSettings)
+  }
+);}
+
+
+
+
+
+export const getSetVoiceSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setVoiceSettings>>, TError,{id: string;data: BodyType<VoiceSettings>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setVoiceSettings>>, TError,{id: string;data: BodyType<VoiceSettings>}, TContext> => {
+
+const mutationKey = ['setVoiceSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setVoiceSettings>>, {id: string;data: BodyType<VoiceSettings>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setVoiceSettings(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetVoiceSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof setVoiceSettings>>>
+    export type SetVoiceSettingsMutationBody = BodyType<VoiceSettings>
+    export type SetVoiceSettingsMutationError = ErrorType<void>
+
+    /**
+ * @summary Save custom synthesis settings used for all future speech and dubbing in this person's voice
+ */
+export const useSetVoiceSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setVoiceSettings>>, TError,{id: string;data: BodyType<VoiceSettings>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setVoiceSettings>>,
+        TError,
+        {id: string;data: BodyType<VoiceSettings>},
+        TContext
+      > => {
+      return useMutation(getSetVoiceSettingsMutationOptions(options));
     }
 
 export const getListVoiceGenerationsUrl = (id: string,) => {

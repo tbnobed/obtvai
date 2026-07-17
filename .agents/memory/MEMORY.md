@@ -10,6 +10,7 @@
 - [CLIP visual search pitfalls](clip-visual-search.md) — query/index must share one CLIP model; keyframes must be representative (black frames poison embeddings); rescale CLIP scores before merging with text scores.
 - [Person identification pitfalls](person-identification.md) — one person per diarized speaker per asset; purge stale auto people on re-analysis; face-only clusters need people too; 0.75/0.70 thresholds.
 - [Person identity concurrency](identity-concurrency.md) — all person mutations share advisory lock hashtext('obtv_identify'); merge blends embeddings; singleton jobs deduped via partial unique index.
+- [XTTS voice tuning](xtts-voice-tuning.md) — presets sound alike; speed+temperature are the real levers; settings precedence gen>preset>person settings>person preset.
 - [MMS-TTS coverage & usage](mms-tts.md) — no model for Italian/Japanese/Chinese; uroman romanization needed for some scripts; gate TTS langs separately from translation langs.
 - [Backfill must check upstream outputs](celery-redis-pitfalls.md) — re-analyze routes must queue the producing stage when a stage's input rows (e.g. scenes) are missing, else fixes never apply.
 - [XTTS cloning quality](xtts-cloning-quality.md) — stock inference defaults beat hand-tuned sampling; 1-2 long clean reference wavs beat many mixed ones.

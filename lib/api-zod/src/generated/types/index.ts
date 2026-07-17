@@ -104,5 +104,6 @@ export * from './voiceProfile';
 export * from './voiceSample';
 export * from './voiceSampleFromSegment';
 export * from './voiceSampleUploadInput';
+export * from './voiceSettings';
 export * from './voiceSpeakRequest';
 export * from './voiceTuneRequest';

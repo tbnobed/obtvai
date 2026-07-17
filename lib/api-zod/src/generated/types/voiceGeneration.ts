@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { VoiceSettings } from './voiceSettings';
 
 export interface VoiceGeneration {
   id: string;
@@ -24,4 +25,6 @@ export interface VoiceGeneration {
      * @nullable
      */
   preset?: string | null;
+  /** Custom synthesis settings this clip was generated with */
+  settings?: VoiceSettings;
 }

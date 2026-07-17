@@ -434,6 +434,7 @@ class PersonOut(BaseModel):
     segment_count: int = 0
     updated_at: Optional[datetime] = None
     voice_preset: Optional[str] = None
+    voice_settings: Optional[dict] = None
 
 
 class PersonAppearanceOut(BaseModel):
@@ -494,9 +495,17 @@ class VoiceSampleFromSegmentIn(BaseModel):
     end_time: float
 
 
+class VoiceSettingsIn(BaseModel):
+    speed: Optional[float] = None
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    repetition_penalty: Optional[float] = None
+
+
 class VoiceSpeakIn(BaseModel):
     text: str
     language: str = "en"
+    settings: Optional[VoiceSettingsIn] = None
 
 
 class VoiceTuneIn(BaseModel):
@@ -519,6 +528,7 @@ class VoiceGenerationOut(BaseModel):
     error_message: Optional[str] = None
     created_at: datetime
     preset: Optional[str] = None
+    settings: Optional[dict] = None
 
 
 class ReanalyzeOut(BaseModel):

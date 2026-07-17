@@ -16,6 +16,7 @@ from ..schemas import (
     VoiceSpeakIn,
     VoiceTuneIn,
     VoicePresetIn,
+    VoiceSettingsIn,
     VoiceGenerationOut,
 )
 from .. import worker_client
@@ -32,6 +33,27 @@ XTTS_LANGUAGES = {
 }
 # Must match PRESET_SETTINGS in services/worker/tasks/voice.py
 VOICE_PRESETS = ["natural", "expressive", "steady", "warm"]
+
+# Allowed ranges for custom synthesis settings (key: (min, max))
+SETTINGS_RANGES = {
+    "speed": (0.7, 1.3),
+    "temperature": (0.2, 1.2),
+    "top_p": (0.3, 1.0),
+    "repetition_penalty": (1.5, 12.0),
+}
+
+
+def _validate_settings(body: VoiceSettingsIn) -> dict | None:
+    """Return a clean settings dict, or None if every field is empty."""
+    out = {}
+    for key, (lo, hi) in SETTINGS_RANGES.items():
+        value = getattr(body, key)
+        if value is None:
+            continue
+        if not (lo <= value <= hi):
+            raise HTTPException(status_code=400, detail=f"{key} must be between {lo} and {hi}")
+        out[key] = float(value)
+    return out or None
 
 
 def _sample_out(s: VoiceSample) -> VoiceSampleOut:
@@ -62,6 +84,7 @@ def _gen_out(g: VoiceGeneration) -> VoiceGenerationOut:
         error_message=g.error_message,
         created_at=g.created_at,
         preset=g.preset,
+        settings=g.settings,
     )
 
 
@@ -204,7 +227,11 @@ async def create_voice_generation(id: str, body: VoiceSpeakIn, db: AsyncSession 
             detail=f"Voice profile not ready — add at least {int(MIN_SAMPLE_SECONDS)}s of clean samples",
         )
 
-    gen = VoiceGeneration(person_id=id, text=text, language=language, status="pending", progress=0.0)
+    settings = _validate_settings(body.settings) if body.settings else None
+    gen = VoiceGeneration(
+        person_id=id, text=text, language=language,
+        status="pending", progress=0.0, settings=settings,
+    )
     db.add(gen)
     await db.commit()
     await db.refresh(gen)
@@ -254,6 +281,15 @@ async def set_voice_preset(id: str, body: VoicePresetIn, db: AsyncSession = Depe
     if preset not in VOICE_PRESETS:
         raise HTTPException(status_code=400, detail=f"Unknown preset. Choose one of: {', '.join(VOICE_PRESETS)}")
     person.voice_preset = preset
+    person.voice_settings = None  # explicit preset choice clears custom overrides
+    await db.commit()
+
+
+@router.put("/people/{id}/voice/settings", status_code=204)
+async def set_voice_settings(id: str, body: VoiceSettingsIn, db: AsyncSession = Depends(get_db)):
+    """Save custom synthesis settings; an all-null body clears them."""
+    person = await _get_person(db, id)
+    person.voice_settings = _validate_settings(body)
     await db.commit()
 
 

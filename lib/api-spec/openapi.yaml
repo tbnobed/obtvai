@@ -835,6 +835,31 @@ paths:
         "404":
           description: Person not found
 
+  /people/{id}/voice/settings:
+    put:
+      operationId: setVoiceSettings
+      tags: [voice]
+      summary: Save custom synthesis settings used for all future speech and dubbing in this person's voice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceSettings"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          description: Value out of range
+        "404":
+          description: Person not found
+
   /people/{id}/voice/generations:
     get:
       operationId: listVoiceGenerations
@@ -2166,6 +2191,10 @@ components:
         voice_preset:
           type: ["string", "null"]
           description: Saved synthesis style for this person's cloned voice
+        voice_settings:
+          allOf:
+            - $ref: "#/components/schemas/VoiceSettings"
+          description: Saved custom synthesis settings (take precedence over voice_preset)
 
     PersonAppearance:
       type: object
@@ -2333,6 +2362,27 @@ components:
           type: string
           default: en
           description: "XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi"
+        settings:
+          allOf:
+            - $ref: "#/components/schemas/VoiceSettings"
+          description: Optional per-generation synthesis overrides
+
+    VoiceSettings:
+      type: object
+      description: XTTS synthesis knobs. Omitted/null fields fall back to stock defaults.
+      properties:
+        speed:
+          type: ["number", "null"]
+          description: Playback pace, 0.7-1.3 (1.0 = normal)
+        temperature:
+          type: ["number", "null"]
+          description: Expressiveness/variation, 0.2-1.2 (higher = livelier, less stable)
+        top_p:
+          type: ["number", "null"]
+          description: Stability, 0.3-1.0 (lower = safer, flatter)
+        repetition_penalty:
+          type: ["number", "null"]
+          description: Clarity/anti-mumble, 1.5-12 (higher = crisper, can clip words)
 
     VoiceTuneRequest:
       type: object
@@ -2380,6 +2430,10 @@ components:
         preset:
           type: ["string", "null"]
           description: Synthesis style this clip was generated with (tuning runs)
+        settings:
+          allOf:
+            - $ref: "#/components/schemas/VoiceSettings"
+          description: Custom synthesis settings this clip was generated with
 
     ReanalyzeResult:
       type: object

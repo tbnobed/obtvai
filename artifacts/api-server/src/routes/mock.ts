@@ -2069,6 +2069,8 @@ router.post("/people/:id/voice/speak", (req, res) => {
   }
   const text = String(req.body?.text ?? "").trim();
   if (!text) { res.status(400).json({ error: "Text required" }); return; }
+  const { settings: genSettings, error: settingsError } = validateVoiceSettings(req.body?.settings ?? {});
+  if (settingsError) { res.status(400).json({ error: settingsError }); return; }
   const gen: any = {
     id: `vgen-${Date.now()}`,
     person_id: person.id,
@@ -2080,6 +2082,7 @@ router.post("/people/:id/voice/speak", (req, res) => {
     error_message: null,
     created_at: new Date().toISOString(),
     preset: null,
+    settings: genSettings,
   };
   voiceGenerations.unshift(gen);
   simulateGen(gen, text);
@@ -2138,6 +2141,37 @@ router.put("/people/:id/voice/preset", (req, res) => {
     return;
   }
   person.voice_preset = preset;
+  person.voice_settings = null;
+  res.status(204).end();
+});
+
+// Mirrors SETTINGS_RANGES in services/api/app/routers/voice.py
+const SETTINGS_RANGES: Record<string, [number, number]> = {
+  speed: [0.7, 1.3],
+  temperature: [0.2, 1.2],
+  top_p: [0.3, 1.0],
+  repetition_penalty: [1.5, 12],
+};
+
+function validateVoiceSettings(body: any): { settings: any | null; error?: string } {
+  const settings: any = {};
+  for (const [k, [lo, hi]] of Object.entries(SETTINGS_RANGES)) {
+    const v = body?.[k];
+    if (v === null || v === undefined) continue;
+    if (typeof v !== "number" || v < lo || v > hi) {
+      return { settings: null, error: `${k} must be between ${lo} and ${hi}` };
+    }
+    settings[k] = v;
+  }
+  return { settings: Object.keys(settings).length ? settings : null };
+}
+
+router.put("/people/:id/voice/settings", (req, res) => {
+  const person: any = people.find((p) => p.id === req.params.id);
+  if (!person) { res.status(404).json({ error: "Not found" }); return; }
+  const { settings, error } = validateVoiceSettings(req.body);
+  if (error) { res.status(400).json({ error }); return; }
+  person.voice_settings = settings;
   res.status(204).end();
 });
 

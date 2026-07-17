@@ -19,14 +19,16 @@ import {
   useDeleteVoiceGeneration,
   useTuneVoice,
   useSetVoicePreset,
+  useSetVoiceSettings,
 } from "@workspace/api-client-react";
-import type { PersonAppearance, VoiceGeneration } from "@workspace/api-client-react";
+import type { PersonAppearance, VoiceGeneration, VoiceSettings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +43,7 @@ import {
 import {
   ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors,
   AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -83,16 +86,35 @@ const PRESET_LABELS: Record<string, string> = {
   warm: "Warm",
 };
 
+// XTTS stock defaults — sliders start here.
+const DEFAULT_TUNE = { speed: 1.0, temperature: 0.65, top_p: 0.85, repetition_penalty: 2.0 };
+
+const TUNE_SLIDERS: {
+  key: keyof typeof DEFAULT_TUNE;
+  label: string;
+  hint: string;
+  min: number;
+  max: number;
+  step: number;
+}[] = [
+  { key: "speed", label: "Speed", hint: "pace of delivery", min: 0.7, max: 1.3, step: 0.05 },
+  { key: "temperature", label: "Expressiveness", hint: "higher = livelier, less stable", min: 0.2, max: 1.2, step: 0.05 },
+  { key: "top_p", label: "Stability", hint: "lower = safer, flatter", min: 0.3, max: 1.0, step: 0.05 },
+  { key: "repetition_penalty", label: "Clarity", hint: "higher = crisper, can clip words", min: 1.5, max: 12, step: 0.5 },
+];
+
 function VoiceSection({
   personId,
   personName,
   appearances,
   voicePreset,
+  voiceSettings,
 }: {
   personId: string;
   personName: string;
   appearances: PersonAppearance[];
   voicePreset: string | null | undefined;
+  voiceSettings: VoiceSettings | null | undefined;
 }) {
   const queryClient = useQueryClient();
   const { data: profile } = useGetVoiceProfile(personId, {
@@ -119,6 +141,7 @@ function VoiceSection({
   const deleteGen = useDeleteVoiceGeneration();
   const tuneVoice = useTuneVoice();
   const setPreset = useSetVoicePreset();
+  const saveSettings = useSetVoiceSettings();
 
   const invalidateProfile = () =>
     queryClient.invalidateQueries({ queryKey: getGetVoiceProfileQueryKey(personId) });
@@ -134,6 +157,13 @@ function VoiceSection({
 
   const [genText, setGenText] = useState("");
   const [genLang, setGenLang] = useState("en");
+  const [tuneOpen, setTuneOpen] = useState(false);
+  const [tune, setTune] = useState<typeof DEFAULT_TUNE>({
+    ...DEFAULT_TUNE,
+    ...(voiceSettings
+      ? Object.fromEntries(Object.entries(voiceSettings).filter(([, v]) => typeof v === "number"))
+      : {}),
+  });
 
   const speakingAppearances = appearances.filter((a) => a.speaker_label);
 
@@ -171,11 +201,30 @@ function VoiceSection({
     e.target.value = "";
   };
 
+  const tuneChanged = TUNE_SLIDERS.some((s) => tune[s.key] !== DEFAULT_TUNE[s.key]);
+
   const submitGeneration = () => {
     if (!genText.trim()) return;
     createGen.mutate(
-      { id: personId, data: { text: genText.trim(), language: genLang } },
+      {
+        id: personId,
+        data: {
+          text: genText.trim(),
+          language: genLang,
+          ...(tuneOpen && tuneChanged ? { settings: tune } : {}),
+        },
+      },
       { onSuccess: () => { setGenText(""); invalidateGens(); } },
+    );
+  };
+
+  const saveTuneAsDefault = () => {
+    saveSettings.mutate(
+      { id: personId, data: tuneChanged ? tune : {} },
+      {
+        onSuccess: () =>
+          queryClient.invalidateQueries({ queryKey: getGetPersonQueryKey(personId) }),
+      },
     );
   };
 
@@ -332,12 +381,61 @@ function VoiceSection({
         <div className="border border-border bg-card rounded-md p-4 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-semibold">Voice Generator</h3>
-            {voicePreset ? (
+            {voiceSettings ? (
+              <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">
+                style: Custom
+              </Badge>
+            ) : voicePreset ? (
               <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">
                 style: {PRESET_LABELS[voicePreset] ?? voicePreset}
               </Badge>
             ) : null}
+            {profile?.ready ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto h-7 gap-1.5 text-xs text-muted-foreground"
+                onClick={() => setTuneOpen((v) => !v)}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" /> Fine-tune
+              </Button>
+            ) : null}
           </div>
+          {tuneOpen && profile?.ready ? (
+            <div className="rounded border border-border/60 bg-muted/30 p-3 space-y-3">
+              {TUNE_SLIDERS.map((s) => (
+                <div key={s.key} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium">{s.label}</span>
+                    <span className="text-muted-foreground">
+                      {tune[s.key].toFixed(2)} <span className="hidden sm:inline">— {s.hint}</span>
+                    </span>
+                  </div>
+                  <Slider
+                    min={s.min}
+                    max={s.max}
+                    step={s.step}
+                    value={[tune[s.key]]}
+                    onValueChange={([v]) => setTune((t) => ({ ...t, [s.key]: v }))}
+                  />
+                </div>
+              ))}
+              <div className="flex items-center gap-2 pt-1">
+                <p className="text-[11px] text-muted-foreground flex-1">
+                  Speed changes the most. Generate below to hear these settings.
+                </p>
+                <Button size="sm" variant="ghost" className="h-7 text-xs"
+                  onClick={() => setTune({ ...DEFAULT_TUNE })}>
+                  Reset
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs"
+                  disabled={saveSettings.isPending}
+                  onClick={saveTuneAsDefault}>
+                  {saveSettings.isPending ? "Saving…" : "Save as default"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
           {profile?.ready ? (
             <>
               <Textarea
@@ -701,7 +799,7 @@ export default function PersonDetail() {
         </div>
       ) : null}
 
-      <VoiceSection personId={id} personName={person.display_name} appearances={person.appearances ?? []} voicePreset={person.voice_preset} />
+      <VoiceSection personId={id} personName={person.display_name} appearances={person.appearances ?? []} voicePreset={person.voice_preset} voiceSettings={person.voice_settings} />
 
       <h2 className="text-lg font-semibold mb-4">Appearances</h2>
       {person.appearances?.length ? (

@@ -222,29 +222,30 @@ def _synthesize_stock(tts, text_value: str, language: str, speaker_name: str, wo
 
 
 def _cloned_voice_map(db, media_id: str) -> dict:
-    """speaker_label → (ready voice-sample WAV paths, saved voice preset)."""
+    """speaker_label → (ready voice-sample WAV paths, saved preset, saved settings)."""
     from sqlalchemy import text
     from tasks.voice import get_ready_voice_paths
     rows = db.execute(
         text("""
-            SELECT pa.speaker_label, pa.person_id, p.voice_preset
+            SELECT pa.speaker_label, pa.person_id, p.voice_preset, p.voice_settings
             FROM person_appearances pa JOIN people p ON p.id = pa.person_id
             WHERE pa.media_id = :mid AND pa.speaker_label IS NOT NULL
         """),
         {"mid": media_id},
     ).fetchall()
     result = {}
-    for speaker_label, person_id, voice_preset in rows:
+    for speaker_label, person_id, voice_preset, voice_settings in rows:
         paths = get_ready_voice_paths(db, person_id)
         if paths:
-            result[speaker_label] = (paths[:2], voice_preset)
+            result[speaker_label] = (paths[:2], voice_preset, voice_settings)
     return result
 
 
-def _synthesize_xtts(tts, text_value: str, language: str, speaker_wavs, workdir: str, preset=None):
+def _synthesize_xtts(tts, text_value: str, language: str, speaker_wavs, workdir: str,
+                     preset=None, settings=None):
     from tasks.voice import synthesize_cloned
     out = os.path.join(workdir, "xtts_seg.wav")
-    synthesize_cloned(tts, text_value, language, speaker_wavs, out, preset=preset)
+    synthesize_cloned(tts, text_value, language, speaker_wavs, out, preset=preset, settings=settings)
     return _read_wav(out)
 
 
@@ -365,9 +366,10 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                     continue
                 cloned = voice_map.get(speaker) if xtts else None
                 if cloned:
-                    speaker_wavs, voice_preset = cloned
+                    speaker_wavs, voice_preset, voice_settings = cloned
                     clip, clip_rate = _synthesize_xtts(
-                        xtts, seg_text, target, speaker_wavs, workdir, preset=voice_preset
+                        xtts, seg_text, target, speaker_wavs, workdir,
+                        preset=voice_preset, settings=voice_settings,
                     )
                     clip = _resample(clip, clip_rate, sample_rate, workdir)
                     cloned_count += 1

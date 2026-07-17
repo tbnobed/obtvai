@@ -260,6 +260,32 @@ export interface FaceCluster {
   appearances: FaceClusterAppearancesItem[];
 }
 
+/**
+ * XTTS synthesis knobs. Omitted/null fields fall back to stock defaults.
+ */
+export interface VoiceSettings {
+  /**
+     * Playback pace, 0.7-1.3 (1.0 = normal)
+     * @nullable
+     */
+  speed?: number | null;
+  /**
+     * Expressiveness/variation, 0.2-1.2 (higher = livelier, less stable)
+     * @nullable
+     */
+  temperature?: number | null;
+  /**
+     * Stability, 0.3-1.0 (lower = safer, flatter)
+     * @nullable
+     */
+  top_p?: number | null;
+  /**
+     * Clarity/anti-mumble, 1.5-12 (higher = crisper, can clip words)
+     * @nullable
+     */
+  repetition_penalty?: number | null;
+}
+
 export interface Person {
   id: string;
   display_name: string;
@@ -291,6 +317,8 @@ export interface Person {
      * @nullable
      */
   voice_preset?: string | null;
+  /** Saved custom synthesis settings (take precedence over voice_preset) */
+  voice_settings?: VoiceSettings;
 }
 
 export interface PersonAppearance {
@@ -407,6 +435,8 @@ export interface VoiceSpeakRequest {
   text: string;
   /** XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi */
   language?: string;
+  /** Optional per-generation synthesis overrides */
+  settings?: VoiceSettings;
 }
 
 export interface VoiceTuneRequest {
@@ -441,6 +471,8 @@ export interface VoiceGeneration {
      * @nullable
      */
   preset?: string | null;
+  /** Custom synthesis settings this clip was generated with */
+  settings?: VoiceSettings;
 }
 
 export interface ReanalyzeResult {

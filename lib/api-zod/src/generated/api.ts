@@ -745,7 +745,13 @@ export const ListPeopleResponse = zod.object({
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
   "updated_at": zod.string().nullish(),
-  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
+  "voice_settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
 })),
   "total": zod.number().describe('Total number of people in the library')
 })
@@ -770,7 +776,13 @@ export const GetPersonResponse = zod.object({
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
   "updated_at": zod.string().nullish(),
-  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
+  "voice_settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
 }).and(zod.object({
   "appearances": zod.array(zod.object({
   "media_id": zod.string(),
@@ -822,7 +834,13 @@ export const UpdatePersonResponse = zod.object({
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
   "updated_at": zod.string().nullish(),
-  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
+  "voice_settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
 })
 
 
@@ -849,7 +867,13 @@ export const MergePersonResponse = zod.object({
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
   "updated_at": zod.string().nullish(),
-  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
+  "voice_settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
 })
 
 
@@ -878,7 +902,13 @@ export const SplitPersonResponse = zod.object({
   "total_speaking_seconds": zod.number(),
   "segment_count": zod.number(),
   "updated_at": zod.string().nullish(),
-  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice')
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
+  "voice_settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
 })
 
 
@@ -1001,7 +1031,13 @@ export const createVoiceGenerationBodyLanguageDefault = `en`;
 
 export const CreateVoiceGenerationBody = zod.object({
   "text": zod.string().min(1).max(createVoiceGenerationBodyTextMax),
-  "language": zod.string().default(createVoiceGenerationBodyLanguageDefault).describe('XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi')
+  "language": zod.string().default(createVoiceGenerationBodyLanguageDefault).describe('XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi'),
+  "settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Optional per-generation synthesis overrides')
 })
 
 export const CreateVoiceGenerationResponse = zod.object({
@@ -1014,7 +1050,13 @@ export const CreateVoiceGenerationResponse = zod.object({
   "duration_seconds": zod.number().nullish(),
   "error_message": zod.string().nullish(),
   "created_at": zod.string(),
-  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)')
+  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)'),
+  "settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with')
 })
 
 
@@ -1044,7 +1086,13 @@ export const TuneVoiceResponseItem = zod.object({
   "duration_seconds": zod.number().nullish(),
   "error_message": zod.string().nullish(),
   "created_at": zod.string(),
-  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)')
+  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)'),
+  "settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with')
 })
 export const TuneVoiceResponse = zod.array(TuneVoiceResponseItem)
 
@@ -1064,6 +1112,23 @@ export const SetVoicePresetResponse = zod.void()
 
 
 /**
+ * @summary Save custom synthesis settings used for all future speech and dubbing in this person's voice
+ */
+export const SetVoiceSettingsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SetVoiceSettingsBody = zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.')
+
+export const SetVoiceSettingsResponse = zod.void()
+
+
+/**
  * @summary List this person's speech generations, newest first
  */
 export const ListVoiceGenerationsParams = zod.object({
@@ -1080,7 +1145,13 @@ export const ListVoiceGenerationsResponseItem = zod.object({
   "duration_seconds": zod.number().nullish(),
   "error_message": zod.string().nullish(),
   "created_at": zod.string(),
-  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)')
+  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)'),
+  "settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with')
 })
 export const ListVoiceGenerationsResponse = zod.array(ListVoiceGenerationsResponseItem)
 
