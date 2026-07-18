@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Expand, RotateCcw } from "lucide-react";
@@ -13,7 +13,7 @@ export type PlayerClip = {
 };
 
 export function ClipPlayerDialog({ clip, onClose }: { clip: PlayerClip | null; onClose: () => void }) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
   const [full, setFull] = useState(false);
 
   useEffect(() => {
@@ -23,14 +23,21 @@ export function ClipPlayerDialog({ clip, onClose }: { clip: PlayerClip | null; o
   const startAt = full ? 0 : (clip?.start_time ?? 0);
   const stopAt = full ? null : (clip?.end_time ?? null);
 
+  // Media fragment: the browser natively starts at startAt and pauses at
+  // stopAt even if no JS listener is attached. The listeners below are a
+  // second layer for browsers with partial fragment support, plus replay.
+  const src = clip
+    ? `/api/media/${clip.media_id}/stream#t=${startAt}${stopAt != null ? `,${stopAt}` : ""}`
+    : undefined;
+
   useEffect(() => {
-    const v = videoRef.current;
+    const v = videoEl;
     if (!v || !clip) return;
     document.querySelectorAll("video").forEach((other) => {
       if (other !== v && !other.paused) other.pause();
     });
     const onLoaded = () => {
-      v.currentTime = startAt;
+      if (Math.abs(v.currentTime - startAt) > 0.5) v.currentTime = startAt;
       v.play().catch(() => {});
     };
     const onTime = () => {
@@ -43,13 +50,12 @@ export function ClipPlayerDialog({ clip, onClose }: { clip: PlayerClip | null; o
       v.removeEventListener("loadedmetadata", onLoaded);
       v.removeEventListener("timeupdate", onTime);
     };
-  }, [clip, full]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [videoEl, clip, full]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const replay = () => {
-    const v = videoRef.current;
-    if (!v || !clip) return;
-    v.currentTime = startAt;
-    v.play().catch(() => {});
+    if (!videoEl) return;
+    videoEl.currentTime = startAt;
+    videoEl.play().catch(() => {});
   };
 
   const isClipRange = clip?.end_time != null;
@@ -65,8 +71,9 @@ export function ClipPlayerDialog({ clip, onClose }: { clip: PlayerClip | null; o
         {clip && (
           <div className="space-y-3">
             <video
-              ref={videoRef}
-              src={`/api/media/${clip.media_id}/stream`}
+              key={src}
+              ref={setVideoEl}
+              src={src}
               controls
               autoPlay
               className="w-full max-h-[60vh] rounded bg-black object-contain"
