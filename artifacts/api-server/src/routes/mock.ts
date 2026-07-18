@@ -209,6 +209,18 @@ const assets = [
   },
 ];
 
+// Pad the mock library so pagination and list-view scrolling are exercised in preview.
+for (let i = assets.length; i < 75; i++) {
+  const base = assets[i % 5];
+  assets.push({
+    ...base,
+    id: `asset-mock-${i}`,
+    filename: `BT_2026${String(100 + i)}_PGM_EP${1500 + i}-proxy.mp4`,
+    original_path: `/media2/BT/BT_2026${String(100 + i)}_PGM_EP${1500 + i}-proxy.mp4`,
+    created_at: new Date(Date.now() - 3600000 * (i + 10)).toISOString(),
+  });
+}
+
 const jobs = [
   {
     id: "job-001",

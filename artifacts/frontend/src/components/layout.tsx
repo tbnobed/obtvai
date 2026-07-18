@@ -54,7 +54,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
       </aside>
-      <main className="flex-1 flex flex-col overflow-hidden relative app-ambient">
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden relative app-ambient">
         {children}
       </main>
     </div>

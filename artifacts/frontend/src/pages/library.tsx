@@ -45,9 +45,11 @@ export default function Library() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<string>("created_desc");
-  const [view, setView] = useState<"grid" | "list">(() =>
-    (localStorage.getItem("library-view") as "grid" | "list") || "grid",
-  );
+  const [view, setView] = useState<"grid" | "list">(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("view");
+    if (fromUrl === "list" || fromUrl === "grid") return fromUrl;
+    return (localStorage.getItem("library-view") as "grid" | "list") || "grid";
+  });
   const [page, setPage] = useState(0);
 
   // Debounce typing so we don't refetch on every keystroke.
@@ -359,7 +361,7 @@ export default function Library() {
             ))}
           </div>
         ) : (
-          <div className="border border-border rounded-md overflow-hidden">
+          <div className="border border-border rounded-md overflow-hidden shrink-0">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
