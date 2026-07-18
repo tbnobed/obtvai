@@ -64,6 +64,7 @@ import {
 } from "lucide-react";
 import { RefineTab } from "@/components/project/refine-tab";
 import { ClipThumb } from "@/components/project/clip-thumb";
+import { MediaPickerGrid } from "@/components/project/media-picker";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -86,18 +87,6 @@ function JobStatusBadge({ status }: { status: string }) {
     status === "success" ? "default" :
     status === "error" ? "destructive" : "secondary";
   return <Badge variant={variant} className="capitalize">{status}</Badge>;
-}
-
-function MediaStatusBadge({ status }: { status: string }) {
-  if (status === "ready") return null;
-  const cls = status === "error"
-    ? "text-red-400 border-red-500/40"
-    : "text-blue-400 border-blue-500/40";
-  return (
-    <Badge variant="outline" className={`shrink-0 text-[10px] px-1.5 py-0 capitalize ${cls}`}>
-      {status === "processing" || status === "pending" ? "indexing…" : status}
-    </Badge>
-  );
 }
 
 function ApprovalBadge({ list }: { list: ClipList }) {
@@ -137,7 +126,7 @@ export default function ProjectDetail() {
     query: { queryKey: getListRendersQueryKey(listParams), refetchInterval: 5000 },
   });
   const mediaParams = { limit: 200 };
-  const { data: media, error: mediaError } = useListMedia(mediaParams, {
+  const { data: media } = useListMedia(mediaParams, {
     query: { queryKey: getListMediaQueryKey(mediaParams) },
   });
   const [playerClip, setPlayerClip] = useState<PlayerClip | null>(null);
@@ -175,11 +164,6 @@ export default function ProjectDetail() {
 
   // ---- Media pool: restrict Find to selected assets ----
   const mediaPool = useMemo(() => project?.media_ids ?? [], [project?.media_ids]);
-  const poolAssets = useMemo(
-    () => (mediaPool.length ? media?.items?.filter((a) => mediaPool.includes(a.id)) ?? [] : media?.items ?? []),
-    [media?.items, mediaPool],
-  );
-
   const toggleMediaPool = (assetId: string, checked: boolean) => {
     const next = checked ? [...mediaPool, assetId] : mediaPool.filter((x) => x !== assetId);
     updateMutation.mutate({ id, data: { media_ids: next } }, { onSuccess: invalidateAll });
@@ -654,40 +638,13 @@ export default function ProjectDetail() {
               <p className="text-xs text-muted-foreground mb-3">
                 Pick the assets this project works with — search and script matching stay within this media.
               </p>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-56 overflow-y-auto">
-                {media?.items?.length ? media.items.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 text-sm bg-muted/50 rounded p-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={mediaPool.includes(a.id)}
-                      disabled={updateMutation.isPending}
-                      onChange={(e) => toggleMediaPool(a.id, e.target.checked)}
-                    />
-                    <ClipThumb url={a.thumbnail_url} className="h-8 w-12" />
-                    <span className="truncate flex-1">{a.filename}</span>
-                    <MediaStatusBadge status={a.status} />
-                    <Button
-                      size="icon" variant="ghost" className="h-6 w-6 shrink-0" title="Preview this asset"
-                      disabled={a.status !== "ready"}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename });
-                      }}
-                    >
-                      <Play className="h-3 w-3" />
-                    </Button>
-                  </label>
-                )) : (
-                  <p className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
-                    {mediaError
-                      ? `Couldn't load the media library: ${mediaError instanceof Error ? mediaError.message : "unknown error"}`
-                      : media
-                        ? "The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
-                        : "Loading media library…"}
-                  </p>
-                )}
-              </div>
+              <MediaPickerGrid
+                selected={mediaPool}
+                onToggle={toggleMediaPool}
+                togglesDisabled={updateMutation.isPending}
+                onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
+                emptyText="The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
+              />
             </CardContent>
           </Card>
 
@@ -948,41 +905,16 @@ export default function ProjectDetail() {
             <CardContent className="space-y-4">
               <div>
                 <Label className="mb-2 block">Source assets</Label>
-                <div className="grid gap-2 sm:grid-cols-2 max-h-48 overflow-y-auto">
-                  {poolAssets.length ? poolAssets.map((a) => (
-                    <label key={a.id} className={`flex items-center gap-2 text-sm bg-muted/50 rounded p-2 ${a.status === "ready" ? "cursor-pointer" : "opacity-60"}`}>
-                      <input
-                        type="checkbox"
-                        checked={storyAssets.includes(a.id)}
-                        disabled={a.status !== "ready"}
-                        onChange={(e) => setStoryAssets((s) =>
-                          e.target.checked ? [...s, a.id] : s.filter((x) => x !== a.id))}
-                      />
-                      <ClipThumb url={a.thumbnail_url} className="h-8 w-12" />
-                      <span className="truncate flex-1">{a.filename}</span>
-                      <MediaStatusBadge status={a.status} />
-                      <Button
-                        size="icon" variant="ghost" className="h-6 w-6 shrink-0" title="Preview this asset"
-                        disabled={a.status !== "ready"}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename });
-                        }}
-                      >
-                        <Play className="h-3 w-3" />
-                      </Button>
-                    </label>
-                  )) : (
-                    <p className="text-sm text-muted-foreground sm:col-span-2">
-                      {mediaError
-                        ? `Couldn't load the media library: ${mediaError instanceof Error ? mediaError.message : "unknown error"}`
-                        : media
-                          ? "The library is empty — add or upload footage first, then build a story from it here."
-                          : "Loading media library…"}
-                    </p>
-                  )}
-                </div>
+                <MediaPickerGrid
+                  selected={storyAssets}
+                  onToggle={(assetId, checked) => setStoryAssets((s) =>
+                    checked ? [...s, assetId] : s.filter((x) => x !== assetId))}
+                  restrictTo={mediaPool.length ? mediaPool : undefined}
+                  requireReady
+                  gridClass="sm:grid-cols-2"
+                  onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
+                  emptyText="The library is empty — add or upload footage first, then build a story from it here."
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="story-prompt">Editorial direction (optional)</Label>
