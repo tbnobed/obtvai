@@ -59,13 +59,32 @@ async def get_library_stats(db: AsyncSession = Depends(get_db)):
 @router.get("", response_model=MediaListResponse)
 async def list_media(
     status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    sort: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(MediaAsset).order_by(desc(MediaAsset.created_at))
+    sort_map = {
+        "created_desc": desc(MediaAsset.created_at),
+        "created_asc": MediaAsset.created_at.asc(),
+        "name_asc": func.lower(MediaAsset.filename).asc(),
+        "name_desc": func.lower(MediaAsset.filename).desc(),
+        "duration_desc": desc(MediaAsset.duration_seconds).nulls_last(),
+        "duration_asc": MediaAsset.duration_seconds.asc().nulls_last(),
+        "size_desc": desc(MediaAsset.file_size_bytes).nulls_last(),
+        "size_asc": MediaAsset.file_size_bytes.asc().nulls_last(),
+    }
+    q = select(MediaAsset).order_by(sort_map.get(sort or "", desc(MediaAsset.created_at)))
     if status:
         q = q.where(MediaAsset.status == status)
+    if search and search.strip():
+        needle = f"%{search.strip()}%"
+        q = q.where(
+            MediaAsset.filename.ilike(needle)
+            | MediaAsset.title.ilike(needle)
+            | MediaAsset.original_path.ilike(needle)
+        )
 
     count_q = select(func.count()).select_from(q.subquery())
     total_r = await db.execute(count_q)

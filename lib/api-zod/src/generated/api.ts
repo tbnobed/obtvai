@@ -21,6 +21,8 @@ export const HealthCheckResponse = zod.object({
  */
 export const ListMediaQueryParams = zod.object({
   "status": zod.coerce.string().optional(),
+  "search": zod.coerce.string().optional().describe('Case-insensitive match on filename, title, or source path'),
+  "sort": zod.enum(['created_desc', 'created_asc', 'name_asc', 'name_desc', 'duration_desc', 'duration_asc', 'size_desc', 'size_asc']).optional(),
   "limit": zod.coerce.number().optional(),
   "offset": zod.coerce.number().optional()
 })

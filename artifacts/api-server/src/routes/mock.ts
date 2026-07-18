@@ -367,8 +367,33 @@ router.get("/media/stats/summary", (_req, res) => {
   });
 });
 
-router.get("/media", (_req, res) => {
-  res.json({ items: assets, total: assets.length });
+router.get("/media", (req, res) => {
+  let items = [...assets];
+  const status = String(req.query.status ?? "");
+  if (status) items = items.filter((a) => a.status === status);
+  const search = String(req.query.search ?? "").trim().toLowerCase();
+  if (search) {
+    items = items.filter((a) =>
+      [a.filename, (a as any).title, a.original_path]
+        .some((v) => typeof v === "string" && v.toLowerCase().includes(search)),
+    );
+  }
+  const sort = String(req.query.sort ?? "created_desc");
+  const cmp: Record<string, (a: any, b: any) => number> = {
+    created_desc: (a, b) => String(b.created_at).localeCompare(String(a.created_at)),
+    created_asc: (a, b) => String(a.created_at).localeCompare(String(b.created_at)),
+    name_asc: (a, b) => a.filename.toLowerCase().localeCompare(b.filename.toLowerCase()),
+    name_desc: (a, b) => b.filename.toLowerCase().localeCompare(a.filename.toLowerCase()),
+    duration_desc: (a, b) => (b.duration_seconds ?? -1) - (a.duration_seconds ?? -1),
+    duration_asc: (a, b) => (a.duration_seconds ?? Infinity) - (b.duration_seconds ?? Infinity),
+    size_desc: (a, b) => (b.file_size_bytes ?? -1) - (a.file_size_bytes ?? -1),
+    size_asc: (a, b) => (a.file_size_bytes ?? Infinity) - (b.file_size_bytes ?? Infinity),
+  };
+  items.sort(cmp[sort] ?? cmp.created_desc);
+  const total = items.length;
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "50"), 10) || 50, 1), 200);
+  const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
+  res.json({ items: items.slice(offset, offset + limit), total });
 });
 
 router.post("/media", (req, res) => {

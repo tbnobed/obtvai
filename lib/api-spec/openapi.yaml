@@ -54,6 +54,16 @@ paths:
           in: query
           schema:
             type: string
+        - name: search
+          in: query
+          description: Case-insensitive match on filename, title, or source path
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [created_desc, created_asc, name_asc, name_desc, duration_desc, duration_asc, size_desc, size_asc]
         - name: limit
           in: query
           schema:

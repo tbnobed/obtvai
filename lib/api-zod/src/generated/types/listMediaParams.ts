@@ -5,9 +5,15 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListMediaSort } from './listMediaSort';
 
 export type ListMediaParams = {
 status?: string;
+/**
+ * Case-insensitive match on filename, title, or source path
+ */
+search?: string;
+sort?: ListMediaSort;
 limit?: number;
 offset?: number;
 };

@@ -40,6 +40,7 @@ export * from './libraryStatsStatusCounts';
 export * from './listClipListsParams';
 export * from './listJobsParams';
 export * from './listMediaParams';
+export * from './listMediaSort';
 export * from './listPeopleParams';
 export * from './listReelsParams';
 export * from './listRendersParams';

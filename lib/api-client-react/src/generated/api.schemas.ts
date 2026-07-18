@@ -1120,9 +1120,28 @@ export interface ClipExportResult {
 
 export type ListMediaParams = {
 status?: string;
+/**
+ * Case-insensitive match on filename, title, or source path
+ */
+search?: string;
+sort?: ListMediaSort;
 limit?: number;
 offset?: number;
 };
+
+export type ListMediaSort = typeof ListMediaSort[keyof typeof ListMediaSort];
+
+
+export const ListMediaSort = {
+  created_desc: 'created_desc',
+  created_asc: 'created_asc',
+  name_asc: 'name_asc',
+  name_desc: 'name_desc',
+  duration_desc: 'duration_desc',
+  duration_asc: 'duration_asc',
+  size_desc: 'size_desc',
+  size_asc: 'size_asc',
+} as const;
 
 export type GetMediaTranscriptParams = {
 /**
