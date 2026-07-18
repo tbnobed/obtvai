@@ -7,15 +7,23 @@ import time
 import logging
 import hashlib
 import httpx
-from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver
 from watchdog.events import FileSystemEventHandler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("watcher")
 
-MEDIA_ROOT = os.getenv("MEDIA_ROOT", "/media")
+# Colon-separated list of roots (MEDIA_ROOTS="/media:/media/nas").
+# Falls back to the single MEDIA_ROOT for backwards compatibility.
+# Note: /media/nas is nested inside /media in docker-compose, so watching
+# /media alone covers both — extra roots matter only for non-nested mounts.
+MEDIA_ROOTS = [
+    p for p in os.getenv("MEDIA_ROOTS", os.getenv("MEDIA_ROOT", "/media")).split(":") if p
+]
 API_URL = os.getenv("API_URL", "http://api:8000/api")
 STABLE_SECONDS = int(os.getenv("STABLE_SECONDS", "5"))
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "30"))
+SCAN_ON_START = os.getenv("SCAN_ON_START", "1") not in ("0", "false", "no")
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wmv", ".flv", ".webm"}
 
 pending: dict[str, dict] = {}
@@ -64,13 +72,40 @@ class VideoHandler(FileSystemEventHandler):
             pending[event.src_path] = {"detected_at": time.time()}
 
 
-def main():
-    log.info(f"Watching: {MEDIA_ROOT}")
-    os.makedirs(MEDIA_ROOT, exist_ok=True)
+def _initial_scan():
+    """Queue every existing video across all roots. The API dedupes by source
+    path, so rescanning on every start is safe — it only picks up files that
+    appeared while the watcher was down (or on a newly added mount)."""
+    for root in MEDIA_ROOTS:
+        count = 0
+        for dirpath, _dirnames, filenames in os.walk(root):
+            for fn in filenames:
+                path = os.path.join(dirpath, fn)
+                if _is_video(path) and path not in pending:
+                    pending[path] = {"detected_at": time.time()}
+                    count += 1
+        log.info(f"Initial scan of {root}: {count} video file(s) queued")
 
-    observer = Observer()
-    observer.schedule(VideoHandler(), MEDIA_ROOT, recursive=True)
+
+def main():
+    # PollingObserver instead of inotify: inotify events never fire for files
+    # created remotely on network mounts (SMB/NFS), which is exactly where
+    # production footage lives.
+    observer = PollingObserver(timeout=POLL_INTERVAL)
+    handler = VideoHandler()
+    seen_roots = set()
+    for root in MEDIA_ROOTS:
+        real = os.path.realpath(root)
+        if real in seen_roots:
+            continue
+        seen_roots.add(real)
+        os.makedirs(root, exist_ok=True)
+        log.info(f"Watching: {root} (poll every {POLL_INTERVAL}s)")
+        observer.schedule(handler, root, recursive=True)
     observer.start()
+
+    if SCAN_ON_START:
+        _initial_scan()
 
     try:
         while True:

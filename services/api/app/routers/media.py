@@ -86,6 +86,15 @@ async def ingest_media(body: MediaIngestInput, db: AsyncSession = Depends(get_db
     if not os.path.exists(body.file_path):
         raise HTTPException(status_code=400, detail=f"File not found: {body.file_path}")
 
+    # Dedupe by source path: the watcher rescans all roots on startup, so the
+    # same file will be posted repeatedly — return the existing asset instead
+    # of ingesting a duplicate.
+    existing = (await db.execute(
+        select(MediaAsset).where(MediaAsset.original_path == body.file_path).limit(1)
+    )).scalar_one_or_none()
+    if existing:
+        return MediaAssetOut.model_validate(existing)
+
     asset = MediaAsset(
         id=str(uuid.uuid4()),
         filename=body.title or os.path.basename(body.file_path),
