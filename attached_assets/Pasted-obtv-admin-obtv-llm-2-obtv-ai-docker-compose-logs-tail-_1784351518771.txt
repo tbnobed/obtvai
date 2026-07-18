@@ -1,0 +1,41 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs --tail 40 api
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+api-1  |     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+api-1  |     self.dialect.do_execute(
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+api-1  |     cursor.execute(statement, parameters)
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 568, in execute
+api-1  |     self._adapt_connection.await_(
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+api-1  |     return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+api-1  |     value = await result
+api-1  |             ^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 546, in _prepare_and_execute
+api-1  |     self._handle_exception(error)
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 497, in _handle_exception
+api-1  |     self._adapt_connection._handle_exception(error)
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 780, in _handle_exception
+api-1  |     raise translated_error from error
+api-1  | sqlalchemy.exc.DBAPIError: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.DeadlockDetectedError'>: deadlock detected
+api-1  | DETAIL:  Process 617611 waits for AccessExclusiveLock on relation 16432 of database 16384; blocked by process 616930.
+api-1  | Process 616930 waits for RowShareLock on relation 16389 of database 16384; blocked by process 617611.
+api-1  | HINT:  See server log for query details.
+api-1  | [SQL: ALTER TABLE transcript_segments ADD COLUMN IF NOT EXISTS translations JSONB]
+api-1  | (Background on this error at: https://sqlalche.me/e/20/dbapi)
+api-1  |
+api-1  | ERROR:    Application startup failed. Exiting.
+api-1  | INFO:     Started server process [1]
+api-1  | INFO:     Waiting for application startup.
+api-1  | INFO:     Application startup complete.
+api-1  | [05:11:37] Warm-up: thread started
+api-1  | [05:11:37] Warm-up: loading text embedding model...
+api-1  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+api-1  | [05:11:40] Warm-up: text embedding model ready (3s)
+api-1  | [05:11:40] Warm-up: loading LLM (downloads shards here if cache is cold)...
+api-1  | INFO:     127.0.0.1:48180 - "GET /api/healthz HTTP/1.1" 200 OK
+Loading checkpoint shards: 100%|██████████| 4/4 [00:03<00:00,  1.14it/s]
+api-1  | LLM loaded: Qwen/Qwen2.5-7B-Instruct on cuda:0 (dtype=torch.bfloat16)
+api-1  | [05:11:44] Warm-up: LLM pipeline ready (4s)

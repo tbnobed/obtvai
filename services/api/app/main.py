@@ -51,11 +51,14 @@ _NULLABLE_MIGRATIONS = [
 ]
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+async def _run_startup_migrations():
     from sqlalchemy import text
 
     async with engine.begin() as conn:
+        # Busy workers hold long locks on hot tables (e.g. transcript_segments).
+        # Bound how long DDL waits so a busy library can't deadlock startup;
+        # the retry loop in lifespan() handles the timeout.
+        await conn.execute(text("SET LOCAL lock_timeout = '5s'"))
         await conn.run_sync(Base.metadata.create_all)
         for table, column, coltype in _COLUMN_MIGRATIONS:
             await conn.execute(text(
@@ -104,6 +107,24 @@ async def lifespan(app: FastAPI):
                 WHERE thumbnail_url LIKE '/api/thumbnails/%'
                 """
             ))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import asyncio
+
+    # DDL can lose a deadlock/lock-timeout race against busy workers; every
+    # statement is idempotent, so just retry instead of failing startup.
+    attempts = 5
+    for attempt in range(1, attempts + 1):
+        try:
+            await _run_startup_migrations()
+            break
+        except Exception as e:
+            if attempt == attempts:
+                raise
+            print(f"Startup migrations blocked (attempt {attempt}/{attempts}): {e}; retrying in 5s")
+            await asyncio.sleep(5)
 
     try:
         from .services.qdrant_client import ensure_collections
