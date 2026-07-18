@@ -1,0 +1,65 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs --tail 20 worker-gpu worker-gpu-2 worker-cpu
+docker compose exec redis redis-cli llen gpu
+docker compose exec redis redis-cli llen cpu
+worker-gpu-2-1  | [2026-07-18 05:15:18,450: INFO/ForkPoolWorker-1] Processing audio with duration 39:23.243
+worker-gpu-2-1  | [2026-07-18 05:15:19,960: INFO/ForkPoolWorker-1] Detected language 'en' with probability 0.99
+worker-gpu-2-1  | [2026-07-18 05:16:47,699: INFO/ForkPoolWorker-1] Task tasks.transcribe.transcribe_audio[985373c0-22b9-4e84-bf05-8d518473e05f] succeeded in 90.77118250681087s: None
+worker-gpu-2-1  | [2026-07-18 05:16:47,700: INFO/MainProcess] Task tasks.visual_embed.embed_scenes[22c22905-2785-4dd1-9871-ed66279877ff] received
+worker-gpu-2-1  | [2026-07-18 05:16:49,572: INFO/ForkPoolWorker-1] HTTP Request: GET http://qdrant:6333/collections/scenes "HTTP/1.1 200 OK"
+worker-gpu-2-1  | [2026-07-18 05:16:49,582: INFO/ForkPoolWorker-1] HTTP Request: POST http://qdrant:6333/collections/scenes/points/delete?wait=true "HTTP/1.1 200 OK"
+worker-gpu-2-1  | [2026-07-18 05:16:49,605: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-2-1  | [2026-07-18 05:16:49,617: INFO/ForkPoolWorker-1] Task tasks.visual_embed.embed_scenes[22c22905-2785-4dd1-9871-ed66279877ff] succeeded in 1.916063154116273s: None
+worker-gpu-2-1  | [2026-07-18 05:16:49,618: INFO/MainProcess] Task tasks.face_detect.detect_faces[0604e50a-722c-4e90-bd73-74db0a72dd7c] received
+worker-gpu-2-1  | [2026-07-18 05:16:55,776: INFO/ForkPoolWorker-1] Task tasks.face_detect.detect_faces[0604e50a-722c-4e90-bd73-74db0a72dd7c] succeeded in 6.157370639033616s: None
+worker-gpu-2-1  | [2026-07-18 05:16:55,777: INFO/MainProcess] Task tasks.visual_embed.embed_scenes[00b99ab5-37a4-4bcc-a5ba-1ab4a8848efd] received
+worker-gpu-2-1  | [2026-07-18 05:16:57,577: INFO/ForkPoolWorker-1] HTTP Request: GET http://qdrant:6333/collections/scenes "HTTP/1.1 200 OK"
+worker-gpu-2-1  | [2026-07-18 05:16:57,588: INFO/ForkPoolWorker-1] HTTP Request: POST http://qdrant:6333/collections/scenes/points/delete?wait=true "HTTP/1.1 200 OK"
+worker-cpu-1    | [2026-07-18 05:18:30,582: INFO/MainProcess] Task tasks.scene_detect.detect_scenes[112df587-44cb-4bb6-83e3-2882ea402105] received
+worker-cpu-1    | [2026-07-18 05:18:30,666: INFO/ForkPoolWorker-1] Detecting scenes...
+worker-cpu-1    | [2026-07-18 05:18:40,503: INFO/ForkPoolWorker-2] Task tasks.proxy.create_proxy[39c21a5e-3016-4855-8ba7-e24f9dabcaaf] succeeded in 61.53070422401652s: None
+worker-gpu-1    | [2026-07-18 05:17:23,794: INFO/ForkPoolWorker-1] Task tasks.face_detect.detect_faces[e9cd9635-ce28-4700-8150-0603c63512fa] succeeded in 6.178521255031228s: None
+worker-gpu-1    | [2026-07-18 05:17:23,796: INFO/MainProcess] Task tasks.transcribe.transcribe_audio[c798db3b-d4b7-49cd-9687-9eaaf8eb2bc3] received
+worker-gpu-1    | [2026-07-18 05:17:25,992: INFO/ForkPoolWorker-1] Processing audio with duration 38:49.813
+worker-gpu-1    | [2026-07-18 05:17:28,090: INFO/ForkPoolWorker-1] Detected language 'en' with probability 0.97
+worker-gpu-1    | [2026-07-18 05:19:35,936: INFO/ForkPoolWorker-1] Task tasks.transcribe.transcribe_audio[c798db3b-d4b7-49cd-9687-9eaaf8eb2bc3] succeeded in 132.13942451262847s: None
+worker-gpu-1    | [2026-07-18 05:19:35,937: INFO/MainProcess] Task tasks.diarize.run_diarization[6d6b194a-62ff-4fa3-8be9-daf8a9f5c4fa] received
+worker-gpu-1    | [2026-07-18 05:19:36,960: WARNING/ForkPoolWorker-1] /usr/local/lib/python3.10/dist-packages/pyannote/audio/pipelines/speaker_diarization.py:567: UserWarning: Ignoring unexpected keyword arguments: return_embeddings
+worker-gpu-2-1  | [2026-07-18 05:16:57,616: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-2-1  | [2026-07-18 05:16:57,626: INFO/ForkPoolWorker-1] Task tasks.visual_embed.embed_scenes[00b99ab5-37a4-4bcc-a5ba-1ab4a8848efd] succeeded in 1.8487640470266342s: None
+worker-gpu-2-1  | [2026-07-18 05:16:57,627: INFO/MainProcess] Task tasks.face_detect.detect_faces[cb98ead0-e1ee-4689-939b-ca01a02d44af] received
+worker-gpu-2-1  | [2026-07-18 05:17:01,308: INFO/ForkPoolWorker-1] Task tasks.face_detect.detect_faces[cb98ead0-e1ee-4689-939b-ca01a02d44af] succeeded in 3.6805790602229536s: None
+worker-gpu-2-1  | [2026-07-18 05:17:01,310: INFO/MainProcess] Task tasks.transcribe.transcribe_audio[a5465e0e-f1d5-421f-a4b9-6a3b51ef6a65] received
+worker-gpu-2-1  | [2026-07-18 05:17:02,668: INFO/ForkPoolWorker-1] Processing audio with duration 29:18.251
+worker-gpu-2-1  | [2026-07-18 05:17:03,668: INFO/ForkPoolWorker-1] Detected language 'he' with probability 0.85
+worker-cpu-1    | [2026-07-18 05:18:40,504: INFO/MainProcess] Task tasks.proxy.create_proxy[4bd13de4-3195-44a0-9eef-b62701e6c533] received
+worker-gpu-1    |   warnings.warn(
+worker-gpu-1    |
+worker-gpu-1    | [2026-07-18 05:19:37,871: WARNING/ForkPoolWorker-1] /usr/local/lib/python3.10/dist-packages/pyannote/audio/models/blocks/pooling.py:103: UserWarning: std(): degrees of freedom is <= 0. Correction should be strictly less than the reduction factor (input numel divided by output numel). (Triggered internally at /pytorch/aten/src/ATen/native/ReduceOps.cpp:1839.)
+worker-gpu-1    |   std = sequences.std(dim=-1, correction=1)
+worker-gpu-1    |
+worker-cpu-1    | [2026-07-18 05:19:31,205: INFO/ForkPoolWorker-1] Task tasks.scene_detect.detect_scenes[112df587-44cb-4bb6-83e3-2882ea402105] succeeded in 60.62230922700837s: None
+worker-cpu-1    | [2026-07-18 05:19:31,206: INFO/MainProcess] Task tasks.audio.extract_audio[9a7ed268-4472-46ce-a0cf-784beca7269b] received
+worker-cpu-1    | [2026-07-18 05:19:37,320: INFO/ForkPoolWorker-4] Task tasks.proxy.create_proxy[7e9ec969-c184-44af-9786-600a572d91e6] succeeded in 165.94072732282802s: None
+worker-cpu-1    | [2026-07-18 05:19:37,322: INFO/MainProcess] Task tasks.scene_detect.detect_scenes[6c6f14d8-659f-4992-86d5-0e2b7a881dab] received
+worker-cpu-1    | [2026-07-18 05:19:37,479: INFO/ForkPoolWorker-4] Detecting scenes...
+worker-cpu-1    | [2026-07-18 05:19:38,427: INFO/ForkPoolWorker-1] Task tasks.audio.extract_audio[9a7ed268-4472-46ce-a0cf-784beca7269b] succeeded in 7.220883370842785s: None
+worker-cpu-1    | [2026-07-18 05:19:38,429: INFO/MainProcess] Task tasks.proxy.create_proxy[8571840e-70aa-4aa9-b2e3-e19fe72efb6b] received
+worker-cpu-1    | [2026-07-18 05:19:50,167: INFO/ForkPoolWorker-3] Task tasks.proxy.create_proxy[0815d621-a1b5-4591-a1e9-0cf7c99a53db] succeeded in 103.69634868018329s: None
+worker-cpu-1    | [2026-07-18 05:19:50,168: INFO/MainProcess] Task tasks.audio.extract_audio[bb73e496-b000-4650-a3d9-b76219b69d52] received
+worker-cpu-1    | [2026-07-18 05:20:02,747: INFO/ForkPoolWorker-3] Task tasks.audio.extract_audio[bb73e496-b000-4650-a3d9-b76219b69d52] succeeded in 12.578049631789327s: None
+worker-cpu-1    | [2026-07-18 05:20:02,749: INFO/MainProcess] Task tasks.scene_detect.detect_scenes[a137db18-e6ab-468b-b117-fafcca7db34e] received
+worker-cpu-1    | [2026-07-18 05:20:02,854: INFO/ForkPoolWorker-3] Detecting scenes...
+worker-cpu-1    | [2026-07-18 05:20:10,296: INFO/ForkPoolWorker-2] Task tasks.proxy.create_proxy[4bd13de4-3195-44a0-9eef-b62701e6c533] succeeded in 89.79243614012375s: None
+worker-cpu-1    | [2026-07-18 05:20:10,298: INFO/MainProcess] Task tasks.proxy.create_proxy[5499af84-802c-422a-a3d7-3bc7be09f9b5] received
+worker-cpu-1    | [2026-07-18 05:20:48,053: INFO/ForkPoolWorker-4] Task tasks.scene_detect.detect_scenes[6c6f14d8-659f-4992-86d5-0e2b7a881dab] succeeded in 70.7300013457425s: None
+worker-cpu-1    | [2026-07-18 05:20:48,054: INFO/MainProcess] Task tasks.audio.extract_audio[9edecc06-3f8b-43c0-b379-fd3087a9b6f7] received
+worker-gpu-1    | [2026-07-18 05:20:00,678: INFO/ForkPoolWorker-1] Task tasks.diarize.run_diarization[6d6b194a-62ff-4fa3-8be9-daf8a9f5c4fa] succeeded in 24.739720644429326s: None
+worker-gpu-1    | [2026-07-18 05:20:00,679: INFO/MainProcess] Task tasks.diarize.run_diarization[1b3ce10f-e4a0-4282-8f91-4442e206ef9f] received
+worker-gpu-1    | [2026-07-18 05:20:01,662: WARNING/ForkPoolWorker-1] /usr/local/lib/python3.10/dist-packages/pyannote/audio/pipelines/speaker_diarization.py:567: UserWarning: Ignoring unexpected keyword arguments: return_embeddings
+worker-gpu-1    |   warnings.warn(
+worker-gpu-1    |
+worker-gpu-1    | [2026-07-18 05:20:04,631: WARNING/ForkPoolWorker-1] /usr/local/lib/python3.10/dist-packages/pyannote/audio/models/blocks/pooling.py:103: UserWarning: std(): degrees of freedom is <= 0. Correction should be strictly less than the reduction factor (input numel divided by output numel). (Triggered internally at /pytorch/aten/src/ATen/native/ReduceOps.cpp:1839.)
+worker-gpu-1    |   std = sequences.std(dim=-1, correction=1)
+worker-gpu-1    |
+(integer) 228
+(integer) 35
