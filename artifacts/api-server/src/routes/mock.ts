@@ -596,6 +596,34 @@ router.get("/jobs", (_req, res) => {
   res.json(jobs);
 });
 
+router.get("/jobs/stats", (_req, res) => {
+  const stageMap: Record<string, { pending: number; running: number; success: number; error: number }> = {};
+  for (const j of jobs as any[]) {
+    const s = (stageMap[j.job_type] ??= { pending: 0, running: 0, success: 0, error: 0 });
+    if (j.status in s) s[j.status as keyof typeof s] += 1;
+  }
+  const totals = { pending: 0, running: 0, error: 0 };
+  for (const s of Object.values(stageMap)) {
+    totals.pending += s.pending;
+    totals.running += s.running;
+    totals.error += s.error;
+  }
+  const ready = assets.filter((a) => a.status === "ready").length;
+  const errored = assets.filter((a) => a.status === "error").length;
+  res.json({
+    assets_total: assets.length,
+    assets_ready: ready,
+    assets_processing: assets.length - ready - errored,
+    assets_error: errored,
+    jobs_pending: totals.pending,
+    jobs_running: totals.running,
+    jobs_error: totals.error,
+    stages: Object.entries(stageMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([job_type, s]) => ({ job_type, ...s })),
+  });
+});
+
 router.get("/jobs/:id", (req, res) => {
   const job = jobs.find((j) => j.id === req.params.id);
   if (!job) { res.status(404).json({ error: "Not found" }); return; }

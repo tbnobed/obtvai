@@ -620,3 +620,22 @@ class JobCleanupIn(BaseModel):
 
 class JobCleanupOut(BaseModel):
     deleted: int
+
+
+class JobStageStatsOut(BaseModel):
+    job_type: str
+    pending: int
+    running: int
+    success: int
+    error: int
+
+
+class JobStatsOut(BaseModel):
+    assets_total: int
+    assets_ready: int
+    assets_processing: int
+    assets_error: int
+    jobs_pending: int
+    jobs_running: int
+    jobs_error: int
+    stages: List[JobStageStatsOut]

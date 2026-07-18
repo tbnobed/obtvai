@@ -1049,6 +1049,19 @@ paths:
                 items:
                   $ref: "#/components/schemas/ProcessingJob"
 
+  /jobs/stats:
+    get:
+      operationId: getJobStats
+      tags: [jobs]
+      summary: Ingest pipeline overview — asset readiness plus per-stage job counts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStats"
+
   /jobs/{id}:
     get:
       operationId: getJob
@@ -2706,6 +2719,54 @@ components:
       properties:
         deleted:
           type: integer
+
+    JobStageStats:
+      type: object
+      required: [job_type, pending, running, success, error]
+      properties:
+        job_type:
+          type: string
+        pending:
+          type: integer
+        running:
+          type: integer
+        success:
+          type: integer
+        error:
+          type: integer
+
+    JobStats:
+      type: object
+      required:
+        [
+          assets_total,
+          assets_ready,
+          assets_processing,
+          assets_error,
+          jobs_pending,
+          jobs_running,
+          jobs_error,
+          stages,
+        ]
+      properties:
+        assets_total:
+          type: integer
+        assets_ready:
+          type: integer
+        assets_processing:
+          type: integer
+        assets_error:
+          type: integer
+        jobs_pending:
+          type: integer
+        jobs_running:
+          type: integer
+        jobs_error:
+          type: integer
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobStageStats"
 
     # ── AI ───────────────────────────────────────────────────────────────────
     AIQuestion:

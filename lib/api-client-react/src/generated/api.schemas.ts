@@ -641,6 +641,25 @@ export interface JobCleanupResult {
   deleted: number;
 }
 
+export interface JobStageStats {
+  job_type: string;
+  pending: number;
+  running: number;
+  success: number;
+  error: number;
+}
+
+export interface JobStats {
+  assets_total: number;
+  assets_ready: number;
+  assets_processing: number;
+  assets_error: number;
+  jobs_pending: number;
+  jobs_running: number;
+  jobs_error: number;
+  stages: JobStageStats[];
+}
+
 export interface AIQuestion {
   question: string;
   /** @nullable */

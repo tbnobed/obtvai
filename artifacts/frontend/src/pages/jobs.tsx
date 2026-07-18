@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListJobs, getListJobsQueryKey, useRetryJob, useCancelJob, useCleanupJobs, useReindexLibrary } from "@workspace/api-client-react";
+import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useCancelJob, useCleanupJobs, useReindexLibrary } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Square, Trash2, DatabaseZap } from "lucide-react";
@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 export default function Jobs() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const { data: jobs, isLoading } = useListJobs(undefined, { query: { queryKey: getListJobsQueryKey(), refetchInterval: 3000 } });
+  const { data: stats } = useGetJobStats({ query: { queryKey: getGetJobStatsQueryKey(), refetchInterval: 5000 } });
   const retryMutation = useRetryJob();
   const cancelMutation = useCancelJob();
   const cleanupMutation = useCleanupJobs();
@@ -102,6 +103,41 @@ export default function Jobs() {
           )}
         </div>
       </div>
+
+      {stats && (stats.jobs_pending > 0 || stats.jobs_running > 0 || stats.assets_processing > 0) && (
+        <div className="mb-6 border border-border bg-card rounded-md p-5">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div className="font-semibold">Ingest Progress</div>
+            <div className="text-sm text-muted-foreground">
+              {stats.assets_ready} of {stats.assets_total} assets ready
+              {stats.assets_error > 0 && <span className="text-destructive"> · {stats.assets_error} failed</span>}
+            </div>
+          </div>
+          <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden mb-4">
+            <div
+              className="bg-primary h-full transition-all"
+              style={{ width: `${stats.assets_total ? Math.round((stats.assets_ready / stats.assets_total) * 100) : 0}%` }}
+            />
+          </div>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+            <span><span className="text-foreground font-medium">{stats.jobs_running}</span> running</span>
+            <span><span className="text-foreground font-medium">{stats.jobs_pending}</span> queued</span>
+            {stats.jobs_error > 0 && <span className="text-destructive font-medium">{stats.jobs_error} errors</span>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {stats.stages
+              .filter(s => s.pending + s.running > 0)
+              .map(s => (
+                <div key={s.job_type} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-xs">
+                  <span className="font-medium">{s.job_type}</span>
+                  {s.running > 0 && <span className="text-primary">{s.running} active</span>}
+                  <span className="text-muted-foreground">{s.pending} queued</span>
+                  {s.error > 0 && <span className="text-destructive">{s.error} failed</span>}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {reindexMessage && (
         <div className="mb-6 px-4 py-3 rounded-md border border-border bg-card text-sm text-muted-foreground">

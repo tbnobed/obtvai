@@ -1315,6 +1315,27 @@ export const ListJobsResponse = zod.array(ListJobsResponseItem)
 
 
 /**
+ * @summary Ingest pipeline overview — asset readiness plus per-stage job counts
+ */
+export const GetJobStatsResponse = zod.object({
+  "assets_total": zod.number(),
+  "assets_ready": zod.number(),
+  "assets_processing": zod.number(),
+  "assets_error": zod.number(),
+  "jobs_pending": zod.number(),
+  "jobs_running": zod.number(),
+  "jobs_error": zod.number(),
+  "stages": zod.array(zod.object({
+  "job_type": zod.string(),
+  "pending": zod.number(),
+  "running": zod.number(),
+  "success": zod.number(),
+  "error": zod.number()
+}))
+})
+
+
+/**
  * @summary Get job details including logs
  */
 export const GetJobParams = zod.object({

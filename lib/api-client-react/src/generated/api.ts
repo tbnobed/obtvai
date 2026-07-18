@@ -36,6 +36,7 @@ import type {
   HealthStatus,
   JobCleanupRequest,
   JobCleanupResult,
+  JobStats,
   LibraryInsights,
   LibraryStats,
   ListClipListsParams,
@@ -3481,6 +3482,83 @@ export function useListJobs<TData = Awaited<ReturnType<typeof listJobs>>, TError
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListJobsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetJobStatsUrl = () => {
+
+
+
+
+  return `/api/jobs/stats`
+}
+
+/**
+ * @summary Ingest pipeline overview — asset readiness plus per-stage job counts
+ */
+export const getJobStats = async ( options?: RequestInit): Promise<JobStats> => {
+
+  return customFetch<JobStats>(getGetJobStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJobStatsQueryKey = () => {
+    return [
+    `/api/jobs/stats`
+    ] as const;
+    }
+
+
+export const getGetJobStatsQueryOptions = <TData = Awaited<ReturnType<typeof getJobStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobStats>>> = ({ signal }) => getJobStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJobStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getJobStats>>>
+export type GetJobStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Ingest pipeline overview — asset readiness plus per-stage job counts
+ */
+
+export function useGetJobStats<TData = Awaited<ReturnType<typeof getJobStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJobStatsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -32,6 +32,8 @@ export * from './healthStatus';
 export * from './insightItem';
 export * from './jobCleanupRequest';
 export * from './jobCleanupResult';
+export * from './jobStageStats';
+export * from './jobStats';
 export * from './keyMoment';
 export * from './libraryInsights';
 export * from './libraryInsightsStats';

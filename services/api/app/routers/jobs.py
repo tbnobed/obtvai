@@ -1,10 +1,10 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, delete
+from sqlalchemy import select, desc, delete, func
 from ..database import get_db
 from ..models import ProcessingJob, MediaAsset
-from ..schemas import ProcessingJobOut, JobCleanupIn, JobCleanupOut
+from ..schemas import ProcessingJobOut, JobCleanupIn, JobCleanupOut, JobStatsOut, JobStageStatsOut
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -67,6 +67,47 @@ async def cleanup_jobs(body: JobCleanupIn | None = None, db: AsyncSession = Depe
     )
     await db.commit()
     return JobCleanupOut(deleted=result.rowcount or 0)
+
+
+@router.get("/stats", response_model=JobStatsOut)
+async def get_job_stats(db: AsyncSession = Depends(get_db)):
+    asset_status_q = await db.execute(
+        select(MediaAsset.status, func.count(MediaAsset.id)).group_by(MediaAsset.status)
+    )
+    asset_counts = {row[0]: row[1] for row in asset_status_q.all()}
+    assets_total = sum(asset_counts.values())
+    assets_ready = asset_counts.get("ready", 0)
+    assets_error = asset_counts.get("error", 0)
+    assets_processing = assets_total - assets_ready - assets_error
+
+    stage_q = await db.execute(
+        select(ProcessingJob.job_type, ProcessingJob.status, func.count(ProcessingJob.id))
+        .group_by(ProcessingJob.job_type, ProcessingJob.status)
+    )
+    stages: dict[str, dict[str, int]] = {}
+    for job_type, status, count in stage_q.all():
+        stages.setdefault(job_type, {"pending": 0, "running": 0, "success": 0, "error": 0})
+        if status in stages[job_type]:
+            stages[job_type][status] += count
+
+    totals = {"pending": 0, "running": 0, "error": 0}
+    for counts in stages.values():
+        for k in totals:
+            totals[k] += counts[k]
+
+    return JobStatsOut(
+        assets_total=assets_total,
+        assets_ready=assets_ready,
+        assets_processing=assets_processing,
+        assets_error=assets_error,
+        jobs_pending=totals["pending"],
+        jobs_running=totals["running"],
+        jobs_error=totals["error"],
+        stages=[
+            JobStageStatsOut(job_type=jt, **counts)
+            for jt, counts in sorted(stages.items())
+        ],
+    )
 
 
 @router.get("/{id}", response_model=ProcessingJobOut)
