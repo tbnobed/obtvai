@@ -658,6 +658,17 @@ export default function ProjectDetail() {
                     <ClipThumb url={a.thumbnail_url} className="h-8 w-12" />
                     <span className="truncate flex-1">{a.filename}</span>
                     <MediaStatusBadge status={a.status} />
+                    <Button
+                      size="icon" variant="ghost" className="h-6 w-6 shrink-0" title="Preview this asset"
+                      disabled={a.status !== "ready"}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename });
+                      }}
+                    >
+                      <Play className="h-3 w-3" />
+                    </Button>
                   </label>
                 )) : (
                   <p className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
@@ -940,6 +951,17 @@ export default function ProjectDetail() {
                       <ClipThumb url={a.thumbnail_url} className="h-8 w-12" />
                       <span className="truncate flex-1">{a.filename}</span>
                       <MediaStatusBadge status={a.status} />
+                      <Button
+                        size="icon" variant="ghost" className="h-6 w-6 shrink-0" title="Preview this asset"
+                        disabled={a.status !== "ready"}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename });
+                        }}
+                      >
+                        <Play className="h-3 w-3" />
+                      </Button>
                     </label>
                   )) : (
                     <p className="text-sm text-muted-foreground sm:col-span-2">

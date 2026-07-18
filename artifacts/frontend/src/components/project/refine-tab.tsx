@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "wouter";
 import {
   useUpdateClipList,
   useCreateClipList,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import { ClipThumb } from "./clip-thumb";
 import { TrimPlayer, fmtTC } from "./trim-player";
+import { ClipPlayerDialog, type PlayerClip } from "./clip-player-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 function errDetail(err: unknown, fallback: string): string {
@@ -69,6 +69,7 @@ interface RefineTabProps {
 
 export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTabProps) {
   const { toast } = useToast();
+  const [preview, setPreview] = useState<PlayerClip | null>(null);
   const lists = useMemo(() => clipLists ?? [], [clipLists]);
   const [listId, setListId] = useState<string>("");
   const list = lists.find((l) => l.id === listId) ?? null;
@@ -393,11 +394,18 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <FileText className="h-3.5 w-3.5" />
                     <span className="truncate">{sel.filename || sel.media_id}</span>
-                    <Link href={`/library/${sel.media_id}?t=${sel.start_time}`}>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" title="Open the full asset">
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
-                    </Link>
+                    <Button
+                      size="icon" variant="ghost" className="h-6 w-6" title="Watch the full asset"
+                      onClick={() => setPreview({
+                        media_id: sel.media_id,
+                        start_time: sel.start_time,
+                        end_time: null,
+                        label: sel.label,
+                        filename: sel.filename,
+                      })}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
                   </div>
                   {whySegments.length > 0 && (
                     <div className="space-y-1.5 border-t border-border pt-3 max-h-52 overflow-y-auto">
@@ -419,6 +427,8 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
           </div>
         </div>
       )}
+
+      <ClipPlayerDialog clip={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }
