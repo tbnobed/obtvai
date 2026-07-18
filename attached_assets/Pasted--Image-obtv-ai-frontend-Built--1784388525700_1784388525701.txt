@@ -1,0 +1,14 @@
+✔ Image obtv-ai-frontend           Built                                                                                                                                 466.7s
+ ✔ Image obtv-ai-worker-cpu         Built                                                                                                                                 466.7s
+ ✔ Image obtv-ai-worker-gpu-2       Built                                                                                                                                 466.7s
+ ✔ Image obtv-ai-worker-gpu         Built                                                                                                                                 466.7s
+ ✔ Image obtv-ai-api                Built                                                                                                                                 466.7s
+ ✘ Container obtv-ai-qdrant-1       Error dependency qdrant failed to start                                                                                                17.5s
+ ✔ Container obtv-ai-redis-1        Healthy                                                                                                                                17.5s
+ ✔ Container obtv-ai-postgres-1     Healthy                                                                                                                                17.5s
+ ✔ Container obtv-ai-api-1          Recreated                                                                                                                              13.3s
+ ✔ Container obtv-ai-worker-gpu-2-1 Started                                                                                                                                17.9s
+ ✔ Container obtv-ai-worker-cpu-1   Started                                                                                                                                17.9s
+ ✔ Container obtv-ai-worker-gpu-1   Started                                                                                                                                17.9s
+ ✔ Container obtv-ai-frontend-1     Recreated                                                                                                                               0.5s
+dependency failed to start: container obtv-ai-qdrant-1 is unhealthy
