@@ -1,5 +1,6 @@
 """Dubbed audio track generation from translated transcripts via Meta MMS-TTS."""
 import json
+import math
 import os
 import subprocess
 import tempfile
@@ -346,6 +347,12 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
             """),
             {"mid": media_id, "lang": target},
         ).fetchall()
+        # Drop rows with non-finite timecodes (bad probe/transcribe data can
+        # leave Infinity/NaN in the DB, which crashes int() conversions below).
+        dropped = [r for r in rows if not (math.isfinite(float(r[0])) and math.isfinite(float(r[1])))]
+        if dropped:
+            append_log(db, job_id, f"Skipping {len(dropped)} segment(s) with invalid timecodes")
+            rows = [r for r in rows if r not in dropped]
         if not rows:
             raise RuntimeError(
                 f"No '{target}' translation found — run translation first"
@@ -397,8 +404,10 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
             update_job(db, job_id, progress=5.0)
             tokenizer, model, sample_rate = _load_tts(lang3)
 
-        duration = float(asset_row[0]) if asset_row[0] else float(rows[-1][1]) + 1.0
-        duration = max(duration, float(rows[-1][1]))
+        asset_duration = float(asset_row[0]) if asset_row[0] else 0.0
+        if not math.isfinite(asset_duration) or asset_duration <= 0:
+            asset_duration = float(rows[-1][1]) + 1.0
+        duration = max(asset_duration, float(rows[-1][1]))
         timeline = np.zeros(int(duration * sample_rate) + sample_rate, dtype=np.float32)
 
         append_log(db, job_id, f"Synthesizing {len(rows)} segments ({target})")
@@ -455,6 +464,8 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
 
                 start = float(start_time)
                 next_start = float(rows[i + 1][0]) if i + 1 < total else duration
+                if not math.isfinite(next_start):
+                    next_start = duration
                 slot = max(0.5, next_start - start)
                 clip_len = clip.size / sample_rate
                 if clip_len > slot * 1.05:

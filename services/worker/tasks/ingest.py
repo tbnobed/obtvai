@@ -1,5 +1,6 @@
 """Orchestrates the full ingestion pipeline for a media asset."""
 import os
+import math
 import subprocess
 import json
 import uuid
@@ -89,7 +90,12 @@ def _ffprobe(path: str) -> dict:
     data = json.loads(result.stdout)
 
     video_stream = next((s for s in data.get("streams", []) if s.get("codec_type") == "video"), None)
-    duration = float(data.get("format", {}).get("duration", 0) or 0)
+    try:
+        duration = float(data.get("format", {}).get("duration", 0) or 0)
+    except (TypeError, ValueError):
+        duration = 0.0
+    if not math.isfinite(duration) or duration < 0:
+        duration = 0.0
     width = int(video_stream.get("width", 0)) if video_stream else None
     height = int(video_stream.get("height", 0)) if video_stream else None
     codec = video_stream.get("codec_name") if video_stream else None
