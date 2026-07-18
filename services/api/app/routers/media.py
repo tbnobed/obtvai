@@ -494,6 +494,47 @@ async def stream_media(id: str, db: AsyncSession = Depends(get_db)):
     return FileResponse(proxy, media_type="video/mp4")
 
 
+@router.get("/{id}/frame")
+async def get_media_frame(id: str, t: float = 0.0, db: AsyncSession = Depends(get_db)):
+    import asyncio
+    import subprocess
+    from fastapi.responses import FileResponse
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+    src = asset.proxy_path or asset.original_path
+    if not src or not os.path.exists(src):
+        raise HTTPException(status_code=404, detail="No source file available")
+    t = max(0.0, t)
+    if asset.duration_seconds and t >= float(asset.duration_seconds):
+        t = max(0.0, float(asset.duration_seconds) - 0.5)
+    frames_dir = os.path.join(settings.thumbnails_dir, "frames")
+    os.makedirs(frames_dir, exist_ok=True)
+    out_path = os.path.join(frames_dir, f"{asset.id}_{t:.1f}.jpg")
+    if not os.path.exists(out_path):
+        tmp_path = f"{out_path}.{uuid.uuid4().hex[:8]}.tmp.jpg"
+        cmd = [
+            "ffmpeg", "-y", "-ss", f"{t:.3f}", "-i", src,
+            "-frames:v", "1", "-vf", "scale=320:-2", "-q:v", "4",
+            "-f", "image2", tmp_path,
+        ]
+        try:
+            proc = await asyncio.to_thread(
+                subprocess.run, cmd, capture_output=True, timeout=30
+            )
+        except subprocess.TimeoutExpired:
+            raise HTTPException(status_code=404, detail="Frame extraction timed out")
+        if proc.returncode != 0 or not os.path.exists(tmp_path):
+            raise HTTPException(status_code=404, detail="Could not extract frame")
+        os.replace(tmp_path, out_path)
+    return FileResponse(
+        out_path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @router.post("/{id}/highlight", response_model=ProcessingJobOut, status_code=202)
 async def create_highlight(id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))

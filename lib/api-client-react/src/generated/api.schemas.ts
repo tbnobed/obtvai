@@ -1271,6 +1271,10 @@ export const ListMediaSort = {
   size_asc: 'size_asc',
 } as const;
 
+export type GetMediaFrameParams = {
+t?: number;
+};
+
 export type GetMediaTranscriptParams = {
 /**
  * ISO language code — return translated text where available

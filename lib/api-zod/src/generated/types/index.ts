@@ -27,6 +27,7 @@ export * from './faceCluster';
 export * from './faceClusterAppearancesItem';
 export * from './getCaptionsFormat';
 export * from './getCaptionsParams';
+export * from './getMediaFrameParams';
 export * from './getMediaTranscriptParams';
 export * from './healthStatus';
 export * from './insightItem';

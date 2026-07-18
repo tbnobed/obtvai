@@ -317,7 +317,7 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
                       <ArrowDown className="h-3 w-3" />
                     </Button>
                   </div>
-                  <ClipThumb url={c.thumbnail_url} className="h-9 w-14" />
+                  <ClipThumb url={c.thumbnail_url} mediaId={c.media_id} time={c.start_time} className="h-9 w-14" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-medium">{i + 1}. {c.label || c.filename || c.media_id}</div>
                     <div className="font-mono text-[10px] text-muted-foreground">

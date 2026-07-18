@@ -173,6 +173,34 @@ paths:
                 items:
                   $ref: "#/components/schemas/Scene"
 
+  /media/{id}/frame:
+    get:
+      operationId: getMediaFrame
+      tags: [player]
+      summary: Extract a single JPEG frame at the given time (seconds)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: t
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 0
+      responses:
+        "200":
+          description: JPEG frame
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Media or source file not found
+
   /media/{id}/markers:
     get:
       operationId: listMarkers

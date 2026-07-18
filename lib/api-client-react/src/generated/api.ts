@@ -32,6 +32,7 @@ import type {
   DubRequest,
   FaceCluster,
   GetCaptionsParams,
+  GetMediaFrameParams,
   GetMediaTranscriptParams,
   HealthStatus,
   JobCleanupRequest,
@@ -645,6 +646,95 @@ export function useGetMediaScenes<TData = Awaited<ReturnType<typeof getMediaScen
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMediaScenesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMediaFrameUrl = (id: string,
+    params?: GetMediaFrameParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/media/${id}/frame?${stringifiedParams}` : `/api/media/${id}/frame`
+}
+
+/**
+ * @summary Extract a single JPEG frame at the given time (seconds)
+ */
+export const getMediaFrame = async (id: string,
+    params?: GetMediaFrameParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetMediaFrameUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMediaFrameQueryKey = (id: string,
+    params?: GetMediaFrameParams,) => {
+    return [
+    `/api/media/${id}/frame`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMediaFrameQueryOptions = <TData = Awaited<ReturnType<typeof getMediaFrame>>, TError = ErrorType<void>>(id: string,
+    params?: GetMediaFrameParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaFrame>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMediaFrameQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMediaFrame>>> = ({ signal }) => getMediaFrame(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMediaFrame>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMediaFrameQueryResult = NonNullable<Awaited<ReturnType<typeof getMediaFrame>>>
+export type GetMediaFrameQueryError = ErrorType<void>
+
+
+/**
+ * @summary Extract a single JPEG frame at the given time (seconds)
+ */
+
+export function useGetMediaFrame<TData = Awaited<ReturnType<typeof getMediaFrame>>, TError = ErrorType<void>>(
+ id: string,
+    params?: GetMediaFrameParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaFrame>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMediaFrameQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

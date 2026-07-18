@@ -951,6 +951,12 @@ router.get("/media/:id/dub/:lang/video", (req, res) => {
   res.redirect(307, `/api/media/${req.params.id}/stream`);
 });
 
+router.get("/media/:id/frame", (_req, res) => {
+  // No real media in the mock environment — the production API extracts the
+  // frame with ffmpeg. 404 lets the UI fall back to the scene thumbnail/icon.
+  res.status(404).json({ detail: "Frame extraction requires real media (production only)" });
+});
+
 router.get("/media/:id/dub/:lang/stream", (req, res) => {
   const asset = assets.find((a) => a.id === req.params.id);
   const lang = String(req.params.lang ?? "").toLowerCase();

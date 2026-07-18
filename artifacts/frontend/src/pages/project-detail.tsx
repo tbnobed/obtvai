@@ -64,6 +64,7 @@ import {
 } from "lucide-react";
 import { RefineTab } from "@/components/project/refine-tab";
 import { ClipThumb } from "@/components/project/clip-thumb";
+import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 
 const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
   { format: "edl", label: "EDL", hint: "CMX3600 edit decision list" },
@@ -138,6 +139,7 @@ export default function ProjectDetail() {
   const { data: media } = useListMedia(mediaParams, {
     query: { queryKey: getListMediaQueryKey(mediaParams) },
   });
+  const [playerClip, setPlayerClip] = useState<PlayerClip | null>(null);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(id) });
@@ -556,9 +558,18 @@ export default function ProjectDetail() {
         </div>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
-        <Link href={`/library/${r.media_id}?t=${r.start_time}`}>
-          <Button size="icon" variant="ghost" className="h-7 w-7"><Play className="h-3.5 w-3.5" /></Button>
-        </Link>
+        <Button
+          size="icon" variant="ghost" className="h-7 w-7" title="Play this clip"
+          onClick={() => setPlayerClip({
+            media_id: r.media_id,
+            start_time: r.start_time,
+            end_time: r.end_time,
+            label: r.snippet || undefined,
+            filename: r.filename,
+          })}
+        >
+          <Play className="h-3.5 w-3.5" />
+        </Button>
         <Button
           size="sm"
           variant="outline"
@@ -868,7 +879,7 @@ export default function ProjectDetail() {
                     </div>
                   )) : list.clips.length ? list.clips.map((clip, i) => (
                     <div key={clip.id} className="flex items-center gap-2 bg-muted/50 p-2 rounded text-sm">
-                      <ClipThumb url={clip.thumbnail_url} className="h-9 w-14" />
+                      <ClipThumb url={clip.thumbnail_url} mediaId={clip.media_id} time={clip.start_time} className="h-9 w-14" />
                       <div className="truncate pr-2 flex-1 min-w-0">
                         <div className="truncate">
                           <span className="text-muted-foreground mr-2">{i + 1}.</span>
@@ -881,9 +892,18 @@ export default function ProjectDetail() {
                       <div className="flex items-center gap-3 shrink-0">
                         {clip.approved && <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-label="Approved" />}
                         <span className="font-mono text-xs">{fmtTime(clip.start_time)} – {fmtTime(clip.end_time)}</span>
-                        <Link href={`/library/${clip.media_id}?t=${clip.start_time}`}>
-                          <Button size="icon" variant="ghost" className="h-6 w-6"><Play className="h-3 w-3" /></Button>
-                        </Link>
+                        <Button
+                          size="icon" variant="ghost" className="h-6 w-6" title="Play this clip"
+                          onClick={() => setPlayerClip({
+                            media_id: clip.media_id,
+                            start_time: clip.start_time,
+                            end_time: clip.end_time,
+                            label: clip.label,
+                            filename: clip.filename,
+                          })}
+                        >
+                          <Play className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
                   )) : (
@@ -1335,6 +1355,8 @@ export default function ProjectDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ClipPlayerDialog clip={playerClip} onClose={() => setPlayerClip(null)} />
     </div>
   );
 }

@@ -351,6 +351,22 @@ export const GetMediaScenesResponse = zod.array(GetMediaScenesResponseItem)
 
 
 /**
+ * @summary Extract a single JPEG frame at the given time (seconds)
+ */
+export const GetMediaFrameParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const getMediaFrameQueryTDefault = 0;
+
+export const GetMediaFrameQueryParams = zod.object({
+  "t": zod.coerce.number().default(getMediaFrameQueryTDefault)
+})
+
+export const GetMediaFrameResponse = zod.unknown()
+
+
+/**
  * @summary List editor markers/selects for a media asset
  */
 export const ListMarkersParams = zod.object({
