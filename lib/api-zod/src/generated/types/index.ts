@@ -79,6 +79,7 @@ export * from './renderPresetInput';
 export * from './renderPresetInputPreset';
 export * from './renderRequest';
 export * from './renderRequestPreset';
+export * from './retryFailedResult';
 export * from './roughCutInput';
 export * from './scene';
 export * from './scriptMatchLine';

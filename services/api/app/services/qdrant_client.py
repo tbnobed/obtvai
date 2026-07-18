@@ -11,7 +11,9 @@ _client: Optional[AsyncQdrantClient] = None
 def get_client() -> AsyncQdrantClient:
     global _client
     if _client is None:
-        _client = AsyncQdrantClient(url=settings.qdrant_url)
+        # Default REST timeout is 5s; under heavy parallel ingest Qdrant can
+        # take longer, surfacing as bare "timed out" errors on searches.
+        _client = AsyncQdrantClient(url=settings.qdrant_url, timeout=60)
     return _client
 
 

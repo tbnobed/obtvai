@@ -33,7 +33,8 @@ def build_index(self, media_id: str, job_id: str):
         append_log(db, job_id, f"Loading embedding model: {EMBEDDINGS_MODEL}")
         model = SentenceTransformer(EMBEDDINGS_MODEL)
 
-        qdrant = QdrantClient(url=QDRANT_URL)
+        from tasks.qdrant_util import get_qdrant, qdrant_retry
+        qdrant = get_qdrant()
         _ensure_collection(qdrant, "transcripts", model.get_sentence_embedding_dimension())
 
         texts = [seg[1] for seg in segs]
@@ -51,7 +52,7 @@ def build_index(self, media_id: str, job_id: str):
 
         batch_size = 100
         for i in range(0, len(points), batch_size):
-            qdrant.upsert(collection_name="transcripts", points=points[i:i + batch_size])
+            qdrant_retry(qdrant.upsert, collection_name="transcripts", points=points[i:i + batch_size])
 
         db.execute(
             text("UPDATE transcript_segments SET embedding_id = id WHERE media_id = :mid"),

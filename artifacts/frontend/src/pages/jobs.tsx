@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useCancelJob, useCleanupJobs, useReindexLibrary } from "@workspace/api-client-react";
+import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useRetryFailedJobs, useCancelJob, useCleanupJobs, useReindexLibrary } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Square, Trash2, DatabaseZap } from "lucide-react";
@@ -11,6 +11,7 @@ export default function Jobs() {
   const { data: jobs, isLoading } = useListJobs(listParams, { query: { queryKey: getListJobsQueryKey(listParams), refetchInterval: 3000 } });
   const { data: stats } = useGetJobStats({ query: { queryKey: getGetJobStatsQueryKey(), refetchInterval: 5000 } });
   const retryMutation = useRetryJob();
+  const retryFailedMutation = useRetryFailedJobs();
   const cancelMutation = useCancelJob();
   const cleanupMutation = useCleanupJobs();
   const reindexMutation = useReindexLibrary();
@@ -78,6 +79,25 @@ export default function Jobs() {
             <DatabaseZap className="h-3.5 w-3.5" />
             {reindexMutation.isPending ? "Queuing..." : "Rebuild Search Index"}
           </Button>
+          {(stats?.jobs_error ?? 0) > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() =>
+                retryFailedMutation.mutate(undefined, {
+                  onSuccess: () => {
+                    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+                    queryClient.invalidateQueries({ queryKey: getGetJobStatsQueryKey() });
+                  },
+                })
+              }
+              disabled={retryFailedMutation.isPending}
+            >
+              <Play className="h-3.5 w-3.5" />
+              {retryFailedMutation.isPending ? "Queuing..." : `Retry All Failed (${stats?.jobs_error ?? 0})`}
+            </Button>
+          )}
           {errorCount > 0 && (
             <Button
               size="sm"

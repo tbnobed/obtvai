@@ -1100,6 +1100,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/JobCleanupResult"
 
+  /jobs/retry-failed:
+    post:
+      operationId: retryFailedJobs
+      tags: [jobs]
+      summary: Re-queue every failed job in one shot
+      responses:
+        "202":
+          description: Retry result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetryFailedResult"
+
   /jobs/{id}/retry:
     post:
       operationId: retryJob
@@ -2718,6 +2731,13 @@ components:
       required: [deleted]
       properties:
         deleted:
+          type: integer
+
+    RetryFailedResult:
+      type: object
+      required: [retried]
+      properties:
+        retried:
           type: integer
 
     JobStageStats:

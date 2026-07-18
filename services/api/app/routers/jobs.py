@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, delete, func
 from ..database import get_db
 from ..models import ProcessingJob, MediaAsset
-from ..schemas import ProcessingJobOut, JobCleanupIn, JobCleanupOut, JobStatsOut, JobStageStatsOut
+from ..schemas import ProcessingJobOut, JobCleanupIn, JobCleanupOut, JobStatsOut, JobStageStatsOut, RetryFailedOut
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -108,6 +108,47 @@ async def get_job_stats(db: AsyncSession = Depends(get_db)):
             for jt, counts in sorted(stages.items())
         ],
     )
+
+
+@router.post("/retry-failed", response_model=RetryFailedOut, status_code=202)
+async def retry_failed_jobs(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import update
+
+    # Atomically claim the failed jobs (concurrent calls each claim a disjoint
+    # set) so the same job is never double-enqueued.
+    claimed = (
+        await db.execute(
+            update(ProcessingJob)
+            .where(ProcessingJob.status == "error")
+            .values(
+                status="pending",
+                error_message=None,
+                retry_count=ProcessingJob.retry_count + 1,
+                started_at=None,
+                finished_at=None,
+            )
+            .returning(ProcessingJob.id, ProcessingJob.job_type, ProcessingJob.media_id)
+        )
+    ).all()
+    await db.commit()
+
+    from ..worker_client import enqueue_job
+    retried = 0
+    for job_id, job_type, media_id in claimed:
+        try:
+            await enqueue_job(job_type, media_id, job_id)
+            retried += 1
+        except Exception as e:
+            # Never strand a claimed job as pending-but-unqueued: put it back
+            # into error state so a later retry can pick it up.
+            await db.execute(
+                update(ProcessingJob)
+                .where(ProcessingJob.id == job_id)
+                .values(status="error", error_message=f"re-queue failed: {e}")
+            )
+            await db.commit()
+
+    return RetryFailedOut(retried=retried)
 
 
 @router.get("/{id}", response_model=ProcessingJobOut)

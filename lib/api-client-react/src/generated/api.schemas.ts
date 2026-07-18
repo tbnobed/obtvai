@@ -641,6 +641,10 @@ export interface JobCleanupResult {
   deleted: number;
 }
 
+export interface RetryFailedResult {
+  retried: number;
+}
+
 export interface JobStageStats {
   job_type: string;
   pending: number;

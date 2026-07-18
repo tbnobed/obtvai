@@ -1371,6 +1371,14 @@ export const CleanupJobsResponse = zod.object({
 
 
 /**
+ * @summary Re-queue every failed job in one shot
+ */
+export const RetryFailedJobsResponse = zod.object({
+  "retried": zod.number()
+})
+
+
+/**
  * @summary Retry a failed job
  */
 export const RetryJobParams = zod.object({

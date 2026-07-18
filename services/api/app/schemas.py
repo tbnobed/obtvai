@@ -622,6 +622,10 @@ class JobCleanupOut(BaseModel):
     deleted: int
 
 
+class RetryFailedOut(BaseModel):
+    retried: int
+
+
 class JobStageStatsOut(BaseModel):
     job_type: str
     pending: int

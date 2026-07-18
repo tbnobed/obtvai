@@ -597,6 +597,18 @@ router.get("/jobs", (req, res) => {
   res.json(status ? jobs.filter((j: any) => j.status === status) : jobs);
 });
 
+router.post("/jobs/retry-failed", (_req, res) => {
+  let retried = 0;
+  for (const j of jobs as any[]) {
+    if (j.status === "error") {
+      j.status = "pending";
+      j.error_message = null;
+      retried++;
+    }
+  }
+  res.status(202).json({ retried });
+});
+
 router.get("/jobs/stats", (_req, res) => {
   const stageMap: Record<string, { pending: number; running: number; success: number; error: number }> = {};
   for (const j of jobs as any[]) {

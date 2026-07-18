@@ -68,6 +68,7 @@ import type {
   RenderJob,
   RenderPresetInput,
   RenderRequest,
+  RetryFailedResult,
   RoughCutInput,
   Scene,
   ScriptMatchRequest,
@@ -3717,6 +3718,77 @@ export const useCleanupJobs = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCleanupJobsMutationOptions(options));
+    }
+
+export const getRetryFailedJobsUrl = () => {
+
+
+
+
+  return `/api/jobs/retry-failed`
+}
+
+/**
+ * @summary Re-queue every failed job in one shot
+ */
+export const retryFailedJobs = async ( options?: RequestInit): Promise<RetryFailedResult> => {
+
+  return customFetch<RetryFailedResult>(getRetryFailedJobsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRetryFailedJobsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryFailedJobs>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryFailedJobs>>, TError,void, TContext> => {
+
+const mutationKey = ['retryFailedJobs'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryFailedJobs>>, void> = () => {
+
+
+          return  retryFailedJobs(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryFailedJobsMutationResult = NonNullable<Awaited<ReturnType<typeof retryFailedJobs>>>
+
+    export type RetryFailedJobsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Re-queue every failed job in one shot
+ */
+export const useRetryFailedJobs = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryFailedJobs>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryFailedJobs>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRetryFailedJobsMutationOptions(options));
     }
 
 export const getRetryJobUrl = (id: string,) => {

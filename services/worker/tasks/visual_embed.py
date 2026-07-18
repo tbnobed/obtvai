@@ -39,7 +39,8 @@ def embed_scenes(self, media_id: str, job_id: str):
         model = AutoModel.from_pretrained(VISION_MODEL).to(device).eval()
         processor = AutoProcessor.from_pretrained(VISION_MODEL)
 
-        qdrant = QdrantClient(url=QDRANT_URL)
+        from tasks.qdrant_util import get_qdrant, qdrant_retry
+        qdrant = get_qdrant()
         _ensure_collection(qdrant, "scenes", _vector_dim(model))
 
         # Idempotent retry: remove points from any previous run for this asset
@@ -81,7 +82,8 @@ def embed_scenes(self, media_id: str, job_id: str):
                 vec = feats[0].cpu().numpy()
                 vec = (vec / (vec ** 2).sum() ** 0.5).tolist()
 
-                qdrant.upsert(
+                qdrant_retry(
+                    qdrant.upsert,
                     collection_name="scenes",
                     points=[PointStruct(
                         id=str(uuid.uuid5(uuid.NAMESPACE_DNS, scene_id)),
