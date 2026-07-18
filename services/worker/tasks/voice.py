@@ -174,6 +174,35 @@ PRESET_SETTINGS = {
 # Custom knobs the API may pass through (validated server-side).
 _ALLOWED_SETTINGS = {"speed", "temperature", "top_p", "top_k", "repetition_penalty"}
 
+# Sane finite ranges. XTTS applies speed as int(len/speed) internally, so a
+# stored speed of 0/inf/NaN crashes with "cannot convert float infinity to
+# integer" — clamp everything before it reaches the engine.
+_SETTING_RANGES = {
+    "speed": (0.5, 2.0, 1.0),
+    "temperature": (0.05, 1.5, 0.75),
+    "top_p": (0.05, 1.0, 0.85),
+    "top_k": (1.0, 100.0, 50.0),
+    "repetition_penalty": (1.0, 15.0, 5.0),
+}
+
+
+def _sanitize_settings(kwargs: dict) -> dict:
+    import math
+    clean = {}
+    for k, v in kwargs.items():
+        lo, hi, default = _SETTING_RANGES.get(k, (None, None, None))
+        if lo is None:
+            clean[k] = v
+            continue
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            f = default
+        if not math.isfinite(f) or f <= 0:
+            f = default
+        clean[k] = min(hi, max(lo, f))
+    return clean
+
 
 def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[str], out_path: str,
                       preset: str | None = None, settings: dict | None = None):
@@ -182,6 +211,7 @@ def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[st
         # Custom slider values override the preset base.
         kwargs.update({k: float(v) for k, v in settings.items()
                        if k in _ALLOWED_SETTINGS and v is not None})
+    kwargs = _sanitize_settings(kwargs)
     tts.tts_to_file(
         text=text_value,
         language=language,

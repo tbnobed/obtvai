@@ -156,11 +156,16 @@ def _synthesize_chatterbox(model, text_value: str, lang_id: str, ref_wav: str,
     atempo. top_p / repetition_penalty are XTTS-specific and ignored here."""
     kwargs = {}
     if settings and settings.get("temperature") is not None:
-        kwargs["temperature"] = float(settings["temperature"])
+        temp = float(settings["temperature"])
+        if math.isfinite(temp) and 0 < temp <= 1.5:
+            kwargs["temperature"] = temp
     wav = model.generate(text_value, language_id=lang_id, audio_prompt_path=ref_wav, **kwargs)
     samples = wav.squeeze(0).float().cpu().numpy()
     rate = int(model.sr)
     speed = float(settings.get("speed") or 1.0) if settings else 1.0
+    if not math.isfinite(speed) or speed <= 0:
+        speed = 1.0
+    speed = min(2.0, max(0.5, speed))
     if abs(speed - 1.0) >= 0.01:
         samples = _atempo(samples, rate, speed, workdir)
     return samples, rate
@@ -428,37 +433,43 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 if not seg_text:
                     continue
                 cloned = voice_map.get(speaker) if (xtts or chatterbox) else None
-                if cloned:
-                    speaker_wavs, voice_preset, voice_settings = cloned
-                    clip = None
-                    if chatterbox is not None:
-                        try:
-                            clip, clip_rate = _synthesize_chatterbox(
-                                chatterbox, seg_text, chatterbox_lang,
-                                speaker_wavs[0], workdir, voice_settings,
+                try:
+                    if cloned:
+                        speaker_wavs, voice_preset, voice_settings = cloned
+                        clip = None
+                        if chatterbox is not None:
+                            try:
+                                clip, clip_rate = _synthesize_chatterbox(
+                                    chatterbox, seg_text, chatterbox_lang,
+                                    speaker_wavs[0], workdir, voice_settings,
+                                )
+                            except Exception as e:
+                                append_log(db, job_id, f"Chatterbox failed on segment {i + 1} ({e}) — XTTS fallback")
+                        if clip is None:
+                            clip, clip_rate = _synthesize_xtts(
+                                xtts, seg_text, target, speaker_wavs, workdir,
+                                preset=voice_preset, settings=voice_settings,
                             )
-                        except Exception as e:
-                            append_log(db, job_id, f"Chatterbox failed on segment {i + 1} ({e}) — XTTS fallback")
-                    if clip is None:
-                        clip, clip_rate = _synthesize_xtts(
-                            xtts, seg_text, target, speaker_wavs, workdir,
-                            preset=voice_preset, settings=voice_settings,
+                        clip = _resample(clip, clip_rate, sample_rate, workdir)
+                        cloned_count += 1
+                    elif use_xtts_stock:
+                        gender = speaker_genders.get(speaker, "male")
+                        clip, clip_rate = _synthesize_stock(
+                            xtts, seg_text, target, STOCK_VOICES[gender], workdir
                         )
-                    clip = _resample(clip, clip_rate, sample_rate, workdir)
-                    cloned_count += 1
-                elif use_xtts_stock:
-                    gender = speaker_genders.get(speaker, "male")
-                    clip, clip_rate = _synthesize_stock(
-                        xtts, seg_text, target, STOCK_VOICES[gender], workdir
-                    )
-                    clip = _resample(clip, clip_rate, sample_rate, workdir)
-                else:
-                    if model is None:
-                        append_log(db, job_id, f"Loading TTS model: facebook/mms-tts-{lang3}")
-                        tokenizer, model, mms_rate = _load_tts(lang3)
-                    clip = _synthesize(tokenizer, model, seg_text)
-                    if clip is not None and clip.size:
-                        clip = _resample(clip, int(model.config.sampling_rate), sample_rate, workdir)
+                        clip = _resample(clip, clip_rate, sample_rate, workdir)
+                    else:
+                        if model is None:
+                            append_log(db, job_id, f"Loading TTS model: facebook/mms-tts-{lang3}")
+                            tokenizer, model, mms_rate = _load_tts(lang3)
+                        clip = _synthesize(tokenizer, model, seg_text)
+                        if clip is not None and clip.size:
+                            clip = _resample(clip, int(model.config.sampling_rate), sample_rate, workdir)
+                except Exception as e:
+                    import traceback
+                    tb_line = traceback.format_exc().strip().splitlines()[-3:]
+                    append_log(db, job_id, f"Segment {i + 1}/{total} failed, skipping: {e} | {' / '.join(tb_line)}")
+                    continue
                 if clip is None or clip.size == 0:
                     continue
 
@@ -550,7 +561,10 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         append_log(db, job_id, f"Dubbed {synthesized}/{total} segments to '{target}'{cloned_note} → {os.path.basename(out_path)}")
 
     except Exception as e:
+        import traceback
         db.rollback()
+        tb_tail = " / ".join(traceback.format_exc().strip().splitlines()[-3:])
+        append_log(db, job_id, f"Traceback: {tb_tail}")
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())
         raise
     finally:
