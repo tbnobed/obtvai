@@ -1,0 +1,19 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose ps
+docker compose up -d frontend
+NAME                     IMAGE                   COMMAND                  SERVICE        CREATED              STATUS                    PORTS
+obtv-ai-api-1            obtv-ai-api             "uvicorn app.main:ap…"   api            About a minute ago   Up 51 seconds (healthy)   8000/tcp
+obtv-ai-flower-1         obtv-ai-flower          "/opt/nvidia/nvidia_…"   flower         4 days ago           Up 4 days                 0.0.0.0:5555->5555/tcp, [::]:5555->5555/tcp
+obtv-ai-postgres-1       postgres:16-alpine      "docker-entrypoint.s…"   postgres       4 days ago           Up 4 days (healthy)       5432/tcp
+obtv-ai-qdrant-1         qdrant/qdrant:v1.12.4   "./entrypoint.sh"        qdrant         4 days ago           Up 4 days (healthy)       0.0.0.0:6333->6333/tcp, [::]:6333->6333/tcp, 6334/tcp
+obtv-ai-redis-1          redis:7-alpine          "docker-entrypoint.s…"   redis          4 days ago           Up 4 days (healthy)       6379/tcp
+obtv-ai-watcher-1        obtv-ai-watcher         "python watcher.py"      watcher        34 minutes ago       Up 34 minutes
+obtv-ai-worker-cpu-1     obtv-ai-worker-cpu      "/opt/nvidia/nvidia_…"   worker-cpu     11 minutes ago       Up 10 minutes
+obtv-ai-worker-gpu-1     obtv-ai-worker-gpu      "/opt/nvidia/nvidia_…"   worker-gpu     11 minutes ago       Up 10 minutes
+obtv-ai-worker-gpu-2-1   obtv-ai-worker-gpu-2    "/opt/nvidia/nvidia_…"   worker-gpu-2   11 minutes ago       Up 10 minutes
+[+] up 5/5
+ ✔ Container obtv-ai-postgres-1 Healthy                                                                                                                                     0.5s
+ ✔ Container obtv-ai-qdrant-1   Healthy                                                                                                                                     0.5s
+ ✔ Container obtv-ai-redis-1    Healthy                                                                                                                                     0.5s
+ ✔ Container obtv-ai-api-1      Healthy                                                                                                                                     1.0s
+ ✔ Container obtv-ai-frontend-1 Started                                                                                                                                     0.2s
+obtv-admin@obtv-llm-2:~/obtv-ai$
