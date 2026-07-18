@@ -45,7 +45,7 @@ export default function Projects() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { data: projects, isLoading } = useListProjects();
-  const mediaParams = { limit: 500 };
+  const mediaParams = { limit: 200 };
   const { data: media } = useListMedia(mediaParams, {
     query: { queryKey: getListMediaQueryKey(mediaParams) },
   });

@@ -136,8 +136,8 @@ export default function ProjectDetail() {
   const { data: renders } = useListRenders(listParams, {
     query: { queryKey: getListRendersQueryKey(listParams), refetchInterval: 5000 },
   });
-  const mediaParams = { limit: 500 };
-  const { data: media } = useListMedia(mediaParams, {
+  const mediaParams = { limit: 200 };
+  const { data: media, error: mediaError } = useListMedia(mediaParams, {
     query: { queryKey: getListMediaQueryKey(mediaParams) },
   });
   const [playerClip, setPlayerClip] = useState<PlayerClip | null>(null);
@@ -680,9 +680,11 @@ export default function ProjectDetail() {
                   </label>
                 )) : (
                   <p className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
-                    {media
-                      ? "The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
-                      : "Loading media library…"}
+                    {mediaError
+                      ? `Couldn't load the media library: ${mediaError instanceof Error ? mediaError.message : "unknown error"}`
+                      : media
+                        ? "The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
+                        : "Loading media library…"}
                   </p>
                 )}
               </div>
@@ -973,9 +975,11 @@ export default function ProjectDetail() {
                     </label>
                   )) : (
                     <p className="text-sm text-muted-foreground sm:col-span-2">
-                      {media
-                        ? "The library is empty — add or upload footage first, then build a story from it here."
-                        : "Loading media library…"}
+                      {mediaError
+                        ? `Couldn't load the media library: ${mediaError instanceof Error ? mediaError.message : "unknown error"}`
+                        : media
+                          ? "The library is empty — add or upload footage first, then build a story from it here."
+                          : "Loading media library…"}
                     </p>
                   )}
                 </div>
