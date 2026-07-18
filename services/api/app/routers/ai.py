@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,6 +23,17 @@ _STOPWORDS = {
     "have", "has", "had", "many", "much", "with", "for", "his", "her",
     "their", "they", "she", "him", "them",
 }
+
+
+_MD_HEADER_RE = re.compile(r"^\s{0,3}#{1,6}\s*", re.M)
+_MD_MARKS_RE = re.compile(r"\*\*|```[a-z]*|`")
+
+
+def _strip_markdown(text: str) -> str:
+    """The LLM leaks markdown (###, **, backticks) despite instructions;
+    the chat UI renders plain text, so strip the noise. Single underscores
+    and asterisks are left alone — filenames contain them."""
+    return _MD_MARKS_RE.sub("", _MD_HEADER_RE.sub("", text))
 
 
 def _question_keywords(question: str) -> list[str]:
@@ -154,8 +166,10 @@ async def _run_qa(
             # discussed") — let the LLM answer from the conversation itself.
             try:
                 from ..services.llm import generate_response
-                answer = await generate_response(question, history=history)
-                return answer, []
+                answer = await generate_response(
+                    question, history=history, max_new_tokens=1500
+                )
+                return _strip_markdown(answer), []
             except Exception:
                 pass
         return "No indexed media content found that matches your question. Make sure videos have been processed and indexed.", []
@@ -192,7 +206,8 @@ async def _run_qa(
 
     try:
         from ..services.llm import generate_response
-        answer = await generate_response(prompt, history=history)
+        answer = await generate_response(prompt, history=history, max_new_tokens=1500)
+        answer = _strip_markdown(answer)
     except Exception as e:
         transcript_summary = "\n".join(
             (
