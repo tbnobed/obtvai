@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useRetryFailedJobs, useCancelJob, useCleanupJobs, useReindexLibrary } from "@workspace/api-client-react";
+import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useRetryFailedJobs, useCancelJob, useCleanupJobs, useReindexLibrary, useResumeStalledMedia } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Square, Trash2, DatabaseZap } from "lucide-react";
@@ -15,6 +15,7 @@ export default function Jobs() {
   const cancelMutation = useCancelJob();
   const cleanupMutation = useCleanupJobs();
   const reindexMutation = useReindexLibrary();
+  const resumeStalledMutation = useResumeStalledMedia();
   const [reindexMessage, setReindexMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -144,6 +145,33 @@ export default function Jobs() {
             <span><span className="text-foreground font-medium">{stats.jobs_running}</span> running</span>
             <span><span className="text-foreground font-medium">{stats.jobs_pending}</span> queued</span>
             {stats.jobs_error > 0 && <span className="text-destructive font-medium">{stats.jobs_error} errors</span>}
+            {stats.assets_processing > 0 && stats.jobs_pending === 0 && stats.jobs_running === 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() =>
+                  resumeStalledMutation.mutate(undefined, {
+                    onSuccess: (result) => {
+                      setReindexMessage(
+                        result.jobs_created > 0
+                          ? `Resumed ${result.assets_resumed} stalled assets (${result.jobs_created} jobs queued${result.assets_marked_ready > 0 ? `, ${result.assets_marked_ready} marked ready` : ""}).`
+                          : result.assets_marked_ready > 0
+                            ? `${result.assets_marked_ready} assets were already complete and are now marked ready.`
+                            : "No stalled assets found."
+                      );
+                      queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+                      queryClient.invalidateQueries({ queryKey: getGetJobStatsQueryKey() });
+                    },
+                    onError: () => setReindexMessage("Resume request failed — check the API server."),
+                  })
+                }
+                disabled={resumeStalledMutation.isPending}
+              >
+                <Play className="h-3.5 w-3.5" />
+                {resumeStalledMutation.isPending ? "Resuming..." : `Resume Stalled (${stats.assets_processing})`}
+              </Button>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {stats.stages

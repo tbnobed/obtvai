@@ -13,7 +13,7 @@ from ..schemas import (
     ProcessingJobOut, TranslateRequest, DubRequest,
     SocialCutsRequestIn, RenderJobOut,
     ClipExportResult, TightenInput, TightenCut, TightenResult,
-    RoughCutInput, ReelJobOut,
+    RoughCutInput, ReelJobOut, ResumeStalledOut,
 )
 from ..models import ClipList, Clip, ReelJob
 from ..config import settings
@@ -53,6 +53,128 @@ async def get_library_stats(db: AsyncSession = Depends(get_db)):
         status_counts=status_counts,
         storage_bytes=storage_bytes,
         recent_activity=[MediaAssetOut.model_validate(a) for a in recent],
+    )
+
+
+@router.post("/resume-stalled", response_model=ResumeStalledOut, status_code=202)
+async def resume_stalled_media(db: AsyncSession = Depends(get_db)):
+    """Re-queue the missing pipeline stages for assets stranded mid-processing
+    (e.g. their jobs were lost/cleared after an infra outage). For each asset
+    not ready/error with no pending or running jobs, inspect what outputs
+    already exist and queue only the producing stages that are missing. If
+    nothing is missing, the asset is marked ready."""
+    from sqlalchemy import text as sa_text
+    from ..models import ProcessingJob
+    from .jobs import prune_finished_jobs
+    from ..worker_client import enqueue_job
+
+    await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext('obtv_resume'))"))
+
+    stalled = (
+        await db.execute(
+            select(MediaAsset).where(
+                MediaAsset.status.in_(("pending", "processing")),
+                ~MediaAsset.id.in_(
+                    select(ProcessingJob.media_id).where(
+                        ProcessingJob.status.in_(("pending", "running")),
+                        ProcessingJob.media_id.isnot(None),
+                    )
+                ),
+            )
+        )
+    ).scalars().all()
+
+    assets_resumed = 0
+    jobs_created = 0
+    assets_marked_ready = 0
+    pending: list[tuple[str, str, str]] = []
+
+    for asset in stalled:
+        media_id = asset.id
+
+        if asset.status == "pending":
+            # Ingest never ran (or its queue message was lost): restart the pipeline.
+            job_types = ["ingest"]
+        else:
+            transcript = (
+                await db.execute(
+                    sa_text(
+                        "SELECT COUNT(*), COUNT(*) FILTER (WHERE embedding_id IS NULL) "
+                        "FROM transcript_segments WHERE media_id = :mid"
+                    ),
+                    {"mid": media_id},
+                )
+            ).first()
+            scenes = (
+                await db.execute(
+                    sa_text(
+                        "SELECT COUNT(*), COUNT(*) FILTER (WHERE embedding_id IS NULL) "
+                        "FROM scenes WHERE media_id = :mid"
+                    ),
+                    {"mid": media_id},
+                )
+            ).first()
+            has_faces = (
+                await db.execute(
+                    sa_text("SELECT 1 FROM face_clusters WHERE media_id = :mid LIMIT 1"),
+                    {"mid": media_id},
+                )
+            ).first()
+
+            job_types = []
+            if not asset.proxy_path:
+                job_types.append("proxy")
+            if transcript[0] == 0:
+                # No transcript at all: restart from audio extraction, which
+                # chains transcribe -> diarize + index downstream.
+                job_types.append("audio_extract")
+            elif transcript[1] > 0:
+                job_types.append("index")
+            if scenes[0] == 0:
+                # scene_detect chains visual_embed + face_detect downstream.
+                job_types.append("scene_detect")
+            else:
+                if scenes[1] > 0:
+                    job_types.append("visual_embed")
+                if not has_faces:
+                    job_types.append("face_detect")
+
+            if not job_types:
+                asset.status = "ready"
+                asset.processing_stage = "complete"
+                asset.processing_progress = 100.0
+                assets_marked_ready += 1
+                continue
+
+        for job_type in job_types:
+            await prune_finished_jobs(db, media_id, job_type)
+            job = ProcessingJob(media_id=media_id, job_type=job_type, status="pending", logs=[])
+            db.add(job)
+            await db.flush()
+            pending.append((job_type, media_id, job.id))
+            jobs_created += 1
+        assets_resumed += 1
+
+    await db.commit()
+
+    for job_type, media_id, job_id in pending:
+        try:
+            await enqueue_job(job_type, media_id, job_id)
+        except Exception as e:
+            # Don't leave the job stranded as "pending" with no queue message —
+            # mark it error so it's picked up by Retry All Failed.
+            from sqlalchemy import update as sa_update
+            await db.execute(
+                sa_update(ProcessingJob)
+                .where(ProcessingJob.id == job_id)
+                .values(status="error", error_message=f"enqueue failed: {e}")
+            )
+            await db.commit()
+
+    return ResumeStalledOut(
+        assets_resumed=assets_resumed,
+        jobs_created=jobs_created,
+        assets_marked_ready=assets_marked_ready,
     )
 
 

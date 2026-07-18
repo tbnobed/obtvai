@@ -68,6 +68,7 @@ import type {
   RenderJob,
   RenderPresetInput,
   RenderRequest,
+  ResumeStalledResult,
   RetryFailedResult,
   RoughCutInput,
   Scene,
@@ -1562,6 +1563,77 @@ export const useCreateSocialCuts = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCreateSocialCutsMutationOptions(options));
+    }
+
+export const getResumeStalledMediaUrl = () => {
+
+
+
+
+  return `/api/media/resume-stalled`
+}
+
+/**
+ * @summary Re-queue the missing pipeline stages for assets stranded mid-processing with no active jobs
+ */
+export const resumeStalledMedia = async ( options?: RequestInit): Promise<ResumeStalledResult> => {
+
+  return customFetch<ResumeStalledResult>(getResumeStalledMediaUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResumeStalledMediaMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeStalledMedia>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resumeStalledMedia>>, TError,void, TContext> => {
+
+const mutationKey = ['resumeStalledMedia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resumeStalledMedia>>, void> = () => {
+
+
+          return  resumeStalledMedia(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResumeStalledMediaMutationResult = NonNullable<Awaited<ReturnType<typeof resumeStalledMedia>>>
+
+    export type ResumeStalledMediaMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Re-queue the missing pipeline stages for assets stranded mid-processing with no active jobs
+ */
+export const useResumeStalledMedia = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeStalledMedia>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resumeStalledMedia>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getResumeStalledMediaMutationOptions(options));
     }
 
 export const getGetLibraryStatsUrl = () => {

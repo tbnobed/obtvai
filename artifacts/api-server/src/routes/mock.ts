@@ -597,6 +597,10 @@ router.get("/jobs", (req, res) => {
   res.json(status ? jobs.filter((j: any) => j.status === status) : jobs);
 });
 
+router.post("/media/resume-stalled", (_req, res) => {
+  res.status(202).json({ assets_resumed: 3, jobs_created: 5, assets_marked_ready: 1 });
+});
+
 router.post("/jobs/retry-failed", (_req, res) => {
   let retried = 0;
   for (const j of jobs as any[]) {

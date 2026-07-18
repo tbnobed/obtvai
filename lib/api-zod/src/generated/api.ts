@@ -644,6 +644,16 @@ export const CreateSocialCutsResponse = zod.array(CreateSocialCutsResponseItem)
 
 
 /**
+ * @summary Re-queue the missing pipeline stages for assets stranded mid-processing with no active jobs
+ */
+export const ResumeStalledMediaResponse = zod.object({
+  "assets_resumed": zod.number(),
+  "jobs_created": zod.number(),
+  "assets_marked_ready": zod.number()
+})
+
+
+/**
  * @summary Library-wide stats (counts, totals, status breakdown)
  */
 export const GetLibraryStatsResponse = zod.object({

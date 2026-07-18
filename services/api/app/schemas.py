@@ -531,6 +531,12 @@ class VoiceGenerationOut(BaseModel):
     settings: Optional[dict] = None
 
 
+class ResumeStalledOut(BaseModel):
+    assets_resumed: int
+    jobs_created: int
+    assets_marked_ready: int
+
+
 class ReanalyzeOut(BaseModel):
     assets_queued: int
     jobs_created: int

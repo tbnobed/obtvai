@@ -641,6 +641,12 @@ export interface JobCleanupResult {
   deleted: number;
 }
 
+export interface ResumeStalledResult {
+  assets_resumed: number;
+  jobs_created: number;
+  assets_marked_ready: number;
+}
+
 export interface RetryFailedResult {
   retried: number;
 }

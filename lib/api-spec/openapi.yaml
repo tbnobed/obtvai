@@ -482,6 +482,19 @@ paths:
           description: Media not found
 
   # ── Stats ────────────────────────────────────────────────────────────────
+  /media/resume-stalled:
+    post:
+      operationId: resumeStalledMedia
+      tags: [media]
+      summary: Re-queue the missing pipeline stages for assets stranded mid-processing with no active jobs
+      responses:
+        "202":
+          description: Resume result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeStalledResult"
+
   /media/stats/summary:
     get:
       operationId: getLibraryStats
@@ -2731,6 +2744,17 @@ components:
       required: [deleted]
       properties:
         deleted:
+          type: integer
+
+    ResumeStalledResult:
+      type: object
+      required: [assets_resumed, jobs_created, assets_marked_ready]
+      properties:
+        assets_resumed:
+          type: integer
+        jobs_created:
+          type: integer
+        assets_marked_ready:
           type: integer
 
     RetryFailedResult:
