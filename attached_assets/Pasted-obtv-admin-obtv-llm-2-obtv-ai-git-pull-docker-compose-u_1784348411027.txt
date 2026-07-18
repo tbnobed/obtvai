@@ -1,0 +1,43 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull && docker compose up -d --build worker-cpu worker-gpu worker-gpu-2
+remote: Enumerating objects: 19, done.
+remote: Counting objects: 100% (19/19), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 11 (delta 7), reused 11 (delta 7), pack-reused 0 (from 0)
+Unpacking objects: 100% (11/11), 11.27 KiB | 412.00 KiB/s, done.
+From https://github.com/tbnobed/obtvai
+   698ac93..428bc85  main       -> origin/main
+Updating 698ac93..428bc85
+Fast-forward
+ .agents/memory/MEMORY.md                                                                         |   1 +
+ .agents/memory/pip-resolver-backtracking.md                                                      |  10 +
+ attached_assets/Pasted--267-5-267-5-MB-117-6-MB-s-eta-0-00-00-43-04-Collecting_1784346564362.txt | 716 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ services/worker/requirements.txt                                                                 |   2 +-
+ 4 files changed, 728 insertions(+), 1 deletion(-)
+ create mode 100644 .agents/memory/pip-resolver-backtracking.md
+ create mode 100644 attached_assets/Pasted--267-5-267-5-MB-117-6-MB-s-eta-0-00-00-43-04-Collecting_1784346564362.txt
+[+] Building 1767.8s (13/17)
+ => [internal] load local bake definitions                                                                                                                                 0.0s
+ => => reading from stdin 1.48kB                                                                                                                                           0.0s
+ => [worker-gpu internal] load build definition from Dockerfile                                                                                                            0.0s
+ => => transferring dockerfile: 2.35kB                                                                                                                                     0.0s
+ => [worker-cpu internal] load metadata for docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04                                                                         0.0s
+ => [worker-gpu-2 internal] load .dockerignore                                                                                                                             0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [worker-gpu  1/11] FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                 0.0s
+ => => resolve docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                              0.0s
+ => [worker-gpu-2  3/11] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz /tmp/ffmpeg.tar.xz                   0.3s
+ => [worker-gpu internal] load build context                                                                                                                               0.0s
+ => => transferring context: 2.04kB                                                                                                                                        0.0s
+ => CACHED [worker-gpu-2  2/11] RUN apt-get update && apt-get install -y --no-install-recommends     python3.11     python3.11-dev     python3-pip     ffmpeg     libpq-d  0.0s
+ => CACHED [worker-gpu-2  3/11] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz /tmp/ffmpeg.tar.xz            0.0s
+ => CACHED [worker-gpu-2  4/11] RUN tar -xf /tmp/ffmpeg.tar.xz -C /tmp     && cp /tmp/ffmpeg-n8.1-latest-linux64-gpl-8.1/bin/ffmpeg /usr/local/bin/ffmpeg     && cp /tmp/  0.0s
+ => CACHED [worker-gpu-2  5/11] RUN ln -s /usr/bin/python3.11 /usr/bin/python                                                                                              0.0s
+ => CACHED [worker-cpu  6/11] WORKDIR /worker                                                                                                                              0.0s
+ => [worker-cpu  7/11] COPY requirements.txt .                                                                                                                             0.0s
+ => [worker-gpu  8/11] RUN pip install --no-cache-dir -r requirements.txt                                                                                               1767.2s
+ => => #   Downloading httpx-0.20.0-py3-none-any.whl (82 kB)
+ => => #      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 82.5/82.5 KB 278.5 MB/s eta 0:00:00
+ => => # INFO: pip is looking at multiple versions of httplib2 to determine which version is compatible with other requirements. This could take a while.
+ => => # Collecting httplib2<1.dev0,>=0.19.0
+ => => #   Downloading httplib2-0.31.2-py3-none-any.whl (91 kB)
+ => => #      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 91.1/91.1 KB 296.7 MB/s eta 0:00:00
