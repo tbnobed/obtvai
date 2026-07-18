@@ -55,7 +55,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- EVERY reply that changes code must END with the exact production deploy command, listing only the services that changed (e.g. `git pull && docker compose up -d --build frontend`), plus a clear summary of what changed. No exceptions — including short replies and follow-up fixes.
 
 ## Gotchas
 
