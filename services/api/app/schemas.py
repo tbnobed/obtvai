@@ -33,6 +33,7 @@ class MediaAssetOut(BaseModel):
     synopsis: Optional[str] = None
     creative: Optional[Any] = None
     key_moments: Optional[List[Any]] = None
+    qc_flags: Optional[dict] = None
     topics: Optional[List[str]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -332,11 +333,32 @@ class ClipOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MarkerOut(BaseModel):
+    id: str
+    media_id: str
+    time: float
+    end_time: Optional[float] = None
+    kind: str
+    note: Optional[str] = None
+    source: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class MarkerInput(BaseModel):
+    time: float
+    end_time: Optional[float] = None
+    kind: str = "marker"
+    note: Optional[str] = None
+
+
 class ClipListOut(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
     project_id: Optional[str] = None
+    locked: bool = False
     created_at: datetime
     clips: List[ClipOut] = []
 
@@ -361,6 +383,7 @@ class ClipListUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     project_id: Optional[str] = None
+    locked: Optional[bool] = None
     clips: Optional[List[ClipInput]] = None
 
 

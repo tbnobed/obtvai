@@ -12,6 +12,7 @@ celery_app = Celery(
         "tasks.transcribe",
         "tasks.diarize",
         "tasks.scene_detect",
+        "tasks.qc",
         "tasks.visual_embed",
         "tasks.face_detect",
         "tasks.index",

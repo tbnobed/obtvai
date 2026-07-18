@@ -43,6 +43,8 @@ _COLUMN_MIGRATIONS = [
     ("people", "voice_settings", "JSONB"),
     ("voice_generations", "settings", "JSONB"),
     ("render_jobs", "publish_stats", "JSONB"),
+    ("media_assets", "qc_flags", "JSONB"),
+    ("clip_lists", "locked", "BOOLEAN NOT NULL DEFAULT FALSE"),
 ]
 
 

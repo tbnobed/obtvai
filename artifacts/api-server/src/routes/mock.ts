@@ -41,6 +41,13 @@ const assets = [
       { time: 1580, title: "2026 bond measure outlook", description: "Closing thoughts on funding prospects and the November ballot." },
     ],
     topics: ["urban planning", "affordable housing", "public transit", "local politics", "development"],
+    qc_flags: {
+      flags: ["audio_low", "black_frames"],
+      max_volume_db: -6.2,
+      mean_volume_db: -37.4,
+      black_seconds: 3.1,
+      black_segments: [{ start: 0.0, end: 3.1, duration: 3.1 }],
+    },
     creative: {
       logline:
         "A city planner stakes her career on a 30% affordability promise — and the merchants fighting her may decide whether downtown survives its own rescue.",
@@ -354,12 +361,28 @@ const projects: MockProject[] = [
   },
 ];
 
+const markers: {
+  id: string;
+  media_id: string;
+  time: number;
+  end_time: number | null;
+  kind: string;
+  note: string | null;
+  source: string;
+  created_at: string;
+}[] = [
+  { id: "mk-001", media_id: "asset-001", time: 1131, end_time: 1169, kind: "select", note: "Conflict beat — use in main cut", source: "editor", created_at: new Date(Date.now() - 3600000).toISOString() },
+  { id: "mk-002", media_id: "asset-001", time: 210, end_time: null, kind: "reject", note: "Long tangent about zoning history", source: "editor", created_at: new Date(Date.now() - 3500000).toISOString() },
+  { id: "mk-003", media_id: "asset-001", time: 1448, end_time: null, kind: "marker", note: "Check b-roll for data rebuttal", source: "editor", created_at: new Date(Date.now() - 3400000).toISOString() },
+];
+
 const clipLists = [
   {
     id: "cl-001",
     name: "Infrastructure Interview Highlights",
     description: "Key moments from the Sarah Chen interview",
     project_id: "proj-001" as string | null,
+    locked: false,
     created_at: new Date(Date.now() - 7200000).toISOString(),
     clips: [
       { id: "clip-001", media_id: "asset-001", filename: "interview_sarah_chen.mp4", start_time: 15.5, end_time: 71.3, label: "On local AI infrastructure", notes: null },
@@ -483,6 +506,34 @@ router.delete("/media/:id", (req, res) => {
 
 router.get("/media/:id/scenes", (req, res) => {
   res.json(scenes.filter((s) => s.media_id === req.params.id));
+});
+
+router.get("/media/:id/markers", (req, res) => {
+  res.json(markers.filter((m) => m.media_id === req.params.id).sort((a, b) => a.time - b.time));
+});
+
+router.post("/media/:id/markers", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ detail: "Media not found" }); return; }
+  const m = {
+    id: `mk-${Date.now()}`,
+    media_id: req.params.id,
+    time: Math.max(0, Number(req.body.time) || 0),
+    end_time: req.body.end_time != null ? Number(req.body.end_time) : null,
+    kind: ["select", "reject", "marker"].includes(req.body.kind) ? req.body.kind : "marker",
+    note: req.body.note || null,
+    source: "editor",
+    created_at: new Date().toISOString(),
+  };
+  markers.push(m);
+  res.status(201).json(m);
+});
+
+router.delete("/media/:id/markers/:markerId", (req, res) => {
+  const idx = markers.findIndex((m) => m.id === req.params.markerId && m.media_id === req.params.id);
+  if (idx === -1) { res.status(404).json({ detail: "Marker not found" }); return; }
+  markers.splice(idx, 1);
+  res.status(204).send();
 });
 
 router.get("/media/:id/transcript", (req, res) => {
@@ -1073,6 +1124,7 @@ router.post("/clips", (req, res) => {
     name: req.body.name,
     description: req.body.description || null,
     project_id: (req.body.project_id as string | null) || null,
+    locked: false,
     created_at: new Date().toISOString(),
     clips: (req.body.clips || []).map((c: any, i: number) => ({
       id: `clip-${Date.now()}-${i}`,
@@ -1098,6 +1150,12 @@ router.get("/clips/:id", (req, res) => {
 router.patch("/clips/:id", (req, res) => {
   const cl = clipLists.find((c) => c.id === req.params.id);
   if (!cl) { res.status(404).json({ error: "Not found" }); return; }
+  if (req.body.locked !== undefined) (cl as any).locked = !!req.body.locked;
+  const mutating = req.body.name !== undefined || req.body.description !== undefined || req.body.project_id !== undefined || req.body.clips !== undefined;
+  if ((cl as any).locked && mutating) {
+    res.status(423).json({ detail: "Clip list is picture-locked. Unlock it to make changes." });
+    return;
+  }
   if (req.body.name !== undefined) cl.name = req.body.name;
   if (req.body.description !== undefined) cl.description = req.body.description;
   if (req.body.project_id !== undefined) cl.project_id = req.body.project_id;
@@ -1116,7 +1174,12 @@ router.patch("/clips/:id", (req, res) => {
   res.json(cl);
 });
 
-router.delete("/clips/:id", (_req, res) => {
+router.delete("/clips/:id", (req, res) => {
+  const cl = clipLists.find((c) => c.id === req.params.id);
+  if (cl && (cl as any).locked) {
+    res.status(423).json({ detail: "Clip list is picture-locked. Unlock it to delete." });
+    return;
+  }
   res.status(204).send();
 });
 

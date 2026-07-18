@@ -18,16 +18,23 @@ import {
   useDeleteReel,
   useCreateRoughCut,
   useTightenMedia,
-  getCaptions
+  getCaptions,
+  useListMarkers, getListMarkersQueryKey,
+  useCreateMarker,
+  useDeleteMarker,
+  useListClipLists, getListClipListsQueryKey,
+  useCreateClipList,
+  useUpdateClipList, getGetClipListQueryKey
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform, ReelJob, RenderJob, CreativeAnalysis, TightenResult } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, ReelJob, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -118,6 +125,29 @@ export default function AssetDetail() {
   const langAvailable = transcriptLang !== "original" && (asset?.translated_languages ?? []).includes(transcriptLang);
   const transcriptParams = langAvailable ? { lang: transcriptLang } : undefined;
   const { data: transcript } = useGetMediaTranscript(id!, transcriptParams, { query: { enabled: !!id, queryKey: getGetMediaTranscriptQueryKey(id!, transcriptParams) } });
+
+  // ── Markers / selects ──────────────────────────────────────────────────
+  const { data: markers } = useListMarkers(id!, { query: { enabled: !!id, queryKey: getListMarkersQueryKey(id!) } });
+  const createMarkerMutation = useCreateMarker();
+  const deleteMarkerMutation = useDeleteMarker();
+  const [markerNote, setMarkerNote] = useState("");
+  const invalidateMarkers = () => queryClient.invalidateQueries({ queryKey: getListMarkersQueryKey(id!) });
+  const addMarkerAtPlayhead = (kind: "select" | "reject" | "marker") => {
+    const t = videoRef.current?.currentTime ?? 0;
+    createMarkerMutation.mutate(
+      { id: id!, data: { time: t, kind, note: markerNote.trim() || undefined } },
+      { onSuccess: () => { setMarkerNote(""); invalidateMarkers(); } },
+    );
+  };
+  const promoteMoment = (time: number, kind: "select" | "reject", note: string) => {
+    createMarkerMutation.mutate(
+      { id: id!, data: { time, kind, note } },
+      { onSuccess: invalidateMarkers },
+    );
+  };
+
+  // ── Add transcript segment to clip list ────────────────────────────────
+  const [clipListSegment, setClipListSegment] = useState<TranscriptSegment | null>(null);
   const { data: jobs } = useListJobs({ media_id: id! }, { query: { enabled: !!id, queryKey: getListJobsQueryKey({ media_id: id! }), refetchInterval: 3000 } });
 
   const highlightMutation = useCreateHighlight();
@@ -351,6 +381,15 @@ export default function AssetDetail() {
                 )}
               </div>
             )}
+            {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
+              <HeatStrip
+                duration={asset.duration_seconds!}
+                keyMoments={(asset.key_moments as { time: number; title: string; description?: string }[] | null) ?? []}
+                clipSuggestions={((asset.creative as CreativeAnalysis | null)?.clip_suggestions as { start: number; end: number; title: string; reason?: string; strength: number }[] | undefined) ?? []}
+                markers={markers ?? []}
+                seekTo={seekTo}
+              />
+            )}
           </div>
           
           <div className="p-6">
@@ -366,10 +405,16 @@ export default function AssetDetail() {
                 Remove from Library
               </Button>
             </div>
-            <div className="flex gap-4 text-sm text-muted-foreground mb-6">
+            <div className="flex gap-4 items-center text-sm text-muted-foreground mb-6 flex-wrap">
               <span>{asset.codec}</span>
               <span>{asset.width}x{asset.height}</span>
               <span>{asset.fps} fps</span>
+              {((asset.qc_flags as { flags?: string[] } | null)?.flags ?? []).map(flag => (
+                <Badge key={flag} variant="outline" className="gap-1 text-amber-500 border-amber-500/40" title={QC_FLAG_HINTS[flag] ?? flag}>
+                  <AlertTriangle className="h-3 w-3" />
+                  {QC_FLAG_LABELS[flag] ?? flag}
+                </Badge>
+              ))}
             </div>
 
             <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
@@ -439,9 +484,104 @@ export default function AssetDetail() {
                   <Share2 className="h-3.5 w-3.5" />
                   Socials
                 </TabsTrigger>
+                <TabsTrigger value="selects" className="gap-1.5">
+                  <Star className="h-3.5 w-3.5" />
+                  Selects
+                </TabsTrigger>
                 <TabsTrigger value="scenes">Scenes</TabsTrigger>
                 <TabsTrigger value="jobs">Pipeline Jobs</TabsTrigger>
               </TabsList>
+              <TabsContent value="selects" className="mt-4">
+                <div className="space-y-4 max-w-3xl">
+                  <div className="flex items-end gap-2 flex-wrap">
+                    <div className="flex-1 min-w-48">
+                      <Label htmlFor="marker-note" className="text-xs text-muted-foreground">Note (optional)</Label>
+                      <Input
+                        id="marker-note"
+                        value={markerNote}
+                        onChange={(e) => setMarkerNote(e.target.value)}
+                        placeholder="Why this moment matters..."
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-green-500" disabled={createMarkerMutation.isPending} onClick={() => addMarkerAtPlayhead("select")}>
+                      <Star className="h-3.5 w-3.5" /> Select
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-red-500" disabled={createMarkerMutation.isPending} onClick={() => addMarkerAtPlayhead("reject")}>
+                      <XCircle className="h-3.5 w-3.5" /> Reject
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-sky-400" disabled={createMarkerMutation.isPending} onClick={() => addMarkerAtPlayhead("marker")}>
+                      <Flag className="h-3.5 w-3.5" /> Marker
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Marks are placed at the current playhead position. AI-suggested beats appear on the heat strip under the player — promote the good ones to selects here or from the AI Analysis tab.
+                  </p>
+                  {asset.key_moments && asset.key_moments.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">AI Suggestions</h3>
+                      <div className="space-y-1">
+                        {(asset.key_moments as { time: number; title: string; description?: string }[]).map((moment, i) => {
+                          const already = (markers ?? []).some(m => m.source === "editor" && Math.abs(m.time - moment.time) < 2);
+                          return (
+                            <div key={i} className="flex items-center gap-2 p-2 -mx-2 rounded hover:bg-muted transition-colors">
+                              <span className="text-xs font-mono text-primary shrink-0 w-14 text-right cursor-pointer" onClick={() => seekTo(moment.time)}>
+                                {formatTimecode(moment.time)}
+                              </span>
+                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => seekTo(moment.time)}>
+                                <div className="text-sm font-medium truncate">{moment.title}</div>
+                                {moment.description && <div className="text-xs text-muted-foreground truncate">{moment.description}</div>}
+                              </div>
+                              {already ? (
+                                <Badge variant="secondary" className="text-[10px]">marked</Badge>
+                              ) : (
+                                <>
+                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-green-500" title="Promote to select" onClick={() => promoteMoment(moment.time, "select", moment.title)}>
+                                    <ThumbsUp className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500" title="Reject this beat" onClick={() => promoteMoment(moment.time, "reject", moment.title)}>
+                                    <ThumbsDown className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Editor Marks</h3>
+                    {(markers ?? []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">No marks yet. Play the video and mark selects, rejects, and notes at the playhead.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {(markers ?? []).map(m => (
+                          <div key={m.id} className="flex items-center gap-2 p-2 -mx-2 rounded hover:bg-muted transition-colors group">
+                            {m.kind === "select" ? <Star className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                              : m.kind === "reject" ? <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                              : <Flag className="h-3.5 w-3.5 text-sky-400 shrink-0" />}
+                            <span className="text-xs font-mono text-primary shrink-0 w-14 text-right cursor-pointer" onClick={() => seekTo(m.time)}>
+                              {formatTimecode(m.time)}
+                            </span>
+                            <span className="flex-1 text-sm truncate cursor-pointer" onClick={() => seekTo(m.time)}>
+                              {m.note || <span className="text-muted-foreground italic">{m.kind}</span>}
+                            </span>
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-7 px-2 opacity-0 group-hover:opacity-100 text-destructive"
+                              disabled={deleteMarkerMutation.isPending}
+                              onClick={() => deleteMarkerMutation.mutate({ id: id!, markerId: m.id }, { onSuccess: invalidateMarkers })}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
               <TabsContent value="analysis" className="mt-4">
                 {hasAnalysis ? (
                   <div className="space-y-6 max-w-3xl">
@@ -889,7 +1029,7 @@ export default function AssetDetail() {
                   {transcript?.map(segment => (
                     <div 
                       key={segment.id} 
-                      className="group cursor-pointer hover:bg-muted p-2 -mx-2 rounded transition-colors"
+                      className="group cursor-pointer hover:bg-muted p-2 -mx-2 rounded transition-colors relative"
                       onClick={() => seekTo(segment.start_time)}
                     >
                       <div className="flex gap-2 items-baseline mb-1">
@@ -897,6 +1037,14 @@ export default function AssetDetail() {
                         <span className="text-[10px] text-muted-foreground">{Math.floor(segment.start_time)}s</span>
                       </div>
                       <p className="text-sm">{segment.text}</p>
+                      <Button
+                        size="sm" variant="secondary"
+                        className="absolute top-1 right-1 h-6 px-2 gap-1 text-[11px] opacity-0 group-hover:opacity-100"
+                        title="Add this segment to a clip list"
+                        onClick={(e) => { e.stopPropagation(); setClipListSegment(segment); }}
+                      >
+                        <ListPlus className="h-3 w-3" /> Clip
+                      </Button>
                     </div>
                   ))}
                   {!transcript?.length && (
@@ -912,7 +1060,181 @@ export default function AssetDetail() {
           </Tabs>
         </div>
       </div>
+      <AddToClipListDialog
+        mediaId={id!}
+        segment={clipListSegment}
+        onClose={() => setClipListSegment(null)}
+      />
     </div>
+  );
+}
+
+const QC_FLAG_LABELS: Record<string, string> = {
+  audio_clipping: "Audio clipping",
+  audio_silent: "Silent audio",
+  audio_low: "Low audio",
+  no_audio: "No audio",
+  black_frames: "Black frames",
+  mostly_black: "Mostly black",
+};
+
+const QC_FLAG_HINTS: Record<string, string> = {
+  audio_clipping: "Audio peaks at or above 0 dBFS — likely distorted",
+  audio_silent: "Mean audio level below -50 dB — effectively silent",
+  audio_low: "Mean audio level below -35 dB — may need a gain boost",
+  no_audio: "No audio stream detected",
+  black_frames: "One or more black segments of 1s+ detected",
+  mostly_black: "Over 90% of the video is black frames",
+};
+
+function HeatStrip({
+  duration,
+  keyMoments,
+  clipSuggestions,
+  markers,
+  seekTo,
+}: {
+  duration: number;
+  keyMoments: { time: number; title: string; description?: string }[];
+  clipSuggestions: { start: number; end: number; title: string; reason?: string; strength: number }[];
+  markers: Marker[];
+  seekTo: (time: number) => void;
+}) {
+  const pct = (t: number) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%`;
+  const widthPct = (a: number, b: number) => `${Math.max(0.4, Math.min(100, ((b - a) / duration) * 100))}%`;
+  if (!keyMoments.length && !clipSuggestions.length && !markers.length) return null;
+  return (
+    <div className="mt-2 select-none">
+      <div className="relative h-6 rounded bg-zinc-900 overflow-hidden">
+        {clipSuggestions.map((c, i) => (
+          <div
+            key={`cs-${i}`}
+            className="absolute top-0 h-full cursor-pointer bg-amber-500 hover:bg-amber-400 transition-colors"
+            style={{ left: pct(c.start), width: widthPct(c.start, c.end), opacity: 0.25 + 0.6 * (c.strength / 100) }}
+            title={`${c.title} (${c.strength}) — ${c.reason ?? ""}`}
+            onClick={() => seekTo(c.start)}
+          />
+        ))}
+        {keyMoments.map((m, i) => (
+          <div
+            key={`km-${i}`}
+            className="absolute top-0 h-full w-0.5 bg-sky-400/80 cursor-pointer hover:bg-sky-300"
+            style={{ left: pct(m.time) }}
+            title={`${m.title}${m.description ? ` — ${m.description}` : ""}`}
+            onClick={() => seekTo(m.time)}
+          />
+        ))}
+        {markers.map(m => (
+          <div
+            key={m.id}
+            className={`absolute top-0 h-full cursor-pointer ${
+              m.kind === "select" ? "bg-green-500" : m.kind === "reject" ? "bg-red-500" : "bg-white/80"
+            }`}
+            style={m.end_time != null
+              ? { left: pct(m.time), width: widthPct(m.time, m.end_time), opacity: 0.55 }
+              : { left: pct(m.time), width: "3px" }}
+            title={`${m.kind}${m.note ? `: ${m.note}` : ""}`}
+            onClick={() => seekTo(m.time)}
+          />
+        ))}
+      </div>
+      <div className="flex gap-4 mt-1 text-[10px] text-zinc-500">
+        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-amber-500/70 rounded-sm" /> AI clip strength</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-sky-400 rounded-sm" /> Key moment</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-green-500 rounded-sm" /> Select</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-red-500 rounded-sm" /> Reject</span>
+      </div>
+    </div>
+  );
+}
+
+function AddToClipListDialog({
+  mediaId,
+  segment,
+  onClose,
+}: {
+  mediaId: string;
+  segment: TranscriptSegment | null;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data: clipLists } = useListClipLists(undefined, { query: { enabled: !!segment, queryKey: getListClipListsQueryKey() } });
+  const createMutation = useCreateClipList();
+  const updateMutation = useUpdateClipList();
+  const [target, setTarget] = useState<string>("__new__");
+  const [newName, setNewName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const busy = createMutation.isPending || updateMutation.isPending;
+
+  const label = segment ? (segment.text.length > 60 ? `${segment.text.slice(0, 57)}...` : segment.text) : "";
+
+  const handleAdd = () => {
+    if (!segment) return;
+    setError(null);
+    const clip = { media_id: mediaId, start_time: segment.start_time, end_time: segment.end_time, label };
+    const done = () => {
+      queryClient.invalidateQueries({ queryKey: getListClipListsQueryKey() });
+      onClose();
+    };
+    if (target === "__new__") {
+      const name = newName.trim() || "Transcript selects";
+      createMutation.mutate({ data: { name, clips: [clip] } }, { onSuccess: done, onError: () => setError("Failed to create clip list.") });
+    } else {
+      const existing = clipLists?.find(c => c.id === target);
+      if (!existing) return;
+      const clips = [
+        ...existing.clips.map(c => ({ media_id: c.media_id, start_time: c.start_time, end_time: c.end_time, label: c.label ?? undefined })),
+        clip,
+      ];
+      updateMutation.mutate({ id: target, data: { clips } }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetClipListQueryKey(target) });
+          done();
+        },
+        onError: () => setError("Failed to add — the clip list may be picture-locked."),
+      });
+    }
+  };
+
+  return (
+    <Dialog open={!!segment} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ListPlus className="h-5 w-5" /> Add to clip list
+          </DialogTitle>
+        </DialogHeader>
+        {segment && (
+          <div className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              <span className="font-mono text-xs">{formatTimecode(segment.start_time)} – {formatTimecode(segment.end_time)}</span>{" "}
+              — "{label}"
+            </p>
+            <Select value={target} onValueChange={setTarget}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__new__">+ New clip list</SelectItem>
+                {clipLists?.map(cl => (
+                  <SelectItem key={cl.id} value={cl.id} disabled={cl.locked}>
+                    {cl.name}{cl.locked ? " (locked)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {target === "__new__" && (
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Clip list name" />
+            )}
+            {error && <p className="text-xs text-destructive">{error}</p>}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button onClick={handleAdd} disabled={busy}>
+                {busy ? "Adding..." : "Add clip"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

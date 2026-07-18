@@ -53,6 +53,12 @@ def run_ingest_pipeline(self, media_id: str, job_id: str = None):
         from tasks.audio import extract_audio
         extract_audio.delay(media_id, audio_job_id)
 
+        # Technical QC
+        append_log(db, job_id, "Queuing technical QC...")
+        qc_job_id = create_job(db, media_id, "qc")
+        from tasks.qc import run_qc
+        run_qc.delay(media_id, qc_job_id)
+
         # Scene detection
         append_log(db, job_id, "Queuing scene detection...")
         scene_job_id = create_job(db, media_id, "scene_detect")

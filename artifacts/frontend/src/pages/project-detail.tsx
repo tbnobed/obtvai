@@ -60,7 +60,7 @@ import {
   ArrowLeft, Search, FileText, Scissors, BookOpen, Wand2, Clapperboard,
   Play, Download, Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown,
   Monitor, Smartphone, ChevronDown, Upload, Archive, ArchiveRestore,
-  ExternalLink,
+  ExternalLink, Lock, LockOpen,
 } from "lucide-react";
 
 const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
@@ -288,6 +288,18 @@ export default function ProjectDetail() {
 
   const editClips = (listId: string, fn: (clips: ClipListUpdateClipsItem[]) => ClipListUpdateClipsItem[]) =>
     setEditing((e) => ({ ...e, [listId]: fn(e[listId] ?? []) }));
+
+  const [toggleLockPending, setToggleLockPending] = useState<string | null>(null);
+  const toggleLock = (list: ClipList) => {
+    setToggleLockPending(list.id);
+    updateListMutation.mutate(
+      { id: list.id, data: { locked: !list.locked } },
+      {
+        onSuccess: () => invalidateAll(),
+        onSettled: () => setToggleLockPending(null),
+      },
+    );
+  };
 
   const saveEdit = (listId: string) => {
     const clips = editing[listId];
@@ -713,6 +725,11 @@ export default function ProjectDetail() {
                     <span className="text-xs font-normal text-muted-foreground">
                       {(draft ?? list.clips).length} clips
                     </span>
+                    {list.locked && (
+                      <Badge variant="outline" className="gap-1 text-amber-500 border-amber-500/40 font-normal">
+                        <Lock className="h-3 w-3" /> Picture locked
+                      </Badge>
+                    )}
                   </CardTitle>
                   {draft ? (
                     <div className="flex gap-2">
@@ -727,9 +744,24 @@ export default function ProjectDetail() {
                       </Button>
                     </div>
                   ) : (
-                    <Button size="sm" variant="outline" onClick={() => startEdit(list)} disabled={!list.clips.length}>
-                      Edit clips
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm" variant="outline"
+                        className={list.locked ? "text-amber-500" : "text-muted-foreground"}
+                        title={list.locked ? "Unlock to allow edits" : "Freeze this cut — no more changes until unlocked"}
+                        disabled={toggleLockPending === list.id}
+                        onClick={() => toggleLock(list)}
+                      >
+                        {toggleLockPending === list.id
+                          ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          : list.locked ? <Lock className="h-4 w-4 mr-2" /> : <LockOpen className="h-4 w-4 mr-2" />}
+                        {list.locked ? "Unlock" : "Lock picture"}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => startEdit(list)} disabled={!list.clips.length || list.locked}
+                        title={list.locked ? "Picture locked — unlock to edit" : undefined}>
+                        Edit clips
+                      </Button>
+                    </div>
                   )}
                 </CardHeader>
                 <CardContent className="space-y-2">

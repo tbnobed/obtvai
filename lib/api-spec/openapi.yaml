@@ -173,6 +173,70 @@ paths:
                 items:
                   $ref: "#/components/schemas/Scene"
 
+  /media/{id}/markers:
+    get:
+      operationId: listMarkers
+      tags: [player]
+      summary: List editor markers/selects for a media asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Marker"
+    post:
+      operationId: createMarker
+      tags: [player]
+      summary: Add a marker/select/reject at a timecode
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Marker"
+
+  /media/{id}/markers/{marker_id}:
+    delete:
+      operationId: deleteMarker
+      tags: [player]
+      summary: Delete a marker
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: marker_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
   /media/{id}/transcript:
     get:
       operationId: getMediaTranscript
@@ -2001,6 +2065,10 @@ components:
             - $ref: "#/components/schemas/CreativeAnalysis"
             - type: "null"
           description: Creative editor pass — story beats, clip suggestions, editorial notes
+        qc_flags:
+          type: ["object", "null"]
+          description: Technical QC results (audio clipping, silence, black frames)
+          additionalProperties: true
         key_moments:
           type: ["array", "null"]
           description: AI-detected key moments with timecodes
@@ -2015,6 +2083,44 @@ components:
           type: string
         updated_at:
           type: ["string", "null"]
+
+    Marker:
+      type: object
+      required: [id, media_id, time, kind, source, created_at]
+      properties:
+        id:
+          type: string
+        media_id:
+          type: string
+        time:
+          type: number
+        end_time:
+          type: ["number", "null"]
+        kind:
+          type: string
+          enum: [select, reject, marker]
+        note:
+          type: ["string", "null"]
+        source:
+          type: string
+          enum: [editor, ai]
+        created_at:
+          type: string
+
+    MarkerInput:
+      type: object
+      required: [time]
+      properties:
+        time:
+          type: number
+        end_time:
+          type: ["number", "null"]
+        kind:
+          type: string
+          enum: [select, reject, marker]
+          default: marker
+        note:
+          type: string
 
     KeyMoment:
       type: object
@@ -2992,6 +3098,9 @@ components:
           type: ["string", "null"]
         project_id:
           type: ["string", "null"]
+        locked:
+          type: boolean
+          default: false
         created_at:
           type: string
         clips:
@@ -3033,6 +3142,8 @@ components:
           type: string
         project_id:
           type: ["string", "null"]
+        locked:
+          type: boolean
         clips:
           type: array
           items:

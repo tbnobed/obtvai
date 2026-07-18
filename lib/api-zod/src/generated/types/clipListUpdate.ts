@@ -12,5 +12,6 @@ export interface ClipListUpdate {
   description?: string;
   /** @nullable */
   project_id?: string | null;
+  locked?: boolean;
   clips?: ClipListUpdateClipsItem[];
 }

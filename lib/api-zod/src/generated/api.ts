@@ -83,6 +83,7 @@ export const ListMediaResponse = zod.object({
 })),
   "generated_at": zod.string().nullish()
 }),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
+  "qc_flags": zod.record(zod.string(), zod.unknown()).nullish().describe('Technical QC results (audio clipping, silence, black frames)'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),
@@ -159,6 +160,7 @@ export const IngestMediaResponse = zod.object({
 })),
   "generated_at": zod.string().nullish()
 }),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
+  "qc_flags": zod.record(zod.string(), zod.unknown()).nullish().describe('Technical QC results (audio clipping, silence, black frames)'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),
@@ -233,6 +235,7 @@ export const UploadMediaResponse = zod.object({
 })),
   "generated_at": zod.string().nullish()
 }),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
+  "qc_flags": zod.record(zod.string(), zod.unknown()).nullish().describe('Technical QC results (audio clipping, silence, black frames)'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),
@@ -306,6 +309,7 @@ export const GetMediaResponse = zod.object({
 })),
   "generated_at": zod.string().nullish()
 }),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
+  "qc_flags": zod.record(zod.string(), zod.unknown()).nullish().describe('Technical QC results (audio clipping, silence, black frames)'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),
@@ -344,6 +348,65 @@ export const GetMediaScenesResponseItem = zod.object({
   "embedding_id": zod.string().nullish()
 })
 export const GetMediaScenesResponse = zod.array(GetMediaScenesResponseItem)
+
+
+/**
+ * @summary List editor markers/selects for a media asset
+ */
+export const ListMarkersParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListMarkersResponseItem = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "time": zod.number(),
+  "end_time": zod.number().nullish(),
+  "kind": zod.enum(['select', 'reject', 'marker']),
+  "note": zod.string().nullish(),
+  "source": zod.enum(['editor', 'ai']),
+  "created_at": zod.string()
+})
+export const ListMarkersResponse = zod.array(ListMarkersResponseItem)
+
+
+/**
+ * @summary Add a marker/select/reject at a timecode
+ */
+export const CreateMarkerParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const createMarkerBodyKindDefault = `marker`;
+
+export const CreateMarkerBody = zod.object({
+  "time": zod.number(),
+  "end_time": zod.number().nullish(),
+  "kind": zod.enum(['select', 'reject', 'marker']).default(createMarkerBodyKindDefault),
+  "note": zod.string().optional()
+})
+
+export const CreateMarkerResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "time": zod.number(),
+  "end_time": zod.number().nullish(),
+  "kind": zod.enum(['select', 'reject', 'marker']),
+  "note": zod.string().nullish(),
+  "source": zod.enum(['editor', 'ai']),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Delete a marker
+ */
+export const DeleteMarkerParams = zod.object({
+  "id": zod.coerce.string(),
+  "marker_id": zod.coerce.string()
+})
+
+export const DeleteMarkerResponse = zod.void()
 
 
 /**
@@ -723,6 +786,7 @@ export const GetLibraryStatsResponse = zod.object({
 })),
   "generated_at": zod.string().nullish()
 }),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
+  "qc_flags": zod.record(zod.string(), zod.unknown()).nullish().describe('Technical QC results (audio clipping, silence, black frames)'),
   "key_moments": zod.array(zod.object({
   "time": zod.number().describe('Timecode in seconds'),
   "title": zod.string(),
@@ -1652,11 +1716,14 @@ export const ListClipListsQueryParams = zod.object({
   "project_id": zod.coerce.string().optional().describe('Only clip lists linked to this project')
 })
 
+export const listClipListsResponseLockedDefault = false;
+
 export const ListClipListsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "description": zod.string().nullish(),
   "project_id": zod.string().nullish(),
+  "locked": zod.boolean().default(listClipListsResponseLockedDefault),
   "created_at": zod.string(),
   "clips": zod.array(zod.object({
   "id": zod.string(),
@@ -1686,11 +1753,14 @@ export const CreateClipListBody = zod.object({
 })).optional()
 })
 
+export const createClipListResponseLockedDefault = false;
+
 export const CreateClipListResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "description": zod.string().nullish(),
   "project_id": zod.string().nullish(),
+  "locked": zod.boolean().default(createClipListResponseLockedDefault),
   "created_at": zod.string(),
   "clips": zod.array(zod.object({
   "id": zod.string(),
@@ -1711,11 +1781,14 @@ export const GetClipListParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const getClipListResponseLockedDefault = false;
+
 export const GetClipListResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "description": zod.string().nullish(),
   "project_id": zod.string().nullish(),
+  "locked": zod.boolean().default(getClipListResponseLockedDefault),
   "created_at": zod.string(),
   "clips": zod.array(zod.object({
   "id": zod.string(),
@@ -1740,6 +1813,7 @@ export const UpdateClipListBody = zod.object({
   "name": zod.string().optional(),
   "description": zod.string().optional(),
   "project_id": zod.string().nullish(),
+  "locked": zod.boolean().optional(),
   "clips": zod.array(zod.object({
   "media_id": zod.string(),
   "start_time": zod.number(),
@@ -1748,11 +1822,14 @@ export const UpdateClipListBody = zod.object({
 })).optional()
 })
 
+export const updateClipListResponseLockedDefault = false;
+
 export const UpdateClipListResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "description": zod.string().nullish(),
   "project_id": zod.string().nullish(),
+  "locked": zod.boolean().default(updateClipListResponseLockedDefault),
   "created_at": zod.string(),
   "clips": zod.array(zod.object({
   "id": zod.string(),

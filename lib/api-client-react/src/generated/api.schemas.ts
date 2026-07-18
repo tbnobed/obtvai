@@ -46,6 +46,12 @@ export interface SocialScore {
   hashtags?: string[] | null;
 }
 
+/**
+ * Technical QC results (audio clipping, silence, black frames)
+ * @nullable
+ */
+export type MediaAssetQcFlags = { [key: string]: unknown } | null;
+
 export interface StoryBeat {
   /** Timecode in seconds */
   time: number;
@@ -178,6 +184,11 @@ export interface MediaAsset {
   /** Creative editor pass — story beats, clip suggestions, editorial notes */
   creative?: CreativeAnalysis | null;
   /**
+     * Technical QC results (audio clipping, silence, black frames)
+     * @nullable
+     */
+  qc_flags?: MediaAssetQcFlags;
+  /**
      * AI-detected key moments with timecodes
      * @nullable
      */
@@ -190,6 +201,53 @@ export interface MediaAsset {
   created_at: string;
   /** @nullable */
   updated_at?: string | null;
+}
+
+export type MarkerKind = typeof MarkerKind[keyof typeof MarkerKind];
+
+
+export const MarkerKind = {
+  select: 'select',
+  reject: 'reject',
+  marker: 'marker',
+} as const;
+
+export type MarkerSource = typeof MarkerSource[keyof typeof MarkerSource];
+
+
+export const MarkerSource = {
+  editor: 'editor',
+  ai: 'ai',
+} as const;
+
+export interface Marker {
+  id: string;
+  media_id: string;
+  time: number;
+  /** @nullable */
+  end_time?: number | null;
+  kind: MarkerKind;
+  /** @nullable */
+  note?: string | null;
+  source: MarkerSource;
+  created_at: string;
+}
+
+export type MarkerInputKind = typeof MarkerInputKind[keyof typeof MarkerInputKind];
+
+
+export const MarkerInputKind = {
+  select: 'select',
+  reject: 'reject',
+  marker: 'marker',
+} as const;
+
+export interface MarkerInput {
+  time: number;
+  /** @nullable */
+  end_time?: number | null;
+  kind?: MarkerInputKind;
+  note?: string;
 }
 
 export interface MediaListResponse {
@@ -797,6 +855,7 @@ export interface ClipList {
   description?: string | null;
   /** @nullable */
   project_id?: string | null;
+  locked?: boolean;
   created_at: string;
   clips: Clip[];
 }
@@ -828,6 +887,7 @@ export interface ClipListUpdate {
   description?: string;
   /** @nullable */
   project_id?: string | null;
+  locked?: boolean;
   clips?: ClipListUpdateClipsItem[];
 }
 

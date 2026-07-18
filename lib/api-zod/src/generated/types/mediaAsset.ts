@@ -7,6 +7,7 @@
  */
 import type { CreativeAnalysis } from './creativeAnalysis';
 import type { KeyMoment } from './keyMoment';
+import type { MediaAssetQcFlags } from './mediaAssetQcFlags';
 import type { SocialScore } from './socialScore';
 
 export interface MediaAsset {
@@ -73,6 +74,11 @@ export interface MediaAsset {
   synopsis?: string | null;
   /** Creative editor pass — story beats, clip suggestions, editorial notes */
   creative?: CreativeAnalysis | null;
+  /**
+     * Technical QC results (audio clipping, silence, black frames)
+     * @nullable
+     */
+  qc_flags?: MediaAssetQcFlags;
   /**
      * AI-detected key moments with timecodes
      * @nullable

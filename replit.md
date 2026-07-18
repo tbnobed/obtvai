@@ -68,6 +68,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 - `BASE_PATH` env var must be set when running `pnpm build` manually (handled automatically by workflows)
 - After changing `EMBEDDINGS_MODEL` or `VISION_MODEL`, the search index must be rebuilt (Jobs page → "Rebuild Search Index" → `POST /search/reindex`); Qdrant collections auto-recreate on dim mismatch
 - FaceNet/pyannote-3.1-era embeddings don't match the new ArcFace/community-1 stack — run People → "Re-analyze Library" after upgrading
+- Picture lock: `ClipList.locked` — API returns 423 on clip/delete mutations while locked; toggle `locked` via PATCH first (the lock field itself is always writable)
+- QC flags run automatically at ingest (worker `qc` task, CPU queue: volumedetect + blackdetect → `media_assets.qc_flags` JSONB)
 - Second media source: `MEDIA_PATH_2` mounts at `/media2` inside containers (NOT nested under the read-only `/media` — Docker cannot create a mountpoint inside a ro mount); watcher uses PollingObserver (inotify doesn't fire on SMB/NFS) + startup scan; `POST /media` dedupes by `original_path`
 
 ## Pointers

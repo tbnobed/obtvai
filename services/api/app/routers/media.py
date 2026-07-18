@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, delete
 from ..database import get_db
 from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, ProcessingJob, Person, PersonAppearance
 from ..schemas import (
@@ -14,6 +14,7 @@ from ..schemas import (
     SocialCutsRequestIn, RenderJobOut,
     ClipExportResult, TightenInput, TightenCut, TightenResult,
     RoughCutInput, ReelJobOut, ResumeStalledOut,
+    MarkerOut, MarkerInput,
 )
 from ..models import ClipList, Clip, ReelJob
 from ..config import settings
@@ -176,6 +177,47 @@ async def resume_stalled_media(db: AsyncSession = Depends(get_db)):
         jobs_created=jobs_created,
         assets_marked_ready=assets_marked_ready,
     )
+
+
+@router.get("/{id}/markers", response_model=list[MarkerOut])
+async def list_markers(id: str, db: AsyncSession = Depends(get_db)):
+    from ..models import Marker
+    rows = (
+        await db.execute(select(Marker).where(Marker.media_id == id).order_by(Marker.time))
+    ).scalars().all()
+    return [MarkerOut.model_validate(m) for m in rows]
+
+
+@router.post("/{id}/markers", response_model=MarkerOut, status_code=201)
+async def create_marker(id: str, body: MarkerInput, db: AsyncSession = Depends(get_db)):
+    from ..models import Marker
+    asset = await db.get(MediaAsset, id)
+    if not asset:
+        raise HTTPException(404, "Media not found")
+    if body.kind not in ("select", "reject", "marker"):
+        raise HTTPException(422, "kind must be select, reject, or marker")
+    m = Marker(
+        media_id=id,
+        time=max(0.0, body.time),
+        end_time=body.end_time,
+        kind=body.kind,
+        note=(body.note or None),
+        source="editor",
+    )
+    db.add(m)
+    await db.commit()
+    await db.refresh(m)
+    return MarkerOut.model_validate(m)
+
+
+@router.delete("/{id}/markers/{marker_id}", status_code=204)
+async def delete_marker(id: str, marker_id: str, db: AsyncSession = Depends(get_db)):
+    from ..models import Marker
+    m = await db.get(Marker, marker_id)
+    if not m or m.media_id != id:
+        raise HTTPException(404, "Marker not found")
+    await db.delete(m)
+    await db.commit()
 
 
 @router.get("", response_model=MediaListResponse)
@@ -347,6 +389,9 @@ async def delete_media(id: str, db: AsyncSession = Depends(get_db)):
     if not asset:
         raise HTTPException(status_code=404, detail="Media not found")
     original_path = asset.original_path
+    # Explicit cleanup in case the markers table predates the CASCADE FK.
+    from ..models import Marker
+    await db.execute(delete(Marker).where(Marker.media_id == id))
     await db.delete(asset)
     await db.commit()
 

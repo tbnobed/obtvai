@@ -14,6 +14,7 @@ export interface ClipList {
   description?: string | null;
   /** @nullable */
   project_id?: string | null;
+  locked?: boolean;
   created_at: string;
   clips: Clip[];
 }

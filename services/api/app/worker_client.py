@@ -39,6 +39,7 @@ async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: d
         "transcribe": ("gpu", "tasks.transcribe.transcribe_audio"),
         "diarize": ("gpu", "tasks.diarize.run_diarization"),
         "scene_detect": ("cpu", "tasks.scene_detect.detect_scenes"),
+        "qc": ("cpu", "tasks.qc.run_qc"),
         "visual_embed": ("gpu", "tasks.visual_embed.embed_scenes"),
         "face_detect": ("gpu", "tasks.face_detect.detect_faces"),
         "index": ("cpu", "tasks.index.build_index"),

@@ -34,6 +34,7 @@ class MediaAsset(Base):
     translated_languages: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     dubbed_languages: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     speaker_embeddings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    qc_flags: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     synopsis: Mapped[str | None] = mapped_column(Text, nullable=True)
     creative: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     key_moments: Mapped[list | None] = mapped_column(JSONB, nullable=True)
@@ -45,6 +46,20 @@ class MediaAsset(Base):
     transcript_segments: Mapped[list["TranscriptSegment"]] = relationship("TranscriptSegment", back_populates="asset", cascade="all, delete-orphan")
     face_clusters: Mapped[list["FaceCluster"]] = relationship("FaceCluster", back_populates="asset", cascade="all, delete-orphan")
     jobs: Mapped[list["ProcessingJob"]] = relationship("ProcessingJob", back_populates="asset", cascade="all, delete-orphan")
+
+
+class Marker(Base):
+    """Editor selects/rejects and timecoded notes (plus AI-suggested beats)."""
+    __tablename__ = "markers"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    media_id: Mapped[str] = mapped_column(String, ForeignKey("media_assets.id", ondelete="CASCADE"), nullable=False)
+    time: Mapped[float] = mapped_column(Float, nullable=False)
+    end_time: Mapped[float | None] = mapped_column(Float, nullable=True)
+    kind: Mapped[str] = mapped_column(String, default="marker")  # select | reject | marker
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String, default="editor")  # editor | ai
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Scene(Base):
@@ -306,6 +321,7 @@ class ClipList(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     project_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    locked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     clips: Mapped[list["Clip"]] = relationship("Clip", back_populates="clip_list", cascade="all, delete-orphan", order_by="Clip.position")

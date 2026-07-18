@@ -145,6 +145,7 @@ async def _build_clip_list_out(cl: ClipList, db: AsyncSession) -> ClipListOut:
         name=cl.name,
         description=cl.description,
         project_id=cl.project_id,
+        locked=cl.locked,
         created_at=cl.created_at,
         clips=clip_outs,
     )
@@ -199,6 +200,16 @@ async def get_clip_list(id: str, db: AsyncSession = Depends(get_db)):
 @router.patch("/{id}", response_model=ClipListOut)
 async def update_clip_list(id: str, body: ClipListUpdate, db: AsyncSession = Depends(get_db)):
     cl = await _load_clip_list(id, db)
+    if "locked" in body.model_fields_set and body.locked is not None:
+        cl.locked = body.locked
+    mutating = (
+        body.name is not None
+        or body.description is not None
+        or "project_id" in body.model_fields_set
+        or body.clips is not None
+    )
+    if cl.locked and mutating and not ("locked" in body.model_fields_set and body.locked is False):
+        raise HTTPException(423, "Clip list is picture-locked. Unlock it to make changes.")
     if body.name is not None:
         cl.name = body.name
     if body.description is not None:
@@ -229,6 +240,8 @@ async def update_clip_list(id: str, body: ClipListUpdate, db: AsyncSession = Dep
 @router.delete("/{id}", status_code=204)
 async def delete_clip_list(id: str, db: AsyncSession = Depends(get_db)):
     cl = await _load_clip_list(id, db)
+    if cl.locked:
+        raise HTTPException(423, "Clip list is picture-locked. Unlock it to delete.")
     await db.delete(cl)
     await db.commit()
 

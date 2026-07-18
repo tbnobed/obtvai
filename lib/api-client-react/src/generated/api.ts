@@ -46,6 +46,8 @@ import type {
   ListReelsParams,
   ListRendersParams,
   ListStoriesParams,
+  Marker,
+  MarkerInput,
   MediaAsset,
   MediaIngestInput,
   MediaListResponse,
@@ -654,6 +656,228 @@ export function useGetMediaScenes<TData = Awaited<ReturnType<typeof getMediaScen
 
 
 
+
+export const getListMarkersUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/markers`
+}
+
+/**
+ * @summary List editor markers/selects for a media asset
+ */
+export const listMarkers = async (id: string, options?: RequestInit): Promise<Marker[]> => {
+
+  return customFetch<Marker[]>(getListMarkersUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMarkersQueryKey = (id: string,) => {
+    return [
+    `/api/media/${id}/markers`
+    ] as const;
+    }
+
+
+export const getListMarkersQueryOptions = <TData = Awaited<ReturnType<typeof listMarkers>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMarkers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMarkersQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMarkers>>> = ({ signal }) => listMarkers(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMarkers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMarkersQueryResult = NonNullable<Awaited<ReturnType<typeof listMarkers>>>
+export type ListMarkersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List editor markers/selects for a media asset
+ */
+
+export function useListMarkers<TData = Awaited<ReturnType<typeof listMarkers>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMarkers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMarkersQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateMarkerUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/markers`
+}
+
+/**
+ * @summary Add a marker/select/reject at a timecode
+ */
+export const createMarker = async (id: string,
+    markerInput: MarkerInput, options?: RequestInit): Promise<Marker> => {
+
+  return customFetch<Marker>(getCreateMarkerUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(markerInput)
+  }
+);}
+
+
+
+
+
+export const getCreateMarkerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMarker>>, TError,{id: string;data: BodyType<MarkerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createMarker>>, TError,{id: string;data: BodyType<MarkerInput>}, TContext> => {
+
+const mutationKey = ['createMarker'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMarker>>, {id: string;data: BodyType<MarkerInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createMarker(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateMarkerMutationResult = NonNullable<Awaited<ReturnType<typeof createMarker>>>
+    export type CreateMarkerMutationBody = BodyType<MarkerInput>
+    export type CreateMarkerMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a marker/select/reject at a timecode
+ */
+export const useCreateMarker = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMarker>>, TError,{id: string;data: BodyType<MarkerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createMarker>>,
+        TError,
+        {id: string;data: BodyType<MarkerInput>},
+        TContext
+      > => {
+      return useMutation(getCreateMarkerMutationOptions(options));
+    }
+
+export const getDeleteMarkerUrl = (id: string,
+    markerId: string,) => {
+
+
+
+
+  return `/api/media/${id}/markers/${markerId}`
+}
+
+/**
+ * @summary Delete a marker
+ */
+export const deleteMarker = async (id: string,
+    markerId: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteMarkerUrl(id,markerId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteMarkerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMarker>>, TError,{id: string;markerId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMarker>>, TError,{id: string;markerId: string}, TContext> => {
+
+const mutationKey = ['deleteMarker'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMarker>>, {id: string;markerId: string}> = (props) => {
+          const {id,markerId} = props ?? {};
+
+          return  deleteMarker(id,markerId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMarkerMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMarker>>>
+
+    export type DeleteMarkerMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a marker
+ */
+export const useDeleteMarker = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMarker>>, TError,{id: string;markerId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMarker>>,
+        TError,
+        {id: string;markerId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteMarkerMutationOptions(options));
+    }
 
 export const getGetMediaTranscriptUrl = (id: string,
     params?: GetMediaTranscriptParams,) => {
