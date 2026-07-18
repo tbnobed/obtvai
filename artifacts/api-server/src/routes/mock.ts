@@ -423,9 +423,12 @@ router.get("/media", (req, res) => {
   if (status) items = items.filter((a) => a.status === status);
   const search = String(req.query.search ?? "").trim().toLowerCase();
   if (search) {
+    const fields = (a: (typeof assets)[number]) =>
+      search.includes("/")
+        ? [a.filename, (a as any).title, a.original_path]
+        : [a.filename, (a as any).title];
     items = items.filter((a) =>
-      [a.filename, (a as any).title, a.original_path]
-        .some((v) => typeof v === "string" && v.toLowerCase().includes(search)),
+      fields(a).some((v) => typeof v === "string" && v.toLowerCase().includes(search)),
     );
   }
   const sort = String(req.query.sort ?? "created_desc");
