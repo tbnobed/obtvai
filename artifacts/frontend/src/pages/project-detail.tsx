@@ -65,6 +65,7 @@ import {
 import { RefineTab } from "@/components/project/refine-tab";
 import { ClipThumb } from "@/components/project/clip-thumb";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
   { format: "edl", label: "EDL", hint: "CMX3600 edit decision list" },
@@ -428,9 +429,16 @@ export default function ProjectDetail() {
   const [pubTitle, setPubTitle] = useState("");
   const [pubDescription, setPubDescription] = useState("");
   const [pubPrivacy, setPubPrivacy] = useState<"public" | "unlisted" | "private">("unlisted");
-  const deleteStoryMutation = useDeleteStory();
-  const deleteReelMutation = useDeleteReel();
-  const deleteRenderMutation = useDeleteRender();
+  const { toast } = useToast();
+  const deleteError = (what: string) => (err: unknown) =>
+    toast({
+      variant: "destructive",
+      title: `Couldn't delete the ${what}`,
+      description: err instanceof Error ? err.message : "Unknown error — check the API logs.",
+    });
+  const deleteStoryMutation = useDeleteStory({ mutation: { onError: deleteError("story") } });
+  const deleteReelMutation = useDeleteReel({ mutation: { onError: deleteError("reel") } });
+  const deleteRenderMutation = useDeleteRender({ mutation: { onError: deleteError("render") } });
 
   const submitRender = () => {
     if (!renderTarget) return;
