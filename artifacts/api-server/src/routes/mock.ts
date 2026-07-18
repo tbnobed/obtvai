@@ -592,8 +592,9 @@ router.post("/jobs/cleanup", (req, res) => {
   res.json({ deleted });
 });
 
-router.get("/jobs", (_req, res) => {
-  res.json(jobs);
+router.get("/jobs", (req, res) => {
+  const status = req.query.status as string | undefined;
+  res.json(status ? jobs.filter((j: any) => j.status === status) : jobs);
 });
 
 router.get("/jobs/stats", (_req, res) => {

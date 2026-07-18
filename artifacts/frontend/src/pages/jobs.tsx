@@ -7,7 +7,8 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export default function Jobs() {
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const { data: jobs, isLoading } = useListJobs(undefined, { query: { queryKey: getListJobsQueryKey(), refetchInterval: 3000 } });
+  const listParams = statusFilter ? { status: statusFilter } : undefined;
+  const { data: jobs, isLoading } = useListJobs(listParams, { query: { queryKey: getListJobsQueryKey(listParams), refetchInterval: 3000 } });
   const { data: stats } = useGetJobStats({ query: { queryKey: getGetJobStatsQueryKey(), refetchInterval: 5000 } });
   const retryMutation = useRetryJob();
   const cancelMutation = useCancelJob();
@@ -46,7 +47,7 @@ export default function Jobs() {
     );
   };
 
-  const filtered = statusFilter ? jobs?.filter(j => j.status === statusFilter) : jobs;
+  const filtered = jobs;
   const finishedCount = jobs?.filter(j => j.status === "success" || j.status === "error" || j.status === "cancelled").length ?? 0;
   const errorCount = jobs?.filter(j => j.status === "error").length ?? 0;
 
