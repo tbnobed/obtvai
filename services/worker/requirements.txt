@@ -32,3 +32,12 @@ flower==2.0.1
 google-api-python-client==2.156.0
 google-auth==2.37.0
 google-auth-oauthlib==1.2.1
+# Pinned transitive deps to stop pip resolver backtracking
+torchcodec==0.7.0
+huggingface-hub==0.36.2
+kombu==5.4.2
+amqp==5.3.1
+vine==5.1.0
+billiard==4.2.1
+grpcio==1.68.1
+protobuf==5.28.3

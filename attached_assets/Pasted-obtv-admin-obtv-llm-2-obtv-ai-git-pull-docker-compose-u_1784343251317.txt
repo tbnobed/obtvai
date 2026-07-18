@@ -1,0 +1,82 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull && docker compose up -d --build api watcher worker-cpu worker-gpu worker-gpu-2
+remote: Enumerating objects: 12, done.
+remote: Counting objects: 100% (12/12), done.
+remote: Compressing objects: 100% (2/2), done.
+remote: Total 7 (delta 5), reused 7 (delta 5), pack-reused 0 (from 0)
+Unpacking objects: 100% (7/7), 1.58 KiB | 135.00 KiB/s, done.
+From https://github.com/tbnobed/obtvai
+   7915b53..77e0c93  main       -> origin/main
+Updating 7915b53..77e0c93
+Fast-forward
+ attached_assets/Pasted-8-67-ERROR-Cannot-install-r-requirements-txt-line-10-r-_1784337601159.txt | 40 ++++++++++++++++++++++++++++++++++++++++
+ services/worker/requirements.txt                                                                 |  6 +++---
+ 2 files changed, 43 insertions(+), 3 deletions(-)
+ create mode 100644 attached_assets/Pasted-8-67-ERROR-Cannot-install-r-requirements-txt-line-10-r-_1784337601159.txt
+[+] Building 5586.6s (34/38)
+ => [internal] load local bake definitions                                                                                                                                 0.0s
+ => => reading from stdin 2.36kB                                                                                                                                           0.0s
+ => [watcher internal] load build definition from Dockerfile                                                                                                               0.0s
+ => => transferring dockerfile: 228B                                                                                                                                       0.0s
+ => [worker-gpu internal] load build definition from Dockerfile                                                                                                            0.0s
+ => => transferring dockerfile: 2.35kB                                                                                                                                     0.0s
+ => [api internal] load build definition from Dockerfile                                                                                                                   0.0s
+ => => transferring dockerfile: 618B                                                                                                                                       0.0s
+ => [watcher internal] load metadata for docker.io/library/python:3.11-slim                                                                                                0.4s
+ => [worker-gpu internal] load metadata for docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04                                                                         0.0s
+ => [worker-cpu internal] load .dockerignore                                                                                                                               0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [worker-cpu internal] load build context                                                                                                                               0.0s
+ => => transferring context: 1.85kB                                                                                                                                        0.0s
+ => [worker-cpu  3/11] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz /tmp/ffmpeg.tar.xz                     0.3s
+ => [worker-cpu  1/11] FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                 0.0s
+ => => resolve docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                              0.0s
+ => CACHED [worker-gpu-2  2/11] RUN apt-get update && apt-get install -y --no-install-recommends     python3.11     python3.11-dev     python3-pip     ffmpeg     libpq-d  0.0s
+ => CACHED [worker-gpu-2  3/11] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz /tmp/ffmpeg.tar.xz            0.0s
+ => CACHED [worker-gpu-2  4/11] RUN tar -xf /tmp/ffmpeg.tar.xz -C /tmp     && cp /tmp/ffmpeg-n8.1-latest-linux64-gpl-8.1/bin/ffmpeg /usr/local/bin/ffmpeg     && cp /tmp/  0.0s
+ => CACHED [worker-gpu-2  5/11] RUN ln -s /usr/bin/python3.11 /usr/bin/python                                                                                              0.0s
+ => CACHED [worker-gpu-2  6/11] WORKDIR /worker                                                                                                                            0.0s
+ => [worker-gpu-2  7/11] COPY requirements.txt .                                                                                                                           0.0s
+ => [worker-gpu  8/11] RUN pip install --no-cache-dir -r requirements.txt                                                                                               5586.1s
+ => => # INFO: This is taking longer than usual. You might need to provide the dependency resolver with stricter constraints to reduce runtime. See https://pip.pypa.io/warning
+ => => # s/backtracking for guidance. If you want to abort this run, press Ctrl + C.
+ => => # INFO: pip is looking at multiple versions of grpcio to determine which version is compatible with other requirements. This could take a while.
+ => => # Collecting grpcio>=1.41.0
+ => => #   Downloading grpcio-1.81.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (6.8 MB)
+ => => #      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.8/6.8 MB 94.4 MB/s eta 0:00:00
+ => [watcher internal] load .dockerignore                                                                                                                                  0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [api internal] load .dockerignore                                                                                                                                      0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [watcher 1/6] FROM docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                          0.0s
+ => => resolve docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                                  0.0s
+ => [api internal] load build context                                                                                                                                      0.0s
+ => => transferring context: 1.11kB                                                                                                                                        0.0s
+ => [watcher internal] load build context                                                                                                                                  0.0s
+ => => transferring context: 67B                                                                                                                                           0.0s
+ => CACHED [watcher 2/5] WORKDIR /watcher                                                                                                                                  0.0s
+ => CACHED [watcher 3/5] COPY requirements.txt .                                                                                                                           0.0s
+ => CACHED [watcher 4/5] RUN pip install --no-cache-dir -r requirements.txt                                                                                                0.0s
+ => CACHED [watcher 5/5] COPY watcher.py .                                                                                                                                 0.0s
+ => CACHED [api 2/6] RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libpq-dev     gcc     curl     && rm -rf /var/lib/apt/lists/*         0.0s
+ => CACHED [api 3/6] WORKDIR /app                                                                                                                                          0.0s
+ => CACHED [api 4/6] COPY requirements.txt .                                                                                                                               0.0s
+ => CACHED [api 5/6] RUN pip install --no-cache-dir -r requirements.txt                                                                                                    0.0s
+ => CACHED [api 6/6] COPY app/ ./app/                                                                                                                                      0.0s
+ => [watcher] exporting to image                                                                                                                                           0.1s
+ => => exporting layers                                                                                                                                                    0.0s
+ => => exporting manifest sha256:2bd59e016e3cbdfc118129c41da03e3097772b467349978d6d4f47bf8ceb9632                                                                          0.0s
+ => => exporting config sha256:9a31e193e9adec04b9e666675ce70f53598afac2585792321de756febca5a345                                                                            0.0s
+ => => exporting attestation manifest sha256:a8c418330d85600d651dc71b41100d0f11e9f0d39893bd1a22e0feafd18d97e4                                                              0.0s
+ => => exporting manifest list sha256:c687505c547eadd6a82b0ae198dbe3ed81dab2f41b4e2deee3bf4a3c98d9ce9f                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-watcher:latest                                                                                                                  0.0s
+ => => unpacking to docker.io/library/obtv-ai-watcher:latest                                                                                                               0.0s
+ => [api] exporting to image                                                                                                                                               0.1s
+ => => exporting layers                                                                                                                                                    0.0s
+ => => exporting manifest sha256:5d69e4ef1703acd8272e7a5930bd3a24db0ee27fd123a1769a364fbf0cc4ab09                                                                          0.0s
+ => => exporting config sha256:5155fa86cecabe7132646f6aa08cda7a330f65e95a86f9568eaee14a0a195e3a                                                                            0.0s
+ => => exporting attestation manifest sha256:022faaf917279024e16b29c35e416c8b5595ec912d98c8f705be89cd6dce477c                                                              0.0s
+ => => exporting manifest list sha256:a62aed4a9b6bf29721d0a2495b76a79434e0e364b28ac13b1b80b2ce1d2f56fd                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-api:latest                                                                                                                      0.0s
+ => => unpacking to docker.io/library/obtv-ai-api:latest                                                                                                                   0.0s
+ => [watcher] resolving provenance for metadata file                                                                                                                       0.0s
+ => [api] resolving provenance for metadata file                                                                                                                           0.0s
