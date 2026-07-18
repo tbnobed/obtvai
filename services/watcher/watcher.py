@@ -13,10 +13,10 @@ from watchdog.events import FileSystemEventHandler
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("watcher")
 
-# Colon-separated list of roots (MEDIA_ROOTS="/media:/media/nas").
+# Colon-separated list of roots (MEDIA_ROOTS="/media:/media2").
 # Falls back to the single MEDIA_ROOT for backwards compatibility.
-# Note: /media/nas is nested inside /media in docker-compose, so watching
-# /media alone covers both — extra roots matter only for non-nested mounts.
+# Each root is watched independently (docker-compose sets MEDIA_ROOTS for
+# the watcher; the second source is mounted at /media2, not nested).
 MEDIA_ROOTS = [
     p for p in os.getenv("MEDIA_ROOTS", os.getenv("MEDIA_ROOT", "/media")).split(":") if p
 ]

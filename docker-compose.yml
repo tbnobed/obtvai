@@ -106,7 +106,7 @@ services:
       <<: *python-env
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
-      - "${MEDIA_PATH_2:-./sample_media_2}:/media/nas:ro"
+      - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
@@ -139,7 +139,7 @@ services:
       <<: *python-env
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
-      - "${MEDIA_PATH_2:-./sample_media_2}:/media/nas:ro"
+      - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
@@ -168,7 +168,7 @@ services:
       <<: *python-env
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
-      - "${MEDIA_PATH_2:-./sample_media_2}:/media/nas:ro"
+      - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
@@ -200,7 +200,7 @@ services:
       NVIDIA_DRIVER_CAPABILITIES: all
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
-      - "${MEDIA_PATH_2:-./sample_media_2}:/media/nas:ro"
+      - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
@@ -219,9 +219,10 @@ services:
     environment:
       <<: *python-env
       API_URL: "http://api:8000/api"
+      MEDIA_ROOTS: "/media:/media2"
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
-      - "${MEDIA_PATH_2:-./sample_media_2}:/media/nas:ro"
+      - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
     depends_on:
       api:
         condition: service_healthy
