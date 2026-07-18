@@ -66,6 +66,13 @@ services:
   qdrant:
     image: qdrant/qdrant:v1.12.4
     restart: unless-stopped
+    # Each RocksDB segment holds log/sst files open; a large library plus
+    # heavy parallel ingest blows through the default 1024 fd limit
+    # ("Too many open files" -> health check fails, upserts time out).
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - qdrant_data:/qdrant/storage
     ports:
