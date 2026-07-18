@@ -45,6 +45,8 @@ _COLUMN_MIGRATIONS = [
     ("render_jobs", "publish_stats", "JSONB"),
     ("media_assets", "qc_flags", "JSONB"),
     ("clip_lists", "locked", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("clips", "approved", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("clips", "match_reason", "TEXT"),
 ]
 
 

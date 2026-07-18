@@ -7,8 +7,11 @@ import {
   useCreateProject,
   useUpdateProject,
   useDeleteProject,
+  useListMedia,
+  getListMediaQueryKey,
 } from "@workspace/api-client-react";
-import type { Project } from "@workspace/api-client-react";
+import type { Project, MediaAsset } from "@workspace/api-client-react";
+import { ClipThumb } from "@/components/project/clip-thumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +45,10 @@ export default function Projects() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { data: projects, isLoading } = useListProjects();
+  const mediaParams = { limit: 500 };
+  const { data: media } = useListMedia(mediaParams, {
+    query: { queryKey: getListMediaQueryKey(mediaParams) },
+  });
   const createMutation = useCreateProject();
   const updateMutation = useUpdateProject();
   const deleteMutation = useDeleteProject();
@@ -100,6 +107,12 @@ export default function Projects() {
   const archived = projects?.filter((p) => p.status === "archived") ?? [];
   const visible = showArchived ? archived : active;
 
+  const previewAssets = (p: Project): MediaAsset[] => {
+    const items = media?.items ?? [];
+    const pool = p.media_ids?.length ? items.filter((a) => p.media_ids!.includes(a.id)) : items;
+    return pool.slice(0, 4);
+  };
+
   const projectCard = (p: Project) => (
     <Card
       key={p.id}
@@ -146,6 +159,18 @@ export default function Projects() {
         </DropdownMenu>
       </CardHeader>
       <CardContent>
+        {previewAssets(p).length > 0 && (
+          <div className="flex gap-1.5 mb-3">
+            {previewAssets(p).map((a) => (
+              <ClipThumb key={a.id} url={a.thumbnail_url} className="h-12 w-20" />
+            ))}
+            {(p.media_ids?.length ?? 0) > 4 && (
+              <div className="flex h-12 w-10 items-center justify-center rounded bg-muted/60 text-xs text-muted-foreground">
+                +{p.media_ids!.length - 4}
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Scissors className="h-3.5 w-3.5" /> {p.counts.clip_lists} lists

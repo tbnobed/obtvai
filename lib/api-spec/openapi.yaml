@@ -3010,6 +3010,16 @@ components:
           type: ["string", "null"]
         notes:
           type: ["string", "null"]
+        approved:
+          type: boolean
+          default: false
+          description: Editor reviewed this beat in Refine and signed off
+        match_reason:
+          type: ["string", "null"]
+          description: Why this range was picked (search snippet / script-match line / story beat rationale)
+        thumbnail_url:
+          type: ["string", "null"]
+          description: Preview frame near the clip start (relative thumbnail path)
 
     # ── Projects ──────────────────────────────────────────────────────────────
     Project:
@@ -3132,6 +3142,12 @@ components:
                 type: number
               label:
                 type: string
+              notes:
+                type: ["string", "null"]
+              approved:
+                type: boolean
+              match_reason:
+                type: ["string", "null"]
 
     ClipListUpdate:
       type: object
@@ -3158,6 +3174,12 @@ components:
                 type: number
               label:
                 type: string
+              notes:
+                type: ["string", "null"]
+              approved:
+                type: boolean
+              match_reason:
+                type: ["string", "null"]
 
     # ── Renders & publishing ──────────────────────────────────────────────────
     RenderPresetInput:

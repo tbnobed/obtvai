@@ -17,4 +17,16 @@ export interface Clip {
   label?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** Editor reviewed this beat in Refine and signed off */
+  approved?: boolean;
+  /**
+     * Why this range was picked (search snippet / script-match line / story beat rationale)
+     * @nullable
+     */
+  match_reason?: string | null;
+  /**
+     * Preview frame near the clip start (relative thumbnail path)
+     * @nullable
+     */
+  thumbnail_url?: string | null;
 }

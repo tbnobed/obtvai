@@ -385,11 +385,26 @@ const clipLists = [
     locked: false,
     created_at: new Date(Date.now() - 7200000).toISOString(),
     clips: [
-      { id: "clip-001", media_id: "asset-001", filename: "interview_sarah_chen.mp4", start_time: 15.5, end_time: 71.3, label: "On local AI infrastructure", notes: null },
-      { id: "clip-002", media_id: "asset-001", filename: "interview_sarah_chen.mp4", start_time: 127.8, end_time: 180.0, label: "Q3 results discussion", notes: null },
+      { id: "clip-001", media_id: "asset-001", filename: "interview_sarah_chen.mp4", start_time: 15.5, end_time: 71.3, label: "On local AI infrastructure", notes: null, approved: true, match_reason: 'Matched search "local AI infrastructure" — strong semantic score, speaker emphasis peak', thumbnail_url: null },
+      { id: "clip-002", media_id: "asset-001", filename: "interview_sarah_chen.mp4", start_time: 127.8, end_time: 180.0, label: "Q3 results discussion", notes: null, approved: false, match_reason: 'Script line "cover the quarterly results" — transcript match on Q3 discussion', thumbnail_url: null },
     ],
   },
 ];
+
+function mapClipInput(c: any, i: number, now: number) {
+  return {
+    id: `clip-${now}-${i}`,
+    media_id: c.media_id,
+    filename: assets.find((a) => a.id === c.media_id)?.filename || "unknown",
+    start_time: c.start_time,
+    end_time: c.end_time,
+    label: c.label || null,
+    notes: c.notes ?? null,
+    approved: !!c.approved,
+    match_reason: c.match_reason ?? null,
+    thumbnail_url: assets.find((a) => a.id === c.media_id)?.thumbnail_url ?? null,
+  };
+}
 
 // ── Media ────────────────────────────────────────────────────────────────────
 router.get("/media/stats/summary", (_req, res) => {
@@ -1126,15 +1141,7 @@ router.post("/clips", (req, res) => {
     project_id: (req.body.project_id as string | null) || null,
     locked: false,
     created_at: new Date().toISOString(),
-    clips: (req.body.clips || []).map((c: any, i: number) => ({
-      id: `clip-${Date.now()}-${i}`,
-      media_id: c.media_id,
-      filename: assets.find((a) => a.id === c.media_id)?.filename || "unknown",
-      start_time: c.start_time,
-      end_time: c.end_time,
-      label: c.label || null,
-      notes: null,
-    })),
+    clips: (req.body.clips || []).map((c: any, i: number) => mapClipInput(c, i, Date.now())),
   };
   clipLists.unshift(newList);
   touchProject(newList.project_id);
@@ -1160,15 +1167,7 @@ router.patch("/clips/:id", (req, res) => {
   if (req.body.description !== undefined) cl.description = req.body.description;
   if (req.body.project_id !== undefined) cl.project_id = req.body.project_id;
   if (req.body.clips !== undefined) {
-    cl.clips = (req.body.clips || []).map((c: any, i: number) => ({
-      id: `clip-${Date.now()}-${i}`,
-      media_id: c.media_id,
-      filename: assets.find((a) => a.id === c.media_id)?.filename || "unknown",
-      start_time: c.start_time,
-      end_time: c.end_time,
-      label: c.label || null,
-      notes: null,
-    }));
+    cl.clips = (req.body.clips || []).map((c: any, i: number) => mapClipInput(c, i, Date.now()));
   }
   touchProject(cl.project_id);
   res.json(cl);
@@ -1672,6 +1671,9 @@ router.post("/media/:id/tighten", (req, res) => {
       end_time: Math.round(ke * 100) / 100,
       label: `Keep ${String(i + 1).padStart(2, "0")}`,
       notes: null,
+      approved: false,
+      match_reason: "Auto-tighten: kept speech segment between silence/filler cuts",
+      thumbnail_url: asset.thumbnail_url ?? null,
     })),
   };
   clipLists.unshift(newList as any);
@@ -1766,9 +1768,9 @@ function tickStory(s: MockStory) {
       const a = assets.find((x) => x.id === mid);
       const sugg = (a as any)?.creative?.clip_suggestions || [];
       const source = sugg.length
-        ? sugg.slice(0, 3).map((c: any) => ({ start: c.start, end: c.end, label: c.title }))
-        : transcript.filter((t) => t.media_id === mid).slice(0, 2).map((t) => ({ start: Math.max(0, t.start_time - 1), end: t.end_time + 1, label: t.text.slice(0, 60) }));
-      for (const c of source) picked.push({ media_id: mid, filename: a?.filename || "unknown.mp4", ...c });
+        ? sugg.slice(0, 3).map((c: any) => ({ start: c.start, end: c.end, label: c.title, reason: c.reason ? `Story beat: ${c.reason}` : "Story beat: strong clip suggestion from analysis" }))
+        : transcript.filter((t) => t.media_id === mid).slice(0, 2).map((t) => ({ start: Math.max(0, t.start_time - 1), end: t.end_time + 1, label: t.text.slice(0, 60), reason: `Transcript match: "${t.text.slice(0, 80)}…"` }));
+      for (const c of source) picked.push({ media_id: mid, filename: a?.filename || "unknown.mp4", thumbnail_url: a?.thumbnail_url ?? null, ...c });
     }
     const newList = {
       id: `cl-${Date.now()}`,
@@ -1780,6 +1782,7 @@ function tickStory(s: MockStory) {
         id: `clip-${Date.now()}-${i}`,
         media_id: c.media_id, filename: c.filename,
         start_time: c.start, end_time: c.end, label: c.label || null, notes: null,
+        approved: false, match_reason: c.reason || null, thumbnail_url: c.thumbnail_url ?? null,
       })),
     };
     clipLists.unshift(newList as any);

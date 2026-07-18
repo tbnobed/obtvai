@@ -60,8 +60,10 @@ import {
   ArrowLeft, Search, FileText, Scissors, BookOpen, Wand2, Clapperboard,
   Play, Download, Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown,
   Monitor, Smartphone, ChevronDown, Upload, Archive, ArchiveRestore,
-  ExternalLink, Lock, LockOpen,
+  ExternalLink, Lock, LockOpen, SlidersHorizontal, CheckCircle2,
 } from "lucide-react";
+import { RefineTab } from "@/components/project/refine-tab";
+import { ClipThumb } from "@/components/project/clip-thumb";
 
 const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
   { format: "edl", label: "EDL", hint: "CMX3600 edit decision list" },
@@ -82,6 +84,33 @@ function JobStatusBadge({ status }: { status: string }) {
     status === "success" ? "default" :
     status === "error" ? "destructive" : "secondary";
   return <Badge variant={variant} className="capitalize">{status}</Badge>;
+}
+
+function MediaStatusBadge({ status }: { status: string }) {
+  if (status === "ready") return null;
+  const cls = status === "error"
+    ? "text-red-400 border-red-500/40"
+    : "text-blue-400 border-blue-500/40";
+  return (
+    <Badge variant="outline" className={`shrink-0 text-[10px] px-1.5 py-0 capitalize ${cls}`}>
+      {status === "processing" || status === "pending" ? "indexing…" : status}
+    </Badge>
+  );
+}
+
+function ApprovalBadge({ list }: { list: ClipList }) {
+  if (!list.clips.length) return null;
+  const n = list.clips.filter((c) => c.approved).length;
+  const all = n === list.clips.length;
+  return (
+    <Badge
+      variant="outline"
+      className={`shrink-0 text-[10px] px-1.5 py-0 font-normal ${all ? "text-emerald-400 border-emerald-500/40" : "text-amber-500 border-amber-500/40"}`}
+      title={all ? "All beats approved in Refine" : "Review and approve the remaining beats in the Refine tab"}
+    >
+      {n}/{list.clips.length} approved
+    </Badge>
+  );
 }
 
 export default function ProjectDetail() {
@@ -105,8 +134,9 @@ export default function ProjectDetail() {
   const { data: renders } = useListRenders(listParams, {
     query: { queryKey: getListRendersQueryKey(listParams), refetchInterval: 5000 },
   });
-  const { data: media } = useListMedia(undefined, {
-    query: { queryKey: getListMediaQueryKey() },
+  const mediaParams = { limit: 500 };
+  const { data: media } = useListMedia(mediaParams, {
+    query: { queryKey: getListMediaQueryKey(mediaParams) },
   });
 
   const invalidateAll = () => {
@@ -203,6 +233,8 @@ export default function ProjectDetail() {
       start_time: r.start_time,
       end_time: r.end_time,
       label: r.snippet?.slice(0, 80) || r.filename,
+      approved: false,
+      match_reason: `${r.match_type === "visual" ? "Visual" : "Transcript"} match · ${(r.score * 100).toFixed(0)}%${r.snippet ? ` — “${r.snippet}”` : ""}`,
     }));
     const target = clipLists?.find((l) => l.id === targetListId);
     const done = () => {
@@ -222,6 +254,9 @@ export default function ProjectDetail() {
           start_time: c.start_time,
           end_time: c.end_time,
           label: c.label ?? undefined,
+          notes: c.notes ?? null,
+          approved: c.approved ?? false,
+          match_reason: c.match_reason ?? null,
         }));
       const clips = [...base, ...newClips];
       pendingClipsRef.current[target.id] = clips;
@@ -282,6 +317,9 @@ export default function ProjectDetail() {
         start_time: c.start_time,
         end_time: c.end_time,
         label: c.label ?? undefined,
+        notes: c.notes ?? null,
+        approved: c.approved ?? false,
+        match_reason: c.match_reason ?? null,
       })),
     }));
   };
@@ -562,10 +600,15 @@ export default function ProjectDetail() {
         <span className="flex items-center gap-1.5"><Clapperboard className="h-3.5 w-3.5" /> {stageCounts.delivered}/{stageCounts.renders} renders done</span>
       </div>
 
-      <Tabs defaultValue="find">
+      <Tabs defaultValue={
+        ["find", "assemble", "refine", "cut", "deliver"].includes(
+          new URLSearchParams(window.location.search).get("tab") ?? "",
+        ) ? (new URLSearchParams(window.location.search).get("tab") as string) : "find"
+      }>
         <TabsList className="mb-6">
           <TabsTrigger value="find"><Search className="h-4 w-4 mr-2" /> Find</TabsTrigger>
           <TabsTrigger value="assemble"><Scissors className="h-4 w-4 mr-2" /> Assemble</TabsTrigger>
+          <TabsTrigger value="refine"><SlidersHorizontal className="h-4 w-4 mr-2" /> Refine</TabsTrigger>
           <TabsTrigger value="cut"><Wand2 className="h-4 w-4 mr-2" /> Cut</TabsTrigger>
           <TabsTrigger value="deliver"><Clapperboard className="h-4 w-4 mr-2" /> Deliver</TabsTrigger>
         </TabsList>
@@ -592,7 +635,7 @@ export default function ProjectDetail() {
               <p className="text-xs text-muted-foreground mb-3">
                 Pick the assets this project works with — search and script matching stay within this media.
               </p>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-48 overflow-y-auto">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-56 overflow-y-auto">
                 {media?.items?.length ? media.items.map((a) => (
                   <label key={a.id} className="flex items-center gap-2 text-sm bg-muted/50 rounded p-2 cursor-pointer">
                     <input
@@ -601,9 +644,17 @@ export default function ProjectDetail() {
                       disabled={updateMutation.isPending}
                       onChange={(e) => toggleMediaPool(a.id, e.target.checked)}
                     />
-                    <span className="truncate">{a.filename}</span>
+                    <ClipThumb url={a.thumbnail_url} className="h-8 w-12" />
+                    <span className="truncate flex-1">{a.filename}</span>
+                    <MediaStatusBadge status={a.status} />
                   </label>
-                )) : <p className="text-sm text-muted-foreground">No indexed media yet.</p>}
+                )) : (
+                  <p className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
+                    {media
+                      ? "The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
+                      : "Loading media library…"}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -709,7 +760,7 @@ export default function ProjectDetail() {
         {/* ---------------------------- ASSEMBLE ---------------------------- */}
         <TabsContent value="assemble" className="space-y-6">
           <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">Reorder, trim, and relabel clips — then build an AI story from selected assets.</p>
+            <p className="text-sm text-muted-foreground">Arrange the story — order and label clips, or build an AI story from selected assets. Nothing is rendered here; review each beat in Refine, then render in Cut.</p>
             <Button size="sm" variant="outline" onClick={newEmptyList}>
               <Plus className="h-4 w-4 mr-2" /> New clip list
             </Button>
@@ -725,6 +776,7 @@ export default function ProjectDetail() {
                     <span className="text-xs font-normal text-muted-foreground">
                       {(draft ?? list.clips).length} clips
                     </span>
+                    <ApprovalBadge list={list} />
                     {list.locked && (
                       <Badge variant="outline" className="gap-1 text-amber-500 border-amber-500/40 font-normal">
                         <Lock className="h-3 w-3" /> Picture locked
@@ -815,12 +867,19 @@ export default function ProjectDetail() {
                       </Button>
                     </div>
                   )) : list.clips.length ? list.clips.map((clip, i) => (
-                    <div key={clip.id} className="flex items-center justify-between bg-muted/50 p-2 rounded text-sm">
-                      <div className="truncate pr-4 flex-1">
-                        <span className="text-muted-foreground mr-2">{i + 1}.</span>
-                        {clip.label || clip.filename || clip.media_id}
+                    <div key={clip.id} className="flex items-center gap-2 bg-muted/50 p-2 rounded text-sm">
+                      <ClipThumb url={clip.thumbnail_url} className="h-9 w-14" />
+                      <div className="truncate pr-2 flex-1 min-w-0">
+                        <div className="truncate">
+                          <span className="text-muted-foreground mr-2">{i + 1}.</span>
+                          {clip.label || clip.filename || clip.media_id}
+                        </div>
+                        {clip.match_reason && (
+                          <div className="truncate text-xs text-muted-foreground">{clip.match_reason}</div>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
+                        {clip.approved && <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-label="Approved" />}
                         <span className="font-mono text-xs">{fmtTime(clip.start_time)} – {fmtTime(clip.end_time)}</span>
                         <Link href={`/library/${clip.media_id}?t=${clip.start_time}`}>
                           <Button size="icon" variant="ghost" className="h-6 w-6"><Play className="h-3 w-3" /></Button>
@@ -850,16 +909,25 @@ export default function ProjectDetail() {
                 <Label className="mb-2 block">Source assets</Label>
                 <div className="grid gap-2 sm:grid-cols-2 max-h-48 overflow-y-auto">
                   {poolAssets.length ? poolAssets.map((a) => (
-                    <label key={a.id} className="flex items-center gap-2 text-sm bg-muted/50 rounded p-2 cursor-pointer">
+                    <label key={a.id} className={`flex items-center gap-2 text-sm bg-muted/50 rounded p-2 ${a.status === "ready" ? "cursor-pointer" : "opacity-60"}`}>
                       <input
                         type="checkbox"
                         checked={storyAssets.includes(a.id)}
+                        disabled={a.status !== "ready"}
                         onChange={(e) => setStoryAssets((s) =>
                           e.target.checked ? [...s, a.id] : s.filter((x) => x !== a.id))}
                       />
-                      <span className="truncate">{a.filename}</span>
+                      <ClipThumb url={a.thumbnail_url} className="h-8 w-12" />
+                      <span className="truncate flex-1">{a.filename}</span>
+                      <MediaStatusBadge status={a.status} />
                     </label>
-                  )) : <p className="text-sm text-muted-foreground">No indexed media yet.</p>}
+                  )) : (
+                    <p className="text-sm text-muted-foreground sm:col-span-2">
+                      {media
+                        ? "The library is empty — add or upload footage first, then build a story from it here."
+                        : "Loading media library…"}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
@@ -916,8 +984,19 @@ export default function ProjectDetail() {
           </Card>
         </TabsContent>
 
+        {/* ----------------------------- REFINE ----------------------------- */}
+        <TabsContent value="refine" className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            Review and trim each beat right here — play it, drag the in/out points, see why it was picked, and approve it. Lock the story when the cut is final.
+          </p>
+          <RefineTab projectId={id} clipLists={clipLists} assets={media?.items} onChanged={invalidateAll} />
+        </TabsContent>
+
         {/* ------------------------------ CUT ------------------------------ */}
         <TabsContent value="cut" className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            Cut renders actual video files — build a reel from a prompt, or turn a clip list into a rough-cut video.
+          </p>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -971,15 +1050,19 @@ export default function ProjectDetail() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {clipLists.map((l) => (
-                  <div key={l.id} className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm">
-                    <span className="truncate pr-4">{l.name} · {l.clips.length} clips</span>
-                    <Button size="sm" variant="outline" onClick={() => startRoughCut(l.id)}
-                      disabled={!l.clips.length || roughCutMutation.isPending}>
-                      {roughCutMutation.isPending
-                        ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        : <Wand2 className="h-4 w-4 mr-2" />}
-                      Rough cut
-                    </Button>
+                  <div key={l.id} className="flex items-center justify-between gap-3 bg-muted/50 p-2.5 rounded text-sm">
+                    <span className="truncate">{l.name} · {l.clips.length} clips</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <ApprovalBadge list={l} />
+                      <Button size="sm" variant="outline" onClick={() => startRoughCut(l.id)}
+                        disabled={!l.clips.length || roughCutMutation.isPending}
+                        title={l.clips.length && !l.clips.every((c) => c.approved) ? "Some beats aren't approved yet — review them in Refine first" : undefined}>
+                        {roughCutMutation.isPending
+                          ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          : <Wand2 className="h-4 w-4 mr-2" />}
+                        Rough cut
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </CardContent>
@@ -1045,6 +1128,7 @@ export default function ProjectDetail() {
                 {clipLists.map((l) => (
                   <div key={l.id} className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm gap-3">
                     <span className="truncate flex-1">{l.name} · {l.clips.length} clips</span>
+                    <ApprovalBadge list={l} />
                     <div className="flex gap-2 shrink-0">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

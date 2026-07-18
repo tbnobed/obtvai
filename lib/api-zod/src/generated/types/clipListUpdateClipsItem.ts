@@ -11,4 +11,9 @@ export type ClipListUpdateClipsItem = {
   start_time: number;
   end_time: number;
   label?: string;
+  /** @nullable */
+  notes?: string | null;
+  approved?: boolean;
+  /** @nullable */
+  match_reason?: string | null;
 };

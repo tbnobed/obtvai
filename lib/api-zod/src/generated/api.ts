@@ -1717,6 +1717,7 @@ export const ListClipListsQueryParams = zod.object({
 })
 
 export const listClipListsResponseLockedDefault = false;
+export const listClipListsResponseClipsItemApprovedDefault = false;
 
 export const ListClipListsResponseItem = zod.object({
   "id": zod.string(),
@@ -1732,7 +1733,10 @@ export const ListClipListsResponseItem = zod.object({
   "start_time": zod.number(),
   "end_time": zod.number(),
   "label": zod.string().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "approved": zod.boolean().default(listClipListsResponseClipsItemApprovedDefault).describe('Editor reviewed this beat in Refine and signed off'),
+  "match_reason": zod.string().nullish().describe('Why this range was picked (search snippet \/ script-match line \/ story beat rationale)'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 }))
 })
 export const ListClipListsResponse = zod.array(ListClipListsResponseItem)
@@ -1749,11 +1753,15 @@ export const CreateClipListBody = zod.object({
   "media_id": zod.string(),
   "start_time": zod.number(),
   "end_time": zod.number(),
-  "label": zod.string().optional()
+  "label": zod.string().optional(),
+  "notes": zod.string().nullish(),
+  "approved": zod.boolean().optional(),
+  "match_reason": zod.string().nullish()
 })).optional()
 })
 
 export const createClipListResponseLockedDefault = false;
+export const createClipListResponseClipsItemApprovedDefault = false;
 
 export const CreateClipListResponse = zod.object({
   "id": zod.string(),
@@ -1769,7 +1777,10 @@ export const CreateClipListResponse = zod.object({
   "start_time": zod.number(),
   "end_time": zod.number(),
   "label": zod.string().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "approved": zod.boolean().default(createClipListResponseClipsItemApprovedDefault).describe('Editor reviewed this beat in Refine and signed off'),
+  "match_reason": zod.string().nullish().describe('Why this range was picked (search snippet \/ script-match line \/ story beat rationale)'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 }))
 })
 
@@ -1782,6 +1793,7 @@ export const GetClipListParams = zod.object({
 })
 
 export const getClipListResponseLockedDefault = false;
+export const getClipListResponseClipsItemApprovedDefault = false;
 
 export const GetClipListResponse = zod.object({
   "id": zod.string(),
@@ -1797,7 +1809,10 @@ export const GetClipListResponse = zod.object({
   "start_time": zod.number(),
   "end_time": zod.number(),
   "label": zod.string().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "approved": zod.boolean().default(getClipListResponseClipsItemApprovedDefault).describe('Editor reviewed this beat in Refine and signed off'),
+  "match_reason": zod.string().nullish().describe('Why this range was picked (search snippet \/ script-match line \/ story beat rationale)'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 }))
 })
 
@@ -1818,11 +1833,15 @@ export const UpdateClipListBody = zod.object({
   "media_id": zod.string(),
   "start_time": zod.number(),
   "end_time": zod.number(),
-  "label": zod.string().optional()
+  "label": zod.string().optional(),
+  "notes": zod.string().nullish(),
+  "approved": zod.boolean().optional(),
+  "match_reason": zod.string().nullish()
 })).optional()
 })
 
 export const updateClipListResponseLockedDefault = false;
+export const updateClipListResponseClipsItemApprovedDefault = false;
 
 export const UpdateClipListResponse = zod.object({
   "id": zod.string(),
@@ -1838,7 +1857,10 @@ export const UpdateClipListResponse = zod.object({
   "start_time": zod.number(),
   "end_time": zod.number(),
   "label": zod.string().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "approved": zod.boolean().default(updateClipListResponseClipsItemApprovedDefault).describe('Editor reviewed this beat in Refine and signed off'),
+  "match_reason": zod.string().nullish().describe('Why this range was picked (search snippet \/ script-match line \/ story beat rationale)'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 }))
 })
 

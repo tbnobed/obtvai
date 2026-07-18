@@ -337,6 +337,8 @@ class Clip(Base):
     end_time: Mapped[float] = mapped_column(Float, nullable=False)
     label: Mapped[str | None] = mapped_column(String, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    match_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     position: Mapped[int] = mapped_column(Integer, default=0)
 
     clip_list: Mapped["ClipList"] = relationship("ClipList", back_populates="clips")

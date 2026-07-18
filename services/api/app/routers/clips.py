@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
-from ..models import ClipList, Clip, MediaAsset
+from ..models import ClipList, Clip, MediaAsset, Scene
 from .projects import touch_project
 from ..schemas import (
     ClipListOut, ClipOut, ClipListInput, ClipListUpdate,
@@ -123,6 +123,13 @@ async def _load_clip_list(id: str, db: AsyncSession) -> ClipList:
 
 async def _build_clip_out(clip: Clip, db: AsyncSession) -> ClipOut:
     asset = (await db.execute(select(MediaAsset).where(MediaAsset.id == clip.media_id))).scalar_one_or_none()
+    scene = (await db.execute(
+        select(Scene)
+        .where(Scene.media_id == clip.media_id, Scene.start_time <= clip.start_time)
+        .order_by(desc(Scene.start_time))
+        .limit(1)
+    )).scalar_one_or_none()
+    thumbnail_url = (scene.thumbnail_url if scene else None) or (asset.thumbnail_url if asset else None)
     return ClipOut(
         id=clip.id,
         media_id=clip.media_id,
@@ -131,6 +138,9 @@ async def _build_clip_out(clip: Clip, db: AsyncSession) -> ClipOut:
         end_time=clip.end_time,
         label=clip.label,
         notes=clip.notes,
+        approved=clip.approved or False,
+        match_reason=clip.match_reason,
+        thumbnail_url=thumbnail_url,
     )
 
 
@@ -181,6 +191,9 @@ async def create_clip_list(body: ClipListInput, db: AsyncSession = Depends(get_d
             start_time=c.start_time,
             end_time=c.end_time,
             label=c.label,
+            notes=c.notes,
+            approved=c.approved,
+            match_reason=c.match_reason,
             position=i,
         )
         db.add(clip)
@@ -228,6 +241,9 @@ async def update_clip_list(id: str, body: ClipListUpdate, db: AsyncSession = Dep
                 start_time=c.start_time,
                 end_time=c.end_time,
                 label=c.label,
+                notes=c.notes,
+                approved=c.approved,
+                match_reason=c.match_reason,
                 position=i,
             )
             db.add(clip)

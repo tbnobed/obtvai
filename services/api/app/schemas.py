@@ -329,6 +329,9 @@ class ClipOut(BaseModel):
     end_time: float
     label: Optional[str] = None
     notes: Optional[str] = None
+    approved: bool = False
+    match_reason: Optional[str] = None
+    thumbnail_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -370,6 +373,9 @@ class ClipInput(BaseModel):
     start_time: float
     end_time: float
     label: Optional[str] = None
+    notes: Optional[str] = None
+    approved: bool = False
+    match_reason: Optional[str] = None
 
 
 class ClipListInput(BaseModel):

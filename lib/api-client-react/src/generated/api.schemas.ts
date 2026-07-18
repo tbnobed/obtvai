@@ -781,6 +781,18 @@ export interface Clip {
   label?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** Editor reviewed this beat in Refine and signed off */
+  approved?: boolean;
+  /**
+     * Why this range was picked (search snippet / script-match line / story beat rationale)
+     * @nullable
+     */
+  match_reason?: string | null;
+  /**
+     * Preview frame near the clip start (relative thumbnail path)
+     * @nullable
+     */
+  thumbnail_url?: string | null;
 }
 
 export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];
@@ -865,6 +877,11 @@ export type ClipListInputClipsItem = {
   start_time: number;
   end_time: number;
   label?: string;
+  /** @nullable */
+  notes?: string | null;
+  approved?: boolean;
+  /** @nullable */
+  match_reason?: string | null;
 };
 
 export interface ClipListInput {
@@ -880,6 +897,11 @@ export type ClipListUpdateClipsItem = {
   start_time: number;
   end_time: number;
   label?: string;
+  /** @nullable */
+  notes?: string | null;
+  approved?: boolean;
+  /** @nullable */
+  match_reason?: string | null;
 };
 
 export interface ClipListUpdate {
