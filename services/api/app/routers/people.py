@@ -223,10 +223,22 @@ async def update_person(id: str, body: PersonUpdateIn, db: AsyncSession = Depend
     if not name:
         raise HTTPException(status_code=422, detail="display_name must not be empty")
     person, assets, speaking, segments = await _get_person_with_stats(id, db)
+    name_changed = person.display_name != name
     person.display_name = name
     person.name_source = "manual"
     await db.commit()
     await db.refresh(person)
+    if name_changed:
+        # Rebuild the LLM bio under the new name (fire-and-forget).
+        from ..worker_client import _publish
+        import uuid as _uuid
+        try:
+            await _publish(
+                "gpu", "tasks.identify.regenerate_profile",
+                {"person_id": id}, str(_uuid.uuid4()),
+            )
+        except Exception:
+            pass  # profile refresh is best-effort; rename itself already saved
     return _person_out(person, assets or 0, speaking or 0, segments or 0)
 
 

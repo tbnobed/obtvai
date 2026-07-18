@@ -113,6 +113,9 @@ def _profile_person(db, person_id: str, tokenizer, model, job_id: str):
     display_name = name_row[0] if name_row else "this person"
     prompt = (
         f"The following are things {display_name} has said across a video library.\n"
+        f"The person's name is {display_name}. Refer to them ONLY by this name, "
+        "even if the transcript mentions or suggests other names (those may be "
+        "people they are talking about or introducing).\n"
         "Analyze them and respond with ONLY a JSON object of this exact shape:\n"
         '{"summary": "1-2 sentence bio of who this person appears to be and their role", '
         '"speech_style": "1-2 sentences describing how they speak: tone, pacing, vocabulary, verbal habits", '
@@ -489,4 +492,20 @@ def identify_people(self, media_id: str, job_id: str):
                 db.commit()
             except Exception:
                 pass
+        db.close()
+
+
+@celery_app.task(name="tasks.identify.regenerate_profile", queue="gpu")
+def regenerate_profile(person_id: str, job_id: str = ""):
+    """Rebuild one person's LLM profile (summary/speech style/topics).
+
+    Queued fire-and-forget after a manual rename so the bio reflects the
+    new name instead of whatever identity the LLM inferred from speech.
+    """
+    db = get_session()
+    try:
+        from tasks.analyze import _load_llm
+        tokenizer, model = _load_llm()
+        _profile_person(db, person_id, tokenizer, model, job_id)
+    finally:
         db.close()
