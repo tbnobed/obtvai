@@ -17,6 +17,7 @@ x-python-env: &python-env
   YOUTUBE_CLIENT_ID: "${YOUTUBE_CLIENT_ID:-}"
   YOUTUBE_CLIENT_SECRET: "${YOUTUBE_CLIENT_SECRET:-}"
   YOUTUBE_REFRESH_TOKEN: "${YOUTUBE_REFRESH_TOKEN:-}"
+  YOUTUBE_API_KEY: "${YOUTUBE_API_KEY:-}"
   WHISPER_MODEL: "${WHISPER_MODEL:-large-v3}"
   EMBEDDINGS_MODEL: "${EMBEDDINGS_MODEL:-BAAI/bge-m3}"
   VISION_MODEL: "${VISION_MODEL:-google/siglip2-so400m-patch14-384}"
@@ -211,7 +212,7 @@ services:
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
-    command: celery -A app worker --queues=cpu,ingest --concurrency=4 --loglevel=info
+    command: celery -A app worker -B --queues=cpu,ingest --concurrency=4 --loglevel=info
     depends_on:
       redis:
         condition: service_healthy

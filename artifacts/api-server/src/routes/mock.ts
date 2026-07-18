@@ -1165,6 +1165,7 @@ type MockRender = {
   preset: string; burn_captions: boolean; status: string; progress: number;
   output_url: string | null; error_message: string | null;
   publish_status: string | null; publish_url: string | null; publish_error: string | null;
+  publish_stats: { platform: string; views: number; likes: number; comments: number; fetched_at: string } | null;
   created_at: string; finished_at: string | null;
   _startedAt: number; _publishStartedAt: number | null;
 };
@@ -1191,6 +1192,7 @@ function makeRender(mediaId: string, start: number, end: number, preset: string,
     publish_status: null,
     publish_url: null,
     publish_error: null,
+    publish_stats: null,
     created_at: new Date().toISOString(),
     finished_at: null,
     _startedAt: Date.now(),
@@ -1223,6 +1225,7 @@ function tickRender(r: MockRender) {
     } else {
       r.publish_status = "success";
       r.publish_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+      r.publish_stats = { platform: "youtube", views: 1834, likes: 97, comments: 12, fetched_at: new Date().toISOString() };
     }
   }
 }

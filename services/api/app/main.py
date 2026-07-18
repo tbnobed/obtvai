@@ -42,6 +42,7 @@ _COLUMN_MIGRATIONS = [
     ("voice_generations", "preset", "TEXT"),
     ("people", "voice_settings", "JSONB"),
     ("voice_generations", "settings", "JSONB"),
+    ("render_jobs", "publish_stats", "JSONB"),
 ]
 
 

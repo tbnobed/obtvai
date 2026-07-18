@@ -873,6 +873,18 @@ export interface RenderRequest {
   burn_captions?: boolean;
 }
 
+/**
+ * Real platform performance stats pulled periodically after publish
+ * @nullable
+ */
+export type RenderJobPublishStats = {
+  platform?: string;
+  views?: number;
+  likes?: number;
+  comments?: number;
+  fetched_at?: string;
+} | null;
+
 export interface RenderJob {
   id: string;
   media_id: string;
@@ -914,6 +926,11 @@ export interface RenderJob {
   publish_url?: string | null;
   /** @nullable */
   publish_error?: string | null;
+  /**
+     * Real platform performance stats pulled periodically after publish
+     * @nullable
+     */
+  publish_stats?: RenderJobPublishStats;
   created_at: string;
   /** @nullable */
   finished_at?: string | null;

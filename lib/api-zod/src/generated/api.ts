@@ -637,6 +637,13 @@ export const CreateSocialCutsResponseItem = zod.object({
   "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
   "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
   "publish_error": zod.string().nullish(),
+  "publish_stats": zod.object({
+  "platform": zod.string().optional(),
+  "views": zod.number().optional(),
+  "likes": zod.number().optional(),
+  "comments": zod.number().optional(),
+  "fetched_at": zod.string().optional()
+}).nullish().describe('Real platform performance stats pulled periodically after publish'),
   "created_at": zod.coerce.date(),
   "finished_at": zod.coerce.date().nullish()
 })
@@ -1857,6 +1864,13 @@ export const RenderClipListResponseItem = zod.object({
   "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
   "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
   "publish_error": zod.string().nullish(),
+  "publish_stats": zod.object({
+  "platform": zod.string().optional(),
+  "views": zod.number().optional(),
+  "likes": zod.number().optional(),
+  "comments": zod.number().optional(),
+  "fetched_at": zod.string().optional()
+}).nullish().describe('Real platform performance stats pulled periodically after publish'),
   "created_at": zod.coerce.date(),
   "finished_at": zod.coerce.date().nullish()
 })
@@ -1893,6 +1907,13 @@ export const ListRendersResponseItem = zod.object({
   "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
   "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
   "publish_error": zod.string().nullish(),
+  "publish_stats": zod.object({
+  "platform": zod.string().optional(),
+  "views": zod.number().optional(),
+  "likes": zod.number().optional(),
+  "comments": zod.number().optional(),
+  "fetched_at": zod.string().optional()
+}).nullish().describe('Real platform performance stats pulled periodically after publish'),
   "created_at": zod.coerce.date(),
   "finished_at": zod.coerce.date().nullish()
 })
@@ -1938,6 +1959,13 @@ export const CreateRenderResponse = zod.object({
   "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
   "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
   "publish_error": zod.string().nullish(),
+  "publish_stats": zod.object({
+  "platform": zod.string().optional(),
+  "views": zod.number().optional(),
+  "likes": zod.number().optional(),
+  "comments": zod.number().optional(),
+  "fetched_at": zod.string().optional()
+}).nullish().describe('Real platform performance stats pulled periodically after publish'),
   "created_at": zod.coerce.date(),
   "finished_at": zod.coerce.date().nullish()
 })
@@ -1968,6 +1996,13 @@ export const GetRenderResponse = zod.object({
   "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
   "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
   "publish_error": zod.string().nullish(),
+  "publish_stats": zod.object({
+  "platform": zod.string().optional(),
+  "views": zod.number().optional(),
+  "likes": zod.number().optional(),
+  "comments": zod.number().optional(),
+  "fetched_at": zod.string().optional()
+}).nullish().describe('Real platform performance stats pulled periodically after publish'),
   "created_at": zod.coerce.date(),
   "finished_at": zod.coerce.date().nullish()
 })
@@ -2030,6 +2065,13 @@ export const PublishRenderResponse = zod.object({
   "publish_status": zod.string().nullish().describe('null | pending | running | success | error'),
   "publish_url": zod.string().nullish().describe('Public URL after successful publish'),
   "publish_error": zod.string().nullish(),
+  "publish_stats": zod.object({
+  "platform": zod.string().optional(),
+  "views": zod.number().optional(),
+  "likes": zod.number().optional(),
+  "comments": zod.number().optional(),
+  "fetched_at": zod.string().optional()
+}).nullish().describe('Real platform performance stats pulled periodically after publish'),
   "created_at": zod.coerce.date(),
   "finished_at": zod.coerce.date().nullish()
 })

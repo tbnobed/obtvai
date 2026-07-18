@@ -75,6 +75,7 @@ export * from './reelJob';
 export * from './reelRequest';
 export * from './reelRequestPreset';
 export * from './renderJob';
+export * from './renderJobPublishStats';
 export * from './renderPresetInput';
 export * from './renderPresetInputPreset';
 export * from './renderRequest';

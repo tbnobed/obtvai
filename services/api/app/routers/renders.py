@@ -47,6 +47,7 @@ def _to_out(r: RenderJob, filename: str | None) -> RenderJobOut:
         publish_status=r.publish_status,
         publish_url=r.publish_url,
         publish_error=r.publish_error,
+        publish_stats=r.publish_stats,
         created_at=r.created_at,
         finished_at=r.finished_at,
     )

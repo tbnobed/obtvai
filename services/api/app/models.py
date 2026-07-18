@@ -211,6 +211,7 @@ class RenderJob(Base):
     publish_status: Mapped[str | None] = mapped_column(String, nullable=True)
     publish_url: Mapped[str | None] = mapped_column(String, nullable=True)
     publish_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    publish_stats: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

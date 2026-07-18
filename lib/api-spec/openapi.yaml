@@ -3132,6 +3132,20 @@ components:
           description: Public URL after successful publish
         publish_error:
           type: ["string", "null"]
+        publish_stats:
+          type: ["object", "null"]
+          description: Real platform performance stats pulled periodically after publish
+          properties:
+            platform:
+              type: string
+            views:
+              type: integer
+            likes:
+              type: integer
+            comments:
+              type: integer
+            fetched_at:
+              type: string
         created_at:
           type: string
           format: date-time

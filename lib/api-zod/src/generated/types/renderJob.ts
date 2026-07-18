@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { RenderJobPublishStats } from './renderJobPublishStats';
 
 export interface RenderJob {
   id: string;
@@ -47,6 +48,11 @@ export interface RenderJob {
   publish_url?: string | null;
   /** @nullable */
   publish_error?: string | null;
+  /**
+     * Real platform performance stats pulled periodically after publish
+     * @nullable
+     */
+  publish_stats?: RenderJobPublishStats;
   created_at: Date;
   /** @nullable */
   finished_at?: Date | null;

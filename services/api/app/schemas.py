@@ -197,6 +197,7 @@ class RenderJobOut(BaseModel):
     publish_status: Optional[str] = None
     publish_url: Optional[str] = None
     publish_error: Optional[str] = None
+    publish_stats: Optional[dict] = None
     created_at: datetime
     finished_at: Optional[datetime] = None
 

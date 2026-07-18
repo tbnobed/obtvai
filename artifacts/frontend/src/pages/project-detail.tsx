@@ -1063,6 +1063,11 @@ export default function ProjectDetail() {
                       {r.publish_status === "error" && r.publish_error && (
                         <p className="text-xs text-red-400 mt-0.5 truncate">Publish failed: {r.publish_error}</p>
                       )}
+                      {r.publish_stats && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {(r.publish_stats.views ?? 0).toLocaleString()} views · {(r.publish_stats.likes ?? 0).toLocaleString()} likes · {(r.publish_stats.comments ?? 0).toLocaleString()} comments
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {r.publish_status && (

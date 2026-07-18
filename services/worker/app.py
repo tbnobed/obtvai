@@ -28,6 +28,7 @@ celery_app = Celery(
         "tasks.reel",
         "tasks.story",
         "tasks.publish",
+        "tasks.social_stats",
     ],
 )
 celery_app.config_from_object("celeryconfig")
