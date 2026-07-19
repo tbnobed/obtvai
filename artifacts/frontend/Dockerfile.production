@@ -2,14 +2,25 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json tsconfig.json ./
+# Dependency layer: only invalidated when the lockfile changes.
+# pnpm fetch downloads every package into the store using ONLY the lockfile,
+# so source-code edits reuse this cached layer instead of re-downloading.
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch
+
+COPY package.json tsconfig.base.json tsconfig.json ./
 COPY lib/ ./lib/
 COPY artifacts/frontend/ ./artifacts/frontend/
+
+# Links from the already-fetched store; no network unless something is missing.
+RUN pnpm install --frozen-lockfile --prefer-offline
+
+# Only needed by the vite build (@assets alias) — kept after install so new
+# chat screenshots don't invalidate the install layer.
 COPY attached_assets/ ./attached_assets/
 
-RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @workspace/api-spec run codegen
 RUN BASE_PATH=/ PORT=3000 pnpm --filter @workspace/frontend run build
 
