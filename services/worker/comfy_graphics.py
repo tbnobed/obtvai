@@ -23,6 +23,7 @@ from __future__ import annotations
 import copy
 import math
 import os
+import re
 
 MODEL_FILE_EXTS = (".safetensors", ".gguf", ".ckpt", ".pt", ".sft", ".pth", ".onnx")
 
@@ -286,6 +287,121 @@ def inject_params(
 
 
 # ---------------------------------------------------------------------------
+# Model-file resolution: installs name the same model differently
+# (t5xxl_fp8_e4m3fn vs t5xxl_fp16, Wan2.2-...-HighNoise-Q8_0 vs
+# wan2.2_..._high_noise_Q5_K_M). When the exact filename a preset references
+# isn't present, substitute the equivalent file this ComfyUI actually has.
+
+# Precision / quantization / packaging suffixes that don't change WHICH model
+# a file is — ignored when comparing names.
+_NOISE_TOKEN_RE = re.compile(
+    r"^(fp8|fp16|bf16|fp32|e4m3fn|e5m2|e4m3|scaled|enc|encoder|gguf|q\d\w*|k|s|m|v\d+)$"
+)
+
+
+def _name_tokens(s: str) -> list[str]:
+    """Lowercased tokens with version digits merged into the preceding token,
+    so 'wan_2.1_vae' -> ['wan21', 'vae'] and 'Q8_0' -> ['q80']. Keeping the
+    version glued to its family token stops 2.1 files matching 2.2 files."""
+    stem = os.path.splitext(os.path.basename(str(s)))[0].lower()
+    merged: list[str] = []
+    for t in re.split(r"[^a-z0-9]+", stem):
+        if not t:
+            continue
+        if t.isdigit() and merged:
+            merged[-1] += t
+        else:
+            merged.append(t)
+    return merged
+
+
+def _core_tokens(s: str) -> list[str]:
+    toks = _name_tokens(s)
+    core = [t for t in toks if not _NOISE_TOKEN_RE.match(t)]
+    return core or toks
+
+
+def _joins(tokens: list[str]) -> list[str]:
+    """All contiguous token concatenations ('high','noise' -> 'highnoise')."""
+    out = []
+    for i in range(len(tokens)):
+        j = ""
+        for k in range(i, len(tokens)):
+            j += tokens[k]
+            out.append(j)
+    return out
+
+
+def _token_in_candidate(tok: str, cand_tokens: list[str], cand_joins: list[str]) -> bool:
+    if len(tok) < 3:
+        return tok in cand_tokens  # short tokens ("ae") only match exactly
+    # Match only at token boundaries: 't5xxl' must not hit inside 'umt5xxl…'.
+    # Prefix allowed so 'wan22' matches an unseparated 'wan22t2v…' token.
+    if any(j == tok or j.startswith(tok) for j in cand_joins):
+        return True
+    # "a14b" should match "14b" — some repos drop the leading letter
+    if tok[0].isalpha() and len(tok) > 3:
+        stripped = tok[1:]
+        if any(j == stripped or j.startswith(stripped) for j in cand_joins):
+            return True
+    return False
+
+
+def find_model_file(value: str, options: list) -> str | None:
+    """Exact match, else the closest equivalently-named file, else None."""
+    base = os.path.basename(value)
+    for o in options:
+        so = str(o)
+        if so == value or os.path.basename(so) == base:
+            return so
+    ext = os.path.splitext(value)[1].lower()
+    want_core = _core_tokens(value)
+    want_noise = set(_name_tokens(value)) - set(want_core)
+    best: tuple | None = None
+    for o in options:
+        so = str(o)
+        if os.path.splitext(so)[1].lower() != ext:
+            continue
+        cand_tokens = _name_tokens(so)
+        cand_joins = _joins(cand_tokens)
+        if not all(_token_in_candidate(t, cand_tokens, cand_joins) for t in want_core):
+            continue
+        cand_core = _core_tokens(so)
+        extras = len(set(cand_core) - set(want_core))
+        noise_overlap = len(want_noise & set(cand_tokens))
+        score = (extras, -noise_overlap, len("".join(cand_tokens)), so)
+        if best is None or score < best:
+            best = score
+            best_val = so
+    return best_val if best is not None else None
+
+
+def resolve_model_files(graph: dict, object_info: dict) -> dict:
+    """Deep-copied graph with every resolvable model filename swapped for the
+    file this ComfyUI install actually has. Unresolvable names are left as-is
+    (check_graph reports those)."""
+    g = copy.deepcopy(graph)
+    for n in g.values():
+        if not isinstance(n, dict):
+            continue
+        info = object_info.get(n.get("class_type"))
+        if info is None:
+            continue
+        defs = _flatten_input_defs(info)
+        for input_name, value in list((n.get("inputs") or {}).items()):
+            if not isinstance(value, str) or not value.lower().endswith(MODEL_FILE_EXTS):
+                continue
+            d = defs.get(input_name)
+            options = d[0] if isinstance(d, (list, tuple)) and d and isinstance(d[0], list) else None
+            if not options or value in options:
+                continue
+            found = find_model_file(value, options)
+            if found is not None:
+                n["inputs"][input_name] = found
+    return g
+
+
+# ---------------------------------------------------------------------------
 # Availability checks against ComfyUI /object_info
 
 
@@ -318,10 +434,7 @@ def check_graph(graph: dict, object_info: dict) -> str | None:
             options = d[0] if isinstance(d, (list, tuple)) and d and isinstance(d[0], list) else None
             if options is None:
                 continue
-            if value in options:
-                continue
-            base = os.path.basename(value)
-            if any(os.path.basename(str(o)) == base for o in options):
-                continue
+            if find_model_file(value, options) is not None:
+                continue  # exact hit or an equivalently-named file we can swap in
             return f"model file '{value}' not found in ComfyUI ({ct}.{input_name})"
     return None

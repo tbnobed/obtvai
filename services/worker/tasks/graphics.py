@@ -25,6 +25,7 @@ from comfy_graphics import (
     builtin_preset,
     detect_capabilities,
     inject_params,
+    resolve_model_files,
 )
 
 POLL_INTERVAL = 1.5
@@ -260,6 +261,14 @@ def generate(self, generation_id: str):
         )
 
         comfy = _comfy_url(kind)
+
+        # Installs name the same model differently (fp8 vs fp16, Q8 vs Q5…) —
+        # swap preset filenames for the files this instance actually has.
+        try:
+            object_info = requests.get(f"{comfy}/object_info", timeout=20).json()
+            graph = resolve_model_files(graph, object_info)
+        except Exception:
+            pass  # submit as-is; ComfyUI reports precisely if something's missing
 
         out_dir = os.path.join(GRAPHICS_DIR, generation_id)
         os.makedirs(out_dir, exist_ok=True)

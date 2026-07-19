@@ -11,6 +11,7 @@ description: Reliable patterns for submitting/polling/cancelling ComfyUI jobs fr
 - From Docker: `host.docker.internal` + `extra_hosts: host-gateway`; ComfyUI must run `--listen` or containers can't reach it.
 - Cancel race: worker status UPDATEs must carry `AND status != 'cancelled'` or the API's cancel gets overwritten in the window before comfy_prompt_id is stored.
 - Poll loops for long renders must tolerate consecutive transient HTTP failures (~8 polls) before erroring — one blip during a 10-min render otherwise kills a job ComfyUI keeps rendering.
+- Installs name the same model differently (fp8 vs fp16, Q8 vs Q5, HighNoise vs high_noise) — fuzzy-resolve preset filenames against the loader's options list before submitting. Match at token boundaries only (raw substring lets t5xxl hit inside umt5_xxl) and merge version digits into the family token (else wan2.1 VAE silently matches wan2.2 VAE — not interchangeable).
 
 **Why:** learned building the graphics generator; each item was either a race or a silent-failure mode found in review.
 **How to apply:** any feature submitting workflows to ComfyUI or similar queue-based render services over HTTP.
