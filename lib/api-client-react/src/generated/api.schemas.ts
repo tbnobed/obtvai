@@ -426,6 +426,29 @@ export interface PersonAssetMoments {
   on_camera: OnCameraRange[];
 }
 
+export interface CoAppearanceNode {
+  person_id: string;
+  display_name: string;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  asset_count: number;
+}
+
+export interface CoAppearancePair {
+  person_a_id: string;
+  person_b_id: string;
+  /** Number of assets both people appear in */
+  shared_assets: number;
+  /** Seconds both people are on camera at the same time across shared assets (0 when face timing data is missing) */
+  together_seconds: number;
+}
+
+export interface CoAppearanceGraph {
+  /** People that share at least one asset with someone else */
+  nodes: CoAppearanceNode[];
+  pairs: CoAppearancePair[];
+}
+
 export interface AssetPerson {
   person_id: string;
   display_name: string;

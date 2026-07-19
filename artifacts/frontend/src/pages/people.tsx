@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useListPeople, useReanalyzePeople, useUpdatePerson, useDeletePerson, getListPeopleQueryKey } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Users, User, Mic, Film, ScanFace, Pencil, Check, X, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Users, User, Mic, Film, ScanFace, Pencil, Check, X, ChevronLeft, ChevronRight, Trash2, LayoutGrid, Share2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
+import CoAppearanceMap from "@/components/co-appearance-map";
 
 function formatSpeaking(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -16,6 +17,9 @@ function formatSpeaking(seconds: number) {
 const PAGE_SIZE = 48;
 
 export default function People() {
+  const [view, setView] = useState<"grid" | "map">(() =>
+    new URLSearchParams(window.location.search).get("view") === "map" ? "map" : "grid"
+  );
   const [page, setPage] = useState(0);
   const { data, isLoading } = useListPeople({ limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const people = data?.items;
@@ -106,6 +110,26 @@ export default function People() {
               {total} {total === 1 ? "person" : "people"} identified across the library
             </p>
           ) : null}
+          <div className="flex rounded-md border border-border overflow-hidden">
+            <Button
+              size="sm"
+              variant={view === "grid" ? "secondary" : "ghost"}
+              className="gap-1.5 rounded-none"
+              onClick={() => setView("grid")}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Grid
+            </Button>
+            <Button
+              size="sm"
+              variant={view === "map" ? "secondary" : "ghost"}
+              className="gap-1.5 rounded-none"
+              onClick={() => setView("map")}
+            >
+              <Share2 className="h-4 w-4" />
+              Co-appearance Map
+            </Button>
+          </div>
           <Button
             size="sm"
             variant="outline"
@@ -125,7 +149,9 @@ export default function People() {
         </div>
       )}
 
-      {isLoading ? (
+      {view === "map" ? (
+        <CoAppearanceMap />
+      ) : isLoading ? (
         <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
           {[...Array(16)].map((_, i) => (
             <div key={i} className="animate-pulse bg-muted aspect-square rounded-md" />

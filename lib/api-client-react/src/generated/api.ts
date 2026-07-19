@@ -29,6 +29,7 @@ import type {
   ClipList,
   ClipListInput,
   ClipListUpdate,
+  CoAppearanceGraph,
   Conversation,
   DubRequest,
   FaceCluster,
@@ -2183,6 +2184,83 @@ export function useListPeople<TData = Awaited<ReturnType<typeof listPeople>>, TE
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListPeopleQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCoAppearancesUrl = () => {
+
+
+
+
+  return `/api/people/co-appearances`
+}
+
+/**
+ * @summary Co-appearance graph — who appears together, with shared asset counts and overlapping on-camera time
+ */
+export const getCoAppearances = async ( options?: RequestInit): Promise<CoAppearanceGraph> => {
+
+  return customFetch<CoAppearanceGraph>(getGetCoAppearancesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoAppearancesQueryKey = () => {
+    return [
+    `/api/people/co-appearances`
+    ] as const;
+    }
+
+
+export const getGetCoAppearancesQueryOptions = <TData = Awaited<ReturnType<typeof getCoAppearances>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoAppearances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoAppearancesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoAppearances>>> = ({ signal }) => getCoAppearances({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoAppearances>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoAppearancesQueryResult = NonNullable<Awaited<ReturnType<typeof getCoAppearances>>>
+export type GetCoAppearancesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Co-appearance graph — who appears together, with shared asset counts and overlapping on-camera time
+ */
+
+export function useGetCoAppearances<TData = Awaited<ReturnType<typeof getCoAppearances>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoAppearances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoAppearancesQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

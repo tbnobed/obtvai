@@ -886,6 +886,25 @@ export const ListPeopleResponse = zod.object({
 
 
 /**
+ * @summary Co-appearance graph — who appears together, with shared asset counts and overlapping on-camera time
+ */
+export const GetCoAppearancesResponse = zod.object({
+  "nodes": zod.array(zod.object({
+  "person_id": zod.string(),
+  "display_name": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "asset_count": zod.number()
+})).describe('People that share at least one asset with someone else'),
+  "pairs": zod.array(zod.object({
+  "person_a_id": zod.string(),
+  "person_b_id": zod.string(),
+  "shared_assets": zod.number().describe('Number of assets both people appear in'),
+  "together_seconds": zod.number().describe('Seconds both people are on camera at the same time across shared assets (0 when face timing data is missing)')
+}))
+})
+
+
+/**
  * @summary Person profile with per-asset appearances
  */
 export const GetPersonParams = zod.object({

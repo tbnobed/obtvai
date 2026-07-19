@@ -1,0 +1,225 @@
+import { useMemo, useState } from "react";
+import { useGetCoAppearances } from "@workspace/api-client-react";
+import type { CoAppearanceNode, CoAppearancePair } from "@workspace/api-client-react";
+import { useLocation } from "wouter";
+import { Share2 } from "lucide-react";
+
+const W = 960;
+const H = 620;
+const PAD = 60;
+
+function formatTogether(seconds: number) {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const m = Math.floor(seconds / 60);
+  if (m >= 60) return `${Math.floor(m / 60)}h ${m % 60}m`;
+  return `${m}m ${Math.round(seconds % 60)}s`;
+}
+
+function nodeRadius(assetCount: number, maxAssets: number) {
+  const t = maxAssets > 0 ? Math.min(assetCount / maxAssets, 1) : 0;
+  return 20 + t * 14;
+}
+
+/** Deterministic force-directed layout: circle seed + repulsion, springs
+ *  along edges (stronger pairs pull closer), and center gravity. */
+function computeLayout(nodes: CoAppearanceNode[], pairs: CoAppearancePair[]) {
+  const n = nodes.length;
+  const idx = new Map(nodes.map((node, i) => [node.person_id, i]));
+  const px = new Array<number>(n);
+  const py = new Array<number>(n);
+  const seedR = Math.min(W, H) * 0.34;
+  for (let i = 0; i < n; i++) {
+    const angle = (2 * Math.PI * i) / Math.max(n, 1);
+    px[i] = W / 2 + seedR * Math.cos(angle);
+    py[i] = H / 2 + seedR * Math.sin(angle);
+  }
+  const maxShared = Math.max(1, ...pairs.map((p) => p.shared_assets));
+  const edges = pairs
+    .map((p) => ({ a: idx.get(p.person_a_id), b: idx.get(p.person_b_id), w: p.shared_assets / maxShared }))
+    .filter((e): e is { a: number; b: number; w: number } => e.a !== undefined && e.b !== undefined);
+
+  const ITER = 300;
+  for (let iter = 0; iter < ITER; iter++) {
+    const cooling = 1 - iter / ITER;
+    const fx = new Array<number>(n).fill(0);
+    const fy = new Array<number>(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        let dx = px[i] - px[j];
+        let dy = py[i] - py[j];
+        let d2 = dx * dx + dy * dy;
+        if (d2 < 1) { dx = (i - j) * 0.1 || 0.1; dy = 0.1; d2 = dx * dx + dy * dy; }
+        const d = Math.sqrt(d2);
+        const rep = 16000 / d2;
+        fx[i] += (dx / d) * rep; fy[i] += (dy / d) * rep;
+        fx[j] -= (dx / d) * rep; fy[j] -= (dy / d) * rep;
+      }
+    }
+    for (const e of edges) {
+      const dx = px[e.b] - px[e.a];
+      const dy = py[e.b] - py[e.a];
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const target = 280 - 160 * e.w;
+      const f = (d - target) * 0.03;
+      fx[e.a] += (dx / d) * f; fy[e.a] += (dy / d) * f;
+      fx[e.b] -= (dx / d) * f; fy[e.b] -= (dy / d) * f;
+    }
+    for (let i = 0; i < n; i++) {
+      fx[i] += (W / 2 - px[i]) * 0.015;
+      fy[i] += (H / 2 - py[i]) * 0.015;
+      const step = 0.85 * cooling;
+      px[i] = Math.min(W - PAD, Math.max(PAD, px[i] + fx[i] * step));
+      py[i] = Math.min(H - PAD, Math.max(PAD, py[i] + fy[i] * step));
+    }
+  }
+  return { px, py, idx };
+}
+
+export default function CoAppearanceMap() {
+  const { data, isLoading } = useGetCoAppearances();
+  const [, navigate] = useLocation();
+  const [hoveredPair, setHoveredPair] = useState<number | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+
+  const nodes = useMemo(() => data?.nodes ?? [], [data]);
+  const pairs = useMemo(
+    () => [...(data?.pairs ?? [])].sort((a, b) => a.shared_assets - b.shared_assets),
+    [data]
+  );
+  const layout = useMemo(() => computeLayout(nodes, pairs), [nodes, pairs]);
+  const nameOf = useMemo(() => new Map(nodes.map((n) => [n.person_id, n.display_name])), [nodes]);
+  const maxAssets = useMemo(() => Math.max(1, ...nodes.map((n) => n.asset_count)), [nodes]);
+  const maxShared = useMemo(() => Math.max(1, ...pairs.map((p) => p.shared_assets)), [pairs]);
+
+  const connectedTo = useMemo(() => {
+    if (!hoveredNode) return null;
+    const set = new Set<string>([hoveredNode]);
+    for (const p of pairs) {
+      if (p.person_a_id === hoveredNode) set.add(p.person_b_id);
+      if (p.person_b_id === hoveredNode) set.add(p.person_a_id);
+    }
+    return set;
+  }, [hoveredNode, pairs]);
+
+  if (isLoading) {
+    return <div className="animate-pulse bg-muted rounded-md w-full" style={{ aspectRatio: `${W}/${H}` }} />;
+  }
+
+  if (!nodes.length || !pairs.length) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-24">
+        <Share2 className="h-12 w-12 mb-4 opacity-50" />
+        <p>No co-appearances yet.</p>
+        <p className="text-xs mt-1 max-w-md text-center">
+          The map fills in once at least two identified people appear in the same video.
+        </p>
+      </div>
+    );
+  }
+
+  const hovered = hoveredPair !== null ? pairs[hoveredPair] : null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="border border-border bg-card rounded-md overflow-hidden">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label="Co-appearance map">
+          {pairs.map((p, i) => {
+            const a = layout.idx.get(p.person_a_id);
+            const b = layout.idx.get(p.person_b_id);
+            if (a === undefined || b === undefined) return null;
+            const strong = hoveredPair === i;
+            const dimmed =
+              (hoveredPair !== null && !strong) ||
+              (connectedTo !== null && !(connectedTo.has(p.person_a_id) && connectedTo.has(p.person_b_id) && (p.person_a_id === hoveredNode || p.person_b_id === hoveredNode)));
+            return (
+              <line
+                key={i}
+                x1={layout.px[a]} y1={layout.py[a]}
+                x2={layout.px[b]} y2={layout.py[b]}
+                stroke="currentColor"
+                className={strong ? "text-primary" : dimmed ? "text-border/40" : "text-border"}
+                strokeWidth={1.5 + (p.shared_assets / maxShared) * 6}
+                strokeLinecap="round"
+                style={{ cursor: "pointer" }}
+                onMouseEnter={() => setHoveredPair(i)}
+                onMouseLeave={() => setHoveredPair(null)}
+              />
+            );
+          })}
+          {nodes.map((node) => {
+            const i = layout.idx.get(node.person_id);
+            if (i === undefined) return null;
+            const x = layout.px[i];
+            const y = layout.py[i];
+            const r = nodeRadius(node.asset_count, maxAssets);
+            const inHoveredPair =
+              hovered !== null && (hovered.person_a_id === node.person_id || hovered.person_b_id === node.person_id);
+            const dimmed =
+              (connectedTo !== null && !connectedTo.has(node.person_id)) ||
+              (hovered !== null && !inHoveredPair);
+            const initials = node.display_name
+              .split(/\s+/)
+              .map((w) => w[0])
+              .filter(Boolean)
+              .slice(0, 2)
+              .join("")
+              .toUpperCase();
+            return (
+              <g
+                key={node.person_id}
+                style={{ cursor: "pointer", opacity: dimmed ? 0.3 : 1, transition: "opacity 120ms" }}
+                onClick={() => navigate(`/people/${node.person_id}`)}
+                onMouseEnter={() => setHoveredNode(node.person_id)}
+                onMouseLeave={() => setHoveredNode(null)}
+              >
+                <title>{`${node.display_name} — ${node.asset_count} ${node.asset_count === 1 ? "video" : "videos"}`}</title>
+                <circle cx={x} cy={y} r={r + 2} className="fill-card stroke-primary/60" strokeWidth={hoveredNode === node.person_id || inHoveredPair ? 2.5 : 1} />
+                {node.thumbnail_url ? (
+                  <>
+                    <clipPath id={`clip-${node.person_id}`}>
+                      <circle cx={x} cy={y} r={r} />
+                    </clipPath>
+                    <image
+                      href={`/api/thumbnails/${node.thumbnail_url}`}
+                      x={x - r} y={y - r} width={r * 2} height={r * 2}
+                      clipPath={`url(#clip-${node.person_id})`}
+                      preserveAspectRatio="xMidYMid slice"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <circle cx={x} cy={y} r={r} className="fill-muted" />
+                    <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground" fontSize={r * 0.7} fontWeight={600}>
+                      {initials}
+                    </text>
+                  </>
+                )}
+                <text x={x} y={y + r + 14} textAnchor="middle" className="fill-foreground" fontSize={12} fontWeight={500}>
+                  {node.display_name.length > 22 ? `${node.display_name.slice(0, 21)}…` : node.display_name}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="min-h-[1.5rem] text-sm text-muted-foreground">
+        {hovered ? (
+          <span>
+            <span className="text-foreground font-medium">{nameOf.get(hovered.person_a_id)}</span>
+            {" & "}
+            <span className="text-foreground font-medium">{nameOf.get(hovered.person_b_id)}</span>
+            {" — "}
+            {hovered.shared_assets} {hovered.shared_assets === 1 ? "video" : "videos"} together
+            {hovered.together_seconds > 0
+              ? ` · ${formatTogether(hovered.together_seconds)} on camera at the same time`
+              : " · no overlapping on-camera time detected"}
+          </span>
+        ) : (
+          <span>
+            Line thickness = videos shared · circle size = total videos · hover a line for details · click a person to open their profile
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}

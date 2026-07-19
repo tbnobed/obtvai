@@ -661,6 +661,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/PeoplePage"
 
+  /people/co-appearances:
+    get:
+      operationId: getCoAppearances
+      tags: [people]
+      summary: Co-appearance graph — who appears together, with shared asset counts and overlapping on-camera time
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoAppearanceGraph"
+
   /people/{id}:
     get:
       operationId: getPerson
@@ -2715,6 +2728,48 @@ components:
           items:
             $ref: "#/components/schemas/OnCameraRange"
           description: Face-detection time ranges where this person is visible on screen
+
+    CoAppearanceNode:
+      type: object
+      required: [person_id, display_name, asset_count]
+      properties:
+        person_id:
+          type: string
+        display_name:
+          type: string
+        thumbnail_url:
+          type: ["string", "null"]
+        asset_count:
+          type: integer
+
+    CoAppearancePair:
+      type: object
+      required: [person_a_id, person_b_id, shared_assets, together_seconds]
+      properties:
+        person_a_id:
+          type: string
+        person_b_id:
+          type: string
+        shared_assets:
+          type: integer
+          description: Number of assets both people appear in
+        together_seconds:
+          type: number
+          description: Seconds both people are on camera at the same time across shared assets (0 when face timing data is missing)
+
+    CoAppearanceGraph:
+      type: object
+      required: [nodes, pairs]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoAppearanceNode"
+          description: People that share at least one asset with someone else
+        pairs:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoAppearancePair"
 
     AssetPerson:
       type: object

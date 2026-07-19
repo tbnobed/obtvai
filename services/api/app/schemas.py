@@ -605,6 +605,25 @@ class PeoplePageOut(BaseModel):
     total: int
 
 
+class CoAppearanceNodeOut(BaseModel):
+    person_id: str
+    display_name: str
+    thumbnail_url: Optional[str] = None
+    asset_count: int
+
+
+class CoAppearancePairOut(BaseModel):
+    person_a_id: str
+    person_b_id: str
+    shared_assets: int
+    together_seconds: float
+
+
+class CoAppearanceGraphOut(BaseModel):
+    nodes: List[CoAppearanceNodeOut] = []
+    pairs: List[CoAppearancePairOut] = []
+
+
 # ── Insights ──────────────────────────────────────────────────────────────────
 
 class InsightPersonRefOut(BaseModel):

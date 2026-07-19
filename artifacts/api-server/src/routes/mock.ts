@@ -2133,6 +2133,40 @@ router.get("/people", (req, res) => {
   res.json({ items: people.slice(offset, offset + limit), total: people.length });
 });
 
+// Must be registered before /people/:id, or "co-appearances" is treated as an id.
+router.get("/people/co-appearances", (_req, res) => {
+  const byMedia: Record<string, string[]> = {};
+  for (const p of people) {
+    for (const a of personAppearances[p.id] ?? []) {
+      (byMedia[a.media_id] ??= []).push(p.id);
+    }
+  }
+  const pairs: Record<string, { person_a_id: string; person_b_id: string; shared_assets: number; together_seconds: number }> = {};
+  for (const pids of Object.values(byMedia)) {
+    const uniq = [...new Set(pids)].sort();
+    for (let i = 0; i < uniq.length; i++) {
+      for (let j = i + 1; j < uniq.length; j++) {
+        const key = `${uniq[i]}|${uniq[j]}`;
+        pairs[key] ??= { person_a_id: uniq[i], person_b_id: uniq[j], shared_assets: 0, together_seconds: 0 };
+        pairs[key].shared_assets += 1;
+        // Mock on-camera overlap: a deterministic slice of the smaller speaking time.
+        const specificSpeaking = (pid: string, mid: string) =>
+          (personAppearances[pid] ?? []).find((x) => x.media_id === mid)?.speaking_seconds ?? 0;
+        const mid = Object.keys(byMedia).find((m) => byMedia[m] === pids)!;
+        pairs[key].together_seconds += Math.round(Math.min(specificSpeaking(uniq[i], mid), specificSpeaking(uniq[j], mid)) * 0.45);
+      }
+    }
+  }
+  const pairList = Object.values(pairs);
+  const nodeIds = new Set(pairList.flatMap((p) => [p.person_a_id, p.person_b_id]));
+  res.json({
+    nodes: people
+      .filter((p) => nodeIds.has(p.id))
+      .map((p) => ({ person_id: p.id, display_name: p.display_name, thumbnail_url: p.thumbnail_url, asset_count: p.asset_count })),
+    pairs: pairList,
+  });
+});
+
 router.get("/people/:id", (req, res) => {
   const p = people.find((x) => x.id === req.params.id);
   if (!p) { res.status(404).json({ error: "Not found" }); return; }

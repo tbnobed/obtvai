@@ -15,6 +15,9 @@ from ..schemas import (
     PersonAssetMomentsOut,
     SpeakingMomentOut,
     OnCameraRangeOut,
+    CoAppearanceGraphOut,
+    CoAppearanceNodeOut,
+    CoAppearancePairOut,
 )
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -174,6 +177,144 @@ async def reanalyze_people(db: AsyncSession = Depends(get_db)):
         await enqueue_job(job_type, media_id, job_id)
 
     return ReanalyzeOut(assets_queued=assets_queued, jobs_created=jobs_created)
+
+
+def _merge_intervals(raw: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    merged: list[list[float]] = []
+    for start, end in sorted(raw):
+        if merged and start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return [(s, e) for s, e in merged]
+
+
+def _interval_overlap(a: list[tuple[float, float]], b: list[tuple[float, float]]) -> float:
+    """Total overlap between two sorted, merged interval lists (two-pointer)."""
+    total = 0.0
+    i = j = 0
+    while i < len(a) and j < len(b):
+        start = max(a[i][0], b[j][0])
+        end = min(a[i][1], b[j][1])
+        if end > start:
+            total += end - start
+        if a[i][1] <= b[j][1]:
+            i += 1
+        else:
+            j += 1
+    return total
+
+
+MAX_CO_APPEARANCE_PAIRS = 300
+
+
+# NOTE: must be registered before the /{id} routes below, or FastAPI would
+# treat "co-appearances" as a person id.
+@router.get("/co-appearances", response_model=CoAppearanceGraphOut)
+async def get_co_appearances(db: AsyncSession = Depends(get_db)):
+    """Who appears together on camera: every pair of people sharing at least
+    one asset, plus the seconds both are visibly on camera at the same time
+    (computed from overlapping face-cluster appearance ranges)."""
+    rows = (
+        await db.execute(
+            select(
+                PersonAppearance.person_id,
+                PersonAppearance.media_id,
+                PersonAppearance.face_cluster_id,
+            )
+        )
+    ).all()
+
+    by_media: dict[str, set[str]] = {}
+    clusters_of: dict[tuple[str, str], set[str]] = {}
+    for pid, mid, cid in rows:
+        by_media.setdefault(mid, set()).add(pid)
+        if cid:
+            clusters_of.setdefault((mid, pid), set()).add(cid)
+
+    pair_assets: dict[tuple[str, str], int] = {}
+    for mid, pids in by_media.items():
+        ordered = sorted(pids)
+        for i in range(len(ordered)):
+            for j in range(i + 1, len(ordered)):
+                key = (ordered[i], ordered[j])
+                pair_assets[key] = pair_assets.get(key, 0) + 1
+
+    if not pair_assets:
+        return CoAppearanceGraphOut(nodes=[], pairs=[])
+
+    # On-camera intervals per (asset, person) — only for assets shared by 2+
+    # people, from the face clusters the identify pass attached to each person.
+    shared_media = [mid for mid, pids in by_media.items() if len(pids) >= 2]
+    intervals: dict[tuple[str, str], list[tuple[float, float]]] = {}
+    if shared_media:
+        fc_rows = (
+            await db.execute(
+                select(FaceCluster.media_id, FaceCluster.cluster_id, FaceCluster.appearances)
+                .where(FaceCluster.media_id.in_(shared_media))
+            )
+        ).all()
+        fc_map = {(m, c): a for m, c, a in fc_rows}
+        for (mid, pid), cids in clusters_of.items():
+            if len(by_media.get(mid) or ()) < 2:
+                continue
+            raw: list[tuple[float, float]] = []
+            for cid in cids:
+                for a in fc_map.get((mid, cid)) or []:
+                    try:
+                        raw.append((float(a["start_time"]), float(a["end_time"])))
+                    except (KeyError, TypeError, ValueError):
+                        continue
+            if raw:
+                intervals[(mid, pid)] = _merge_intervals(raw)
+
+    together: dict[tuple[str, str], float] = {}
+    for mid, pids in by_media.items():
+        ordered = sorted(pids)
+        for i in range(len(ordered)):
+            for j in range(i + 1, len(ordered)):
+                ia = intervals.get((mid, ordered[i]))
+                ib = intervals.get((mid, ordered[j]))
+                if ia and ib:
+                    key = (ordered[i], ordered[j])
+                    together[key] = together.get(key, 0.0) + _interval_overlap(ia, ib)
+
+    top_pairs = sorted(
+        pair_assets.items(),
+        key=lambda kv: (-kv[1], -together.get(kv[0], 0.0)),
+    )[:MAX_CO_APPEARANCE_PAIRS]
+
+    node_ids = {p for (a, b), _ in top_pairs for p in (a, b)}
+    people_rows = (
+        await db.execute(
+            select(Person, _STATS.c.assets)
+            .outerjoin(_STATS, _STATS.c.person_id == Person.id)
+            .where(Person.id.in_(node_ids))
+        )
+    ).all()
+    known_ids = {p.id for p, _ in people_rows}
+
+    return CoAppearanceGraphOut(
+        nodes=[
+            CoAppearanceNodeOut(
+                person_id=p.id,
+                display_name=p.display_name,
+                thumbnail_url=p.thumbnail_url,
+                asset_count=int(a or 0),
+            )
+            for p, a in people_rows
+        ],
+        pairs=[
+            CoAppearancePairOut(
+                person_a_id=a,
+                person_b_id=b,
+                shared_assets=n,
+                together_seconds=round(together.get((a, b), 0.0), 1),
+            )
+            for (a, b), n in top_pairs
+            if a in known_ids and b in known_ids
+        ],
+    )
 
 
 async def _get_person_with_stats(id: str, db: AsyncSession):
