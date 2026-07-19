@@ -44,25 +44,36 @@ MAX_DIM = 4096
 MAX_FRAMES = 481
 MAX_STEPS = 100
 
-# /object_info is a big payload; cache it briefly so the presets endpoint can
-# be polled without hammering ComfyUI.
-_object_info_cache: dict = {"data": None, "error": None, "ts": 0.0}
+def _comfy_url(kind: str) -> str:
+    """Two ComfyUI instances may run side by side (one per output kind)."""
+    if kind == "video":
+        return settings.comfyui_url_video or settings.comfyui_url
+    return settings.comfyui_url_image or settings.comfyui_url
+
+
+# /object_info is a big payload; cache it briefly (per instance URL) so the
+# presets endpoint can be polled without hammering ComfyUI.
+_object_info_cache: dict[str, dict] = {}
 OBJECT_INFO_TTL = 30.0
 
 
-async def _get_object_info() -> tuple[dict | None, str | None]:
+async def _get_object_info(kind: str) -> tuple[dict | None, str | None]:
+    url = _comfy_url(kind)
     now = time.monotonic()
-    if now - _object_info_cache["ts"] < OBJECT_INFO_TTL:
-        return _object_info_cache["data"], _object_info_cache["error"]
+    cached = _object_info_cache.get(url)
+    if cached and now - cached["ts"] < OBJECT_INFO_TTL:
+        return cached["data"], cached["error"]
     data, error = None, None
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.get(f"{settings.comfyui_url}/object_info")
+            resp = await client.get(f"{url}/object_info")
             resp.raise_for_status()
             data = resp.json()
     except Exception as exc:  # unreachable, timeout, bad JSON — all mean "not available"
-        error = f"ComfyUI unreachable at {settings.comfyui_url} ({type(exc).__name__})"
-    _object_info_cache.update({"data": data, "error": error, "ts": now})
+        split = bool(settings.comfyui_url_image or settings.comfyui_url_video)
+        label = f"ComfyUI ({kind})" if split else "ComfyUI"
+        error = f"{label} unreachable at {url} ({type(exc).__name__})"
+    _object_info_cache[url] = {"data": data, "error": error, "ts": now}
     return data, error
 
 
@@ -152,19 +163,24 @@ def _gen_out(g: GraphicsGeneration) -> GraphicsGenerationOut:
 
 @router.get("/graphics/presets", response_model=list[GraphicsPresetOut])
 async def list_graphics_presets():
-    object_info, comfy_error = await _get_object_info()
+    # Each preset is gated against the ComfyUI instance for its own kind.
+    info_by_kind = {
+        "image": await _get_object_info("image"),
+        "video": await _get_object_info("video"),
+    }
     presets: list[GraphicsPresetOut] = []
 
-    def availability(graph: dict | None, parse_error: str | None) -> tuple[bool, str | None]:
+    def availability(kind: str, graph: dict | None, parse_error: str | None) -> tuple[bool, str | None]:
         if parse_error:
             return False, parse_error
+        object_info, comfy_error = info_by_kind.get(kind) or info_by_kind["image"]
         if comfy_error:
             return False, comfy_error
         reason = check_graph(graph, object_info or {})
         return (reason is None), reason
 
     for b in BUILTIN_PRESETS:
-        ok, reason = availability(b["graph"], None)
+        ok, reason = availability(b["kind"], b["graph"], None)
         presets.append(GraphicsPresetOut(
             id=b["id"], name=b["name"], description=b["description"],
             kind=b["kind"], source="builtin", available=ok, unavailable_reason=reason,
@@ -176,13 +192,13 @@ async def list_graphics_presets():
         ))
 
     for preset_id, fname, graph, parse_error in _load_custom_workflows():
-        ok, reason = availability(graph, parse_error)
         caps = detect_capabilities(graph) if graph else {
             "kind": "image", "supports_negative": False, "supports_size": False,
             "supports_steps": False, "supports_frames": False, "supports_seed": False,
             "default_width": None, "default_height": None,
             "default_steps": None, "default_frames": None,
         }
+        ok, reason = availability(caps["kind"], graph, parse_error)
         presets.append(GraphicsPresetOut(
             id=preset_id, name=os.path.splitext(fname)[0],
             description=f"Custom ComfyUI workflow ({fname})",
@@ -204,7 +220,7 @@ async def create_graphics_generation(body: GraphicsGenerateIn, db: AsyncSession 
     if err:
         raise HTTPException(status_code=404, detail=err)
 
-    object_info, comfy_error = await _get_object_info()
+    object_info, comfy_error = await _get_object_info(meta["kind"])
     if comfy_error:
         raise HTTPException(status_code=503, detail=comfy_error)
     reason = check_graph(graph, object_info or {})
@@ -270,17 +286,18 @@ async def get_graphics_generation(gen_id: str, db: AsyncSession = Depends(get_db
     return _gen_out(await _get_gen(gen_id, db))
 
 
-async def _comfy_abort(prompt_id: str | None):
+async def _comfy_abort(prompt_id: str | None, kind: str):
     """Best-effort: drop a queued prompt and interrupt it if it's running."""
     if not prompt_id:
         return
+    base = _comfy_url(kind)
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(f"{settings.comfyui_url}/queue", json={"delete": [prompt_id]})
-            queue = (await client.get(f"{settings.comfyui_url}/queue")).json()
+            await client.post(f"{base}/queue", json={"delete": [prompt_id]})
+            queue = (await client.get(f"{base}/queue")).json()
             running_ids = {item[1] for item in queue.get("queue_running", []) if len(item) > 1}
             if prompt_id in running_ids:
-                await client.post(f"{settings.comfyui_url}/interrupt")
+                await client.post(f"{base}/interrupt")
     except Exception:
         pass  # worker also watches for the cancelled status
 
@@ -294,7 +311,7 @@ async def cancel_graphics_generation(gen_id: str, db: AsyncSession = Depends(get
     gen.completed_at = datetime.utcnow()
     await db.commit()
     await db.refresh(gen)
-    await _comfy_abort(gen.comfy_prompt_id)
+    await _comfy_abort(gen.comfy_prompt_id, gen.kind)
     return _gen_out(gen)
 
 
@@ -304,7 +321,7 @@ async def delete_graphics_generation(gen_id: str, db: AsyncSession = Depends(get
     if gen.status in ACTIVE_STATUSES:
         gen.status = "cancelled"
         await db.commit()
-        await _comfy_abort(gen.comfy_prompt_id)
+        await _comfy_abort(gen.comfy_prompt_id, gen.kind)
     out_dir = os.path.join(settings.graphics_dir, gen.id)
     if os.path.isdir(out_dir):
         shutil.rmtree(out_dir, ignore_errors=True)

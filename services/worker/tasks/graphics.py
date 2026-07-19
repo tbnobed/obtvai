@@ -19,7 +19,7 @@ import requests
 
 from app import celery_app
 from db import get_session
-from config import COMFYUI_URL, GRAPHICS_DIR, COMFY_WORKFLOWS_DIR
+from config import COMFYUI_URL_IMAGE, COMFYUI_URL_VIDEO, GRAPHICS_DIR, COMFY_WORKFLOWS_DIR
 from comfy_graphics import (
     CUSTOM_PRESET_PREFIX,
     builtin_preset,
@@ -110,27 +110,32 @@ def _history_error_detail(entry: dict) -> str:
     return "; ".join(parts) or status.get("status_str") or "ComfyUI execution failed"
 
 
-def _cancel_in_comfy(prompt_id: str):
+def _comfy_url(kind: str) -> str:
+    """Two ComfyUI instances may run side by side (one per output kind)."""
+    return COMFYUI_URL_VIDEO if kind == "video" else COMFYUI_URL_IMAGE
+
+
+def _cancel_in_comfy(base: str, prompt_id: str):
     try:
-        requests.post(f"{COMFYUI_URL}/queue", json={"delete": [prompt_id]}, timeout=5)
-        queue = requests.get(f"{COMFYUI_URL}/queue", timeout=5).json()
+        requests.post(f"{base}/queue", json={"delete": [prompt_id]}, timeout=5)
+        queue = requests.get(f"{base}/queue", timeout=5).json()
         running = {item[1] for item in queue.get("queue_running", []) if len(item) > 1}
         if prompt_id in running:
-            requests.post(f"{COMFYUI_URL}/interrupt", timeout=5)
+            requests.post(f"{base}/interrupt", timeout=5)
     except Exception:
         pass
 
 
-def _queue_position(prompt_id: str) -> int | None:
+def _queue_position(base: str, prompt_id: str) -> int | None:
     """None if not queued (running or finished); else 0-based position."""
-    queue = requests.get(f"{COMFYUI_URL}/queue", timeout=10).json()
+    queue = requests.get(f"{base}/queue", timeout=10).json()
     for idx, item in enumerate(queue.get("queue_pending", [])):
         if len(item) > 1 and item[1] == prompt_id:
             return idx
     return None
 
 
-def _download_outputs(entry: dict, dest_dir: str) -> list[str]:
+def _download_outputs(base: str, entry: dict, dest_dir: str) -> list[str]:
     """Download every file output from a history entry, preserving order."""
     files: list[str] = []
     for node_output in (entry.get("outputs") or {}).values():
@@ -142,7 +147,7 @@ def _download_outputs(entry: dict, dest_dir: str) -> list[str]:
                 if item.get("type") not in (None, "output"):
                     continue  # skip temp/preview outputs
                 resp = requests.get(
-                    f"{COMFYUI_URL}/view",
+                    f"{base}/view",
                     params={
                         "filename": fname,
                         "subfolder": item.get("subfolder", ""),
@@ -254,6 +259,8 @@ def generate(self, generation_id: str):
             steps_hook=meta.get("steps_hook"),
         )
 
+        comfy = _comfy_url(kind)
+
         out_dir = os.path.join(GRAPHICS_DIR, generation_id)
         os.makedirs(out_dir, exist_ok=True)
 
@@ -263,7 +270,7 @@ def generate(self, generation_id: str):
             shutil.rmtree(p, ignore_errors=True) if os.path.isdir(p) else os.remove(p)
 
         resp = requests.post(
-            f"{COMFYUI_URL}/prompt",
+            f"{comfy}/prompt",
             json={"prompt": graph, "client_id": f"obtv-{generation_id}"},
             timeout=30,
         )
@@ -288,23 +295,23 @@ def generate(self, generation_id: str):
         poll_errors = 0
         while True:
             if time.time() - started > GENERATION_TIMEOUT:
-                _cancel_in_comfy(prompt_id)
+                _cancel_in_comfy(comfy, prompt_id)
                 raise RuntimeError(f"Timed out after {GENERATION_TIMEOUT}s")
 
             if _fetch_status(db, generation_id) == "cancelled":
-                _cancel_in_comfy(prompt_id)
+                _cancel_in_comfy(comfy, prompt_id)
                 return
 
             # A single blip mustn't kill a long render — only give up after
             # ComfyUI has been unreachable for several consecutive polls.
             try:
-                history = requests.get(f"{COMFYUI_URL}/history/{prompt_id}", timeout=10).json()
+                history = requests.get(f"{comfy}/history/{prompt_id}", timeout=10).json()
                 poll_errors = 0
             except Exception:
                 poll_errors += 1
                 if poll_errors >= 8:
                     raise RuntimeError(
-                        f"Lost contact with ComfyUI at {COMFYUI_URL} while waiting for the job"
+                        f"Lost contact with ComfyUI at {comfy} while waiting for the job"
                     )
                 time.sleep(POLL_INTERVAL * 2)
                 continue
@@ -315,7 +322,7 @@ def generate(self, generation_id: str):
                     raise RuntimeError(_history_error_detail(entry))
                 if not entry_status.get("completed", True):
                     raise RuntimeError("ComfyUI execution was interrupted before completion")
-                downloaded = _download_outputs(entry, out_dir)
+                downloaded = _download_outputs(comfy, entry, out_dir)
                 output, thumb, duration = _assemble_output(downloaded, out_dir, kind, meta.get("fps"))
                 _update(db, generation_id,
                         status="success", progress=100.0, queue_position=None,
@@ -324,12 +331,12 @@ def generate(self, generation_id: str):
                 return
 
             try:
-                pos = _queue_position(prompt_id)
+                pos = _queue_position(comfy, prompt_id)
             except Exception:
                 poll_errors += 1
                 if poll_errors >= 8:
                     raise RuntimeError(
-                        f"Lost contact with ComfyUI at {COMFYUI_URL} while waiting for the job"
+                        f"Lost contact with ComfyUI at {comfy} while waiting for the job"
                     )
                 time.sleep(POLL_INTERVAL * 2)
                 continue

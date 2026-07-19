@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     renders_dir: str = "/artifacts/renders"
     graphics_dir: str = "/artifacts/graphics"
     comfyui_url: str = "http://host.docker.internal:8188"
+    # Separate instances per output kind; empty = fall back to comfyui_url.
+    comfyui_url_image: str = ""
+    comfyui_url_video: str = ""
     comfy_workflows_dir: str = "/workflows"
     youtube_client_id: str = ""
     youtube_client_secret: str = ""

@@ -15,6 +15,8 @@ x-python-env: &python-env
   VOICES_DIR: "/artifacts/voices"
   GRAPHICS_DIR: "/artifacts/graphics"
   COMFYUI_URL: "${COMFYUI_URL:-http://host.docker.internal:8188}"
+  COMFYUI_URL_IMAGE: "${COMFYUI_URL_IMAGE:-}"
+  COMFYUI_URL_VIDEO: "${COMFYUI_URL_VIDEO:-}"
   COMFY_WORKFLOWS_DIR: "/workflows"
   COQUI_TOS_AGREED: "1"
   YOUTUBE_CLIENT_ID: "${YOUTUBE_CLIENT_ID:-}"
