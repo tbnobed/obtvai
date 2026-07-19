@@ -2167,6 +2167,42 @@ router.get("/people/co-appearances", (_req, res) => {
   });
 });
 
+router.post("/people/enroll", upload.single("photo"), (req, res) => {
+  const file = (req as any).file;
+  const displayName = String(req.body?.display_name ?? "").trim();
+  if (!file) { res.status(422).json({ error: "No photo uploaded" }); return; }
+  if (!displayName) { res.status(422).json({ error: "display_name must not be empty" }); return; }
+  const newPerson = {
+    id: `person-${String(people.length + 1).padStart(3, "0")}`,
+    display_name: displayName,
+    name_source: "manual" as string | null,
+    thumbnail_url: null as string | null,
+    speech_style: null as string | null,
+    key_topics: [] as string[],
+    summary: null as string | null,
+    asset_count: 0,
+    total_speaking_seconds: 0,
+    segment_count: 0,
+    updated_at: new Date().toISOString(),
+  };
+  people.push(newPerson);
+  personAppearances[newPerson.id] = [];
+  // Mock matches: pretend the photo resembles the two busiest existing people.
+  const matches = people
+    .filter((p) => p.id !== newPerson.id)
+    .sort((a, b) => b.asset_count - a.asset_count)
+    .slice(0, 2)
+    .map((p, i) => ({
+      person_id: p.id,
+      display_name: p.display_name,
+      thumbnail_url: p.thumbnail_url,
+      asset_count: p.asset_count,
+      similarity: i === 0 ? 0.78 : 0.31,
+      strong: i === 0,
+    }));
+  res.status(201).json({ person: newPerson, matches });
+});
+
 router.get("/people/:id", (req, res) => {
   const p = people.find((x) => x.id === req.params.id);
   if (!p) { res.status(404).json({ error: "Not found" }); return; }

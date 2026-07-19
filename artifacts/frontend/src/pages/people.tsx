@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
 import CoAppearanceMap from "@/components/co-appearance-map";
+import EnrollPersonDialog from "@/components/enroll-person-dialog";
 
 function formatSpeaking(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -130,6 +131,7 @@ export default function People() {
               Co-appearance Map
             </Button>
           </div>
+          <EnrollPersonDialog />
           <Button
             size="sm"
             variant="outline"

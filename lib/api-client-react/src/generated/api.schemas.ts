@@ -426,6 +426,29 @@ export interface PersonAssetMoments {
   on_camera: OnCameraRange[];
 }
 
+export interface PersonEnrollInput {
+  photo: Blob;
+  display_name: string;
+}
+
+export interface PersonMatch {
+  person_id: string;
+  display_name: string;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  asset_count: number;
+  /** Cosine similarity between the uploaded photo's face and this person's stored face signature (0-1) */
+  similarity: number;
+  /** Likely the same person — safe to preselect for merging */
+  strong: boolean;
+}
+
+export interface PersonEnrollResult {
+  person: Person;
+  /** Existing people whose face signature resembles the photo, best first */
+  matches: PersonMatch[];
+}
+
 export interface CoAppearanceNode {
   person_id: string;
   display_name: string;

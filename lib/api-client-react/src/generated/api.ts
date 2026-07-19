@@ -64,6 +64,8 @@ import type {
   Person,
   PersonAssetMoments,
   PersonDetail,
+  PersonEnrollInput,
+  PersonEnrollResult,
   PersonMergeRequest,
   PersonSplitRequest,
   PersonUpdate,
@@ -2272,6 +2274,80 @@ export function useGetCoAppearances<TData = Awaited<ReturnType<typeof getCoAppea
 
 
 
+
+export const getEnrollPersonUrl = () => {
+
+
+
+
+  return `/api/people/enroll`
+}
+
+/**
+ * @summary Create a person from a reference photo — detects the face, stores its signature, and returns existing people that look like them as merge candidates
+ */
+export const enrollPerson = async (personEnrollInput: PersonEnrollInput, options?: RequestInit): Promise<PersonEnrollResult> => {
+    const formData = new FormData();
+formData.append(`photo`, personEnrollInput.photo);
+formData.append(`display_name`, personEnrollInput.display_name);
+
+  return customFetch<PersonEnrollResult>(getEnrollPersonUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getEnrollPersonMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrollPerson>>, TError,{data: BodyType<PersonEnrollInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enrollPerson>>, TError,{data: BodyType<PersonEnrollInput>}, TContext> => {
+
+const mutationKey = ['enrollPerson'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enrollPerson>>, {data: BodyType<PersonEnrollInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  enrollPerson(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnrollPersonMutationResult = NonNullable<Awaited<ReturnType<typeof enrollPerson>>>
+    export type EnrollPersonMutationBody = BodyType<PersonEnrollInput>
+    export type EnrollPersonMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a person from a reference photo — detects the face, stores its signature, and returns existing people that look like them as merge candidates
+ */
+export const useEnrollPerson = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrollPerson>>, TError,{data: BodyType<PersonEnrollInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enrollPerson>>,
+        TError,
+        {data: BodyType<PersonEnrollInput>},
+        TContext
+      > => {
+      return useMutation(getEnrollPersonMutationOptions(options));
+    }
 
 export const getGetPersonUrl = (id: string,) => {
 

@@ -905,6 +905,46 @@ export const GetCoAppearancesResponse = zod.object({
 
 
 /**
+ * @summary Create a person from a reference photo — detects the face, stores its signature, and returns existing people that look like them as merge candidates
+ */
+export const EnrollPersonBody = zod.object({
+  "photo": zod.instanceof(File),
+  "display_name": zod.string()
+})
+
+export const EnrollPersonResponse = zod.object({
+  "person": zod.object({
+  "id": zod.string(),
+  "display_name": zod.string(),
+  "name_source": zod.string().nullish().describe('auto (LLM-extracted from transcripts) | manual | null (unnamed)'),
+  "thumbnail_url": zod.string().nullish(),
+  "speech_style": zod.string().nullish().describe('AI summary of how this person speaks'),
+  "key_topics": zod.array(zod.string()).optional(),
+  "summary": zod.string().nullish().describe('AI bio of who this person appears to be'),
+  "asset_count": zod.number(),
+  "total_speaking_seconds": zod.number(),
+  "segment_count": zod.number(),
+  "updated_at": zod.string().nullish(),
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
+  "voice_settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
+}),
+  "matches": zod.array(zod.object({
+  "person_id": zod.string(),
+  "display_name": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "asset_count": zod.number(),
+  "similarity": zod.number().describe('Cosine similarity between the uploaded photo\'s face and this person\'s stored face signature (0-1)'),
+  "strong": zod.boolean().describe('Likely the same person — safe to preselect for merging')
+})).describe('Existing people whose face signature resembles the photo, best first')
+})
+
+
+/**
  * @summary Person profile with per-asset appearances
  */
 export const GetPersonParams = zod.object({

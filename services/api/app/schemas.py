@@ -605,6 +605,20 @@ class PeoplePageOut(BaseModel):
     total: int
 
 
+class PersonMatchOut(BaseModel):
+    person_id: str
+    display_name: str
+    thumbnail_url: Optional[str] = None
+    asset_count: int
+    similarity: float
+    strong: bool
+
+
+class PersonEnrollOut(BaseModel):
+    person: "PersonOut"
+    matches: List[PersonMatchOut] = []
+
+
 class CoAppearanceNodeOut(BaseModel):
     person_id: str
     display_name: str

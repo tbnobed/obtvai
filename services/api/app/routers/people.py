@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 from ..database import get_db
@@ -18,6 +18,8 @@ from ..schemas import (
     CoAppearanceGraphOut,
     CoAppearanceNodeOut,
     CoAppearancePairOut,
+    PersonMatchOut,
+    PersonEnrollOut,
 )
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -177,6 +179,111 @@ async def reanalyze_people(db: AsyncSession = Depends(get_db)):
         await enqueue_job(job_type, media_id, job_id)
 
     return ReanalyzeOut(assets_queued=assets_queued, jobs_created=jobs_created)
+
+
+ENROLL_MATCH_FLOOR = 0.25       # below this, faces are unrelated — hide entirely
+ENROLL_STRONG_THRESHOLD = 0.50  # ArcFace same-person sims run 0.5-0.8; photo vs
+                                # video-frame embeddings score a bit lower than
+                                # frame vs frame, so "strong" sits slightly under
+                                # the identify worker's 0.55 cluster threshold
+ENROLL_MAX_MATCHES = 12
+
+
+def _face_cosine(a, b) -> float:
+    import numpy as np
+
+    va, vb = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
+    if va.shape != vb.shape:
+        return 0.0
+    na, nb = np.linalg.norm(va), np.linalg.norm(vb)
+    if na <= 0 or nb <= 0:
+        return 0.0
+    return float(np.dot(va, vb) / (na * nb))
+
+
+@router.post("/enroll", response_model=PersonEnrollOut, status_code=201)
+async def enroll_person(
+    photo: UploadFile = File(...),
+    display_name: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a person from a reference photo: detect the most prominent face,
+    store its ArcFace signature (future identify runs then auto-match new
+    footage to this name), and return existing people whose stored face
+    signatures resemble the photo — candidates the user can merge in."""
+    import os
+    import uuid as _uuid
+    from fastapi.concurrency import run_in_threadpool
+    from sqlalchemy import text
+    from ..config import settings
+    from ..face_enroll import decode_photo, extract_face, MAX_PHOTO_BYTES
+
+    name = display_name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="display_name must not be empty")
+    data = await photo.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="Empty photo upload")
+    if len(data) > MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="Photo too large (15 MB max)")
+
+    try:
+        img = await run_in_threadpool(decode_photo, data)
+    except Exception:
+        raise HTTPException(status_code=422, detail="Could not read the image file")
+    # Model/runtime failures (first-run download, onnxruntime) surface as 500s
+    # instead of being masked as a bad image.
+    emb, crop = await run_in_threadpool(extract_face, img)
+    if emb is None or crop is None:
+        raise HTTPException(status_code=422, detail="No face detected in the photo")
+
+    os.makedirs(settings.thumbnails_dir, exist_ok=True)
+    thumb_name = f"person_enroll_{_uuid.uuid4().hex}.jpg"
+    with open(os.path.join(settings.thumbnails_dir, thumb_name), "wb") as f:
+        f.write(crop)
+
+    # Same lock the identify worker holds, so enrollment can't interleave with
+    # an in-flight identification pass.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_identify'))"))
+
+    person = Person(
+        display_name=name,
+        name_source="manual",
+        thumbnail_url=thumb_name,
+        face_embedding=emb,
+    )
+    db.add(person)
+    await db.flush()
+
+    candidates = (
+        await db.execute(
+            select(Person, _STATS.c.assets)
+            .outerjoin(_STATS, _STATS.c.person_id == Person.id)
+            .where(Person.id != person.id, Person.face_embedding.isnot(None))
+        )
+    ).all()
+    matches: list[PersonMatchOut] = []
+    for p, a in candidates:
+        sim = _face_cosine(emb, p.face_embedding)
+        if sim >= ENROLL_MATCH_FLOOR:
+            matches.append(
+                PersonMatchOut(
+                    person_id=p.id,
+                    display_name=p.display_name,
+                    thumbnail_url=p.thumbnail_url,
+                    asset_count=int(a or 0),
+                    similarity=round(sim, 3),
+                    strong=sim >= ENROLL_STRONG_THRESHOLD,
+                )
+            )
+    matches.sort(key=lambda m: -m.similarity)
+    await db.commit()
+
+    person_row, assets, speaking, segments = await _get_person_with_stats(person.id, db)
+    return PersonEnrollOut(
+        person=_person_out(person_row, assets or 0, speaking or 0, segments or 0),
+        matches=matches[:ENROLL_MAX_MATCHES],
+    )
 
 
 def _merge_intervals(raw: list[tuple[float, float]]) -> list[tuple[float, float]]:

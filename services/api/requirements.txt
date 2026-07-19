@@ -18,5 +18,14 @@ transformers==4.53.3
 accelerate==1.2.1
 numpy==2.2.0
 pillow==11.0.0
+# Face enrollment (same stack/pins as services/worker so photo embeddings
+# match the worker's ArcFace embeddings)
+insightface==0.7.3
+onnx==1.22.0
+onnxruntime==1.23.2
+opencv-python-headless==4.10.0.84
+scikit-image==0.25.2
+scikit-learn==1.6.1
+scipy==1.15.3
 python-jose==3.3.0
 passlib==1.7.4

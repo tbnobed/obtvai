@@ -674,6 +674,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/CoAppearanceGraph"
 
+  /people/enroll:
+    post:
+      operationId: enrollPerson
+      tags: [people]
+      summary: Create a person from a reference photo — detects the face, stores its signature, and returns existing people that look like them as merge candidates
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PersonEnrollInput"
+      responses:
+        "201":
+          description: Person created from the photo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonEnrollResult"
+        "422":
+          description: No face detected in the photo
+
   /people/{id}:
     get:
       operationId: getPerson
@@ -2728,6 +2749,47 @@ components:
           items:
             $ref: "#/components/schemas/OnCameraRange"
           description: Face-detection time ranges where this person is visible on screen
+
+    PersonEnrollInput:
+      type: object
+      required: [photo, display_name]
+      properties:
+        photo:
+          type: string
+          format: binary
+        display_name:
+          type: string
+
+    PersonMatch:
+      type: object
+      required: [person_id, display_name, asset_count, similarity, strong]
+      properties:
+        person_id:
+          type: string
+        display_name:
+          type: string
+        thumbnail_url:
+          type: ["string", "null"]
+        asset_count:
+          type: integer
+        similarity:
+          type: number
+          description: Cosine similarity between the uploaded photo's face and this person's stored face signature (0-1)
+        strong:
+          type: boolean
+          description: Likely the same person — safe to preselect for merging
+
+    PersonEnrollResult:
+      type: object
+      required: [person, matches]
+      properties:
+        person:
+          $ref: "#/components/schemas/Person"
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonMatch"
+          description: Existing people whose face signature resembles the photo, best first
 
     CoAppearanceNode:
       type: object
