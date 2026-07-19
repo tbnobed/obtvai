@@ -347,8 +347,12 @@ def _token_in_candidate(tok: str, cand_tokens: list[str], cand_joins: list[str])
     return False
 
 
-# Plain-weights formats ComfyUI loads interchangeably; GGUF/ONNX never cross.
-_WEIGHT_EXTS = {".safetensors", ".sft", ".pt", ".pth", ".ckpt", ".bin"}
+# Only safetensors-family files are interchangeable. Raw checkpoint formats
+# (.pth/.pt/.bin/.ckpt) use repo-specific key layouts that ComfyUI's loaders
+# list but often mis-detect — substituting one silently loads the wrong
+# encoder (seen live: Wan umt5 .pth fell back to a 768-dim CLIP encoding and
+# the sampler died on a 77x768 vs 4096x5120 matmul).
+_WEIGHT_EXTS = {".safetensors", ".sft"}
 
 
 def _ext_compatible(want_ext: str, cand_ext: str) -> bool:

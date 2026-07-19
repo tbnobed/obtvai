@@ -12,7 +12,7 @@ description: Reliable patterns for submitting/polling/cancelling ComfyUI jobs fr
 - Cancel race: worker status UPDATEs must carry `AND status != 'cancelled'` or the API's cancel gets overwritten in the window before comfy_prompt_id is stored.
 - Poll loops for long renders must tolerate consecutive transient HTTP failures (~8 polls) before erroring — one blip during a 10-min render otherwise kills a job ComfyUI keeps rendering.
 - Installs name the same model differently (fp8 vs fp16, Q8 vs Q5, HighNoise vs high_noise) — fuzzy-resolve preset filenames against the loader's options list before submitting. Match at token boundaries only (raw substring lets t5xxl hit inside umt5_xxl) and merge version digits into the family token (else wan2.1 VAE silently matches wan2.2 VAE — not interchangeable).
-- Same encoder also ships in different weight FORMATS (umt5 as .pth from the official Wan repo vs .safetensors) — allow cross-matching within plain-weights exts (safetensors/pth/pt/bin/ckpt, same-ext preferred) but never across GGUF/ONNX boundaries.
+- ComfyUI listing a file in a loader's options does NOT mean it can load it: raw checkpoint formats (.pth/.pt/.bin/.ckpt) with repo-specific key layouts get listed but mis-detect (Wan umt5 .pth silently loaded as 768-dim CLIP → 77x768 vs 4096x5120 matmul crash). Never fuzzy-substitute across weight formats except safetensors↔sft.
 - Don't assume which install serves a port: a running instance's `/object_info` options are the ground truth for what IT sees — the folder a user `ls`es may belong to the other install entirely.
 
 **Why:** learned building the graphics generator; each item was either a race or a silent-failure mode found in review.
