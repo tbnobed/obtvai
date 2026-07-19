@@ -347,6 +347,16 @@ def _token_in_candidate(tok: str, cand_tokens: list[str], cand_joins: list[str])
     return False
 
 
+# Plain-weights formats ComfyUI loads interchangeably; GGUF/ONNX never cross.
+_WEIGHT_EXTS = {".safetensors", ".sft", ".pt", ".pth", ".ckpt", ".bin"}
+
+
+def _ext_compatible(want_ext: str, cand_ext: str) -> bool:
+    if want_ext == cand_ext:
+        return True
+    return want_ext in _WEIGHT_EXTS and cand_ext in _WEIGHT_EXTS
+
+
 def find_model_file(value: str, options: list) -> str | None:
     """Exact match, else the closest equivalently-named file, else None."""
     base = os.path.basename(value)
@@ -360,7 +370,8 @@ def find_model_file(value: str, options: list) -> str | None:
     best: tuple | None = None
     for o in options:
         so = str(o)
-        if os.path.splitext(so)[1].lower() != ext:
+        cand_ext = os.path.splitext(so)[1].lower()
+        if not _ext_compatible(ext, cand_ext):
             continue
         cand_tokens = _name_tokens(so)
         cand_joins = _joins(cand_tokens)
@@ -369,7 +380,7 @@ def find_model_file(value: str, options: list) -> str | None:
         cand_core = _core_tokens(so)
         extras = len(set(cand_core) - set(want_core))
         noise_overlap = len(want_noise & set(cand_tokens))
-        score = (extras, -noise_overlap, len("".join(cand_tokens)), so)
+        score = (cand_ext != ext, extras, -noise_overlap, len("".join(cand_tokens)), so)
         if best is None or score < best:
             best = score
             best_val = so
