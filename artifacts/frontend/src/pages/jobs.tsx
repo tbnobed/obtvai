@@ -129,7 +129,7 @@ export default function Jobs() {
       {stats && (stats.jobs_pending > 0 || stats.jobs_running > 0 || stats.assets_processing > 0) && (
         <div className="mb-6 border border-border bg-card rounded-md p-5">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-            <div className="font-semibold">Ingest Progress</div>
+            <div className="font-semibold">Pipeline Progress</div>
             <div className="text-sm text-muted-foreground">
               {stats.assets_ready} of {stats.assets_total} assets ready
               {stats.assets_error > 0 && <span className="text-destructive"> · {stats.assets_error} failed</span>}
