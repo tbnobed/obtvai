@@ -1,0 +1,22 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ wget -P /opt/comfyui/models/vae https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors
+--2026-07-18 20:08:47--  https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors
+Resolving huggingface.co (huggingface.co)... 18.164.174.55, 18.164.174.118, 18.164.174.17, ...
+Connecting to huggingface.co (huggingface.co)|18.164.174.55|:443... connected.
+HTTP request sent, awaiting response... 302 Found
+Location: https://us.aws.cdn.hf.co/xet-bridge-us/67be35b066f702bfed7d3bdc/2e358d90f91ce658dc1be053d44cf2d6437e5f517c71ae89fcb2c89fd54ca67e?user_id=public&X-Xet-Cas-Uid=public&response-content-disposition=inline%3B+filename*%3DUTF-8%27%27wan_2.1_vae.safetensors%3B+filename%3D%22wan_2.1_vae.safetensors%22%3B&Expires=1784434127&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly91cy5hd3MuY2RuLmhmLmNvL3hldC1icmlkZ2UtdXMvNjdiZTM1YjA2NmY3MDJiZmVkN2QzYmRjLzJlMzU4ZDkwZjkxY2U2NThkYzFiZTA1M2Q0NGNmMmQ2NDM3ZTVmNTE3YzcxYWU4OWZjYjJjODlmZDU0Y2E2N2VcXD91c2VyX2lkPXB1YmxpYyZYLVhldC1DYXMtVWlkPXB1YmxpYyZyZXNwb25zZS1jb250ZW50LWRpc3Bvc2l0aW9uPWlubGluZSUzQitmaWxlbmFtZSUyQSUzRFVURi04JTI3JTI3d2FuXzIuMV92YWUuc2FmZXRlbnNvcnMlM0IrZmlsZW5hbWUlM0QlMjJ3YW5fMi4xX3ZhZS5zYWZldGVuc29ycyUyMiUzQiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiRXBvY2hUaW1lIjoxNzg0NDM0MTI3fX19XX0_&Signature=MEQCIFRPSoi9PK9VLKuQ-nW%7EhqaEqVFL%7EQsupIZ63keCdaRCAiB2JHhujO38jPuRICqKzitklgDhbfC3toM26DxURklvMQ__&Key-Pair-Id=01KXEF4KZ1B6FV465MAWR4M21F [following]
+--2026-07-18 20:08:47--  https://us.aws.cdn.hf.co/xet-bridge-us/67be35b066f702bfed7d3bdc/2e358d90f91ce658dc1be053d44cf2d6437e5f517c71ae89fcb2c89fd54ca67e?user_id=public&X-Xet-Cas-Uid=public&response-content-disposition=inline%3B+filename*%3DUTF-8%27%27wan_2.1_vae.safetensors%3B+filename%3D%22wan_2.1_vae.safetensors%22%3B&Expires=1784434127&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly91cy5hd3MuY2RuLmhmLmNvL3hldC1icmlkZ2UtdXMvNjdiZTM1YjA2NmY3MDJiZmVkN2QzYmRjLzJlMzU4ZDkwZjkxY2U2NThkYzFiZTA1M2Q0NGNmMmQ2NDM3ZTVmNTE3YzcxYWU4OWZjYjJjODlmZDU0Y2E2N2VcXD91c2VyX2lkPXB1YmxpYyZYLVhldC1DYXMtVWlkPXB1YmxpYyZyZXNwb25zZS1jb250ZW50LWRpc3Bvc2l0aW9uPWlubGluZSUzQitmaWxlbmFtZSUyQSUzRFVURi04JTI3JTI3d2FuXzIuMV92YWUuc2FmZXRlbnNvcnMlM0IrZmlsZW5hbWUlM0QlMjJ3YW5fMi4xX3ZhZS5zYWZldGVuc29ycyUyMiUzQiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiRXBvY2hUaW1lIjoxNzg0NDM0MTI3fX19XX0_&Signature=MEQCIFRPSoi9PK9VLKuQ-nW%7EhqaEqVFL%7EQsupIZ63keCdaRCAiB2JHhujO38jPuRICqKzitklgDhbfC3toM26DxURklvMQ__&Key-Pair-Id=01KXEF4KZ1B6FV465MAWR4M21F
+Resolving us.aws.cdn.hf.co (us.aws.cdn.hf.co)... 100.31.16.245, 44.217.206.136, 34.231.87.187, ...
+Connecting to us.aws.cdn.hf.co (us.aws.cdn.hf.co)|100.31.16.245|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 253815318 (242M) [application/octet-stream]
+Saving to: ‘/opt/comfyui/models/vae/wan_2.1_vae.safetensors’
+
+wan_2.1_vae.safetensors                     100%[===========================================================================================>] 242.06M  76.9MB/s    in 3.6s
+
+2026-07-18 20:08:51 (67.4 MB/s) - ‘/opt/comfyui/models/vae/wan_2.1_vae.safetensors’ saved [253815318/253815318]
+
+obtv-admin@obtv-llm-2:~/obtv-ai$ ls /opt/comfyui/models/vae ~/ComfyUI/models/vae 2>/dev/null | grep -i wan
+Wan2_1_VAE_bf16.safetensors
+Wan2.1_VAE.pth
+wan_2.1_vae.safetensors
+obtv-admin@obtv-llm-2:~/obtv-ai$
