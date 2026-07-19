@@ -53,6 +53,15 @@ export default function Jobs() {
   const finishedCount = jobs?.filter(j => j.status === "success" || j.status === "error" || j.status === "cancelled").length ?? 0;
   const errorCount = jobs?.filter(j => j.status === "error").length ?? 0;
 
+  const activeStages = stats?.stages.filter(s => s.pending + s.running > 0) ?? [];
+  const batchDone = activeStages.reduce((n, s) => n + s.success + s.error, 0);
+  const batchTotal = activeStages.reduce((n, s) => n + s.pending + s.running + s.success + s.error, 0);
+  const batchPct = batchTotal > 0
+    ? Math.round((batchDone / batchTotal) * 100)
+    : stats?.assets_total
+      ? Math.round((stats.assets_ready / stats.assets_total) * 100)
+      : 0;
+
   return (
     <div className="flex-1 p-8 overflow-y-auto">
       <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
@@ -129,8 +138,13 @@ export default function Jobs() {
       {stats && (stats.jobs_pending > 0 || stats.jobs_running > 0 || stats.assets_processing > 0) && (
         <div className="mb-6 border border-border bg-card rounded-md p-5">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-            <div className="font-semibold">Pipeline Progress</div>
+            <div className="font-semibold">
+              Pipeline Progress
+              <span className="ml-2 text-sm font-normal text-muted-foreground">{batchPct}%</span>
+            </div>
             <div className="text-sm text-muted-foreground">
+              {batchTotal > 0 && <span className="text-foreground font-medium">{batchDone} of {batchTotal} jobs done</span>}
+              {batchTotal > 0 && " · "}
               {stats.assets_ready} of {stats.assets_total} assets ready
               {stats.assets_error > 0 && <span className="text-destructive"> · {stats.assets_error} failed</span>}
             </div>
@@ -138,7 +152,7 @@ export default function Jobs() {
           <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden mb-4">
             <div
               className="bg-primary h-full transition-all"
-              style={{ width: `${stats.assets_total ? Math.round((stats.assets_ready / stats.assets_total) * 100) : 0}%` }}
+              style={{ width: `${batchPct}%` }}
             />
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
@@ -180,7 +194,9 @@ export default function Jobs() {
                 <div key={s.job_type} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-xs">
                   <span className="font-medium">{s.job_type}</span>
                   {s.running > 0 && <span className="text-primary">{s.running} active</span>}
-                  <span className="text-muted-foreground">{s.pending} queued</span>
+                  <span className="text-muted-foreground">
+                    {s.success + s.error}/{s.pending + s.running + s.success + s.error} done
+                  </span>
                   {s.error > 0 && <span className="text-destructive">{s.error} failed</span>}
                 </div>
               ))}
