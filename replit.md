@@ -56,6 +56,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 ## User preferences
 
 - EVERY reply that changes code must END with the exact production deploy command, listing only the services that changed (e.g. `git pull && docker compose up -d --build frontend`), plus a clear summary of what changed. No exceptions — including short replies and follow-up fixes.
+- There is NO compose service named `worker` — worker code changes deploy as `worker-gpu worker-gpu-2 worker-cpu worker-graphics` (all build from the same `services/worker` image).
 
 ## Gotchas
 

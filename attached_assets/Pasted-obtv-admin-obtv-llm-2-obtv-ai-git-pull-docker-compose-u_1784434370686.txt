@@ -1,0 +1,57 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull && docker compose up -d --build api worker frontend
+remote: Enumerating objects: 115, done.
+remote: Counting objects: 100% (115/115), done.
+remote: Compressing objects: 100% (31/31), done.
+remote: Total 68 (delta 39), reused 66 (delta 37), pack-reused 0 (from 0)
+Unpacking objects: 100% (68/68), 83.56 KiB | 1.02 MiB/s, done.
+From https://github.com/tbnobed/obtvai
+   c19feba..b1e9415  main       -> origin/main
+Updating c19feba..b1e9415
+Fast-forward
+ artifacts/api-server/src/lib/topics.ts                                                           |  65 ++++++++++++++++
+ artifacts/api-server/src/routes/mock.ts                                                          | 128 +++++++++++++++++++++++++++----
+ artifacts/frontend/src/lib/format.ts                                                             |   7 ++
+ artifacts/frontend/src/pages/dashboard.tsx                                                       |  77 ++++++++++++++++---
+ artifacts/frontend/src/pages/insights.tsx                                                        | 298 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++----------
+ artifacts/frontend/src/pages/library.tsx                                                         |  60 ++++++++++++++-
+ attached_assets/Pasted-Dashboard-operational-status-total-assets-duration-stor_1784431303782.txt |  27 +++++++
+ attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-wget-P-opt-comfyui-models_1784430558840.txt |  22 ++++++
+ attached_assets/image_1784430420818.png                                                          | Bin 0 -> 14447 bytes
+ attached_assets/image_1784430654650.png                                                          | Bin 0 -> 48680 bytes
+ lib/api-client-react/src/generated/api.schemas.ts                                                |  60 +++++++++++++++
+ lib/api-spec/openapi.yaml                                                                        | 106 ++++++++++++++++++++++++-
+ lib/api-zod/src/generated/api.ts                                                                 |  34 +++++++-
+ lib/api-zod/src/generated/types/coverageGap.ts                                                   |  15 ++++
+ lib/api-zod/src/generated/types/index.ts                                                         |   4 +
+ lib/api-zod/src/generated/types/insightItem.ts                                                   |   6 ++
+ lib/api-zod/src/generated/types/insightPersonRef.ts                                              |  16 ++++
+ lib/api-zod/src/generated/types/insightTopicRef.ts                                               |  14 ++++
+ lib/api-zod/src/generated/types/libraryInsights.ts                                               |   4 +
+ lib/api-zod/src/generated/types/libraryInsightsStats.ts                                          |   6 ++
+ lib/api-zod/src/generated/types/libraryStats.ts                                                  |   2 +
+ lib/api-zod/src/generated/types/listMediaParams.ts                                               |   8 ++
+ lib/api-zod/src/generated/types/storyOpportunity.ts                                              |  19 +++++
+ lib/api-zod/src/generated/types/topTopic.ts                                                      |   3 +
+ replit.md                                                                                        |   1 +
+ services/api/app/main.py                                                                         |   2 +
+ services/api/app/models.py                                                                       |   2 +
+ services/api/app/routers/insights.py                                                             | 117 +++++++++++++++++++++++++---
+ services/api/app/routers/media.py                                                                |  33 +++++++-
+ services/api/app/schemas.py                                                                      |  33 ++++++++
+ services/api/app/topic_norm.py                                                                   |  78 +++++++++++++++++++
+ services/worker/tasks/insights.py                                                                | 113 +++++++++++++++++++++++++--
+ services/worker/topic_norm.py                                                                    |  78 +++++++++++++++++++
+ 33 files changed, 1344 insertions(+), 94 deletions(-)
+ create mode 100644 artifacts/api-server/src/lib/topics.ts
+ create mode 100644 artifacts/frontend/src/lib/format.ts
+ create mode 100644 attached_assets/Pasted-Dashboard-operational-status-total-assets-duration-stor_1784431303782.txt
+ create mode 100644 attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-wget-P-opt-comfyui-models_1784430558840.txt
+ create mode 100644 attached_assets/image_1784430420818.png
+ create mode 100644 attached_assets/image_1784430654650.png
+ create mode 100644 lib/api-zod/src/generated/types/coverageGap.ts
+ create mode 100644 lib/api-zod/src/generated/types/insightPersonRef.ts
+ create mode 100644 lib/api-zod/src/generated/types/insightTopicRef.ts
+ create mode 100644 lib/api-zod/src/generated/types/storyOpportunity.ts
+ create mode 100644 services/api/app/topic_norm.py
+ create mode 100644 services/worker/topic_norm.py
+no such service: worker
