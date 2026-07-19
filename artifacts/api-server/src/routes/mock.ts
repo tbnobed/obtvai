@@ -639,7 +639,7 @@ router.get("/media/:id/people", (req, res) => {
     out.push({
       person_id: p.id,
       display_name: p.display_name,
-      thumbnail_url: apps.find((a) => a.thumbnail_url)?.thumbnail_url ?? p.thumbnail_url,
+      thumbnail_url: p.thumbnail_url ?? apps.find((a) => a.thumbnail_url)?.thumbnail_url ?? null,
       speaker_label: apps.find((a) => a.speaker_label)?.speaker_label ?? null,
       speaking_seconds: apps.reduce((sum, a) => sum + (a.speaking_seconds ?? 0), 0),
       speaking,

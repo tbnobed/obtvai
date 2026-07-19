@@ -430,7 +430,7 @@ export interface AssetPerson {
   person_id: string;
   display_name: string;
   /**
-     * Face thumbnail — the face-cluster crop from this asset when available, else the person's library thumbnail
+     * Face thumbnail — the person's library thumbnail (same picture as the People pages), else the face-cluster crop from this asset
      * @nullable
      */
   thumbnail_url?: string | null;

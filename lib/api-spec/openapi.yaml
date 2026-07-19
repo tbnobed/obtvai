@@ -2726,7 +2726,7 @@ components:
           type: string
         thumbnail_url:
           type: ["string", "null"]
-          description: Face thumbnail — the face-cluster crop from this asset when available, else the person's library thumbnail
+          description: Face thumbnail — the person's library thumbnail (same picture as the People pages), else the face-cluster crop from this asset
         speaker_label:
           type: ["string", "null"]
         speaking_seconds:

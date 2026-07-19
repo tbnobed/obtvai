@@ -630,7 +630,7 @@ export const GetAssetPeopleParams = zod.object({
 export const GetAssetPeopleResponseItem = zod.object({
   "person_id": zod.string(),
   "display_name": zod.string(),
-  "thumbnail_url": zod.string().nullish().describe('Face thumbnail — the face-cluster crop from this asset when available, else the person\'s library thumbnail'),
+  "thumbnail_url": zod.string().nullish().describe('Face thumbnail — the person\'s library thumbnail (same picture as the People pages), else the face-cluster crop from this asset'),
   "speaker_label": zod.string().nullish(),
   "speaking_seconds": zod.number().nullish(),
   "speaking": zod.array(zod.object({

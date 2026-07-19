@@ -587,7 +587,7 @@ async def get_asset_people(id: str, db: AsyncSession = Depends(get_db)):
         out.append(AssetPersonOut(
             person_id=person_id,
             display_name=person.display_name,
-            thumbnail_url=thumbnail or person.thumbnail_url,
+            thumbnail_url=person.thumbnail_url or thumbnail,
             speaker_label=next(iter(sorted(speakers)), None),
             speaking_seconds=sum(pa.speaking_seconds or 0 for pa in apps) or None,
             speaking=speaking,
