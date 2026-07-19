@@ -213,6 +213,8 @@ class LibraryInsight(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     headline: Mapped[str | None] = mapped_column(Text, nullable=True)
     insights: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    opportunities: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    coverage_gaps: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     generated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 

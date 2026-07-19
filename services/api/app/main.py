@@ -47,6 +47,8 @@ _COLUMN_MIGRATIONS = [
     ("clip_lists", "locked", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("clips", "approved", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("clips", "match_reason", "TEXT"),
+    ("library_insights", "opportunities", "JSONB"),
+    ("library_insights", "coverage_gaps", "JSONB"),
 ]
 
 

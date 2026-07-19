@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, delete
+from sqlalchemy import select, func, desc, delete, text
 from ..database import get_db
 from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, ProcessingJob, Person, PersonAppearance
 from ..schemas import (
@@ -35,6 +35,16 @@ async def get_library_stats(db: AsyncSession = Depends(get_db)):
     duration_q = await db.execute(select(func.sum(MediaAsset.duration_seconds)))
     total_duration = float(duration_q.scalar() or 0)
 
+    # Duration of assets whose speech is actually searchable (they have
+    # transcript segments) — the reconciled figure shown on the Dashboard
+    # and Insights pages.
+    speech_q = await db.execute(
+        select(func.coalesce(func.sum(MediaAsset.duration_seconds), 0)).where(
+            MediaAsset.id.in_(select(func.distinct(TranscriptSegment.media_id)))
+        )
+    )
+    speech_indexed = float(speech_q.scalar() or 0)
+
     storage_q = await db.execute(select(func.sum(MediaAsset.file_size_bytes)))
     storage_bytes = int(storage_q.scalar() or 0)
 
@@ -51,6 +61,7 @@ async def get_library_stats(db: AsyncSession = Depends(get_db)):
     return LibraryStats(
         total_assets=total,
         total_duration_seconds=total_duration,
+        speech_indexed_seconds=speech_indexed,
         status_counts=status_counts,
         storage_bytes=storage_bytes,
         recent_activity=[MediaAssetOut.model_validate(a) for a in recent],
@@ -225,6 +236,8 @@ async def list_media(
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     sort: Optional[str] = Query(None),
+    person: Optional[str] = Query(None),
+    topic: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -242,6 +255,24 @@ async def list_media(
     q = select(MediaAsset).order_by(sort_map.get(sort or "", desc(MediaAsset.created_at)))
     if status:
         q = q.where(MediaAsset.status == status)
+    if person:
+        q = q.where(
+            MediaAsset.id.in_(
+                select(PersonAppearance.media_id).where(PersonAppearance.person_id == person)
+            )
+        )
+    if topic and topic.strip():
+        from ..topic_norm import normalize_topic_key
+
+        # Compare against the same normalization the insights endpoint uses so
+        # "Local AI Infrastructure" and "local_ai_infrastructure" both match.
+        q = q.where(
+            text(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(media_assets.topics) AS t(v) "
+                "WHERE trim(regexp_replace(regexp_replace(lower(t.v), '[_-]+', ' ', 'g'), "
+                "'\\s+', ' ', 'g')) = :topic_key)"
+            ).bindparams(topic_key=normalize_topic_key(topic))
+        )
     if search and search.strip():
         needle = f"%{search.strip()}%"
         # Match filename only; media_assets has no title column, and matching

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useListMedia, getListMediaQueryKey, useIngestMedia } from "@workspace/api-client-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight } from "lucide-react";
+import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, User, Tag, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 
@@ -58,10 +58,22 @@ export default function Library() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  // Person/topic filters arrive via URL from the Insights page ("find view").
+  const searchString = useSearch();
+  const urlParams = new URLSearchParams(searchString);
+  const personFilter = urlParams.get("person") || "";
+  const personName = urlParams.get("person_name") || "";
+  const topicFilter = urlParams.get("topic") || "";
+  const topicLabel = urlParams.get("topic_label") || topicFilter;
+
+  useEffect(() => { setPage(0); }, [personFilter, topicFilter]);
+
   const listParams = {
     status: statusFilter || undefined,
     search: search || undefined,
     sort: (sort as any) || undefined,
+    person: personFilter || undefined,
+    topic: topicFilter || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   };
@@ -153,6 +165,14 @@ export default function Library() {
       if (err instanceof Error && err.message === "Upload cancelled") return;
       setUploadError("Upload failed. Check the file and try again.");
     }
+  };
+
+  const clearFilterParam = (param: "person" | "topic") => {
+    const next = new URLSearchParams(searchString);
+    next.delete(param);
+    next.delete(param === "person" ? "person_name" : "topic_label");
+    const qs = next.toString();
+    navigate(`/library${qs ? `?${qs}` : ""}`);
   };
 
   const formatSize = (bytes: number) => {
@@ -324,6 +344,40 @@ export default function Library() {
         </div>
       </div>
 
+      {(personFilter || topicFilter) && (
+        <div className="flex items-center gap-2 mb-6 -mt-4 flex-wrap">
+          <span className="text-xs text-muted-foreground">Showing footage for:</span>
+          {personFilter && (
+            <Badge variant="secondary" className="gap-1.5 pr-1">
+              <User className="h-3 w-3" />
+              {personName || personFilter}
+              <button
+                type="button"
+                className="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5"
+                onClick={() => clearFilterParam("person")}
+                title="Clear person filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {topicFilter && (
+            <Badge variant="secondary" className="gap-1.5 pr-1">
+              <Tag className="h-3 w-3" />
+              {topicLabel}
+              <button
+                type="button"
+                className="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5"
+                onClick={() => clearFilterParam("topic")}
+                title="Clear topic filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {[...Array(10)].map((_, i) => (
@@ -415,7 +469,7 @@ export default function Library() {
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
           <Upload className="h-12 w-12 mb-4 opacity-50" />
-          <p>{search || statusFilter ? "No media matches your filters." : "No media assets found."}</p>
+          <p>{search || statusFilter || personFilter || topicFilter ? "No media matches your filters." : "No media assets found."}</p>
         </div>
       )}
 

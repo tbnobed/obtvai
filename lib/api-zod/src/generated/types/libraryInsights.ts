@@ -5,8 +5,10 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CoverageGap } from './coverageGap';
 import type { InsightItem } from './insightItem';
 import type { LibraryInsightsStats } from './libraryInsightsStats';
+import type { StoryOpportunity } from './storyOpportunity';
 import type { TopPerson } from './topPerson';
 import type { TopTopic } from './topTopic';
 
@@ -19,6 +21,8 @@ export interface LibraryInsights {
   /** @nullable */
   headline?: string | null;
   insights: InsightItem[];
+  opportunities: StoryOpportunity[];
+  coverage_gaps: CoverageGap[];
   stats: LibraryInsightsStats;
   top_people: TopPerson[];
   top_topics: TopTopic[];

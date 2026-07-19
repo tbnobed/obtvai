@@ -63,6 +63,7 @@ class MediaIngestInput(BaseModel):
 class LibraryStats(BaseModel):
     total_assets: int
     total_duration_seconds: float
+    speech_indexed_seconds: float
     status_counts: dict[str, int]
     storage_bytes: int
     recent_activity: List[MediaAssetOut]
@@ -579,9 +580,35 @@ class PeoplePageOut(BaseModel):
 
 # ── Insights ──────────────────────────────────────────────────────────────────
 
+class InsightPersonRefOut(BaseModel):
+    person_id: Optional[str] = None
+    display_name: str
+
+
+class InsightTopicRefOut(BaseModel):
+    key: str
+    label: str
+
+
 class InsightItemOut(BaseModel):
     title: str
     detail: str
+    related_people: Optional[List[InsightPersonRefOut]] = None
+    related_topics: Optional[List[InsightTopicRefOut]] = None
+
+
+class StoryOpportunityOut(BaseModel):
+    title: str
+    rationale: str
+    asset_ids: List[str]
+    people: List[InsightPersonRefOut] = []
+    total_duration_seconds: float
+
+
+class CoverageGapOut(BaseModel):
+    key: str
+    label: str
+    asset_count: int
 
 
 class TopPersonOut(BaseModel):
@@ -593,6 +620,7 @@ class TopPersonOut(BaseModel):
 
 
 class TopTopicOut(BaseModel):
+    key: str
     topic: str
     asset_count: int
 
@@ -600,7 +628,10 @@ class TopTopicOut(BaseModel):
 class LibraryInsightsStatsOut(BaseModel):
     total_assets: int
     total_duration_seconds: float
+    speech_indexed_seconds: float
     total_people: int
+    named_people_count: int
+    unidentified_people_count: int
     transcribed_assets: int
     total_speaking_seconds: float
 
@@ -609,6 +640,8 @@ class LibraryInsightsOut(BaseModel):
     generated_at: Optional[datetime] = None
     headline: Optional[str] = None
     insights: List[InsightItemOut] = []
+    opportunities: List[StoryOpportunityOut] = []
+    coverage_gaps: List[CoverageGapOut] = []
     stats: LibraryInsightsStatsOut
     top_people: List[TopPersonOut] = []
     top_topics: List[TopTopicOut] = []

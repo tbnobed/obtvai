@@ -13,6 +13,14 @@ status?: string;
  * Case-insensitive match on filename, title, or source path
  */
 search?: string;
+/**
+ * Only assets a given person (by id) appears in
+ */
+person?: string;
+/**
+ * Only assets tagged with this topic (normalized key match)
+ */
+topic?: string;
 sort?: ListMediaSort;
 limit?: number;
 offset?: number;

@@ -9,7 +9,13 @@
 export type LibraryInsightsStats = {
   total_assets: number;
   total_duration_seconds: number;
+  /** Total duration of assets that have a transcript (same source as LibraryStats) */
+  speech_indexed_seconds: number;
   total_people: number;
+  /** People with a real display name */
+  named_people_count: number;
+  /** People still carrying an auto-assigned "Person N" placeholder */
+  unidentified_people_count: number;
   transcribed_assets: number;
   total_speaking_seconds: number;
 };

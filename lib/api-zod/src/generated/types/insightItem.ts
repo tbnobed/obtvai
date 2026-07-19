@@ -5,8 +5,14 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { InsightPersonRef } from './insightPersonRef';
+import type { InsightTopicRef } from './insightTopicRef';
 
 export interface InsightItem {
   title: string;
   detail: string;
+  /** @nullable */
+  related_people?: InsightPersonRef[] | null;
+  /** @nullable */
+  related_topics?: InsightTopicRef[] | null;
 }

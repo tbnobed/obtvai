@@ -22,6 +22,8 @@ export const HealthCheckResponse = zod.object({
 export const ListMediaQueryParams = zod.object({
   "status": zod.coerce.string().optional(),
   "search": zod.coerce.string().optional().describe('Case-insensitive match on filename, title, or source path'),
+  "person": zod.coerce.string().optional().describe('Only assets a given person (by id) appears in'),
+  "topic": zod.coerce.string().optional().describe('Only assets tagged with this topic (normalized key match)'),
   "sort": zod.enum(['created_desc', 'created_asc', 'name_asc', 'name_desc', 'duration_desc', 'duration_asc', 'size_desc', 'size_asc']).optional(),
   "limit": zod.coerce.number().optional(),
   "offset": zod.coerce.number().optional()
@@ -745,6 +747,7 @@ export const ResumeStalledMediaResponse = zod.object({
 export const GetLibraryStatsResponse = zod.object({
   "total_assets": zod.number(),
   "total_duration_seconds": zod.number(),
+  "speech_indexed_seconds": zod.number().describe('Total duration of assets that have a transcript (searchable footage)'),
   "status_counts": zod.record(zod.string(), zod.number()),
   "storage_bytes": zod.number(),
   "recent_activity": zod.array(zod.object({
@@ -1564,12 +1567,38 @@ export const GetLibraryInsightsResponse = zod.object({
   "headline": zod.string().nullish(),
   "insights": zod.array(zod.object({
   "title": zod.string(),
-  "detail": zod.string()
+  "detail": zod.string(),
+  "related_people": zod.array(zod.object({
+  "person_id": zod.string().nullish().describe('Null when the name could not be matched to a person record'),
+  "display_name": zod.string()
+})).nullish(),
+  "related_topics": zod.array(zod.object({
+  "key": zod.string().describe('Normalized topic key for filtering'),
+  "label": zod.string().describe('Human-readable topic label')
+})).nullish()
+})),
+  "opportunities": zod.array(zod.object({
+  "title": zod.string().describe('The story angle'),
+  "rationale": zod.string(),
+  "asset_ids": zod.array(zod.string()).describe('Assets that support this story'),
+  "people": zod.array(zod.object({
+  "person_id": zod.string().nullish().describe('Null when the name could not be matched to a person record'),
+  "display_name": zod.string()
+})),
+  "total_duration_seconds": zod.number().describe('Combined duration of the supporting assets')
+})),
+  "coverage_gaps": zod.array(zod.object({
+  "key": zod.string().describe('Normalized topic key for filtering'),
+  "label": zod.string(),
+  "asset_count": zod.number().describe('How many assets currently touch this topic')
 })),
   "stats": zod.object({
   "total_assets": zod.number(),
   "total_duration_seconds": zod.number(),
+  "speech_indexed_seconds": zod.number().describe('Total duration of assets that have a transcript (same source as LibraryStats)'),
   "total_people": zod.number(),
+  "named_people_count": zod.number().describe('People with a real display name'),
+  "unidentified_people_count": zod.number().describe('People still carrying an auto-assigned \"Person N\" placeholder'),
   "transcribed_assets": zod.number(),
   "total_speaking_seconds": zod.number()
 }),
@@ -1581,7 +1610,8 @@ export const GetLibraryInsightsResponse = zod.object({
   "speaking_seconds": zod.number()
 })),
   "top_topics": zod.array(zod.object({
-  "topic": zod.string(),
+  "key": zod.string().describe('Normalized topic key for filtering (lowercase, separators collapsed)'),
+  "topic": zod.string().describe('Human-readable topic label'),
   "asset_count": zod.number()
 }))
 })

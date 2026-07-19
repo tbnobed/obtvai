@@ -77,6 +77,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - Model filenames in presets fuzzy-resolve to the files each ComfyUI actually has (`resolve_model_files` in `comfy_graphics.py`): token-boundary matching, precision/quant suffixes ignored, version digits kept (wan2.1 never matches wan2.2, t5xxl never matches umt5); worker re-resolves against fresh `/object_info` before every submit
 - `comfy_graphics.py` is intentionally duplicated in `services/api/app/` and `services/worker/` (separate Docker build contexts) — keep both copies identical
 - Graphics video presets end in `SaveImage` (PNG sequence); the graphics worker assembles the MP4 with ffmpeg at the preset fps — no dependency on ComfyUI video-save nodes; worker-graphics has NO GPU reservation (ComfyUI owns the GPUs)
+- Topic normalization is intentionally triplicated: `artifacts/api-server/src/lib/topics.ts`, `services/api/app/topic_norm.py`, `services/worker/topic_norm.py` — keep all three in sync (the two Python copies must be byte-identical); topic filter URLs use the normalized key (`/library?topic=<key>&topic_label=<label>`); coverage-gap asset counts are computed at read time in the insights endpoint, not stored
 
 ## Pointers
 

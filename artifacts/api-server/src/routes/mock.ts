@@ -1,5 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
+import { normalizeTopicKey, topicLabel, groupTopics } from "../lib/topics";
 
 const router = Router();
 
@@ -151,6 +152,7 @@ const assets = [
     processing_progress: 52,
     scene_count: 12,
     speaker_count: null,
+    topics: ["zoning_policy", "budget allocation", "public infrastructure", "community development"],
     created_at: new Date(Date.now() - 3600000).toISOString(),
     updated_at: new Date(Date.now() - 1800000).toISOString(),
   },
@@ -171,6 +173,7 @@ const assets = [
     processing_progress: null,
     scene_count: null,
     speaker_count: null,
+    topics: ["local_ai_infrastructure", "GPU-Computing", "documentary production"],
     created_at: new Date(Date.now() - 600000).toISOString(),
     updated_at: null,
   },
@@ -191,6 +194,7 @@ const assets = [
     processing_progress: 100,
     scene_count: 31,
     speaker_count: 5,
+    topics: ["Local AI Infrastructure", "press relations", "cloud cost reduction"],
     created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
     updated_at: new Date(Date.now() - 86400000 * 4).toISOString(),
   },
@@ -211,6 +215,7 @@ const assets = [
     processing_progress: 48,
     scene_count: 8,
     speaker_count: null,
+    topics: ["urban development", "b-roll"],
     created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
     updated_at: new Date(Date.now() - 86400000 * 3 + 7200000).toISOString(),
   },
@@ -407,11 +412,36 @@ function mapClipInput(c: any, i: number, now: number) {
 }
 
 // ── Media ────────────────────────────────────────────────────────────────────
+
+// Reconciled duration figures — the single source both /media/stats/summary and
+// /insights read, so Dashboard and Insights can never disagree.
+function libraryDurations() {
+  const transcribed = assets.filter((a) => a.status === "ready");
+  return {
+    totalSeconds: assets.reduce((s, a) => s + (a.duration_seconds || 0), 0),
+    speechIndexedSeconds: transcribed.reduce((s, a) => s + (a.duration_seconds || 0), 0),
+    transcribedCount: transcribed.length,
+  };
+}
+
+function assetTopics(a: any): string[] {
+  return Array.isArray(a.topics) ? a.topics : [];
+}
+
+function countAssetsWithTopic(key: string): number {
+  return assets.filter((a) => assetTopics(a).some((t) => normalizeTopicKey(t) === key)).length;
+}
+
 router.get("/media/stats/summary", (_req, res) => {
+  const d = libraryDurations();
   res.json({
     total_assets: assets.length,
-    total_duration_seconds: assets.reduce((s, a) => s + (a.duration_seconds || 0), 0),
-    status_counts: { ready: 2, processing: 1, pending: 1, error: 1 },
+    total_duration_seconds: d.totalSeconds,
+    speech_indexed_seconds: d.speechIndexedSeconds,
+    status_counts: assets.reduce<Record<string, number>>((acc, a) => {
+      acc[a.status] = (acc[a.status] ?? 0) + 1;
+      return acc;
+    }, {}),
     storage_bytes: assets.reduce((s, a) => s + (a.file_size_bytes || 0), 0),
     recent_activity: assets.slice(0, 5),
   });
@@ -421,6 +451,16 @@ router.get("/media", (req, res) => {
   let items = [...assets];
   const status = String(req.query.status ?? "");
   if (status) items = items.filter((a) => a.status === status);
+  const person = String(req.query.person ?? "");
+  if (person) {
+    const ids = new Set((personAppearances[person] ?? []).map((x) => x.media_id));
+    items = items.filter((a) => ids.has(a.id));
+  }
+  const topic = String(req.query.topic ?? "").trim();
+  if (topic) {
+    const key = normalizeTopicKey(topic);
+    items = items.filter((a) => assetTopics(a).some((t) => normalizeTopicKey(t) === key));
+  }
   const search = String(req.query.search ?? "").trim().toLowerCase();
   if (search) {
     const fields = (a: (typeof assets)[number]) =>
@@ -1973,7 +2013,16 @@ const personAppearances: Record<string, any[]> = {
   ],
 };
 
-let libraryInsights: { generated_at: string | null; headline: string | null; insights: { title: string; detail: string }[] } = {
+type InsightPersonRef = { person_id: string | null; display_name: string };
+type InsightTopicRef = { key: string; label: string };
+
+let libraryInsights: {
+  generated_at: string | null;
+  headline: string | null;
+  insights: { title: string; detail: string; related_people?: InsightPersonRef[]; related_topics?: InsightTopicRef[] }[];
+  opportunities: { title: string; rationale: string; asset_ids: string[]; people: InsightPersonRef[]; total_duration_seconds: number }[];
+  coverage_gaps: { key: string; label: string }[];
+} = {
   generated_at: new Date(Date.now() - 86400000).toISOString(),
   headline:
     "An interview-heavy technology archive anchored by Sarah Chen, with growing but under-processed civic and documentary footage.",
@@ -1982,22 +2031,61 @@ let libraryInsights: { generated_at: string | null; headline: string | null; ins
       title: "Sarah Chen is the library's central figure",
       detail:
         "She appears in 3 of 5 assets and accounts for over 30 minutes of speaking time — more than any other person. Her recurring themes (local AI infrastructure, GPU computing) effectively define the archive's editorial identity.",
+      related_people: [{ person_id: "person-001", display_name: "Sarah Chen" }],
+      related_topics: [
+        { key: "local ai infrastructure", label: "Local AI Infrastructure" },
+        { key: "gpu computing", label: "GPU Computing" },
+      ],
     },
     {
       title: "Interview format dominates the collection",
       detail:
         "Most speech content comes from two-person interview setups hosted by Marcus Webb. Consider tagging B-roll and civic footage more aggressively, since search quality currently skews toward interview content.",
+      related_people: [{ person_id: "person-002", display_name: "Marcus Webb" }],
+      related_topics: [{ key: "b-roll", label: "B-roll" }],
     },
     {
       title: "Civic footage is a single point of coverage",
       detail:
         "All municipal government content traces to one council meeting featuring Councilwoman Rivera. If civic coverage matters to the library, this is a significant gap.",
+      related_people: [{ person_id: "person-003", display_name: "Councilwoman Rivera" }],
+      related_topics: [{ key: "zoning policy", label: "Zoning Policy" }],
     },
     {
       title: "One speaker remains unidentified",
       detail:
         "A speaker in the May 15 press conference could not be matched to any known person or named from context. Reviewing and naming them would improve cross-asset tracking.",
+      related_people: [{ person_id: "person-004", display_name: "Person 4" }],
     },
+  ],
+  opportunities: [
+    {
+      title: "The case against cloud — a Sarah Chen anchor piece",
+      rationale:
+        "Three assets cover local AI infrastructure from complementary angles: the sit-down interview lays out the argument, the documentary rough cut adds narrative context, and the press conference provides a public-facing counterpoint. Enough material for a 10–15 minute edited feature.",
+      asset_ids: ["asset-001", "asset-003", "asset-004"],
+      people: [
+        { person_id: "person-001", display_name: "Sarah Chen" },
+        { person_id: "person-002", display_name: "Marcus Webb" },
+      ],
+      total_duration_seconds: 1842 + 3612 + 2876,
+    },
+    {
+      title: "Downtown's bet: the planner vs. the merchants",
+      rationale:
+        "The Chen interview's revitalization thread and the council meeting cover the same policy fight from both sides — the planner's case and the public record. A two-voice piece pairing Chen's promises against Rivera's procedural pushback writes itself.",
+      asset_ids: ["asset-001", "asset-002"],
+      people: [
+        { person_id: "person-001", display_name: "Sarah Chen" },
+        { person_id: "person-003", display_name: "Councilwoman Rivera" },
+      ],
+      total_duration_seconds: 1842 + 5402,
+    },
+  ],
+  coverage_gaps: [
+    { key: "community development", label: "Community Development" },
+    { key: "press relations", label: "Press Relations" },
+    { key: "election coverage", label: "Election Coverage" },
   ],
 };
 
@@ -2356,16 +2444,37 @@ router.get("/voice/generations/:id/audio", (req, res) => {
   tinyWav(res);
 });
 
+const PLACEHOLDER_NAME_RE = /^person \d+$/i;
+
 router.get("/insights", (_req, res) => {
+  const d = libraryDurations();
+  const named = people.filter((p) => !PLACEHOLDER_NAME_RE.test(p.display_name)).length;
+  // Group raw per-asset topic tags by normalized key so casing/underscore
+  // variants ("Local AI Infrastructure" vs "local_ai_infrastructure") merge.
+  const rawCounts = new Map<string, number>();
+  for (const a of assets) {
+    for (const t of new Set(assetTopics(a).map((x) => normalizeTopicKey(x)))) {
+      rawCounts.set(t, (rawCounts.get(t) ?? 0) + 1);
+    }
+  }
   res.json({
     generated_at: libraryInsights.generated_at,
     headline: libraryInsights.headline,
     insights: libraryInsights.insights,
+    opportunities: libraryInsights.opportunities,
+    coverage_gaps: libraryInsights.coverage_gaps.map((g) => ({
+      key: g.key,
+      label: topicLabel(g.key),
+      asset_count: countAssetsWithTopic(g.key),
+    })),
     stats: {
       total_assets: assets.length,
-      total_duration_seconds: assets.reduce((s, a: any) => s + (a.duration_seconds || 0), 0),
+      total_duration_seconds: d.totalSeconds,
+      speech_indexed_seconds: d.speechIndexedSeconds,
       total_people: people.length,
-      transcribed_assets: 4,
+      named_people_count: named,
+      unidentified_people_count: people.length - named,
+      transcribed_assets: d.transcribedCount,
       total_speaking_seconds: people.reduce((s, p) => s + p.total_speaking_seconds, 0),
     },
     top_people: [...people]
@@ -2377,14 +2486,7 @@ router.get("/insights", (_req, res) => {
         asset_count: p.asset_count,
         speaking_seconds: p.total_speaking_seconds,
       })),
-    top_topics: [
-      { topic: "local AI infrastructure", asset_count: 3 },
-      { topic: "GPU computing", asset_count: 2 },
-      { topic: "video processing", asset_count: 2 },
-      { topic: "zoning policy", asset_count: 1 },
-      { topic: "budget allocation", asset_count: 1 },
-      { topic: "urban development", asset_count: 1 },
-    ],
+    top_topics: groupTopics(rawCounts.entries()).slice(0, 12),
   });
 });
 

@@ -11,6 +11,8 @@ import type { MediaAsset } from './mediaAsset';
 export interface LibraryStats {
   total_assets: number;
   total_duration_seconds: number;
+  /** Total duration of assets that have a transcript (searchable footage) */
+  speech_indexed_seconds: number;
   status_counts: LibraryStatsStatusCounts;
   storage_bytes: number;
   recent_activity?: MediaAsset[];

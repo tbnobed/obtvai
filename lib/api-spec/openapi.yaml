@@ -59,6 +59,16 @@ paths:
           description: Case-insensitive match on filename, title, or source path
           schema:
             type: string
+        - name: person
+          in: query
+          description: Only assets a given person (by id) appears in
+          schema:
+            type: string
+        - name: topic
+          in: query
+          description: Only assets tagged with this topic (normalized key match)
+          schema:
+            type: string
         - name: sort
           in: query
           schema:
@@ -2464,12 +2474,15 @@ components:
 
     LibraryStats:
       type: object
-      required: [total_assets, total_duration_seconds, status_counts, storage_bytes]
+      required: [total_assets, total_duration_seconds, speech_indexed_seconds, status_counts, storage_bytes]
       properties:
         total_assets:
           type: integer
         total_duration_seconds:
           type: number
+        speech_indexed_seconds:
+          type: number
+          description: Total duration of assets that have a transcript (searchable footage)
         status_counts:
           type: object
           additionalProperties:
@@ -2966,6 +2979,27 @@ components:
           description: Total diarize/face_detect jobs created
 
     # ── Insights ──────────────────────────────────────────────────────────────
+    InsightPersonRef:
+      type: object
+      required: [display_name]
+      properties:
+        person_id:
+          type: ["string", "null"]
+          description: Null when the name could not be matched to a person record
+        display_name:
+          type: string
+
+    InsightTopicRef:
+      type: object
+      required: [key, label]
+      properties:
+        key:
+          type: string
+          description: Normalized topic key for filtering
+        label:
+          type: string
+          description: Human-readable topic label
+
     InsightItem:
       type: object
       required: [title, detail]
@@ -2974,6 +3008,49 @@ components:
           type: string
         detail:
           type: string
+        related_people:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/InsightPersonRef"
+        related_topics:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/InsightTopicRef"
+
+    StoryOpportunity:
+      type: object
+      required: [title, rationale, asset_ids, people, total_duration_seconds]
+      properties:
+        title:
+          type: string
+          description: The story angle
+        rationale:
+          type: string
+        asset_ids:
+          type: array
+          items:
+            type: string
+          description: Assets that support this story
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/InsightPersonRef"
+        total_duration_seconds:
+          type: number
+          description: Combined duration of the supporting assets
+
+    CoverageGap:
+      type: object
+      required: [key, label, asset_count]
+      properties:
+        key:
+          type: string
+          description: Normalized topic key for filtering
+        label:
+          type: string
+        asset_count:
+          type: integer
+          description: How many assets currently touch this topic
 
     TopPerson:
       type: object
@@ -2992,16 +3069,20 @@ components:
 
     TopTopic:
       type: object
-      required: [topic, asset_count]
+      required: [key, topic, asset_count]
       properties:
+        key:
+          type: string
+          description: Normalized topic key for filtering (lowercase, separators collapsed)
         topic:
           type: string
+          description: Human-readable topic label
         asset_count:
           type: integer
 
     LibraryInsights:
       type: object
-      required: [stats, top_people, top_topics, insights]
+      required: [stats, top_people, top_topics, insights, opportunities, coverage_gaps]
       properties:
         generated_at:
           type: ["string", "null"]
@@ -3012,16 +3093,33 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InsightItem"
+        opportunities:
+          type: array
+          items:
+            $ref: "#/components/schemas/StoryOpportunity"
+        coverage_gaps:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoverageGap"
         stats:
           type: object
-          required: [total_assets, total_duration_seconds, total_people, transcribed_assets, total_speaking_seconds]
+          required: [total_assets, total_duration_seconds, speech_indexed_seconds, total_people, named_people_count, unidentified_people_count, transcribed_assets, total_speaking_seconds]
           properties:
             total_assets:
               type: integer
             total_duration_seconds:
               type: number
+            speech_indexed_seconds:
+              type: number
+              description: Total duration of assets that have a transcript (same source as LibraryStats)
             total_people:
               type: integer
+            named_people_count:
+              type: integer
+              description: People with a real display name
+            unidentified_people_count:
+              type: integer
+              description: People still carrying an auto-assigned "Person N" placeholder
             transcribed_assets:
               type: integer
             total_speaking_seconds:

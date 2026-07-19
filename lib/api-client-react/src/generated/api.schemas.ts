@@ -271,6 +271,8 @@ export type LibraryStatsStatusCounts = {[key: string]: number};
 export interface LibraryStats {
   total_assets: number;
   total_duration_seconds: number;
+  /** Total duration of assets that have a transcript (searchable footage) */
+  speech_indexed_seconds: number;
   status_counts: LibraryStatsStatusCounts;
   storage_bytes: number;
   recent_activity?: MediaAsset[];
@@ -649,9 +651,48 @@ export interface ReanalyzeResult {
   jobs_created: number;
 }
 
+export interface InsightPersonRef {
+  /**
+     * Null when the name could not be matched to a person record
+     * @nullable
+     */
+  person_id?: string | null;
+  display_name: string;
+}
+
+export interface InsightTopicRef {
+  /** Normalized topic key for filtering */
+  key: string;
+  /** Human-readable topic label */
+  label: string;
+}
+
 export interface InsightItem {
   title: string;
   detail: string;
+  /** @nullable */
+  related_people?: InsightPersonRef[] | null;
+  /** @nullable */
+  related_topics?: InsightTopicRef[] | null;
+}
+
+export interface StoryOpportunity {
+  /** The story angle */
+  title: string;
+  rationale: string;
+  /** Assets that support this story */
+  asset_ids: string[];
+  people: InsightPersonRef[];
+  /** Combined duration of the supporting assets */
+  total_duration_seconds: number;
+}
+
+export interface CoverageGap {
+  /** Normalized topic key for filtering */
+  key: string;
+  label: string;
+  /** How many assets currently touch this topic */
+  asset_count: number;
 }
 
 export interface TopPerson {
@@ -664,6 +705,9 @@ export interface TopPerson {
 }
 
 export interface TopTopic {
+  /** Normalized topic key for filtering (lowercase, separators collapsed) */
+  key: string;
+  /** Human-readable topic label */
   topic: string;
   asset_count: number;
 }
@@ -671,7 +715,13 @@ export interface TopTopic {
 export type LibraryInsightsStats = {
   total_assets: number;
   total_duration_seconds: number;
+  /** Total duration of assets that have a transcript (same source as LibraryStats) */
+  speech_indexed_seconds: number;
   total_people: number;
+  /** People with a real display name */
+  named_people_count: number;
+  /** People still carrying an auto-assigned "Person N" placeholder */
+  unidentified_people_count: number;
   transcribed_assets: number;
   total_speaking_seconds: number;
 };
@@ -685,6 +735,8 @@ export interface LibraryInsights {
   /** @nullable */
   headline?: string | null;
   insights: InsightItem[];
+  opportunities: StoryOpportunity[];
+  coverage_gaps: CoverageGap[];
   stats: LibraryInsightsStats;
   top_people: TopPerson[];
   top_topics: TopTopic[];
@@ -1361,6 +1413,14 @@ status?: string;
  * Case-insensitive match on filename, title, or source path
  */
 search?: string;
+/**
+ * Only assets a given person (by id) appears in
+ */
+person?: string;
+/**
+ * Only assets tagged with this topic (normalized key match)
+ */
+topic?: string;
 sort?: ListMediaSort;
 limit?: number;
 offset?: number;

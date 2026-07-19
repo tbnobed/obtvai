@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface TopTopic {
-  /** Normalized topic key for filtering (lowercase, separators collapsed) */
+export interface CoverageGap {
+  /** Normalized topic key for filtering */
   key: string;
-  /** Human-readable topic label */
-  topic: string;
+  label: string;
+  /** How many assets currently touch this topic */
   asset_count: number;
 }
