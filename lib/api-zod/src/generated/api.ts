@@ -853,11 +853,13 @@ export const listPeopleQueryLimitMax = 200;
 export const listPeopleQueryOffsetDefault = 0;
 export const listPeopleQueryOffsetMin = 0;
 
-
+export const listPeopleQuerySortDefault = `appearances`;
 
 export const ListPeopleQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(listPeopleQueryLimitMax).default(listPeopleQueryLimitDefault),
-  "offset": zod.coerce.number().min(listPeopleQueryOffsetMin).default(listPeopleQueryOffsetDefault)
+  "offset": zod.coerce.number().min(listPeopleQueryOffsetMin).default(listPeopleQueryOffsetDefault),
+  "q": zod.coerce.string().optional().describe('Case-insensitive name search'),
+  "sort": zod.enum(['appearances', 'name']).default(listPeopleQuerySortDefault).describe('Sort order — most-seen first (default) or name A-Z')
 })
 
 export const ListPeopleResponse = zod.object({

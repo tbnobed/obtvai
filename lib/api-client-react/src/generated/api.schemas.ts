@@ -1560,7 +1560,23 @@ limit?: number;
  * @minimum 0
  */
 offset?: number;
+/**
+ * Case-insensitive name search
+ */
+q?: string;
+/**
+ * Sort order — most-seen first (default) or name A-Z
+ */
+sort?: ListPeopleSort;
 };
+
+export type ListPeopleSort = typeof ListPeopleSort[keyof typeof ListPeopleSort];
+
+
+export const ListPeopleSort = {
+  appearances: 'appearances',
+  name: 'name',
+} as const;
 
 export type ListGraphicsGenerationsParams = {
 limit?: number;

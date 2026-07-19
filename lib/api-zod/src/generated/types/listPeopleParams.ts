@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListPeopleSort } from './listPeopleSort';
 
 export type ListPeopleParams = {
 /**
@@ -16,4 +17,12 @@ limit?: number;
  * @minimum 0
  */
 offset?: number;
+/**
+ * Case-insensitive name search
+ */
+q?: string;
+/**
+ * Sort order — most-seen first (default) or name A-Z
+ */
+sort?: ListPeopleSort;
 };

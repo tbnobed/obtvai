@@ -653,6 +653,20 @@ paths:
             type: integer
             minimum: 0
             default: 0
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive name search
+          schema:
+            type: string
+        - name: sort
+          in: query
+          required: false
+          description: Sort order — most-seen first (default) or name A-Z
+          schema:
+            type: string
+            enum: [appearances, name]
+            default: appearances
       responses:
         "200":
           description: OK

@@ -57,6 +57,7 @@ export * from './listJobsParams';
 export * from './listMediaParams';
 export * from './listMediaSort';
 export * from './listPeopleParams';
+export * from './listPeopleSort';
 export * from './listReelsParams';
 export * from './listRendersParams';
 export * from './listStoriesParams';

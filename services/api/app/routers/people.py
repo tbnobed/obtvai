@@ -70,22 +70,28 @@ _STATS = (
 async def list_people(
     limit: int = Query(48, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    q: str | None = Query(None),
+    sort: str = Query("appearances", pattern="^(appearances|name)$"),
     db: AsyncSession = Depends(get_db),
 ):
-    total = (await db.execute(select(func.count(Person.id)))).scalar_one()
-    rows = (
-        await db.execute(
-            select(Person, _STATS.c.assets, _STATS.c.speaking, _STATS.c.segments)
-            .outerjoin(_STATS, _STATS.c.person_id == Person.id)
-            .order_by(
-                func.coalesce(_STATS.c.assets, 0).desc(),
-                func.coalesce(_STATS.c.speaking, 0).desc(),
-                Person.created_at,
-            )
-            .limit(limit)
-            .offset(offset)
+    count_stmt = select(func.count(Person.id))
+    stmt = select(Person, _STATS.c.assets, _STATS.c.speaking, _STATS.c.segments).outerjoin(
+        _STATS, _STATS.c.person_id == Person.id
+    )
+    if q and q.strip():
+        needle = f"%{q.strip()}%"
+        count_stmt = count_stmt.where(Person.display_name.ilike(needle))
+        stmt = stmt.where(Person.display_name.ilike(needle))
+    if sort == "name":
+        stmt = stmt.order_by(func.lower(Person.display_name), Person.created_at)
+    else:
+        stmt = stmt.order_by(
+            func.coalesce(_STATS.c.assets, 0).desc(),
+            func.coalesce(_STATS.c.speaking, 0).desc(),
+            Person.created_at,
         )
-    ).all()
+    total = (await db.execute(count_stmt)).scalar_one()
+    rows = (await db.execute(stmt.limit(limit).offset(offset))).all()
     return PeoplePageOut(
         items=[_person_out(p, a or 0, s or 0, g or 0) for p, a, s, g in rows],
         total=int(total or 0),

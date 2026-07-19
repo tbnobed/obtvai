@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useListPeople, useReanalyzePeople, useUpdatePerson, useDeletePerson, getListPeopleQueryKey } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Users, User, Mic, Film, ScanFace, Pencil, Check, X, ChevronLeft, ChevronRight, Trash2, LayoutGrid, List, Share2 } from "lucide-react";
+import { Users, User, Mic, Film, ScanFace, Pencil, Check, X, ChevronLeft, ChevronRight, Trash2, LayoutGrid, List, Share2, Search, ArrowDownAZ, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,24 @@ export default function People() {
     if (v !== "map") localStorage.setItem("people-view", v);
   };
   const [page, setPage] = useState(0);
-  const { data, isLoading } = useListPeople({ limit: PAGE_SIZE, offset: page * PAGE_SIZE });
+  const [searchInput, setSearchInput] = useState("");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"appearances" | "name">("appearances");
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQuery(searchInput.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const { data, isLoading } = useListPeople({
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+    ...(query ? { q: query } : {}),
+    sort,
+  });
   const people = data?.items;
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -163,6 +180,51 @@ export default function People() {
       {queuedMessage && (
         <div className="mb-6 px-4 py-3 rounded-md border border-border bg-card text-sm text-muted-foreground">
           {queuedMessage}
+        </div>
+      )}
+
+      {view !== "map" && (
+        <div className="flex items-center gap-3 mb-5">
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search people by name..."
+              className="h-9 pl-8 pr-8"
+            />
+            {searchInput && (
+              <button
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setSearchInput("")}
+                title="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 shrink-0"
+            onClick={() => {
+              setSort((s) => (s === "name" ? "appearances" : "name"));
+              setPage(0);
+            }}
+            title="Toggle sort order"
+          >
+            {sort === "name" ? (
+              <>
+                <ArrowDownAZ className="h-4 w-4" />
+                Name A–Z
+              </>
+            ) : (
+              <>
+                <TrendingUp className="h-4 w-4" />
+                Most seen
+              </>
+            )}
+          </Button>
         </div>
       )}
 
@@ -385,6 +447,12 @@ export default function People() {
           </div>
         )}
         </>
+      ) : query ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+          <Search className="h-12 w-12 mb-4 opacity-50" />
+          <p>No people match "{query}".</p>
+          <p className="text-xs mt-1">Try a different name or clear the search.</p>
+        </div>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
           <Users className="h-12 w-12 mb-4 opacity-50" />

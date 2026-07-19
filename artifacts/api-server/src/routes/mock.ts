@@ -2130,7 +2130,15 @@ let libraryInsights: {
 router.get("/people", (req, res) => {
   const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "48"), 10) || 48, 1), 200);
   const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
-  res.json({ items: people.slice(offset, offset + limit), total: people.length });
+  const q = String(req.query.q ?? "").trim().toLowerCase();
+  const sort = String(req.query.sort ?? "appearances");
+  let filtered = q
+    ? people.filter((p) => p.display_name.toLowerCase().includes(q))
+    : [...people];
+  if (sort === "name") {
+    filtered.sort((a, b) => a.display_name.toLowerCase().localeCompare(b.display_name.toLowerCase()));
+  }
+  res.json({ items: filtered.slice(offset, offset + limit), total: filtered.length });
 });
 
 // Must be registered before /people/:id, or "co-appearances" is treated as an id.
