@@ -31,6 +31,8 @@ function useDebounced<T>(value: T, ms: number): T {
 type MediaPickerProps = {
   selected: string[];
   onToggle: (id: string, checked: boolean) => void;
+  /** Batch select/deselect (e.g. "Select all" on search results) in one update. */
+  onToggleMany?: (ids: string[], checked: boolean) => void;
   onPreview: (asset: MediaAsset) => void;
   /** Only these asset ids are shown at all (e.g. the project's media pool). */
   restrictTo?: string[];
@@ -42,7 +44,7 @@ type MediaPickerProps = {
 };
 
 export function MediaPickerGrid({
-  selected, onToggle, onPreview, restrictTo, requireReady = false,
+  selected, onToggle, onToggleMany, onPreview, restrictTo, requireReady = false,
   togglesDisabled = false, gridClass = "sm:grid-cols-2 lg:grid-cols-3", emptyText,
 }: MediaPickerProps) {
   const [searchText, setSearchText] = useState("");
@@ -78,6 +80,17 @@ export function MediaPickerGrid({
     );
   }, [media?.items, restrictTo, selectedOnly, selected, search]);
 
+  const selectableIds = useMemo(
+    () => items
+      .filter((a) => !selected.includes(a.id) && !(requireReady && a.status !== "ready"))
+      .map((a) => a.id),
+    [items, selected, requireReady],
+  );
+  const visibleSelectedIds = useMemo(
+    () => items.filter((a) => selected.includes(a.id)).map((a) => a.id),
+    [items, selected],
+  );
+
   const total = media?.total ?? 0;
   const fetched = media?.items?.length ?? 0;
   const hiddenSelected = selectedOnly
@@ -111,6 +124,28 @@ export function MediaPickerGrid({
             </button>
           )}
         </div>
+        {onToggleMany && selectableIds.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 shrink-0"
+            disabled={togglesDisabled}
+            onClick={() => onToggleMany(selectableIds, true)}
+          >
+            Select all ({selectableIds.length})
+          </Button>
+        )}
+        {onToggleMany && selectableIds.length === 0 && visibleSelectedIds.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 shrink-0"
+            disabled={togglesDisabled}
+            onClick={() => onToggleMany(visibleSelectedIds, false)}
+          >
+            Deselect all ({visibleSelectedIds.length})
+          </Button>
+        )}
         {selected.length > 0 && (
           <Button
             size="sm"

@@ -169,6 +169,13 @@ export default function ProjectDetail() {
     updateMutation.mutate({ id, data: { media_ids: next } }, { onSuccess: invalidateAll });
   };
 
+  const toggleMediaPoolMany = (assetIds: string[], checked: boolean) => {
+    const next = checked
+      ? [...mediaPool, ...assetIds.filter((x) => !mediaPool.includes(x))]
+      : mediaPool.filter((x) => !assetIds.includes(x));
+    updateMutation.mutate({ id, data: { media_ids: next } }, { onSuccess: invalidateAll });
+  };
+
   const clearMediaPool = () => {
     updateMutation.mutate({ id, data: { media_ids: [] } }, { onSuccess: invalidateAll });
   };
@@ -641,6 +648,7 @@ export default function ProjectDetail() {
               <MediaPickerGrid
                 selected={mediaPool}
                 onToggle={toggleMediaPool}
+                onToggleMany={toggleMediaPoolMany}
                 togglesDisabled={updateMutation.isPending}
                 onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
                 emptyText="The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
@@ -909,6 +917,10 @@ export default function ProjectDetail() {
                   selected={storyAssets}
                   onToggle={(assetId, checked) => setStoryAssets((s) =>
                     checked ? [...s, assetId] : s.filter((x) => x !== assetId))}
+                  onToggleMany={(assetIds, checked) => setStoryAssets((s) =>
+                    checked
+                      ? [...s, ...assetIds.filter((x) => !s.includes(x))]
+                      : s.filter((x) => !assetIds.includes(x)))}
                   restrictTo={mediaPool.length ? mediaPool : undefined}
                   requireReady
                   gridClass="sm:grid-cols-2"
