@@ -2420,4 +2420,239 @@ router.post("/insights/refresh", (_req, res) => {
   res.status(202).json(job);
 });
 
+// ---------------------------------------------------------------------------
+// Graphics generator (ComfyUI-backed in production; simulated here)
+
+const graphicsPresets: any[] = [
+  {
+    id: "flux-schnell",
+    name: "FLUX Schnell — Fast Image",
+    description: "4-step image generation, seconds per image. Great for drafts and iteration.",
+    kind: "image",
+    source: "builtin",
+    available: true,
+    unavailable_reason: null,
+    supports_negative: false,
+    supports_size: true,
+    supports_steps: false,
+    supports_frames: false,
+    supports_seed: true,
+    default_width: 1024,
+    default_height: 1024,
+    default_steps: 4,
+    default_frames: null,
+  },
+  {
+    id: "flux-dev",
+    name: "FLUX Dev — Quality Image",
+    description: "Full-quality FLUX.1-dev image generation. Slower, best detail.",
+    kind: "image",
+    source: "builtin",
+    available: true,
+    unavailable_reason: null,
+    supports_negative: false,
+    supports_size: true,
+    supports_steps: true,
+    supports_frames: false,
+    supports_seed: true,
+    default_width: 1024,
+    default_height: 1024,
+    default_steps: 20,
+    default_frames: null,
+  },
+  {
+    id: "wan22-t2v",
+    name: "Wan 2.2 — Text to Video",
+    description: "Wan2.2 A14B text-to-video, 720p. High quality, minutes per clip.",
+    kind: "video",
+    source: "builtin",
+    available: true,
+    unavailable_reason: null,
+    supports_negative: true,
+    supports_size: true,
+    supports_steps: true,
+    supports_frames: true,
+    supports_seed: true,
+    default_width: 1280,
+    default_height: 720,
+    default_steps: 20,
+    default_frames: 81,
+  },
+  {
+    id: "ltx2-fast",
+    name: "LTX-2 — Fast Video",
+    description: "LTX-2 distilled text-to-video. Fastest way to a moving draft.",
+    kind: "video",
+    source: "builtin",
+    available: true,
+    unavailable_reason: null,
+    supports_negative: true,
+    supports_size: true,
+    supports_steps: false,
+    supports_frames: true,
+    supports_seed: true,
+    default_width: 1216,
+    default_height: 704,
+    default_steps: 8,
+    default_frames: 97,
+  },
+  {
+    id: "custom-example",
+    name: "my-workflow.json",
+    description: "Custom ComfyUI workflow from the workflows folder.",
+    kind: "image",
+    source: "custom",
+    available: false,
+    unavailable_reason: "ComfyUI not reachable from the Replit preview",
+    supports_negative: false,
+    supports_size: false,
+    supports_steps: false,
+    supports_frames: false,
+    supports_seed: true,
+    default_width: null,
+    default_height: null,
+    default_steps: null,
+    default_frames: null,
+  },
+];
+
+const graphicsGenerations: any[] = [];
+
+router.get("/graphics/presets", (_req, res) => {
+  res.json(graphicsPresets);
+});
+
+router.get("/graphics/generations", (req, res) => {
+  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10) || 50));
+  const offset = Math.max(0, parseInt(String(req.query.offset ?? "0"), 10) || 0);
+  res.json({
+    items: graphicsGenerations.slice(offset, offset + limit),
+    total: graphicsGenerations.length,
+  });
+});
+
+router.post("/graphics/generations", (req, res) => {
+  const presetId = String(req.body?.preset_id ?? "");
+  const preset = graphicsPresets.find((p) => p.id === presetId);
+  if (!preset) { res.status(400).json({ error: "Unknown preset" }); return; }
+  if (!preset.available) { res.status(409).json({ error: preset.unavailable_reason || "Preset unavailable" }); return; }
+  const prompt = String(req.body?.prompt ?? "").trim();
+  if (!prompt) { res.status(400).json({ error: "Prompt required" }); return; }
+  const gen: any = {
+    id: `ggen-${Date.now()}`,
+    kind: preset.kind,
+    preset_id: preset.id,
+    preset_name: preset.name,
+    prompt,
+    negative: req.body?.negative ?? null,
+    status: "pending",
+    progress: 0,
+    queue_position: null,
+    error_message: null,
+    width: req.body?.width ?? preset.default_width,
+    height: req.body?.height ?? preset.default_height,
+    frames: preset.kind === "video" ? (req.body?.frames ?? preset.default_frames) : null,
+    seed: req.body?.seed ?? null,
+    duration_seconds: null,
+    output_url: null,
+    thumbnail_url: null,
+    media_id: null,
+    created_at: new Date().toISOString(),
+    completed_at: null,
+  };
+  graphicsGenerations.unshift(gen);
+  simulateGraphicsGen(gen);
+  res.status(202).json(gen);
+});
+
+function simulateGraphicsGen(gen: any) {
+  const stepMs = gen.kind === "video" ? 2000 : 900;
+  gen.status = "queued";
+  gen.queue_position = 0;
+  const timer = setInterval(() => {
+    if (gen.status === "cancelled") { clearInterval(timer); return; }
+    if (gen.status === "queued") {
+      gen.status = "running";
+      gen.queue_position = null;
+      if (gen.seed == null) gen.seed = Math.floor(Math.random() * 2 ** 31);
+      return;
+    }
+    gen.progress = Math.min(100, gen.progress + (gen.kind === "video" ? 9 : 25));
+    if (gen.progress >= 100) {
+      gen.status = "success";
+      gen.completed_at = new Date().toISOString();
+      if (gen.kind === "video") gen.duration_seconds = Math.round(((gen.frames ?? 81) / 24) * 10) / 10;
+      gen.output_url = `/api/graphics/generations/${gen.id}/output`;
+      gen.thumbnail_url = `/api/graphics/generations/${gen.id}/thumbnail`;
+      clearInterval(timer);
+    }
+  }, stepMs);
+}
+
+router.get("/graphics/generations/:id", (req, res) => {
+  const gen = graphicsGenerations.find((g) => g.id === req.params.id);
+  if (!gen) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(gen);
+});
+
+router.delete("/graphics/generations/:id", (req, res) => {
+  const idx = graphicsGenerations.findIndex((g) => g.id === req.params.id);
+  if (idx === -1) { res.status(404).json({ error: "Not found" }); return; }
+  graphicsGenerations.splice(idx, 1);
+  res.status(204).end();
+});
+
+router.post("/graphics/generations/:id/cancel", (req, res) => {
+  const gen = graphicsGenerations.find((g) => g.id === req.params.id);
+  if (!gen) { res.status(404).json({ error: "Not found" }); return; }
+  if (gen.status === "success" || gen.status === "error" || gen.status === "cancelled") {
+    res.status(409).json({ error: "Already finished" });
+    return;
+  }
+  gen.status = "cancelled";
+  gen.completed_at = new Date().toISOString();
+  res.json(gen);
+});
+
+// Output/thumbnail intentionally 404 in the mock (no real files, same as /stream)
+router.get("/graphics/generations/:id/output", (_req, res) => {
+  res.status(404).json({ error: "No output in Replit preview — generation runs on the production GPU server" });
+});
+
+router.get("/graphics/generations/:id/thumbnail", (_req, res) => {
+  res.status(404).json({ error: "No thumbnail in Replit preview" });
+});
+
+router.post("/graphics/generations/:id/add-to-library", (req, res) => {
+  const gen = graphicsGenerations.find((g) => g.id === req.params.id);
+  if (!gen) { res.status(404).json({ error: "Not found" }); return; }
+  if (gen.status !== "success") { res.status(404).json({ error: "Not finished" }); return; }
+  if (gen.kind !== "video") { res.status(409).json({ error: "Only video generations can be added to the library" }); return; }
+  if (gen.media_id) { res.status(409).json({ error: "Already added" }); return; }
+  const asset: any = {
+    id: `media-gen-${Date.now()}`,
+    filename: `generated-${gen.preset_id}-${gen.id.slice(-6)}.mp4`,
+    original_path: `/uploads/generated-${gen.id.slice(-6)}.mp4`,
+    proxy_path: null,
+    thumbnail_url: null,
+    duration_seconds: gen.duration_seconds,
+    width: gen.width,
+    height: gen.height,
+    fps: 24,
+    codec: "h264",
+    file_size_bytes: null,
+    status: "processing",
+    processing_stage: "ingest",
+    processing_progress: 0,
+    scene_count: 0,
+    speaker_count: 0,
+    synopsis: null,
+    key_moments: [],
+    created_at: new Date().toISOString(),
+  };
+  assets.unshift(asset as any);
+  gen.media_id = asset.id;
+  res.status(202).json(asset);
+});
+
 export default router;

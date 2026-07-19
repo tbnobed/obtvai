@@ -1035,6 +1035,198 @@ paths:
         "404":
           description: Not found or not finished
 
+  /graphics/presets:
+    get:
+      operationId: listGraphicsPresets
+      tags: [graphics]
+      summary: List available image/video generation presets (built-in templates plus custom ComfyUI workflows from the workflows folder)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GraphicsPreset"
+
+  /graphics/generations:
+    get:
+      operationId: listGraphicsGenerations
+      tags: [graphics]
+      summary: List graphics generations, newest first
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphicsGenerationListResponse"
+    post:
+      operationId: createGraphicsGeneration
+      tags: [graphics]
+      summary: Queue an image or video generation on the local ComfyUI instance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GraphicsGenerateInput"
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphicsGeneration"
+        "400":
+          description: Invalid input
+        "409":
+          description: Preset unavailable (required ComfyUI nodes/models missing)
+        "503":
+          description: ComfyUI unreachable
+
+  /graphics/generations/{id}:
+    get:
+      operationId: getGraphicsGeneration
+      tags: [graphics]
+      summary: Get one generation with current status/progress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphicsGeneration"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteGraphicsGeneration
+      tags: [graphics]
+      summary: Delete a generation and its output files
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /graphics/generations/{id}/cancel:
+    post:
+      operationId: cancelGraphicsGeneration
+      tags: [graphics]
+      summary: Cancel a pending or running generation (interrupts ComfyUI if already executing)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphicsGeneration"
+        "404":
+          description: Not found
+        "409":
+          description: Already finished
+
+  /graphics/generations/{id}/output:
+    get:
+      operationId: streamGraphicsOutput
+      tags: [graphics]
+      summary: Stream the finished output (PNG for images, MP4 for videos)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Output file
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found or not finished
+
+  /graphics/generations/{id}/thumbnail:
+    get:
+      operationId: getGraphicsThumbnail
+      tags: [graphics]
+      summary: Small JPEG preview of the output
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: JPEG thumbnail
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found or not finished
+
+  /graphics/generations/{id}/add-to-library:
+    post:
+      operationId: addGraphicsToLibrary
+      tags: [graphics]
+      summary: Ingest a finished video generation into the media library as a new asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Ingest queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAsset"
+        "404":
+          description: Not found or not finished
+        "409":
+          description: Not a video, or already added
+
   /people/reanalyze:
     post:
       operationId: reanalyzePeople
@@ -2630,6 +2822,137 @@ components:
           allOf:
             - $ref: "#/components/schemas/VoiceSettings"
           description: Custom synthesis settings this clip was generated with
+
+    GraphicsPreset:
+      type: object
+      required: [id, name, kind, source, available]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        kind:
+          type: string
+          description: "image | video"
+        source:
+          type: string
+          description: "builtin | custom (user-dropped ComfyUI API-format workflow)"
+        available:
+          type: boolean
+          description: False when ComfyUI is unreachable or required nodes/models are missing
+        unavailable_reason:
+          type: ["string", "null"]
+        supports_negative:
+          type: boolean
+          default: false
+        supports_size:
+          type: boolean
+          default: false
+        supports_steps:
+          type: boolean
+          default: false
+        supports_frames:
+          type: boolean
+          default: false
+        supports_seed:
+          type: boolean
+          default: false
+        default_width:
+          type: ["integer", "null"]
+        default_height:
+          type: ["integer", "null"]
+        default_steps:
+          type: ["integer", "null"]
+        default_frames:
+          type: ["integer", "null"]
+
+    GraphicsGenerateInput:
+      type: object
+      required: [preset_id, prompt]
+      properties:
+        preset_id:
+          type: string
+        prompt:
+          type: string
+        negative:
+          type: ["string", "null"]
+        width:
+          type: ["integer", "null"]
+        height:
+          type: ["integer", "null"]
+        steps:
+          type: ["integer", "null"]
+        frames:
+          type: ["integer", "null"]
+          description: Video length in frames (video presets only)
+        seed:
+          type: ["integer", "null"]
+          description: Omit or null for a random seed
+
+    GraphicsGeneration:
+      type: object
+      required: [id, kind, preset_id, prompt, status, progress, created_at]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          description: "image | video"
+        preset_id:
+          type: string
+        preset_name:
+          type: ["string", "null"]
+        prompt:
+          type: string
+        negative:
+          type: ["string", "null"]
+        status:
+          type: string
+          description: "pending | queued | running | success | error | cancelled"
+        progress:
+          type: number
+        queue_position:
+          type: ["integer", "null"]
+          description: Position in the ComfyUI queue while waiting
+        error_message:
+          type: ["string", "null"]
+        width:
+          type: ["integer", "null"]
+        height:
+          type: ["integer", "null"]
+        frames:
+          type: ["integer", "null"]
+        seed:
+          type: ["integer", "null"]
+          description: The actual seed used (filled in once running)
+        duration_seconds:
+          type: ["number", "null"]
+          description: Output video duration (videos only)
+        output_url:
+          type: ["string", "null"]
+          description: Stream URL once finished
+        thumbnail_url:
+          type: ["string", "null"]
+        media_id:
+          type: ["string", "null"]
+          description: Library asset id after add-to-library
+        created_at:
+          type: string
+        completed_at:
+          type: ["string", "null"]
+
+    GraphicsGenerationListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphicsGeneration"
+        total:
+          type: integer
 
     ReanalyzeResult:
       type: object

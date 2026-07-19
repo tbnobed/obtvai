@@ -34,6 +34,10 @@ import type {
   GetCaptionsParams,
   GetMediaFrameParams,
   GetMediaTranscriptParams,
+  GraphicsGenerateInput,
+  GraphicsGeneration,
+  GraphicsGenerationListResponse,
+  GraphicsPreset,
   HealthStatus,
   JobCleanupRequest,
   JobCleanupResult,
@@ -41,6 +45,7 @@ import type {
   LibraryInsights,
   LibraryStats,
   ListClipListsParams,
+  ListGraphicsGenerationsParams,
   ListJobsParams,
   ListMediaParams,
   ListPeopleParams,
@@ -3358,6 +3363,682 @@ export function useStreamVoiceGeneration<TData = Awaited<ReturnType<typeof strea
 
 
 
+
+export const getListGraphicsPresetsUrl = () => {
+
+
+
+
+  return `/api/graphics/presets`
+}
+
+/**
+ * @summary List available image/video generation presets (built-in templates plus custom ComfyUI workflows from the workflows folder)
+ */
+export const listGraphicsPresets = async ( options?: RequestInit): Promise<GraphicsPreset[]> => {
+
+  return customFetch<GraphicsPreset[]>(getListGraphicsPresetsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGraphicsPresetsQueryKey = () => {
+    return [
+    `/api/graphics/presets`
+    ] as const;
+    }
+
+
+export const getListGraphicsPresetsQueryOptions = <TData = Awaited<ReturnType<typeof listGraphicsPresets>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGraphicsPresets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGraphicsPresetsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGraphicsPresets>>> = ({ signal }) => listGraphicsPresets({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGraphicsPresets>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGraphicsPresetsQueryResult = NonNullable<Awaited<ReturnType<typeof listGraphicsPresets>>>
+export type ListGraphicsPresetsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List available image/video generation presets (built-in templates plus custom ComfyUI workflows from the workflows folder)
+ */
+
+export function useListGraphicsPresets<TData = Awaited<ReturnType<typeof listGraphicsPresets>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGraphicsPresets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGraphicsPresetsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListGraphicsGenerationsUrl = (params?: ListGraphicsGenerationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/graphics/generations?${stringifiedParams}` : `/api/graphics/generations`
+}
+
+/**
+ * @summary List graphics generations, newest first
+ */
+export const listGraphicsGenerations = async (params?: ListGraphicsGenerationsParams, options?: RequestInit): Promise<GraphicsGenerationListResponse> => {
+
+  return customFetch<GraphicsGenerationListResponse>(getListGraphicsGenerationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGraphicsGenerationsQueryKey = (params?: ListGraphicsGenerationsParams,) => {
+    return [
+    `/api/graphics/generations`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListGraphicsGenerationsQueryOptions = <TData = Awaited<ReturnType<typeof listGraphicsGenerations>>, TError = ErrorType<unknown>>(params?: ListGraphicsGenerationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGraphicsGenerations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGraphicsGenerationsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGraphicsGenerations>>> = ({ signal }) => listGraphicsGenerations(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGraphicsGenerations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGraphicsGenerationsQueryResult = NonNullable<Awaited<ReturnType<typeof listGraphicsGenerations>>>
+export type ListGraphicsGenerationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List graphics generations, newest first
+ */
+
+export function useListGraphicsGenerations<TData = Awaited<ReturnType<typeof listGraphicsGenerations>>, TError = ErrorType<unknown>>(
+ params?: ListGraphicsGenerationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGraphicsGenerations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGraphicsGenerationsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateGraphicsGenerationUrl = () => {
+
+
+
+
+  return `/api/graphics/generations`
+}
+
+/**
+ * @summary Queue an image or video generation on the local ComfyUI instance
+ */
+export const createGraphicsGeneration = async (graphicsGenerateInput: GraphicsGenerateInput, options?: RequestInit): Promise<GraphicsGeneration> => {
+
+  return customFetch<GraphicsGeneration>(getCreateGraphicsGenerationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(graphicsGenerateInput)
+  }
+);}
+
+
+
+
+
+export const getCreateGraphicsGenerationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGraphicsGeneration>>, TError,{data: BodyType<GraphicsGenerateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createGraphicsGeneration>>, TError,{data: BodyType<GraphicsGenerateInput>}, TContext> => {
+
+const mutationKey = ['createGraphicsGeneration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createGraphicsGeneration>>, {data: BodyType<GraphicsGenerateInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createGraphicsGeneration(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateGraphicsGenerationMutationResult = NonNullable<Awaited<ReturnType<typeof createGraphicsGeneration>>>
+    export type CreateGraphicsGenerationMutationBody = BodyType<GraphicsGenerateInput>
+    export type CreateGraphicsGenerationMutationError = ErrorType<void>
+
+    /**
+ * @summary Queue an image or video generation on the local ComfyUI instance
+ */
+export const useCreateGraphicsGeneration = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGraphicsGeneration>>, TError,{data: BodyType<GraphicsGenerateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createGraphicsGeneration>>,
+        TError,
+        {data: BodyType<GraphicsGenerateInput>},
+        TContext
+      > => {
+      return useMutation(getCreateGraphicsGenerationMutationOptions(options));
+    }
+
+export const getGetGraphicsGenerationUrl = (id: string,) => {
+
+
+
+
+  return `/api/graphics/generations/${id}`
+}
+
+/**
+ * @summary Get one generation with current status/progress
+ */
+export const getGraphicsGeneration = async (id: string, options?: RequestInit): Promise<GraphicsGeneration> => {
+
+  return customFetch<GraphicsGeneration>(getGetGraphicsGenerationUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGraphicsGenerationQueryKey = (id: string,) => {
+    return [
+    `/api/graphics/generations/${id}`
+    ] as const;
+    }
+
+
+export const getGetGraphicsGenerationQueryOptions = <TData = Awaited<ReturnType<typeof getGraphicsGeneration>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGraphicsGeneration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGraphicsGenerationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGraphicsGeneration>>> = ({ signal }) => getGraphicsGeneration(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGraphicsGeneration>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGraphicsGenerationQueryResult = NonNullable<Awaited<ReturnType<typeof getGraphicsGeneration>>>
+export type GetGraphicsGenerationQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get one generation with current status/progress
+ */
+
+export function useGetGraphicsGeneration<TData = Awaited<ReturnType<typeof getGraphicsGeneration>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGraphicsGeneration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGraphicsGenerationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteGraphicsGenerationUrl = (id: string,) => {
+
+
+
+
+  return `/api/graphics/generations/${id}`
+}
+
+/**
+ * @summary Delete a generation and its output files
+ */
+export const deleteGraphicsGeneration = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteGraphicsGenerationUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteGraphicsGenerationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGraphicsGeneration>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteGraphicsGeneration>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteGraphicsGeneration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteGraphicsGeneration>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteGraphicsGeneration(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteGraphicsGenerationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteGraphicsGeneration>>>
+
+    export type DeleteGraphicsGenerationMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a generation and its output files
+ */
+export const useDeleteGraphicsGeneration = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGraphicsGeneration>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteGraphicsGeneration>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteGraphicsGenerationMutationOptions(options));
+    }
+
+export const getCancelGraphicsGenerationUrl = (id: string,) => {
+
+
+
+
+  return `/api/graphics/generations/${id}/cancel`
+}
+
+/**
+ * @summary Cancel a pending or running generation (interrupts ComfyUI if already executing)
+ */
+export const cancelGraphicsGeneration = async (id: string, options?: RequestInit): Promise<GraphicsGeneration> => {
+
+  return customFetch<GraphicsGeneration>(getCancelGraphicsGenerationUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelGraphicsGenerationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelGraphicsGeneration>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelGraphicsGeneration>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['cancelGraphicsGeneration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelGraphicsGeneration>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelGraphicsGeneration(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelGraphicsGenerationMutationResult = NonNullable<Awaited<ReturnType<typeof cancelGraphicsGeneration>>>
+
+    export type CancelGraphicsGenerationMutationError = ErrorType<void>
+
+    /**
+ * @summary Cancel a pending or running generation (interrupts ComfyUI if already executing)
+ */
+export const useCancelGraphicsGeneration = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelGraphicsGeneration>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelGraphicsGeneration>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCancelGraphicsGenerationMutationOptions(options));
+    }
+
+export const getStreamGraphicsOutputUrl = (id: string,) => {
+
+
+
+
+  return `/api/graphics/generations/${id}/output`
+}
+
+/**
+ * @summary Stream the finished output (PNG for images, MP4 for videos)
+ */
+export const streamGraphicsOutput = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getStreamGraphicsOutputUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamGraphicsOutputQueryKey = (id: string,) => {
+    return [
+    `/api/graphics/generations/${id}/output`
+    ] as const;
+    }
+
+
+export const getStreamGraphicsOutputQueryOptions = <TData = Awaited<ReturnType<typeof streamGraphicsOutput>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamGraphicsOutput>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamGraphicsOutputQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamGraphicsOutput>>> = ({ signal }) => streamGraphicsOutput(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamGraphicsOutput>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamGraphicsOutputQueryResult = NonNullable<Awaited<ReturnType<typeof streamGraphicsOutput>>>
+export type StreamGraphicsOutputQueryError = ErrorType<void>
+
+
+/**
+ * @summary Stream the finished output (PNG for images, MP4 for videos)
+ */
+
+export function useStreamGraphicsOutput<TData = Awaited<ReturnType<typeof streamGraphicsOutput>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamGraphicsOutput>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamGraphicsOutputQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetGraphicsThumbnailUrl = (id: string,) => {
+
+
+
+
+  return `/api/graphics/generations/${id}/thumbnail`
+}
+
+/**
+ * @summary Small JPEG preview of the output
+ */
+export const getGraphicsThumbnail = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetGraphicsThumbnailUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGraphicsThumbnailQueryKey = (id: string,) => {
+    return [
+    `/api/graphics/generations/${id}/thumbnail`
+    ] as const;
+    }
+
+
+export const getGetGraphicsThumbnailQueryOptions = <TData = Awaited<ReturnType<typeof getGraphicsThumbnail>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGraphicsThumbnail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGraphicsThumbnailQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGraphicsThumbnail>>> = ({ signal }) => getGraphicsThumbnail(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGraphicsThumbnail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGraphicsThumbnailQueryResult = NonNullable<Awaited<ReturnType<typeof getGraphicsThumbnail>>>
+export type GetGraphicsThumbnailQueryError = ErrorType<void>
+
+
+/**
+ * @summary Small JPEG preview of the output
+ */
+
+export function useGetGraphicsThumbnail<TData = Awaited<ReturnType<typeof getGraphicsThumbnail>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGraphicsThumbnail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGraphicsThumbnailQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddGraphicsToLibraryUrl = (id: string,) => {
+
+
+
+
+  return `/api/graphics/generations/${id}/add-to-library`
+}
+
+/**
+ * @summary Ingest a finished video generation into the media library as a new asset
+ */
+export const addGraphicsToLibrary = async (id: string, options?: RequestInit): Promise<MediaAsset> => {
+
+  return customFetch<MediaAsset>(getAddGraphicsToLibraryUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAddGraphicsToLibraryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addGraphicsToLibrary>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addGraphicsToLibrary>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['addGraphicsToLibrary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addGraphicsToLibrary>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  addGraphicsToLibrary(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddGraphicsToLibraryMutationResult = NonNullable<Awaited<ReturnType<typeof addGraphicsToLibrary>>>
+
+    export type AddGraphicsToLibraryMutationError = ErrorType<void>
+
+    /**
+ * @summary Ingest a finished video generation into the media library as a new asset
+ */
+export const useAddGraphicsToLibrary = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addGraphicsToLibrary>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addGraphicsToLibrary>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getAddGraphicsToLibraryMutationOptions(options));
+    }
 
 export const getReanalyzePeopleUrl = () => {
 

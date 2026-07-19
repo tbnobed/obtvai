@@ -15,6 +15,7 @@ import PersonDetail from "@/pages/person-detail";
 import Insights from "@/pages/insights";
 import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
+import Graphics from "@/pages/graphics";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ function Router() {
         <Route path="/library/:id" component={AssetDetail} />
         <Route path="/people" component={People} />
         <Route path="/people/:id" component={PersonDetail} />
+        <Route path="/graphics" component={Graphics} />
         <Route path="/insights" component={Insights} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/ai" component={AIQA} />

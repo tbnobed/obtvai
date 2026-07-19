@@ -7,7 +7,8 @@ import {
   MessageSquare, 
   Users,
   Sparkles,
-  FolderKanban
+  FolderKanban,
+  Wand2
 } from "lucide-react";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
 
@@ -23,6 +24,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/projects", label: "Projects", icon: FolderKanban },
     { href: "/library", label: "Media Library", icon: Film },
     { href: "/people", label: "People", icon: Users },
+    { href: "/graphics", label: "Graphics", icon: Wand2 },
     { href: "/insights", label: "Insights", icon: Sparkles },
     { href: "/ai", label: "AI Q&A", icon: MessageSquare },
     { href: "/jobs", label: "Processing Pipeline", icon: Activity },

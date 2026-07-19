@@ -533,6 +533,115 @@ export interface VoiceGeneration {
   settings?: VoiceSettings;
 }
 
+export interface GraphicsPreset {
+  id: string;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  /** image | video */
+  kind: string;
+  /** builtin | custom (user-dropped ComfyUI API-format workflow) */
+  source: string;
+  /** False when ComfyUI is unreachable or required nodes/models are missing */
+  available: boolean;
+  /** @nullable */
+  unavailable_reason?: string | null;
+  supports_negative?: boolean;
+  supports_size?: boolean;
+  supports_steps?: boolean;
+  supports_frames?: boolean;
+  supports_seed?: boolean;
+  /** @nullable */
+  default_width?: number | null;
+  /** @nullable */
+  default_height?: number | null;
+  /** @nullable */
+  default_steps?: number | null;
+  /** @nullable */
+  default_frames?: number | null;
+}
+
+export interface GraphicsGenerateInput {
+  preset_id: string;
+  prompt: string;
+  /** @nullable */
+  negative?: string | null;
+  /** @nullable */
+  width?: number | null;
+  /** @nullable */
+  height?: number | null;
+  /** @nullable */
+  steps?: number | null;
+  /**
+     * Video length in frames (video presets only)
+     * @nullable
+     */
+  frames?: number | null;
+  /**
+     * Omit or null for a random seed
+     * @nullable
+     */
+  seed?: number | null;
+}
+
+export interface GraphicsGeneration {
+  id: string;
+  /** image | video */
+  kind: string;
+  preset_id: string;
+  /** @nullable */
+  preset_name?: string | null;
+  prompt: string;
+  /** @nullable */
+  negative?: string | null;
+  /** pending | queued | running | success | error | cancelled */
+  status: string;
+  progress: number;
+  /**
+     * Position in the ComfyUI queue while waiting
+     * @nullable
+     */
+  queue_position?: number | null;
+  /** @nullable */
+  error_message?: string | null;
+  /** @nullable */
+  width?: number | null;
+  /** @nullable */
+  height?: number | null;
+  /** @nullable */
+  frames?: number | null;
+  /**
+     * The actual seed used (filled in once running)
+     * @nullable
+     */
+  seed?: number | null;
+  /**
+     * Output video duration (videos only)
+     * @nullable
+     */
+  duration_seconds?: number | null;
+  /**
+     * Stream URL once finished
+     * @nullable
+     */
+  output_url?: string | null;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  /**
+     * Library asset id after add-to-library
+     * @nullable
+     */
+  media_id?: string | null;
+  created_at: string;
+  /** @nullable */
+  completed_at?: string | null;
+}
+
+export interface GraphicsGenerationListResponse {
+  items: GraphicsGeneration[];
+  total: number;
+}
+
 export interface ReanalyzeResult {
   /** Number of media assets queued for re-analysis */
   assets_queued: number;
@@ -1307,6 +1416,11 @@ limit?: number;
 /**
  * @minimum 0
  */
+offset?: number;
+};
+
+export type ListGraphicsGenerationsParams = {
+limit?: number;
 offset?: number;
 };
 

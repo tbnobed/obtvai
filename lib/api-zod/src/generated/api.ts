@@ -1276,6 +1276,278 @@ export const StreamVoiceGenerationResponse = zod.unknown()
 
 
 /**
+ * @summary List available image/video generation presets (built-in templates plus custom ComfyUI workflows from the workflows folder)
+ */
+export const listGraphicsPresetsResponseSupportsNegativeDefault = false;
+export const listGraphicsPresetsResponseSupportsSizeDefault = false;
+export const listGraphicsPresetsResponseSupportsStepsDefault = false;
+export const listGraphicsPresetsResponseSupportsFramesDefault = false;
+export const listGraphicsPresetsResponseSupportsSeedDefault = false;
+
+export const ListGraphicsPresetsResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "kind": zod.string().describe('image | video'),
+  "source": zod.string().describe('builtin | custom (user-dropped ComfyUI API-format workflow)'),
+  "available": zod.boolean().describe('False when ComfyUI is unreachable or required nodes\/models are missing'),
+  "unavailable_reason": zod.string().nullish(),
+  "supports_negative": zod.boolean().default(listGraphicsPresetsResponseSupportsNegativeDefault),
+  "supports_size": zod.boolean().default(listGraphicsPresetsResponseSupportsSizeDefault),
+  "supports_steps": zod.boolean().default(listGraphicsPresetsResponseSupportsStepsDefault),
+  "supports_frames": zod.boolean().default(listGraphicsPresetsResponseSupportsFramesDefault),
+  "supports_seed": zod.boolean().default(listGraphicsPresetsResponseSupportsSeedDefault),
+  "default_width": zod.number().nullish(),
+  "default_height": zod.number().nullish(),
+  "default_steps": zod.number().nullish(),
+  "default_frames": zod.number().nullish()
+})
+export const ListGraphicsPresetsResponse = zod.array(ListGraphicsPresetsResponseItem)
+
+
+/**
+ * @summary List graphics generations, newest first
+ */
+export const listGraphicsGenerationsQueryLimitDefault = 50;
+export const listGraphicsGenerationsQueryOffsetDefault = 0;
+
+export const ListGraphicsGenerationsQueryParams = zod.object({
+  "limit": zod.coerce.number().default(listGraphicsGenerationsQueryLimitDefault),
+  "offset": zod.coerce.number().default(listGraphicsGenerationsQueryOffsetDefault)
+})
+
+export const ListGraphicsGenerationsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string().describe('image | video'),
+  "preset_id": zod.string(),
+  "preset_name": zod.string().nullish(),
+  "prompt": zod.string(),
+  "negative": zod.string().nullish(),
+  "status": zod.string().describe('pending | queued | running | success | error | cancelled'),
+  "progress": zod.number(),
+  "queue_position": zod.number().nullish().describe('Position in the ComfyUI queue while waiting'),
+  "error_message": zod.string().nullish(),
+  "width": zod.number().nullish(),
+  "height": zod.number().nullish(),
+  "frames": zod.number().nullish(),
+  "seed": zod.number().nullish().describe('The actual seed used (filled in once running)'),
+  "duration_seconds": zod.number().nullish().describe('Output video duration (videos only)'),
+  "output_url": zod.string().nullish().describe('Stream URL once finished'),
+  "thumbnail_url": zod.string().nullish(),
+  "media_id": zod.string().nullish().describe('Library asset id after add-to-library'),
+  "created_at": zod.string(),
+  "completed_at": zod.string().nullish()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Queue an image or video generation on the local ComfyUI instance
+ */
+export const CreateGraphicsGenerationBody = zod.object({
+  "preset_id": zod.string(),
+  "prompt": zod.string(),
+  "negative": zod.string().nullish(),
+  "width": zod.number().nullish(),
+  "height": zod.number().nullish(),
+  "steps": zod.number().nullish(),
+  "frames": zod.number().nullish().describe('Video length in frames (video presets only)'),
+  "seed": zod.number().nullish().describe('Omit or null for a random seed')
+})
+
+export const CreateGraphicsGenerationResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.string().describe('image | video'),
+  "preset_id": zod.string(),
+  "preset_name": zod.string().nullish(),
+  "prompt": zod.string(),
+  "negative": zod.string().nullish(),
+  "status": zod.string().describe('pending | queued | running | success | error | cancelled'),
+  "progress": zod.number(),
+  "queue_position": zod.number().nullish().describe('Position in the ComfyUI queue while waiting'),
+  "error_message": zod.string().nullish(),
+  "width": zod.number().nullish(),
+  "height": zod.number().nullish(),
+  "frames": zod.number().nullish(),
+  "seed": zod.number().nullish().describe('The actual seed used (filled in once running)'),
+  "duration_seconds": zod.number().nullish().describe('Output video duration (videos only)'),
+  "output_url": zod.string().nullish().describe('Stream URL once finished'),
+  "thumbnail_url": zod.string().nullish(),
+  "media_id": zod.string().nullish().describe('Library asset id after add-to-library'),
+  "created_at": zod.string(),
+  "completed_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get one generation with current status/progress
+ */
+export const GetGraphicsGenerationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetGraphicsGenerationResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.string().describe('image | video'),
+  "preset_id": zod.string(),
+  "preset_name": zod.string().nullish(),
+  "prompt": zod.string(),
+  "negative": zod.string().nullish(),
+  "status": zod.string().describe('pending | queued | running | success | error | cancelled'),
+  "progress": zod.number(),
+  "queue_position": zod.number().nullish().describe('Position in the ComfyUI queue while waiting'),
+  "error_message": zod.string().nullish(),
+  "width": zod.number().nullish(),
+  "height": zod.number().nullish(),
+  "frames": zod.number().nullish(),
+  "seed": zod.number().nullish().describe('The actual seed used (filled in once running)'),
+  "duration_seconds": zod.number().nullish().describe('Output video duration (videos only)'),
+  "output_url": zod.string().nullish().describe('Stream URL once finished'),
+  "thumbnail_url": zod.string().nullish(),
+  "media_id": zod.string().nullish().describe('Library asset id after add-to-library'),
+  "created_at": zod.string(),
+  "completed_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Delete a generation and its output files
+ */
+export const DeleteGraphicsGenerationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteGraphicsGenerationResponse = zod.void()
+
+
+/**
+ * @summary Cancel a pending or running generation (interrupts ComfyUI if already executing)
+ */
+export const CancelGraphicsGenerationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CancelGraphicsGenerationResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.string().describe('image | video'),
+  "preset_id": zod.string(),
+  "preset_name": zod.string().nullish(),
+  "prompt": zod.string(),
+  "negative": zod.string().nullish(),
+  "status": zod.string().describe('pending | queued | running | success | error | cancelled'),
+  "progress": zod.number(),
+  "queue_position": zod.number().nullish().describe('Position in the ComfyUI queue while waiting'),
+  "error_message": zod.string().nullish(),
+  "width": zod.number().nullish(),
+  "height": zod.number().nullish(),
+  "frames": zod.number().nullish(),
+  "seed": zod.number().nullish().describe('The actual seed used (filled in once running)'),
+  "duration_seconds": zod.number().nullish().describe('Output video duration (videos only)'),
+  "output_url": zod.string().nullish().describe('Stream URL once finished'),
+  "thumbnail_url": zod.string().nullish(),
+  "media_id": zod.string().nullish().describe('Library asset id after add-to-library'),
+  "created_at": zod.string(),
+  "completed_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Stream the finished output (PNG for images, MP4 for videos)
+ */
+export const StreamGraphicsOutputParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StreamGraphicsOutputResponse = zod.unknown()
+
+
+/**
+ * @summary Small JPEG preview of the output
+ */
+export const GetGraphicsThumbnailParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetGraphicsThumbnailResponse = zod.unknown()
+
+
+/**
+ * @summary Ingest a finished video generation into the media library as a new asset
+ */
+export const AddGraphicsToLibraryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const AddGraphicsToLibraryResponse = zod.object({
+  "id": zod.string(),
+  "filename": zod.string(),
+  "original_path": zod.string().nullish(),
+  "proxy_path": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "duration_seconds": zod.number().nullish(),
+  "width": zod.number().nullish(),
+  "height": zod.number().nullish(),
+  "fps": zod.number().nullish(),
+  "codec": zod.string().nullish(),
+  "file_size_bytes": zod.number().nullish(),
+  "status": zod.string().describe('pending | processing | ready | error'),
+  "processing_stage": zod.string().nullish().describe('Current processing stage name'),
+  "processing_progress": zod.number().nullish().describe('0-100 percent'),
+  "scene_count": zod.number().nullish(),
+  "speaker_count": zod.number().nullish(),
+  "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
+  "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
+  "dubbed_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages with a generated dubbed audio track'),
+  "social_scores": zod.array(zod.object({
+  "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
+  "score": zod.number().describe('Predicted performance score, 0-100'),
+  "verdict": zod.string().nullish().describe('One-line performance verdict'),
+  "strengths": zod.array(zod.string()).nullish(),
+  "weaknesses": zod.array(zod.string()).nullish(),
+  "best_format": zod.string().nullish().describe('Recommended format\/cut for this platform'),
+  "suggested_caption": zod.string().nullish(),
+  "hashtags": zod.array(zod.string()).nullish()
+})).nullish().describe('Per-platform social media performance predictions'),
+  "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "creative": zod.union([zod.object({
+  "logline": zod.string().nullish().describe('One-sentence editorial pitch for the piece'),
+  "story_beats": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "beat": zod.string().describe('hook | setup | development | turn | climax | resolution'),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emotion": zod.string().nullish().describe('Dominant emotional register of the beat')
+})),
+  "clip_suggestions": zod.array(zod.object({
+  "start": zod.number().describe('In point in seconds'),
+  "end": zod.number().describe('Out point in seconds'),
+  "title": zod.string(),
+  "quote": zod.string().nullish().describe('The strongest line spoken in the clip'),
+  "reason": zod.string().describe('Why an editor would pull this clip'),
+  "strength": zod.number().nullish().describe('Editorial strength score 1-100'),
+  "platforms": zod.array(zod.string()).nullish().describe('Platforms this clip suits best')
+})),
+  "editorial_notes": zod.array(zod.object({
+  "category": zod.string().describe('pacing | structure | cuts | broll | delivery | best_take'),
+  "note": zod.string()
+})),
+  "generated_at": zod.string().nullish()
+}),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
+  "qc_flags": zod.record(zod.string(), zod.unknown()).nullish().describe('Technical QC results (audio clipping, silence, black frames)'),
+  "key_moments": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "title": zod.string(),
+  "description": zod.string().nullish()
+})).nullish().describe('AI-detected key moments with timecodes'),
+  "topics": zod.array(zod.string()).nullish().describe('AI-extracted topic tags'),
+  "created_at": zod.string(),
+  "updated_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Re-run diarization and face analysis across the library to backfill person identification
  */
 export const ReanalyzePeopleResponse = zod.object({
