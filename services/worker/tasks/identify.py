@@ -22,6 +22,21 @@ FACE_SIM_THRESHOLD = 0.55   # ArcFace (InsightFace buffalo_l) similarities run
                             # different-person <0.3. The FaceNet-era 0.70
                             # would reject almost every true match.
 FACE_ATTACH_OVERLAP = 0.25
+FACE_VETO_THRESHOLD = 0.15  # ArcFace same-person sims run 0.5-0.8, different-person
+                            # <0.3. If a voice match's attached face scores below
+                            # this against the person's face, they are visibly
+                            # different people — reject the voice match instead of
+                            # blending a wrong voice/face into the person.
+BLEND_WEIGHT_CAP = 20       # an established person's embedding moves at most
+                            # 1/(cap+1) per new asset, so one bad match can't
+                            # poison a 41-asset identity the way a 50/50 blend did
+MANUAL_BLEND_FLOOR = 5.0    # manually named people keep their embeddings after a
+                            # library wipe but lose their appearance rows, so
+                            # n_prev=0 would let the first re-match shift a curated
+                            # identity 50% — floor their weight instead
+VOICE_VETO_THRESHOLD = 0.2  # pyannote same-speaker sims run ~0.75+; if a face
+                            # match's voices score below this, the attached face
+                            # is likely the wrong on-screen person — reject
 FACE_ONLY_MIN_SECONDS = 10.0    # face-only cluster must be on screen this long...
 FACE_ONLY_MIN_APPEARANCES = 3   # ...AND seen in at least this many scenes to become a person
                                 # (was OR — hands/blurs seen briefly in a few scenes
@@ -38,12 +53,21 @@ def _cosine(a, b) -> float:
     return float(np.dot(va, vb) / (na * nb))
 
 
-def _blend(old, new):
-    """Running average of two embeddings, renormalized."""
+def _blend(old, new, old_weight: float = 1.0):
+    """Weighted running average of two embeddings, renormalized.
+
+    old_weight ~ how many prior assets the old embedding represents (caller
+    caps it): the new sample moves the result by 1/(old_weight+1). The old
+    equal-weight blend let a single wrong match shift an established person's
+    embedding by 50%, turning it into a centroid that matched everyone.
+    """
     import numpy as np
     if old is None:
         return [float(x) for x in new]
-    v = (np.asarray(old, dtype=float) + np.asarray(new, dtype=float)) / 2.0
+    if new is None:
+        return [float(x) for x in old]
+    w = max(1.0, float(old_weight))
+    v = (np.asarray(old, dtype=float) * w + np.asarray(new, dtype=float)) / (w + 1.0)
     n = np.linalg.norm(v)
     if n > 0:
         v = v / n
@@ -272,6 +296,19 @@ def identify_people(self, media_id: str, job_id: str):
                 if voice and p[3]:
                     sim = _cosine(voice, p[3])
                     threshold = VOICE_SIM_THRESHOLD
+                    # Face veto: a voice match against a visibly different face
+                    # is a wrong match (drifted/blended voiceprints pass 0.75
+                    # for the wrong speaker). Reject it rather than blending a
+                    # second real person into this identity.
+                    if sim >= threshold and face and p[4]:
+                        face_sim = _cosine(face, p[4])
+                        if face_sim < FACE_VETO_THRESHOLD:
+                            append_log(
+                                db, job_id,
+                                f"Vetoed voice match: speaker {spk} vs {p[1]} "
+                                f"(voice sim {sim:.2f}, but face sim {face_sim:.2f})",
+                            )
+                            continue
                 elif face and p[4]:
                     sim = _cosine(face, p[4])
                     threshold = FACE_SIM_THRESHOLD
@@ -286,6 +323,19 @@ def identify_people(self, media_id: str, job_id: str):
                         continue
                     sim = _cosine(face, p[4])
                     if sim >= FACE_SIM_THRESHOLD and sim > best_sim:
+                        # Voice veto (symmetric to the face veto above): if both
+                        # sides have voiceprints and they clearly contradict, the
+                        # face cluster was likely attached to the wrong speaker
+                        # (e.g. interviewer on screen while the guest talks).
+                        if voice and p[3]:
+                            voice_sim = _cosine(voice, p[3])
+                            if voice_sim < VOICE_VETO_THRESHOLD:
+                                append_log(
+                                    db, job_id,
+                                    f"Vetoed face match: speaker {spk} vs {p[1]} "
+                                    f"(face sim {sim:.2f}, but voice sim {voice_sim:.2f})",
+                                )
+                                continue
                         best_sim, match = sim, p
 
             if match is None:
@@ -319,8 +369,18 @@ def identify_people(self, media_id: str, job_id: str):
                 append_log(db, job_id, f"New person: {name} (speaker {spk})")
             else:
                 pid = match[0]
-                new_voice = _blend(match[3], voice) if voice else match[3]
-                new_face = _blend(match[4], face) if face else match[4]
+                # Weight the person's existing embedding by how many assets
+                # back it up (current asset's appearances were already deleted
+                # above, so this counts prior assets only).
+                n_prev = db.execute(
+                    text("SELECT COUNT(*) FROM person_appearances WHERE person_id = :pid"),
+                    {"pid": pid},
+                ).fetchone()[0]
+                w = float(max(1, min(int(n_prev), BLEND_WEIGHT_CAP)))
+                if match[2] == "manual":
+                    w = max(w, MANUAL_BLEND_FLOOR)
+                new_voice = _blend(match[3], voice, w) if voice else match[3]
+                new_face = _blend(match[4], face, w) if face else match[4]
                 new_thumb = match[5] or (cluster[2] if cluster else None)
                 db.execute(
                     text("""
