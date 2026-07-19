@@ -10,6 +10,7 @@ export * from './aIAnswer';
 export * from './aICitation';
 export * from './aIMessage';
 export * from './aIQuestion';
+export * from './assetPerson';
 export * from './clip';
 export * from './clipExportInput';
 export * from './clipExportResult';

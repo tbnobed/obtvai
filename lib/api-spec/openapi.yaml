@@ -495,6 +495,27 @@ paths:
                 items:
                   $ref: "#/components/schemas/FaceCluster"
 
+  /media/{id}/people:
+    get:
+      operationId: getAssetPeople
+      tags: [player]
+      summary: People who appear in this asset — face thumbnails plus timecoded speaking and on-camera ranges
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetPerson"
+
   /media/{id}/highlight:
     post:
       operationId: createHighlight
@@ -2694,6 +2715,32 @@ components:
           items:
             $ref: "#/components/schemas/OnCameraRange"
           description: Face-detection time ranges where this person is visible on screen
+
+    AssetPerson:
+      type: object
+      required: [person_id, display_name, speaking, on_camera]
+      properties:
+        person_id:
+          type: string
+        display_name:
+          type: string
+        thumbnail_url:
+          type: ["string", "null"]
+          description: Face thumbnail — the face-cluster crop from this asset when available, else the person's library thumbnail
+        speaker_label:
+          type: ["string", "null"]
+        speaking_seconds:
+          type: ["number", "null"]
+        speaking:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpeakingMoment"
+          description: Transcript segments where this person speaks, in timecode order
+        on_camera:
+          type: array
+          items:
+            $ref: "#/components/schemas/OnCameraRange"
+          description: Time ranges where this person is visible on screen
 
     PersonUpdate:
       type: object

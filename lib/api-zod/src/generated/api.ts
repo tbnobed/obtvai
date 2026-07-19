@@ -621,6 +621,32 @@ export const GetMediaFacesResponse = zod.array(GetMediaFacesResponseItem)
 
 
 /**
+ * @summary People who appear in this asset — face thumbnails plus timecoded speaking and on-camera ranges
+ */
+export const GetAssetPeopleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetAssetPeopleResponseItem = zod.object({
+  "person_id": zod.string(),
+  "display_name": zod.string(),
+  "thumbnail_url": zod.string().nullish().describe('Face thumbnail — the face-cluster crop from this asset when available, else the person\'s library thumbnail'),
+  "speaker_label": zod.string().nullish(),
+  "speaking_seconds": zod.number().nullish(),
+  "speaking": zod.array(zod.object({
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "text": zod.string()
+})).describe('Transcript segments where this person speaks, in timecode order'),
+  "on_camera": zod.array(zod.object({
+  "start_time": zod.number(),
+  "end_time": zod.number()
+})).describe('Time ranges where this person is visible on screen')
+})
+export const GetAssetPeopleResponse = zod.array(GetAssetPeopleResponseItem)
+
+
+/**
  * @summary Generate a highlight reel video from the asset's key moments
  */
 export const CreateHighlightParams = zod.object({

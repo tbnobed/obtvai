@@ -612,6 +612,44 @@ router.get("/media/:id/faces", (req, res) => {
   res.json([]);
 });
 
+router.get("/media/:id/people", (req, res) => {
+  const out: any[] = [];
+  for (const p of people) {
+    const apps = (personAppearances[p.id] ?? []).filter((a) => a.media_id === req.params.id);
+    if (!apps.length) continue;
+    const speakers = new Set(apps.map((a) => a.speaker_label).filter(Boolean));
+    const speaking = transcript
+      .filter((s) => s.media_id === req.params.id && speakers.has(s.speaker))
+      .sort((a, b) => a.start_time - b.start_time)
+      .map((s) => ({ start_time: s.start_time, end_time: s.end_time, text: s.text }));
+    // Mock on-camera ranges: pad + merge the speaking spans when a face cluster exists.
+    const onCamera: { start_time: number; end_time: number }[] = [];
+    if (apps.some((a) => a.face_cluster_id)) {
+      const spans = speaking.length
+        ? speaking.map((s) => ({ start_time: Math.max(0, s.start_time - 3), end_time: s.end_time + 3 }))
+        : apps
+            .filter((a) => a.first_spoken_at != null)
+            .map((a) => ({ start_time: Math.max(0, a.first_spoken_at - 5), end_time: a.first_spoken_at + 40 }));
+      for (const s of spans.sort((a, b) => a.start_time - b.start_time)) {
+        const last = onCamera[onCamera.length - 1];
+        if (last && s.start_time <= last.end_time) last.end_time = Math.max(last.end_time, s.end_time);
+        else onCamera.push({ ...s });
+      }
+    }
+    out.push({
+      person_id: p.id,
+      display_name: p.display_name,
+      thumbnail_url: apps.find((a) => a.thumbnail_url)?.thumbnail_url ?? p.thumbnail_url,
+      speaker_label: apps.find((a) => a.speaker_label)?.speaker_label ?? null,
+      speaking_seconds: apps.reduce((sum, a) => sum + (a.speaking_seconds ?? 0), 0),
+      speaking,
+      on_camera: onCamera,
+    });
+  }
+  out.sort((a, b) => (b.speaking_seconds ?? 0) - (a.speaking_seconds ?? 0));
+  res.json(out);
+});
+
 // ── Search ────────────────────────────────────────────────────────────────────
 router.post("/search", (req, res) => {
   const query = (req.body.query || "").toLowerCase();

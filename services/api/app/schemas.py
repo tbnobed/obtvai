@@ -501,6 +501,16 @@ class PersonAssetMomentsOut(BaseModel):
     on_camera: List[OnCameraRangeOut] = []
 
 
+class AssetPersonOut(BaseModel):
+    person_id: str
+    display_name: str
+    thumbnail_url: Optional[str] = None
+    speaker_label: Optional[str] = None
+    speaking_seconds: Optional[float] = None
+    speaking: List[SpeakingMomentOut] = []
+    on_camera: List[OnCameraRangeOut] = []
+
+
 class PersonUpdateIn(BaseModel):
     display_name: str
 

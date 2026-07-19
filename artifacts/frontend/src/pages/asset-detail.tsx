@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearch, useLocation } from "wouter";
+import { useParams, useSearch, useLocation, Link } from "wouter";
 import { 
   useGetMedia, getGetMediaQueryKey,
+  useGetAssetPeople,
   useGetMediaScenes, getGetMediaScenesQueryKey,
   useGetMediaTranscript, getGetMediaTranscriptQueryKey,
   useListJobs, getListJobsQueryKey,
@@ -33,7 +34,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -416,6 +417,12 @@ export default function AssetDetail() {
                 </Badge>
               ))}
             </div>
+
+            <AssetPeople
+              mediaId={id!}
+              duration={asset.duration_seconds ?? 0}
+              seekTo={seekTo}
+            />
 
             <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
               <DialogContent>
@@ -1086,6 +1093,81 @@ const QC_FLAG_HINTS: Record<string, string> = {
   black_frames: "One or more black segments of 1s+ detected",
   mostly_black: "Over 90% of the video is black frames",
 };
+
+function AssetPeople({
+  mediaId,
+  duration,
+  seekTo,
+}: {
+  mediaId: string;
+  duration: number;
+  seekTo: (time: number) => void;
+}) {
+  const { data: people } = useGetAssetPeople(mediaId);
+  if (!people?.length || duration <= 0) return null;
+  const pct = (t: number) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%`;
+  const widthPct = (a: number, b: number) =>
+    `${Math.max(0.5, Math.min(100, ((b - a) / duration) * 100))}%`;
+  return (
+    <div className="mb-6">
+      <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+        <Users className="h-4 w-4" /> People in this video
+      </h2>
+      <div className="space-y-3">
+        {people.map((p) => (
+          <div key={p.person_id} className="flex items-center gap-3">
+            <Link href={`/people/${p.person_id}`} className="flex items-center gap-2.5 w-48 shrink-0 group">
+              {p.thumbnail_url ? (
+                <img
+                  src={`/api/thumbnails/${p.thumbnail_url}`}
+                  alt={p.display_name}
+                  className="h-10 w-10 rounded-full object-cover border border-border shrink-0"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground border border-border shrink-0">
+                  {p.display_name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                  {p.display_name}
+                </p>
+                {p.speaking_seconds ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    {Math.round(p.speaking_seconds / 60)}m speaking
+                  </p>
+                ) : null}
+              </div>
+            </Link>
+            <div className="relative flex-1 h-7 bg-muted/50 rounded overflow-hidden">
+              {(p.on_camera ?? []).map((r, i) => (
+                <div
+                  key={`cam-${i}`}
+                  className="absolute top-0 h-full bg-primary/25 hover:bg-primary/40 cursor-pointer transition-colors"
+                  style={{ left: pct(r.start_time), width: widthPct(r.start_time, r.end_time) }}
+                  title={`On camera ${formatTimecode(r.start_time)} – ${formatTimecode(r.end_time)}`}
+                  onClick={() => seekTo(r.start_time)}
+                />
+              ))}
+              {(p.speaking ?? []).map((s, i) => (
+                <div
+                  key={`spk-${i}`}
+                  className="absolute bottom-0 h-2.5 bg-primary hover:bg-primary/80 cursor-pointer rounded-sm"
+                  style={{ left: pct(s.start_time), width: widthPct(s.start_time, s.end_time) }}
+                  title={`${formatTimecode(s.start_time)} — ${s.text}`}
+                  onClick={() => seekTo(s.start_time)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-2">
+        Solid marks = speaking · shaded blocks = on camera · click any mark to jump the player there.
+      </p>
+    </div>
+  );
+}
 
 function HeatStrip({
   duration,

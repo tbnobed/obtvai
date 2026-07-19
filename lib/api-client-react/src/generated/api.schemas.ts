@@ -426,6 +426,24 @@ export interface PersonAssetMoments {
   on_camera: OnCameraRange[];
 }
 
+export interface AssetPerson {
+  person_id: string;
+  display_name: string;
+  /**
+     * Face thumbnail — the face-cluster crop from this asset when available, else the person's library thumbnail
+     * @nullable
+     */
+  thumbnail_url?: string | null;
+  /** @nullable */
+  speaker_label?: string | null;
+  /** @nullable */
+  speaking_seconds?: number | null;
+  /** Transcript segments where this person speaks, in timecode order */
+  speaking: SpeakingMoment[];
+  /** Time ranges where this person is visible on screen */
+  on_camera: OnCameraRange[];
+}
+
 export interface PersonUpdate {
   /** @minLength 1 */
   display_name: string;

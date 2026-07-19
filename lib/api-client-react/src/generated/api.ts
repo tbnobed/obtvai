@@ -23,6 +23,7 @@ import type {
   AIAnswer,
   AIMessage,
   AIQuestion,
+  AssetPerson,
   ClipExportInput,
   ClipExportResult,
   ClipList,
@@ -1588,6 +1589,83 @@ export function useGetMediaFaces<TData = Awaited<ReturnType<typeof getMediaFaces
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMediaFacesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAssetPeopleUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/people`
+}
+
+/**
+ * @summary People who appear in this asset — face thumbnails plus timecoded speaking and on-camera ranges
+ */
+export const getAssetPeople = async (id: string, options?: RequestInit): Promise<AssetPerson[]> => {
+
+  return customFetch<AssetPerson[]>(getGetAssetPeopleUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAssetPeopleQueryKey = (id: string,) => {
+    return [
+    `/api/media/${id}/people`
+    ] as const;
+    }
+
+
+export const getGetAssetPeopleQueryOptions = <TData = Awaited<ReturnType<typeof getAssetPeople>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAssetPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAssetPeopleQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAssetPeople>>> = ({ signal }) => getAssetPeople(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAssetPeople>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAssetPeopleQueryResult = NonNullable<Awaited<ReturnType<typeof getAssetPeople>>>
+export type GetAssetPeopleQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary People who appear in this asset — face thumbnails plus timecoded speaking and on-camera ranges
+ */
+
+export function useGetAssetPeople<TData = Awaited<ReturnType<typeof getAssetPeople>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAssetPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAssetPeopleQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

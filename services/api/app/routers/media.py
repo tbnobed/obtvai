@@ -15,6 +15,7 @@ from ..schemas import (
     ClipExportResult, TightenInput, TightenCut, TightenResult,
     RoughCutInput, ReelJobOut, ResumeStalledOut,
     MarkerOut, MarkerInput,
+    AssetPersonOut, SpeakingMomentOut, OnCameraRangeOut,
 )
 from ..models import ClipList, Clip, ReelJob
 from ..config import settings
@@ -512,6 +513,88 @@ async def get_media_faces(id: str, db: AsyncSession = Depends(get_db)):
             thumbnail_url=c.thumbnail_url,
             appearances=appearances,
         ))
+    return out
+
+
+@router.get("/{id}/people", response_model=list[AssetPersonOut])
+async def get_asset_people(id: str, db: AsyncSession = Depends(get_db)):
+    """People who appear in this asset with timecoded speaking and on-camera ranges."""
+    pa_rows = (
+        await db.execute(
+            select(PersonAppearance, Person)
+            .join(Person, Person.id == PersonAppearance.person_id)
+            .where(PersonAppearance.media_id == id)
+        )
+    ).all()
+    if not pa_rows:
+        return []
+
+    segs = (
+        await db.execute(
+            select(TranscriptSegment)
+            .where(TranscriptSegment.media_id == id, TranscriptSegment.speaker.isnot(None))
+            .order_by(TranscriptSegment.start_time)
+        )
+    ).scalars().all()
+    segs_by_speaker: dict[str, list] = {}
+    for s in segs:
+        segs_by_speaker.setdefault(s.speaker, []).append(s)
+
+    clusters = (
+        await db.execute(select(FaceCluster).where(FaceCluster.media_id == id))
+    ).scalars().all()
+    clusters_by_id = {c.cluster_id: c for c in clusters}
+
+    grouped: dict[str, dict] = {}
+    for pa, person in pa_rows:
+        g = grouped.setdefault(pa.person_id, {"person": person, "appearances": []})
+        g["appearances"].append(pa)
+
+    out: list[AssetPersonOut] = []
+    for person_id, g in grouped.items():
+        person = g["person"]
+        apps = g["appearances"]
+        speakers = {pa.speaker_label for pa in apps if pa.speaker_label}
+        cluster_ids = {pa.face_cluster_id for pa in apps if pa.face_cluster_id}
+
+        speaking = [
+            SpeakingMomentOut(start_time=s.start_time, end_time=s.end_time, text=s.text)
+            for sp in sorted(speakers)
+            for s in segs_by_speaker.get(sp, [])
+        ]
+        speaking.sort(key=lambda m: m.start_time)
+
+        ranges = []
+        thumbnail = None
+        for cid in cluster_ids:
+            c = clusters_by_id.get(cid)
+            if not c:
+                continue
+            if thumbnail is None and c.thumbnail_url:
+                thumbnail = c.thumbnail_url
+            for a in c.appearances or []:
+                try:
+                    ranges.append((float(a["start_time"]), float(a["end_time"])))
+                except (KeyError, TypeError, ValueError):
+                    continue
+        on_camera: list[OnCameraRangeOut] = []
+        for start, end in sorted(ranges):
+            if on_camera and start <= on_camera[-1].end_time:
+                on_camera[-1].end_time = max(on_camera[-1].end_time, end)
+            else:
+                on_camera.append(OnCameraRangeOut(start_time=start, end_time=end))
+
+        out.append(AssetPersonOut(
+            person_id=person_id,
+            display_name=person.display_name,
+            thumbnail_url=thumbnail or person.thumbnail_url,
+            speaker_label=next(iter(sorted(speakers)), None),
+            speaking_seconds=sum(pa.speaking_seconds or 0 for pa in apps) or None,
+            speaking=speaking,
+            on_camera=on_camera,
+        ))
+
+    out.sort(key=lambda p: p.speaking_seconds or 0, reverse=True)
     return out
 
 
