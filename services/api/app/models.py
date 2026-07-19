@@ -179,6 +179,34 @@ class VoiceGeneration(Base):
     settings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
+class GraphicsGeneration(Base):
+    __tablename__ = "graphics_generations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    preset_id: Mapped[str] = mapped_column(String, nullable=False)
+    preset_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    kind: Mapped[str] = mapped_column(String, nullable=False)  # image | video
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    negative_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    steps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    frames: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    seed: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="pending")  # pending | queued | running | success | error | cancelled
+    progress: Mapped[float] = mapped_column(Float, default=0.0)
+    queue_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    comfy_prompt_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    output_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    thumbnail_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    media_id: Mapped[str | None] = mapped_column(String, ForeignKey("media_assets.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class LibraryInsight(Base):
     __tablename__ = "library_insights"
 

@@ -71,6 +71,10 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - Picture lock: `ClipList.locked` — API returns 423 on clip/delete mutations while locked; toggle `locked` via PATCH first (the lock field itself is always writable)
 - QC flags run automatically at ingest (worker `qc` task, CPU queue: volumedetect + blackdetect → `media_assets.qc_flags` JSONB)
 - Second media source: `MEDIA_PATH_2` mounts at `/media2` inside containers (NOT nested under the read-only `/media` — Docker cannot create a mountpoint inside a ro mount); watcher uses PollingObserver (inotify doesn't fire on SMB/NFS) + startup scan; `POST /media` dedupes by `original_path`
+- Graphics generator drives the host's existing ComfyUI over HTTP (`COMFYUI_URL`, default `http://host.docker.internal:8188` via `extra_hosts: host-gateway`); ComfyUI must be started with `--listen` (and port 8188 open to the docker bridge) or every preset shows "ComfyUI unreachable"
+- Graphics presets are availability-gated against ComfyUI `/object_info` (node classes + model filenames, cached 30 s); custom presets = API-format workflow JSONs dropped into `COMFY_WORKFLOWS_PATH` (default `./comfy_workflows`, see its README) — prompt injects into the `CLIPTextEncode` node titled "prompt"
+- `comfy_graphics.py` is intentionally duplicated in `services/api/app/` and `services/worker/` (separate Docker build contexts) — keep both copies identical
+- Graphics video presets end in `SaveImage` (PNG sequence); the graphics worker assembles the MP4 with ffmpeg at the preset fps — no dependency on ComfyUI video-save nodes; worker-graphics has NO GPU reservation (ComfyUI owns the GPUs)
 
 ## Pointers
 

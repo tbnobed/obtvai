@@ -679,3 +679,63 @@ class JobStatsOut(BaseModel):
     jobs_running: int
     jobs_error: int
     stages: List[JobStageStatsOut]
+
+
+# ── Graphics generator ────────────────────────────────────────────────────────
+
+class GraphicsPresetOut(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    kind: str  # image | video
+    source: str  # builtin | custom
+    available: bool
+    unavailable_reason: Optional[str] = None
+    supports_negative: bool = False
+    supports_size: bool = False
+    supports_steps: bool = False
+    supports_frames: bool = False
+    supports_seed: bool = False
+    default_width: Optional[int] = None
+    default_height: Optional[int] = None
+    default_steps: Optional[int] = None
+    default_frames: Optional[int] = None
+
+
+class GraphicsGenerateIn(BaseModel):
+    preset_id: str
+    prompt: str
+    negative: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    steps: Optional[int] = None
+    frames: Optional[int] = None
+    seed: Optional[int] = None
+
+
+class GraphicsGenerationOut(BaseModel):
+    id: str
+    kind: str
+    preset_id: str
+    preset_name: Optional[str] = None
+    prompt: str
+    negative: Optional[str] = None
+    status: str
+    progress: float
+    queue_position: Optional[int] = None
+    error_message: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    frames: Optional[int] = None
+    seed: Optional[int] = None
+    duration_seconds: Optional[float] = None
+    output_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    media_id: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class GraphicsGenerationListOut(BaseModel):
+    items: list[GraphicsGenerationOut]
+    total: int

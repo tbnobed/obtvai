@@ -13,6 +13,9 @@ x-python-env: &python-env
   REELS_DIR: "/artifacts/reels"
   RENDERS_DIR: "/artifacts/renders"
   VOICES_DIR: "/artifacts/voices"
+  GRAPHICS_DIR: "/artifacts/graphics"
+  COMFYUI_URL: "${COMFYUI_URL:-http://host.docker.internal:8188}"
+  COMFY_WORKFLOWS_DIR: "/workflows"
   COQUI_TOS_AGREED: "1"
   YOUTUBE_CLIENT_ID: "${YOUTUBE_CLIENT_ID:-}"
   YOUTUBE_CLIENT_SECRET: "${YOUTUBE_CLIENT_SECRET:-}"
@@ -112,10 +115,14 @@ services:
               capabilities: [gpu]
     environment:
       <<: *python-env
+    # Lets containers reach the host's ComfyUI at host.docker.internal:8188.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads"
+      - "${COMFY_WORKFLOWS_PATH:-./comfy_workflows}:/workflows:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
     depends_on:
@@ -213,6 +220,27 @@ services:
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
     command: celery -A app worker -B --queues=cpu,ingest --concurrency=4 --loglevel=info
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Graphics worker: drives the host's ComfyUI over HTTP. No GPU reservation —
+  # ComfyUI owns the GPUs; this container just submits workflows and collects
+  # output files. Concurrency 2 lets one job render while another waits in queue.
+  worker-graphics:
+    build:
+      context: ./services/worker
+    restart: unless-stopped
+    environment:
+      <<: *python-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "${COMFY_WORKFLOWS_PATH:-./comfy_workflows}:/workflows:ro"
+      - artifacts_data:/artifacts
+    command: celery -A app worker --queues=graphics --concurrency=2 --loglevel=info --hostname=worker-graphics@%h
     depends_on:
       redis:
         condition: service_healthy

@@ -85,6 +85,11 @@ async def enqueue_voice_speak(generation_id: str) -> str:
     return generation_id
 
 
+async def enqueue_graphics(generation_id: str) -> str:
+    await _publish("graphics", "tasks.graphics.generate", {"generation_id": generation_id}, str(uuid.uuid4()))
+    return generation_id
+
+
 async def enqueue_publish(render_id: str) -> str:
     await _publish("cpu", "tasks.publish.publish_render", {"render_id": render_id}, str(uuid.uuid4()))
     return render_id

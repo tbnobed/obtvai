@@ -16,3 +16,4 @@
 - [Backfill must check upstream outputs](celery-redis-pitfalls.md) — re-analyze routes must queue the producing stage when a stage's input rows (e.g. scenes) are missing, else fixes never apply.
 - [Model stack upgrade notes](model-upgrade-2026.md) — embedding swaps need full reindex + Qdrant recreate; SigLIP/pyannote4/ArcFace/MADLAD API quirks and score-scale changes.
 - [XTTS cloning quality](xtts-cloning-quality.md) — stock inference defaults beat hand-tuned sampling; 1-2 long clean reference wavs beat many mixed ones.
+- [Driving ComfyUI over REST](comfyui-driving.md) — history entry = done signal; SaveImage+ffmpeg beats video-save nodes; gate on /object_info; cancel-race + poll-tolerance guards.
