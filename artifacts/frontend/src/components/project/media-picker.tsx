@@ -61,11 +61,22 @@ export function MediaPickerGrid({
     let list = media?.items ?? [];
     if (restrictTo && restrictTo.length) list = list.filter((a) => restrictTo.includes(a.id));
     if (selectedOnly) list = list.filter((a) => selected.includes(a.id));
+    // Also filter client-side so typing always visibly narrows the list, even
+    // if the server returns unfiltered results (stale API) or while the
+    // debounced request is still showing placeholder data.
+    const needle = search.toLowerCase();
+    if (needle) {
+      list = list.filter((a) =>
+        [a.filename, needle.includes("/") ? a.original_path : null].some(
+          (v) => typeof v === "string" && v.toLowerCase().includes(needle),
+        ),
+      );
+    }
     // Selected assets first so the current pool is always visible at the top.
     return [...list].sort(
       (a, b) => Number(selected.includes(b.id)) - Number(selected.includes(a.id)),
     );
-  }, [media?.items, restrictTo, selectedOnly, selected]);
+  }, [media?.items, restrictTo, selectedOnly, selected, search]);
 
   const total = media?.total ?? 0;
   const fetched = media?.items?.length ?? 0;
