@@ -60,6 +60,7 @@ import type {
   MediaUploadInput,
   PeoplePage,
   Person,
+  PersonAssetMoments,
   PersonDetail,
   PersonMergeRequest,
   PersonSplitRequest,
@@ -2479,6 +2480,88 @@ export const useSplitPerson = <TError = ErrorType<void>,
       > => {
       return useMutation(getSplitPersonMutationOptions(options));
     }
+
+export const getGetPersonAssetMomentsUrl = (id: string,
+    mediaId: string,) => {
+
+
+
+
+  return `/api/people/${id}/appearances/${mediaId}`
+}
+
+/**
+ * @summary Every timecoded place a person appears in one asset — speaking segments and on-camera ranges
+ */
+export const getPersonAssetMoments = async (id: string,
+    mediaId: string, options?: RequestInit): Promise<PersonAssetMoments> => {
+
+  return customFetch<PersonAssetMoments>(getGetPersonAssetMomentsUrl(id,mediaId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPersonAssetMomentsQueryKey = (id: string,
+    mediaId: string,) => {
+    return [
+    `/api/people/${id}/appearances/${mediaId}`
+    ] as const;
+    }
+
+
+export const getGetPersonAssetMomentsQueryOptions = <TData = Awaited<ReturnType<typeof getPersonAssetMoments>>, TError = ErrorType<void>>(id: string,
+    mediaId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonAssetMoments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPersonAssetMomentsQueryKey(id,mediaId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonAssetMoments>>> = ({ signal }) => getPersonAssetMoments(id,mediaId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && mediaId !== null && mediaId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPersonAssetMoments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPersonAssetMomentsQueryResult = NonNullable<Awaited<ReturnType<typeof getPersonAssetMoments>>>
+export type GetPersonAssetMomentsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Every timecoded place a person appears in one asset — speaking segments and on-camera ranges
+ */
+
+export function useGetPersonAssetMoments<TData = Awaited<ReturnType<typeof getPersonAssetMoments>>, TError = ErrorType<void>>(
+ id: string,
+    mediaId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonAssetMoments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPersonAssetMomentsQueryOptions(id,mediaId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetVoiceProfileUrl = (id: string,) => {
 

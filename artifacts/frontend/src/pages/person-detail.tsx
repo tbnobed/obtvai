@@ -20,6 +20,8 @@ import {
   useTuneVoice,
   useSetVoicePreset,
   useSetVoiceSettings,
+  useGetPersonAssetMoments,
+  getGetPersonAssetMomentsQueryKey,
 } from "@workspace/api-client-react";
 import type { PersonAppearance, VoiceGeneration, VoiceSettings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -43,7 +45,7 @@ import {
 import {
   ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors,
   AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
-  SlidersHorizontal,
+  SlidersHorizontal, ChevronDown, ChevronUp, Eye,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -558,6 +560,80 @@ function formatTimecode(seconds: number | null | undefined) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function AppearanceMoments({ personId, mediaId }: { personId: string; mediaId: string }) {
+  const { data, isLoading, isError } = useGetPersonAssetMoments(personId, mediaId, {
+    query: { queryKey: getGetPersonAssetMomentsQueryKey(personId, mediaId) },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pb-4 pt-1 text-xs text-muted-foreground flex items-center gap-1.5">
+        <Loader2 className="h-3 w-3 animate-spin" /> Loading moments…
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <p className="px-4 pb-4 pt-1 text-xs text-red-400">
+        Could not load moments for this asset — try again.
+      </p>
+    );
+  }
+  if (!data || (!data.speaking?.length && !data.on_camera?.length)) {
+    return (
+      <p className="px-4 pb-4 pt-1 text-xs text-muted-foreground">
+        No timecoded moments recorded for this asset.
+      </p>
+    );
+  }
+  return (
+    <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border/60 mt-3">
+      {data.on_camera?.length ? (
+        <div className="pt-3">
+          <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+            <Eye className="h-3.5 w-3.5" /> On camera
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {data.on_camera.map((r, i) => (
+              <Link key={i} href={`/library/${mediaId}?t=${Math.floor(r.start_time)}`}>
+                <Badge
+                  variant="outline"
+                  className="text-xs font-mono cursor-pointer hover:border-primary hover:text-primary transition-colors"
+                >
+                  {formatTimecode(r.start_time)}–{formatTimecode(r.end_time)}
+                </Badge>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {data.speaking?.length ? (
+        <div className={data.on_camera?.length ? "" : "pt-3"}>
+          <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+            <Mic className="h-3.5 w-3.5" /> Speaking ({data.speaking.length})
+          </p>
+          <div className="space-y-0.5 max-h-80 overflow-y-auto pr-1">
+            {data.speaking.map((s, i) => (
+              <Link
+                key={i}
+                href={`/library/${mediaId}?t=${Math.floor(s.start_time)}`}
+                className="flex items-start gap-3 rounded px-2 py-1.5 hover:bg-muted/60 group"
+              >
+                <span className="text-xs font-mono text-primary shrink-0 mt-0.5">
+                  {formatTimecode(s.start_time)}
+                </span>
+                <span className="text-xs text-muted-foreground group-hover:text-foreground leading-relaxed min-w-0">
+                  {s.text}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function PersonDetail() {
   const [, params] = useRoute("/people/:id");
   const id = params?.id ?? "";
@@ -576,6 +652,7 @@ export default function PersonDetail() {
   const [newName, setNewName] = useState("");
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeSource, setMergeSource] = useState("");
+  const [openMoments, setOpenMoments] = useState<Record<string, boolean>>({});
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getGetPersonQueryKey(id) });
@@ -808,51 +885,68 @@ export default function PersonDetail() {
       <h2 className="text-lg font-semibold mb-4">Appearances</h2>
       {person.appearances?.length ? (
         <div className="space-y-2">
-          {person.appearances.map((a) => (
-            <div
-              key={`${a.media_id}-${a.speaker_label ?? ""}-${a.face_cluster_id ?? ""}`}
-              className="border border-border bg-card rounded-md p-4 flex items-center gap-4 hover:border-primary transition-colors"
-            >
-              <Link
-                href={`/library/${a.media_id}${a.first_spoken_at != null ? `?t=${Math.floor(a.first_spoken_at)}` : ""}`}
-                className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+          {person.appearances.map((a) => {
+            const momentsKey = `${a.media_id}-${a.speaker_label ?? ""}-${a.face_cluster_id ?? ""}`;
+            const isOpen = !!openMoments[momentsKey];
+            return (
+              <div
+                key={momentsKey}
+                className="border border-border bg-card rounded-md hover:border-primary transition-colors"
               >
-                <div className="w-24 h-14 bg-muted rounded flex-shrink-0 overflow-hidden">
-                  {a.thumbnail_url ? (
-                    <img src={`/api/thumbnails/${a.thumbnail_url}`} alt={a.filename} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Film className="h-5 w-5 text-muted-foreground/50" />
+                <div className="p-4 pb-0 flex items-center gap-4">
+                  <Link
+                    href={`/library/${a.media_id}${a.first_spoken_at != null ? `?t=${Math.floor(a.first_spoken_at)}` : ""}`}
+                    className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+                  >
+                    <div className="w-24 h-14 bg-muted rounded flex-shrink-0 overflow-hidden">
+                      {a.thumbnail_url ? (
+                        <img src={`/api/thumbnails/${a.thumbnail_url}`} alt={a.filename} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Film className="h-5 w-5 text-muted-foreground/50" />
+                        </div>
+                      )}
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{a.filename}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {a.speaker_label ? `${a.speaker_label} · ` : ""}
+                        {formatDuration(a.speaking_seconds)} speaking · {a.segment_count ?? 0} segments
+                        {a.first_spoken_at != null ? ` · first speaks at ${formatTimecode(a.first_spoken_at)}` : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      {formatDuration(a.duration_seconds)}
+                    </span>
+                  </Link>
+                  {(person.appearances?.length ?? 0) > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                      disabled={splitPerson.isPending}
+                      onClick={(e) => handleSplit(e, a)}
+                      title="Split this appearance into a new person (undo a bad merge)"
+                    >
+                      <Scissors className="h-3.5 w-3.5" />
+                      Split out
+                    </Button>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{a.filename}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {a.speaker_label ? `${a.speaker_label} · ` : ""}
-                    {formatDuration(a.speaking_seconds)} speaking · {a.segment_count ?? 0} segments
-                    {a.first_spoken_at != null ? ` · first speaks at ${formatTimecode(a.first_spoken_at)}` : ""}
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground flex-shrink-0">
-                  {formatDuration(a.duration_seconds)}
-                </span>
-              </Link>
-              {(person.appearances?.length ?? 0) > 1 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 flex-shrink-0 text-muted-foreground hover:text-foreground"
-                  disabled={splitPerson.isPending}
-                  onClick={(e) => handleSplit(e, a)}
-                  title="Split this appearance into a new person (undo a bad merge)"
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-1.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() =>
+                    setOpenMoments((m) => ({ ...m, [momentsKey]: !m[momentsKey] }))
+                  }
                 >
-                  <Scissors className="h-3.5 w-3.5" />
-                  Split out
-                </Button>
-              )}
-            </div>
-          ))}
+                  {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  {isOpen ? "Hide moments" : "Show every moment in this asset"}
+                </button>
+                {isOpen && <AppearanceMoments personId={id} mediaId={a.media_id} />}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">No appearances recorded.</p>

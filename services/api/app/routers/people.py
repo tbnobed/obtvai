@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 from ..database import get_db
-from ..models import Person, PersonAppearance, MediaAsset
+from ..models import Person, PersonAppearance, MediaAsset, TranscriptSegment, FaceCluster
 from ..schemas import (
     PersonOut,
     PersonDetailOut,
@@ -12,6 +12,9 @@ from ..schemas import (
     PersonSplitIn,
     ReanalyzeOut,
     PeoplePageOut,
+    PersonAssetMomentsOut,
+    SpeakingMomentOut,
+    OnCameraRangeOut,
 )
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -215,6 +218,66 @@ async def get_person(id: str, db: AsyncSession = Depends(get_db)):
             for pa, asset in app_rows
         ],
     )
+
+
+@router.get("/{id}/appearances/{media_id}", response_model=PersonAssetMomentsOut)
+async def get_person_asset_moments(id: str, media_id: str, db: AsyncSession = Depends(get_db)):
+    """Every timecoded place a person appears in one asset."""
+    pa_rows = (
+        await db.execute(
+            select(PersonAppearance).where(
+                PersonAppearance.person_id == id,
+                PersonAppearance.media_id == media_id,
+            )
+        )
+    ).scalars().all()
+    if not pa_rows:
+        raise HTTPException(status_code=404, detail="No appearance for this person in this asset")
+
+    speakers = {pa.speaker_label for pa in pa_rows if pa.speaker_label}
+    cluster_ids = {pa.face_cluster_id for pa in pa_rows if pa.face_cluster_id}
+
+    speaking: list[SpeakingMomentOut] = []
+    if speakers:
+        segs = (
+            await db.execute(
+                select(TranscriptSegment)
+                .where(
+                    TranscriptSegment.media_id == media_id,
+                    TranscriptSegment.speaker.in_(speakers),
+                )
+                .order_by(TranscriptSegment.start_time)
+            )
+        ).scalars().all()
+        speaking = [
+            SpeakingMomentOut(start_time=s.start_time, end_time=s.end_time, text=s.text)
+            for s in segs
+        ]
+
+    on_camera: list[OnCameraRangeOut] = []
+    if cluster_ids:
+        clusters = (
+            await db.execute(
+                select(FaceCluster).where(
+                    FaceCluster.cluster_id.in_(cluster_ids),
+                    FaceCluster.media_id == media_id,
+                )
+            )
+        ).scalars().all()
+        ranges = []
+        for c in clusters:
+            for a in c.appearances or []:
+                try:
+                    ranges.append((float(a["start_time"]), float(a["end_time"])))
+                except (KeyError, TypeError, ValueError):
+                    continue
+        for start, end in sorted(ranges):
+            if on_camera and start <= on_camera[-1].end_time:
+                on_camera[-1].end_time = max(on_camera[-1].end_time, end)
+            else:
+                on_camera.append(OnCameraRangeOut(start_time=start, end_time=end))
+
+    return PersonAssetMomentsOut(media_id=media_id, speaking=speaking, on_camera=on_camera)
 
 
 @router.patch("/{id}", response_model=PersonOut)

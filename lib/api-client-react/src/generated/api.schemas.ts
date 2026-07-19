@@ -407,6 +407,25 @@ export type PersonDetail = Person & {
   appearances: PersonAppearance[];
 };
 
+export interface SpeakingMoment {
+  start_time: number;
+  end_time: number;
+  text: string;
+}
+
+export interface OnCameraRange {
+  start_time: number;
+  end_time: number;
+}
+
+export interface PersonAssetMoments {
+  media_id: string;
+  /** Each transcript segment where this person speaks, in timecode order */
+  speaking: SpeakingMoment[];
+  /** Face-detection time ranges where this person is visible on screen */
+  on_camera: OnCameraRange[];
+}
+
 export interface PersonUpdate {
   /** @minLength 1 */
   display_name: string;

@@ -484,6 +484,23 @@ class PersonDetailOut(PersonOut):
     appearances: List[PersonAppearanceOut] = []
 
 
+class SpeakingMomentOut(BaseModel):
+    start_time: float
+    end_time: float
+    text: str
+
+
+class OnCameraRangeOut(BaseModel):
+    start_time: float
+    end_time: float
+
+
+class PersonAssetMomentsOut(BaseModel):
+    media_id: str
+    speaking: List[SpeakingMomentOut] = []
+    on_camera: List[OnCameraRangeOut] = []
+
+
 class PersonUpdateIn(BaseModel):
     display_name: str
 

@@ -757,6 +757,32 @@ paths:
         "409":
           description: Cannot split the person's only appearance
 
+  /people/{id}/appearances/{media_id}:
+    get:
+      operationId: getPersonAssetMoments
+      tags: [people]
+      summary: Every timecoded place a person appears in one asset — speaking segments and on-camera ranges
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: media_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonAssetMoments"
+        "404":
+          description: Person or appearance not found
+
   /people/{id}/voice:
     get:
       operationId: getVoiceProfile
@@ -2631,6 +2657,43 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/PersonAppearance"
+
+    SpeakingMoment:
+      type: object
+      required: [start_time, end_time, text]
+      properties:
+        start_time:
+          type: number
+        end_time:
+          type: number
+        text:
+          type: string
+
+    OnCameraRange:
+      type: object
+      required: [start_time, end_time]
+      properties:
+        start_time:
+          type: number
+        end_time:
+          type: number
+
+    PersonAssetMoments:
+      type: object
+      required: [media_id, speaking, on_camera]
+      properties:
+        media_id:
+          type: string
+        speaking:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpeakingMoment"
+          description: Each transcript segment where this person speaks, in timecode order
+        on_camera:
+          type: array
+          items:
+            $ref: "#/components/schemas/OnCameraRange"
+          description: Face-detection time ranges where this person is visible on screen
 
     PersonUpdate:
       type: object

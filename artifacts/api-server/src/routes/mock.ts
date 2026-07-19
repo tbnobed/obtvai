@@ -2101,6 +2101,33 @@ router.get("/people/:id", (req, res) => {
   res.json({ ...p, appearances: personAppearances[p.id] ?? [] });
 });
 
+router.get("/people/:id/appearances/:mediaId", (req, res) => {
+  const p = people.find((x) => x.id === req.params.id);
+  if (!p) { res.status(404).json({ error: "Not found" }); return; }
+  const apps = (personAppearances[p.id] ?? []).filter((a) => a.media_id === req.params.mediaId);
+  if (!apps.length) { res.status(404).json({ error: "No appearance in this asset" }); return; }
+  const speakers = new Set(apps.map((a) => a.speaker_label).filter(Boolean));
+  const speaking = transcript
+    .filter((s) => s.media_id === req.params.mediaId && speakers.has(s.speaker))
+    .sort((a, b) => a.start_time - b.start_time)
+    .map((s) => ({ start_time: s.start_time, end_time: s.end_time, text: s.text }));
+  // Mock on-camera ranges: pad + merge the speaking spans when a face cluster exists.
+  const onCamera: { start_time: number; end_time: number }[] = [];
+  if (apps.some((a) => a.face_cluster_id)) {
+    const spans = speaking.length
+      ? speaking.map((s) => ({ start_time: Math.max(0, s.start_time - 3), end_time: s.end_time + 3 }))
+      : apps
+          .filter((a) => a.first_spoken_at != null)
+          .map((a) => ({ start_time: Math.max(0, a.first_spoken_at - 5), end_time: a.first_spoken_at + 40 }));
+    for (const s of spans.sort((a, b) => a.start_time - b.start_time)) {
+      const last = onCamera[onCamera.length - 1];
+      if (last && s.start_time <= last.end_time) last.end_time = Math.max(last.end_time, s.end_time);
+      else onCamera.push({ ...s });
+    }
+  }
+  res.json({ media_id: req.params.mediaId, speaking, on_camera: onCamera });
+});
+
 router.patch("/people/:id", (req, res) => {
   const p = people.find((x) => x.id === req.params.id);
   if (!p) { res.status(404).json({ error: "Not found" }); return; }

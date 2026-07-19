@@ -1015,6 +1015,28 @@ export const SplitPersonResponse = zod.object({
 
 
 /**
+ * @summary Every timecoded place a person appears in one asset — speaking segments and on-camera ranges
+ */
+export const GetPersonAssetMomentsParams = zod.object({
+  "id": zod.coerce.string(),
+  "media_id": zod.coerce.string()
+})
+
+export const GetPersonAssetMomentsResponse = zod.object({
+  "media_id": zod.string(),
+  "speaking": zod.array(zod.object({
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "text": zod.string()
+})).describe('Each transcript segment where this person speaks, in timecode order'),
+  "on_camera": zod.array(zod.object({
+  "start_time": zod.number(),
+  "end_time": zod.number()
+})).describe('Face-detection time ranges where this person is visible on screen')
+})
+
+
+/**
  * @summary A person's voice-clone profile — curated samples and readiness
  */
 export const GetVoiceProfileParams = zod.object({
