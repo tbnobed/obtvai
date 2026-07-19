@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useListPeople, useReanalyzePeople, useUpdatePerson, useDeletePerson, getListPeopleQueryKey } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Users, User, Mic, Film, ScanFace, Pencil, Check, X, ChevronLeft, ChevronRight, Trash2, LayoutGrid, Share2 } from "lucide-react";
+import { Users, User, Mic, Film, ScanFace, Pencil, Check, X, ChevronLeft, ChevronRight, Trash2, LayoutGrid, List, Share2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,9 +18,15 @@ function formatSpeaking(seconds: number) {
 const PAGE_SIZE = 48;
 
 export default function People() {
-  const [view, setView] = useState<"grid" | "map">(() =>
-    new URLSearchParams(window.location.search).get("view") === "map" ? "map" : "grid"
-  );
+  const [view, setView] = useState<"grid" | "list" | "map">(() => {
+    const v = new URLSearchParams(window.location.search).get("view");
+    if (v === "map" || v === "list" || v === "grid") return v;
+    return (localStorage.getItem("people-view") as "grid" | "list") || "grid";
+  });
+  const switchView = (v: "grid" | "list" | "map") => {
+    setView(v);
+    if (v !== "map") localStorage.setItem("people-view", v);
+  };
   const [page, setPage] = useState(0);
   const { data, isLoading } = useListPeople({ limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const people = data?.items;
@@ -116,16 +122,25 @@ export default function People() {
               size="sm"
               variant={view === "grid" ? "secondary" : "ghost"}
               className="gap-1.5 rounded-none"
-              onClick={() => setView("grid")}
+              onClick={() => switchView("grid")}
             >
               <LayoutGrid className="h-4 w-4" />
               Grid
             </Button>
             <Button
               size="sm"
+              variant={view === "list" ? "secondary" : "ghost"}
+              className="gap-1.5 rounded-none"
+              onClick={() => switchView("list")}
+            >
+              <List className="h-4 w-4" />
+              List
+            </Button>
+            <Button
+              size="sm"
               variant={view === "map" ? "secondary" : "ghost"}
               className="gap-1.5 rounded-none"
-              onClick={() => setView("map")}
+              onClick={() => switchView("map")}
             >
               <Share2 className="h-4 w-4" />
               Co-appearance Map
@@ -154,14 +169,108 @@ export default function People() {
       {view === "map" ? (
         <CoAppearanceMap />
       ) : isLoading ? (
-        <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
-          {[...Array(16)].map((_, i) => (
-            <div key={i} className="animate-pulse bg-muted aspect-square rounded-md" />
-          ))}
-        </div>
+        view === "list" ? (
+          <div className="flex flex-col gap-1">
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="animate-pulse bg-muted h-12 rounded-md" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-2 grid-cols-4 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12">
+            {[...Array(24)].map((_, i) => (
+              <div key={i} className="animate-pulse bg-muted aspect-square rounded-md" />
+            ))}
+          </div>
+        )
       ) : people?.length ? (
         <>
-        <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+        {view === "list" ? (
+        <div className="flex flex-col divide-y divide-border border border-border rounded-md bg-card">
+          {people.map((person) => (
+            <Link key={person.id} href={`/people/${person.id}`}>
+              <div className="group flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="h-9 w-9 rounded bg-muted overflow-hidden shrink-0 flex items-center justify-center">
+                  {person.thumbnail_url ? (
+                    <img
+                      src={`/api/thumbnails/${person.thumbnail_url}`}
+                      alt={person.display_name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-4 w-4 text-muted-foreground/50" />
+                  )}
+                </div>
+                {editingId === person.id ? (
+                  <div className="flex items-center gap-1 flex-1 max-w-xs" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                    <Input
+                      autoFocus
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEdit(e, person.id);
+                        if (e.key === "Escape") cancelEdit(e);
+                      }}
+                      placeholder="Enter name..."
+                      className="h-7 text-sm px-2"
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      onClick={(e) => saveEdit(e, person.id)}
+                      disabled={!editName.trim() || updatePerson.isPending}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={cancelEdit}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" title={person.display_name}>
+                      {person.display_name}
+                    </p>
+                    {person.name_source !== "manual" &&
+                      (person.display_name.startsWith("Person ") || person.display_name.startsWith("SPEAKER_")) && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">unnamed</Badge>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => startEdit(e, person.id, person.display_name)}
+                      title="Rename"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                      onClick={(e) => handleDelete(e, person.id, person.display_name)}
+                      title="Delete person"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0 tabular-nums">
+                  <span className="flex items-center gap-1 w-14 justify-end">
+                    <Film className="h-3 w-3" />
+                    {person.asset_count}
+                  </span>
+                  <span className="flex items-center gap-1 w-16 justify-end">
+                    <Mic className="h-3 w-3" />
+                    {formatSpeaking(person.total_speaking_seconds ?? 0)}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+        ) : (
+        <div className="grid gap-2 grid-cols-4 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12">
           {people.map((person) => (
             <Link key={person.id} href={`/people/${person.id}`}>
               <div className="group border border-border bg-card rounded-md overflow-hidden cursor-pointer hover:border-primary transition-colors flex flex-col h-full">
@@ -174,7 +283,7 @@ export default function People() {
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <User className="h-12 w-12 text-muted-foreground/50" />
+                      <User className="h-8 w-8 text-muted-foreground/50" />
                     </div>
                   )}
                   {person.name_source !== "manual" &&
@@ -219,7 +328,7 @@ export default function People() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="h-5 w-5 shrink-0 hidden group-hover:inline-flex"
                         onClick={(e) => startEdit(e, person.id, person.display_name)}
                         title="Rename"
                       >
@@ -228,7 +337,7 @@ export default function People() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                        className="h-5 w-5 shrink-0 hidden group-hover:inline-flex text-destructive hover:text-destructive"
                         onClick={(e) => handleDelete(e, person.id, person.display_name)}
                         title="Delete person"
                       >
@@ -251,6 +360,7 @@ export default function People() {
             </Link>
           ))}
         </div>
+        )}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-4 mt-8">
             <Button
