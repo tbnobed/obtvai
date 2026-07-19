@@ -244,9 +244,10 @@ async def list_media(
         q = q.where(MediaAsset.status == status)
     if search and search.strip():
         needle = f"%{search.strip()}%"
-        # Match filename/title only; matching the full original_path makes every
-        # asset match when the media folder name contains the search term.
-        cond = MediaAsset.filename.ilike(needle) | MediaAsset.title.ilike(needle)
+        # Match filename only; media_assets has no title column, and matching
+        # the full original_path makes every asset match when the media folder
+        # name contains the search term.
+        cond = MediaAsset.filename.ilike(needle)
         if "/" in search:
             # Explicit path search (query contains a slash).
             cond = cond | MediaAsset.original_path.ilike(needle)
