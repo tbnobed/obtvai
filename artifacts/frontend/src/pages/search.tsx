@@ -15,8 +15,17 @@ import { Search, Play, Loader2, ExternalLink, History } from "lucide-react";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 import { formatTC } from "@/lib/timecode";
 
+type SearchScope = "combined" | "transcript" | "visual";
+
+const SCOPES: { value: SearchScope; label: string }[] = [
+  { value: "combined", label: "All" },
+  { value: "transcript", label: "Transcript" },
+  { value: "visual", label: "Visuals" },
+];
+
 export default function SearchPage() {
   const [query, setQuery] = useState("");
+  const [scope, setScope] = useState<SearchScope>("combined");
   const [playerClip, setPlayerClip] = useState<PlayerClip | null>(null);
   const searchMutation = useSemanticSearch();
   const { data: history } = useGetSearchHistory({
@@ -24,12 +33,12 @@ export default function SearchPage() {
   });
   const queryClient = useQueryClient();
 
-  const runSearch = (q?: string) => {
+  const runSearch = (q?: string, s?: SearchScope) => {
     const term = (q ?? query).trim();
     if (term.length < 2) return;
     if (q) setQuery(q);
     searchMutation.mutate(
-      { data: { query: term } },
+      { data: { query: term, search_type: s ?? scope } },
       {
         onSuccess: () =>
           queryClient.invalidateQueries({ queryKey: getGetSearchHistoryQueryKey() }),
@@ -95,17 +104,36 @@ export default function SearchPage() {
         </p>
       </div>
 
-      <div className="flex gap-2">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder='e.g. "mayor talks about the housing vote" or "crowd outside city hall at night"'
-          onKeyDown={(e) => e.key === "Enter" && runSearch()}
-          autoFocus
-        />
-        <Button onClick={() => runSearch()} disabled={query.trim().length < 2 || searchMutation.isPending}>
-          {searchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-        </Button>
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder='e.g. "mayor talks about the housing vote" or "crowd outside city hall at night"'
+            onKeyDown={(e) => e.key === "Enter" && runSearch()}
+            autoFocus
+          />
+          <Button onClick={() => runSearch()} disabled={query.trim().length < 2 || searchMutation.isPending}>
+            {searchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+          </Button>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1">Search in:</span>
+          {SCOPES.map((s) => (
+            <Button
+              key={s.value}
+              size="sm"
+              variant={scope === s.value ? "secondary" : "ghost"}
+              className="h-7 px-3 text-xs"
+              onClick={() => {
+                setScope(s.value);
+                if (query.trim().length >= 2) runSearch(undefined, s.value);
+              }}
+            >
+              {s.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {!searchMutation.data && !searchMutation.isPending && !!history?.length && (
