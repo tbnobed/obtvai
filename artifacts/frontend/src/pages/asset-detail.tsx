@@ -35,7 +35,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3 } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -978,15 +978,45 @@ export default function AssetDetail() {
               {transcriptLang !== "original" && langAvailable && (
                 <div className="px-3 pt-2 shrink-0">
                   {dubAvailable ? (
-                    <Button
-                      size="sm"
-                      variant={dubOn ? "default" : "outline"}
-                      className="w-full gap-2"
-                      onClick={toggleDub}
-                    >
-                      <Volume2 className="h-4 w-4" />
-                      {dubOn ? "Dubbed version playing — click for original" : "Play dubbed version"}
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        variant={dubOn ? "default" : "outline"}
+                        className="w-full gap-2"
+                        onClick={toggleDub}
+                      >
+                        <Volume2 className="h-4 w-4" />
+                        {dubOn ? "Dubbed version playing — click for original" : "Play dubbed version"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-full gap-2 mt-1.5 text-muted-foreground"
+                        onClick={() => startDub(transcriptLang)}
+                        disabled={dubBusy}
+                      >
+                        {dubBusy ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Regenerating dub{dubJob?.progress ? ` — ${Math.round(dubJob.progress)}%` : "..."}
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Regenerate dub
+                          </>
+                        )}
+                      </Button>
+                      {!dubBusy && (
+                        <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
+                          <Checkbox
+                            checked={dubClonedVoices}
+                            onCheckedChange={(v) => setDubClonedVoices(v === true)}
+                          />
+                          Use cloned voices — speakers with a ready voice profile keep their own voice
+                        </label>
+                      )}
+                    </>
                   ) : dubSupported ? (
                     <>
                       <Button
