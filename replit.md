@@ -74,7 +74,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - The production stack requires a HuggingFace token for pyannote speaker diarization — see `.env.example`
 - Docker Compose GPU workers require NVIDIA Container Toolkit on the host
 - Voice cloning uses XTTS-v2 (coqui-tts); first run downloads ~2 GB model; `COQUI_TOS_AGREED=1` is set in docker-compose shared env; voice files live under `/artifacts/voices`
-- Cloned-voice dubbing prefers Chatterbox multilingual (`chatterbox-tts`, installed `--no-deps` to protect the torch pin); first run downloads ~3 GB; falls back to XTTS-v2 per-load and per-segment; force old engine with `DUB_ENGINE=xtts`
+- Cloned-voice dubbing AND the Voice Generator (person page) prefer Chatterbox multilingual (`chatterbox-tts`, installed `--no-deps` to protect the torch pin); first run downloads ~3 GB; falls back to XTTS-v2 per-load and per-segment; force old engine with `DUB_ENGINE=xtts`
 - `BASE_PATH` env var must be set when running `pnpm build` manually (handled automatically by workflows)
 - After changing `EMBEDDINGS_MODEL` or `VISION_MODEL`, the search index must be rebuilt (Jobs page → "Rebuild Search Index" → `POST /search/reindex`); Qdrant collections auto-recreate on dim mismatch
 - FaceNet/pyannote-3.1-era embeddings don't match the new ArcFace/community-1 stack — run People → "Re-analyze Library" after upgrading

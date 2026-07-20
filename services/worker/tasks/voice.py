@@ -258,17 +258,44 @@ def generate_speech(self, generation_id: str):
             raise RuntimeError("No ready voice samples for this person")
 
         _update_generation(db, generation_id, progress=15.0)
-        tts = _load_xtts()
-        _update_generation(db, generation_id, progress=40.0)
 
         gens_dir = os.path.join(VOICES_DIR, "generations")
         os.makedirs(gens_dir, exist_ok=True)
         out_path = os.path.join(gens_dir, f"{generation_id}.wav")
 
+        # Merge preset + custom sliders once so both engines see the same knobs.
+        merged = dict(PRESET_SETTINGS.get(preset or "natural", {}))
+        if settings:
+            merged.update({k: v for k, v in settings.items()
+                           if k in _ALLOWED_SETTINGS and v is not None})
+        merged = _sanitize_settings(merged)
+
         started = time.monotonic()
-        # Longest 1-2 clean references beat a pile of mixed recordings.
-        synthesize_cloned(tts, text_value, language, speaker_wavs[:2], out_path,
-                          preset=preset, settings=settings)
+        # Prefer Chatterbox (same engine as cloned dubbing — more natural than
+        # XTTS-v2); fall back to XTTS per-load and per-generation. Force the
+        # old engine with DUB_ENGINE=xtts.
+        used_chatterbox = False
+        if os.environ.get("DUB_ENGINE", "").lower() != "xtts":
+            import tempfile
+            from tasks.dub import _load_chatterbox, _synthesize_chatterbox, _to_chatterbox_lang, _write_wav
+            cb_lang = _to_chatterbox_lang(language)
+            if cb_lang:
+                try:
+                    model = _load_chatterbox()
+                    _update_generation(db, generation_id, progress=40.0)
+                    with tempfile.TemporaryDirectory() as workdir:
+                        samples, rate = _synthesize_chatterbox(
+                            model, text_value, cb_lang, speaker_wavs[0], workdir, merged)
+                    _write_wav(out_path, samples, rate)
+                    used_chatterbox = True
+                except Exception as e:
+                    print(f"[voice] chatterbox failed, falling back to XTTS: {e}")
+        if not used_chatterbox:
+            tts = _load_xtts()
+            _update_generation(db, generation_id, progress=40.0)
+            # Longest 1-2 clean references beat a pile of mixed recordings.
+            synthesize_cloned(tts, text_value, language, speaker_wavs[:2], out_path,
+                              preset=preset, settings=settings)
         elapsed = time.monotonic() - started
 
         duration = _probe_duration(out_path)
