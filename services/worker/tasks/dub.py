@@ -309,24 +309,59 @@ def _synthesize_stock(tts, text_value: str, language: str, speaker_name: str, wo
     return _read_wav(out)
 
 
-def _cloned_voice_map(db, media_id: str) -> dict:
-    """speaker_label → (ready voice-sample WAV paths, saved preset, saved settings)."""
+def _cloned_voice_map(db, media_id: str) -> tuple[dict, list[str]]:
+    """speaker_label → (ready voice-sample WAV paths, saved preset, saved settings).
+
+    Also returns human-readable notes explaining every speaker/person that did
+    NOT get a cloned voice, so 'why is it using a stock voice' is answerable
+    from the job log.
+    """
     from sqlalchemy import text
-    from tasks.voice import get_ready_voice_paths
+    from tasks.voice import get_ready_voice_paths, MIN_SAMPLE_SECONDS
     rows = db.execute(
         text("""
-            SELECT pa.speaker_label, pa.person_id, p.voice_preset, p.voice_settings
+            SELECT pa.speaker_label, pa.person_id, p.display_name,
+                   p.voice_preset, p.voice_settings
             FROM person_appearances pa JOIN people p ON p.id = pa.person_id
-            WHERE pa.media_id = :mid AND pa.speaker_label IS NOT NULL
+            WHERE pa.media_id = :mid
         """),
         {"mid": media_id},
     ).fetchall()
     result = {}
-    for speaker_label, person_id, voice_preset, voice_settings in rows:
+    notes = []
+    for speaker_label, person_id, display_name, voice_preset, voice_settings in rows:
+        if speaker_label is None:
+            notes.append(f"{display_name}: linked by face only (no speaker label on this asset) — cannot map to dialogue")
+            continue
         paths = get_ready_voice_paths(db, person_id)
         if paths:
             result[speaker_label] = (paths[:2], voice_preset, voice_settings)
-    return result
+            continue
+        # Diagnose why there are no usable samples.
+        srows = db.execute(
+            text("""
+                SELECT status, audio_path, COALESCE(duration_seconds, 0)
+                FROM voice_samples WHERE person_id = :pid
+            """),
+            {"pid": person_id},
+        ).fetchall()
+        if not srows:
+            notes.append(f"{display_name} ({speaker_label}): no voice samples")
+            continue
+        ready = [(p, d) for s, p, d in srows if s == "ready" and p]
+        missing = [p for p, _ in ready if not os.path.isfile(p)]
+        total = sum(d for p, d in ready if os.path.isfile(p))
+        if not ready:
+            statuses = ", ".join(sorted({s for s, _, _ in srows}))
+            notes.append(f"{display_name} ({speaker_label}): {len(srows)} sample(s) but none ready (status: {statuses})")
+        elif missing:
+            notes.append(f"{display_name} ({speaker_label}): {len(missing)} ready sample file(s) missing on disk")
+        else:
+            notes.append(
+                f"{display_name} ({speaker_label}): ready samples total {total:.0f}s "
+                f"— need at least {MIN_SAMPLE_SECONDS:.0f}s"
+            )
+    return result, notes
 
 
 def _synthesize_xtts(tts, text_value: str, language: str, speaker_wavs, workdir: str,
@@ -409,11 +444,14 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         chatterbox = None
         chatterbox_lang = _to_chatterbox_lang(target)
         if use_cloned_voices and target in XTTS_LANGS:
-            voice_map = _cloned_voice_map(db, media_id)
+            voice_map, voice_notes = _cloned_voice_map(db, media_id)
             if voice_map:
                 append_log(db, job_id, f"{len(voice_map)} speaker(s) have ready cloned-voice profiles")
             else:
                 append_log(db, job_id, "Cloned voices requested but no speaker has a ready voice profile — using stock voices")
+            for note in voice_notes:
+                append_log(db, job_id, f"No cloned voice — {note}")
+                print(f"[dub] no cloned voice — {note}")
         elif use_cloned_voices:
             append_log(db, job_id, f"Cloned voices not supported for '{target}' — using stock voices")
 
