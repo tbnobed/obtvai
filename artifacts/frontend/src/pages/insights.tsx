@@ -312,11 +312,11 @@ export default function Insights() {
               <div className="border border-border bg-card rounded-md p-4">
                 <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <Youtube className="h-4 w-4 text-red-500" />
-                  YouTube Trending
+                  Your Topics on YouTube
                 </h3>
                 {!trends?.youtube_configured ? (
                   <p className="text-sm text-muted-foreground">
-                    Not configured — set YOUTUBE_API_KEY to pull the trending chart.
+                    Not configured — set YOUTUBE_API_KEY to search recent videos for your topics.
                   </p>
                 ) : trends?.youtube?.length ? (
                   <div className="space-y-3">
@@ -362,7 +362,9 @@ export default function Insights() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No trending data fetched yet.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No recent videos found for your library topics yet.
+                  </p>
                 )}
               </div>
 

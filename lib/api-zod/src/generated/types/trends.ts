@@ -18,7 +18,7 @@ export interface Trends {
   youtube_configured: boolean;
   /** Whether a SearXNG instance is configured */
   web_configured: boolean;
-  /** Trending videos, chart order */
+  /** Most-viewed recent YouTube videos found for library topics */
   youtube: YoutubeTrend[];
   /** Library topics ranked by recent news momentum */
   web: WebTrend[];

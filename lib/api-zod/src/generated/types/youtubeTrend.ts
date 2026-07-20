@@ -8,7 +8,7 @@
 import type { TrendMatchedTopic } from './trendMatchedTopic';
 
 export interface YoutubeTrend {
-  /** Position on the trending chart (1 = top) */
+  /** Position by view count among topic-search results (1 = top) */
   rank: number;
   title: string;
   /** @nullable */

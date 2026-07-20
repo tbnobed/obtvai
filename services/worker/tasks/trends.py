@@ -1,6 +1,11 @@
 """Fetch external trend signals so the library can be correlated with what is
-happening outside the building: YouTube trending videos (Data API) and web
-news momentum for the library's own topics (self-hosted SearXNG).
+happening outside the building: recent high-view YouTube videos for the
+library's own topics (Data API search) and web news momentum for the same
+topics (self-hosted SearXNG).
+
+Everything is driven by the library's extracted topics — the generic global
+trending chart proved useless (pop charts never overlap a specialised
+archive), so both sources query per-topic instead.
 
 Runs on a Celery beat schedule (every 3 h) and can be triggered manually via
 POST /trends/refresh. Privacy boundary: only topic keywords / search queries
@@ -8,7 +13,7 @@ ever leave the network — never media, transcripts, or embeddings.
 """
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 from sqlalchemy import text
@@ -19,7 +24,13 @@ from config import SEARXNG_URL, TRENDS_REGION
 from topic_norm import normalize_topic_key, group_topics
 from tasks.base import update_job, append_log
 
-YOUTUBE_TRENDING_MAX = 50   # one videos.list call, 1 quota unit
+# search.list costs 100 quota units per call; 10 topics x 8 runs/day = 8000
+# of the 10k default daily quota. Raise with care.
+YT_TOPIC_LIMIT = 10
+YT_RESULTS_PER_TOPIC = 5
+YT_VIDEOS_KEPT = 25         # overall cap after merging per-topic results
+YT_LOOKBACK_DAYS = 7
+YT_MAX_CONSECUTIVE_FAILURES = 3  # quota exhausted / API down — keep stale rows
 WEB_TOPIC_LIMIT = 25        # top library topics queried against SearXNG
 WEB_HEADLINES_KEPT = 3
 SEARX_TIMEOUT = 10.0
@@ -61,7 +72,20 @@ def _replace_source(db, source: str, rows: list[dict]):
     db.commit()
 
 
+def _library_topics(db, limit: int) -> list[dict]:
+    raw = db.execute(text("""
+        SELECT topic, COUNT(DISTINCT id) AS n
+        FROM media_assets, jsonb_array_elements_text(topics) AS topic
+        WHERE topics IS NOT NULL
+        GROUP BY topic
+    """)).fetchall()
+    return group_topics((t, int(n)) for t, n in raw)[:limit]
+
+
 def _fetch_youtube(db, job_id) -> int:
+    """Per-topic YouTube search: most-viewed videos from the past week for the
+    library's top topics. NOT the global trending chart — that surfaces pop
+    culture with zero overlap against a specialised archive."""
     from tasks.social_stats import _build_client
 
     yt = _build_client()
@@ -69,42 +93,117 @@ def _fetch_youtube(db, job_id) -> int:
         _log(db, job_id, "YouTube trends skipped: no YouTube credentials configured")
         return 0
 
-    resp = yt.videos().list(
+    topics = _library_topics(db, YT_TOPIC_LIMIT)
+    if not topics:
+        _log(db, job_id, "YouTube trends skipped: no library topics extracted yet")
+        return 0
+
+    published_after = (
+        datetime.utcnow() - timedelta(days=YT_LOOKBACK_DAYS)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # video_id -> set of searched topic labels that surfaced it
+    hit_topics: dict[str, set[str]] = {}
+    consecutive_failures = 0
+    any_failure = False
+    for g in topics:
+        try:
+            resp = yt.search().list(
+                part="id",
+                q=g["topic"],
+                type="video",
+                order="viewCount",
+                publishedAfter=published_after,
+                regionCode=TRENDS_REGION,
+                maxResults=YT_RESULTS_PER_TOPIC,
+            ).execute()
+            consecutive_failures = 0
+        except Exception as exc:
+            consecutive_failures += 1
+            any_failure = True
+            _log(db, job_id, f"YouTube search failed for '{g['topic']}': {exc}")
+            if consecutive_failures >= YT_MAX_CONSECUTIVE_FAILURES:
+                # Quota exhausted or API down, not one flaky query — keep the
+                # stale rows rather than wiping them with a partial batch.
+                raise RuntimeError(
+                    f"YouTube search unavailable "
+                    f"({consecutive_failures} consecutive failures): {exc}"
+                )
+            continue
+        for item in resp.get("items", []):
+            vid = (item.get("id") or {}).get("videoId")
+            if vid:
+                hit_topics.setdefault(vid, set()).add(g["topic"])
+
+    if not hit_topics:
+        if any_failure:
+            # Partial batch (some searches failed): keep stale rows rather
+            # than wiping them based on an incomplete sweep.
+            _log(db, job_id, "YouTube: no results and some searches failed — keeping previous rows")
+            return 0
+        _log(db, job_id, "YouTube: no recent videos found for any library topic")
+        _replace_source(db, "youtube", [])
+        return 0
+
+    # One videos.list for stats/snippet of everything found (1 quota unit).
+    details = yt.videos().list(
         part="snippet,statistics",
-        chart="mostPopular",
-        regionCode=TRENDS_REGION,
-        maxResults=YOUTUBE_TRENDING_MAX,
+        id=",".join(list(hit_topics.keys())[:50]),
+        maxResults=50,
     ).execute()
 
     now = datetime.utcnow()
-    rows = []
-    for rank, item in enumerate(resp.get("items", []), start=1):
+    videos = []
+    for item in details.get("items", []):
+        vid = item.get("id")
         sn = item.get("snippet", {}) or {}
         stats = item.get("statistics", {}) or {}
         title = sn.get("title") or ""
-        if not title:
+        if not vid or not title:
             continue
         views = int(stats.get("viewCount", 0) or 0)
+        videos.append({
+            "vid": vid,
+            "title": title,
+            "channel": sn.get("channelTitle"),
+            "views": views,
+            "tags": sn.get("tags"),
+            "topics": sorted(hit_topics.get(vid, ())),
+        })
+    videos.sort(key=lambda v: -v["views"])
+    videos = videos[:YT_VIDEOS_KEPT]
+
+    rows = []
+    for rank, v in enumerate(videos, start=1):
         rows.append({
             "id": str(uuid.uuid4()),
             "source": "youtube",
-            "label": title[:300],
+            "label": v["title"][:300],
             "topic_key": None,
             "rank": rank,
-            "score": float(views),
+            "score": float(v["views"]),
             "meta": json.dumps({
-                "url": f"https://www.youtube.com/watch?v={item.get('id')}",
-                "channel": sn.get("channelTitle"),
-                "views": views,
+                "url": f"https://www.youtube.com/watch?v={v['vid']}",
+                "channel": v["channel"],
+                "views": v["views"],
                 # Normalized once at fetch time so the API can do cheap
-                # token-boundary matching against library topic keys.
-                "haystack": _norm_haystack(title, sn.get("tags"), sn.get("channelTitle")),
+                # token-boundary matching against library topic keys. The
+                # searched topic labels are included so the topic that
+                # surfaced the video always matches, even if the uploader's
+                # title words differ.
+                "haystack": _norm_haystack(
+                    v["title"], v["tags"], v["channel"], v["topics"]
+                ),
             }),
             "fetched_at": now,
         })
 
     _replace_source(db, "youtube", rows)
-    _log(db, job_id, f"YouTube: stored {len(rows)} trending videos ({TRENDS_REGION})")
+    _log(
+        db, job_id,
+        f"YouTube: stored {len(rows)} recent videos across "
+        f"{len(topics)} library topics ({TRENDS_REGION})",
+    )
     return len(rows)
 
 
@@ -113,13 +212,7 @@ def _fetch_web(db, job_id) -> int:
         _log(db, job_id, "Web trends skipped: SEARXNG_URL not configured")
         return 0
 
-    raw = db.execute(text("""
-        SELECT topic, COUNT(DISTINCT id) AS n
-        FROM media_assets, jsonb_array_elements_text(topics) AS topic
-        WHERE topics IS NOT NULL
-        GROUP BY topic
-    """)).fetchall()
-    topics = group_topics((t, int(n)) for t, n in raw)[:WEB_TOPIC_LIMIT]
+    topics = _library_topics(db, WEB_TOPIC_LIMIT)
     if not topics:
         _log(db, job_id, "Web trends skipped: no library topics extracted yet")
         return 0

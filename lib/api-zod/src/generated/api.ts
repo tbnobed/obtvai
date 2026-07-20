@@ -1802,7 +1802,7 @@ export const GetTrendsResponse = zod.object({
   "youtube_configured": zod.boolean().describe('Whether YouTube credentials are configured'),
   "web_configured": zod.boolean().describe('Whether a SearXNG instance is configured'),
   "youtube": zod.array(zod.object({
-  "rank": zod.number().describe('Position on the trending chart (1 = top)'),
+  "rank": zod.number().describe('Position by view count among topic-search results (1 = top)'),
   "title": zod.string(),
   "channel": zod.string().nullish(),
   "url": zod.string().nullish(),
@@ -1812,7 +1812,7 @@ export const GetTrendsResponse = zod.object({
   "topic": zod.string().describe('Human-readable topic label'),
   "asset_count": zod.number()
 })).describe('Library topics that appear in this trending video\'s title\/tags')
-})).describe('Trending videos, chart order'),
+})).describe('Most-viewed recent YouTube videos found for library topics'),
   "web": zod.array(zod.object({
   "rank": zod.number(),
   "key": zod.string().describe('Normalized library topic key'),

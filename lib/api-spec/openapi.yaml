@@ -3496,7 +3496,7 @@ components:
       properties:
         rank:
           type: integer
-          description: Position on the trending chart (1 = top)
+          description: Position by view count among topic-search results (1 = top)
         title:
           type: string
         channel:
@@ -3548,7 +3548,7 @@ components:
           description: Whether a SearXNG instance is configured
         youtube:
           type: array
-          description: Trending videos, chart order
+          description: Most-viewed recent YouTube videos found for library topics
           items:
             $ref: "#/components/schemas/YoutubeTrend"
         web:

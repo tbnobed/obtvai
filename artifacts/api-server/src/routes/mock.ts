@@ -2756,33 +2756,25 @@ router.get("/trends", (_req, res) => {
     asset_count: countAssetsWithTopic(key),
   });
 
-  const channels = ["Breaking Now", "The Rundown", "Signal Desk"];
-  const youtube = [
-    ...top.slice(0, 3).map((g, i) => ({
-      rank: i + 1,
-      title: `${g.topic}: what just changed and why it matters`,
-      channel: channels[i] ?? "Newsroom",
-      url: "https://www.youtube.com/results?search_query=" + encodeURIComponent(g.topic),
-      views: 2400000 - i * 600000,
-      matched_topics: [matched(g.key)],
-    })),
-    {
-      rank: 4,
-      title: "We tested every camera drone under $500",
-      channel: "GearLab",
-      url: "https://www.youtube.com/results?search_query=camera+drone",
-      views: 980000,
-      matched_topics: [],
-    },
-    {
-      rank: 5,
-      title: "24 hours inside a broadcast control room",
-      channel: "Backstage Pass",
-      url: "https://www.youtube.com/results?search_query=broadcast+control+room",
-      views: 640000,
-      matched_topics: [],
-    },
+  // Production searches YouTube per library topic (past week, by views), so
+  // every mock entry is tied to a real library topic too.
+  const channels = ["Breaking Now", "The Rundown", "Signal Desk", "Field Notes", "The Wire Room", "Deep Dive"];
+  const titleShapes = [
+    (t: string) => `${t}: what just changed and why it matters`,
+    (t: string) => `Inside the ${t} story everyone missed`,
+    (t: string) => `${t} explained in 12 minutes`,
+    (t: string) => `The week ${t} went mainstream`,
+    (t: string) => `${t}: the numbers behind the headlines`,
+    (t: string) => `What nobody tells you about ${t}`,
   ];
+  const youtube = top.slice(0, 6).map((g, i) => ({
+    rank: i + 1,
+    title: titleShapes[i % titleShapes.length](g.topic),
+    channel: channels[i % channels.length],
+    url: "https://www.youtube.com/results?search_query=" + encodeURIComponent(g.topic),
+    views: 2400000 - i * 380000,
+    matched_topics: [matched(g.key)],
+  }));
 
   const web = top.map((g, i) => ({
     rank: i + 1,

@@ -861,7 +861,7 @@ export interface TrendMatchedTopic {
 }
 
 export interface YoutubeTrend {
-  /** Position on the trending chart (1 = top) */
+  /** Position by view count among topic-search results (1 = top) */
   rank: number;
   title: string;
   /** @nullable */
@@ -896,7 +896,7 @@ export interface Trends {
   youtube_configured: boolean;
   /** Whether a SearXNG instance is configured */
   web_configured: boolean;
-  /** Trending videos, chart order */
+  /** Most-viewed recent YouTube videos found for library topics */
   youtube: YoutubeTrend[];
   /** Library topics ranked by recent news momentum */
   web: WebTrend[];

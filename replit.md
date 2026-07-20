@@ -51,7 +51,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - **Semantic search:** Natural language search across transcripts and visual scene content; results link directly to the matching timecode in the video player
 - **Processing pipeline:** Real-time job monitoring with progress bars, logs, retry/cancel
 - **AI Q&A:** Ask questions about the video library; answers cite source files and timecodes
-- **External trends:** Insights page "Trending Now" — YouTube trending chart matched against library topics + self-hosted SearXNG news momentum per topic; auto-refreshes every 3 h, manual refresh queues a `trends` job (`POST /trends/refresh`)
+- **External trends:** Insights page "Trending Now" — per-topic YouTube search (most-viewed past-week videos for top library topics) + self-hosted SearXNG news momentum per topic; auto-refreshes every 3 h, manual refresh queues a `trends` job (`POST /trends/refresh`)
 - **Clip lists:** Build named clip lists from search results, export as EDL/CSV/JSON
 
 ## User preferences
@@ -79,7 +79,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - Model filenames in presets fuzzy-resolve to the files each ComfyUI actually has (`resolve_model_files` in `comfy_graphics.py`): token-boundary matching, precision/quant suffixes ignored, version digits kept (wan2.1 never matches wan2.2, t5xxl never matches umt5); worker re-resolves against fresh `/object_info` before every submit
 - `comfy_graphics.py` is intentionally duplicated in `services/api/app/` and `services/worker/` (separate Docker build contexts) — keep both copies identical
 - Graphics video presets end in `SaveImage` (PNG sequence); the graphics worker assembles the MP4 with ffmpeg at the preset fps — no dependency on ComfyUI video-save nodes; worker-graphics has NO GPU reservation (ComfyUI owns the GPUs)
-- Trends: SearXNG JSON output must stay enabled in `searxng/settings.yml` (`search.formats` includes `json` — it's OFF in SearXNG defaults, worker gets 403 without it); only topic keywords go out; YouTube trending uses `YOUTUBE_API_KEY` (or the OAuth trio) with `TRENDS_REGION`; trend↔library matching happens at read time in `GET /trends`, stored rows only hold the fetched external data
+- Trends: SearXNG JSON output must stay enabled in `searxng/settings.yml` (`search.formats` includes `json` — it's OFF in SearXNG defaults, worker gets 403 without it); only topic keywords go out; YouTube side is per-topic `search.list` (NOT the global trending chart — zero overlap with a specialised library) at 100 quota units/call: 10 topics × 8 runs/day ≈ 8k of the 10k default daily quota, tune via `YT_TOPIC_LIMIT` in `tasks/trends.py`; trend↔library matching happens at read time in `GET /trends`, stored rows only hold the fetched external data
 - Topic normalization is intentionally triplicated: `artifacts/api-server/src/lib/topics.ts`, `services/api/app/topic_norm.py`, `services/worker/topic_norm.py` — keep all three in sync (the two Python copies must be byte-identical); topic filter URLs use the normalized key (`/library?topic=<key>&topic_label=<label>`); coverage-gap asset counts are computed at read time in the insights endpoint, not stored
 
 ## Pointers
