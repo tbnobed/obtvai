@@ -59,6 +59,8 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 
 - EVERY reply that changes code must END with the exact production deploy command, listing only the services that changed (e.g. `git pull && docker compose up -d --build frontend`), plus a clear summary of what changed. No exceptions — including short replies and follow-up fixes.
 - There is NO compose service named `worker` — worker code changes deploy as `worker-gpu worker-gpu-2 worker-cpu worker-graphics` (all build from the same `services/worker` image).
+- The deploy command must be in the FINAL user-facing chat message of the turn — never only in intermediate progress notes, and never omitted because a task tracker or checkpoint "closed" the work.
+- If a change requires ANY server action beyond `git pull && docker compose up -d --build ...` (new `.env` variables, one-time commands, config edits, credentials), state those steps explicitly in the chat next to the deploy command — documenting them only in `.env.example` or elsewhere in the repo is not enough.
 
 ## Gotchas
 
