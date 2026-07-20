@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     vision_model: str = "google/siglip2-so400m-patch14-384"
     whisper_model: str = "medium"
     cors_origins: list[str] = ["*"]
+    # First-run admin bootstrap (used only when the users table is empty).
+    admin_username: str = "admin"
+    admin_password: str = ""  # empty = random password printed once to the API log
+    # Shared secret for internal services (watcher) calling the API.
+    internal_api_token: str = ""
 
     class Config:
         env_file = ".env"

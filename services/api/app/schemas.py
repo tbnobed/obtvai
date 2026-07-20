@@ -878,3 +878,46 @@ class GraphicsGenerationOut(BaseModel):
 class GraphicsGenerationListOut(BaseModel):
     items: list[GraphicsGenerationOut]
     total: int
+
+
+# ── Auth & users ──────────────────────────────────────────────────────────────
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+
+class SessionUserOut(BaseModel):
+    id: str
+    username: str
+    display_name: Optional[str] = None
+    role: str
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=72)
+
+
+class UserOut(BaseModel):
+    id: str
+    username: str
+    display_name: Optional[str] = None
+    role: str
+    disabled: bool
+    created_at: datetime
+    last_seen: Optional[datetime] = None
+
+
+class UserCreateIn(BaseModel):
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[a-z0-9._-]+$")
+    password: str = Field(min_length=8, max_length=72)
+    role: Literal["admin", "user", "viewer"]
+    display_name: Optional[str] = None
+
+
+class UserUpdateIn(BaseModel):
+    role: Optional[Literal["admin", "user", "viewer"]] = None
+    display_name: Optional[str] = None
+    disabled: Optional[bool] = None
+    password: Optional[str] = Field(default=None, min_length=8, max_length=72)

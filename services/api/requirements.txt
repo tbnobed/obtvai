@@ -28,4 +28,4 @@ scikit-image==0.25.2
 scikit-learn==1.6.1
 scipy==1.15.3
 python-jose==3.3.0
-passlib==1.7.4
+bcrypt==4.2.1

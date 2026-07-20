@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends
+from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends, auth as auth_router, users as users_router
+from .auth import auth_middleware
 
 
 # Columns created as `json` by earlier versions must become `jsonb` so workers
@@ -127,6 +128,39 @@ async def _run_startup_migrations():
                 """
             ))
 
+    await _bootstrap_admin()
+
+
+async def _bootstrap_admin():
+    """Create the first admin account when the users table is empty."""
+    import secrets as _secrets
+    from sqlalchemy import select, func
+    from .auth import hash_password
+    from .database import AsyncSessionLocal
+    from .models import User
+
+    async with AsyncSessionLocal() as db:
+        count = (await db.execute(select(func.count()).select_from(User))).scalar_one()
+        if count > 0:
+            return
+        username = (settings.admin_username or "admin").strip().lower()
+        password = settings.admin_password
+        generated = not password
+        if generated:
+            password = _secrets.token_urlsafe(12)
+        db.add(User(username=username, password_hash=hash_password(password), role="admin", display_name="Admin"))
+        await db.commit()
+        if generated:
+            print("=" * 72)
+            print("  FIRST-RUN ADMIN ACCOUNT CREATED")
+            print(f"  username: {username}")
+            print(f"  password: {password}")
+            print("  Set ADMIN_PASSWORD in .env to control this, and change the")
+            print("  password after first login. This is printed ONLY once.")
+            print("=" * 72)
+        else:
+            print(f"Bootstrap admin account created: {username} (password from ADMIN_PASSWORD)")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -204,6 +238,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Session auth for every /api route (including the StaticFiles thumbnail
+# mount, which router-level dependencies would miss).
+app.middleware("http")(auth_middleware)
+
+app.include_router(auth_router.router, prefix="/api")
+app.include_router(users_router.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")

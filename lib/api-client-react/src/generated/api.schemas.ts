@@ -1577,6 +1577,113 @@ export interface ClipExportResult {
   filename?: string;
 }
 
+export interface LoginInput {
+  username: string;
+  password: string;
+}
+
+export type SessionUserRole = typeof SessionUserRole[keyof typeof SessionUserRole];
+
+
+export const SessionUserRole = {
+  admin: 'admin',
+  user: 'user',
+  viewer: 'viewer',
+} as const;
+
+export interface SessionUser {
+  id: string;
+  username: string;
+  /** @nullable */
+  display_name?: string | null;
+  role: SessionUserRole;
+}
+
+export interface PasswordChangeInput {
+  current_password: string;
+  /**
+     * 8-72 characters (bcrypt limit)
+     * @minLength 8
+     * @maxLength 72
+     */
+  new_password: string;
+}
+
+export type UserOutRole = typeof UserOutRole[keyof typeof UserOutRole];
+
+
+export const UserOutRole = {
+  admin: 'admin',
+  user: 'user',
+  viewer: 'viewer',
+} as const;
+
+export interface UserOut {
+  id: string;
+  username: string;
+  /** @nullable */
+  display_name?: string | null;
+  role: UserOutRole;
+  disabled: boolean;
+  created_at: string;
+  /**
+     * Last session activity, if any
+     * @nullable
+     */
+  last_seen?: string | null;
+}
+
+export type UserCreateRole = typeof UserCreateRole[keyof typeof UserCreateRole];
+
+
+export const UserCreateRole = {
+  admin: 'admin',
+  user: 'user',
+  viewer: 'viewer',
+} as const;
+
+export interface UserCreate {
+  /** 3-50 chars, letters/digits/._- only */
+  username: string;
+  /**
+     * 8-72 characters (bcrypt limit)
+     * @minLength 8
+     * @maxLength 72
+     */
+  password: string;
+  role: UserCreateRole;
+  /** @nullable */
+  display_name?: string | null;
+}
+
+/**
+ * @nullable
+ */
+export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole] | null;
+
+
+export const UserUpdateRole = {
+  admin: 'admin',
+  user: 'user',
+  viewer: 'viewer',
+} as const;
+
+export interface UserUpdate {
+  /** @nullable */
+  role?: UserUpdateRole;
+  /** @nullable */
+  display_name?: string | null;
+  /** @nullable */
+  disabled?: boolean | null;
+  /**
+     * Set to reset the user's password (8-72 chars, bcrypt limit); invalidates their sessions
+     * @minLength 8
+     * @maxLength 72
+     * @nullable
+     */
+  password?: string | null;
+}
+
 export type ListMediaParams = {
 status?: string;
 /**

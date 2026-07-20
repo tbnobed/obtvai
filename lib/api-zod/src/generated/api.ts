@@ -2980,3 +2980,133 @@ export const ScriptMatchResponse = zod.object({
 })
 
 
+/**
+ * @summary Log in with username and password; sets the session cookie
+ */
+export const LoginBody = zod.object({
+  "username": zod.string(),
+  "password": zod.string()
+})
+
+export const LoginResponse = zod.object({
+  "id": zod.string(),
+  "username": zod.string(),
+  "display_name": zod.string().nullish(),
+  "role": zod.enum(['admin', 'user', 'viewer'])
+})
+
+
+/**
+ * @summary Log out and invalidate the current session
+ */
+export const LogoutResponse = zod.void()
+
+
+/**
+ * @summary Current authenticated user
+ */
+export const GetCurrentUserResponse = zod.object({
+  "id": zod.string(),
+  "username": zod.string(),
+  "display_name": zod.string().nullish(),
+  "role": zod.enum(['admin', 'user', 'viewer'])
+})
+
+
+/**
+ * @summary Change own password (invalidates all other sessions)
+ */
+export const changePasswordBodyNewPasswordMin = 8;
+export const changePasswordBodyNewPasswordMax = 72;
+
+
+
+export const ChangePasswordBody = zod.object({
+  "current_password": zod.string(),
+  "new_password": zod.string().min(changePasswordBodyNewPasswordMin).max(changePasswordBodyNewPasswordMax).describe('8-72 characters (bcrypt limit)')
+})
+
+export const ChangePasswordResponse = zod.void()
+
+
+/**
+ * @summary List all users (admin only)
+ */
+export const ListUsersResponseItem = zod.object({
+  "id": zod.string(),
+  "username": zod.string(),
+  "display_name": zod.string().nullish(),
+  "role": zod.enum(['admin', 'user', 'viewer']),
+  "disabled": zod.boolean(),
+  "created_at": zod.string(),
+  "last_seen": zod.string().nullish().describe('Last session activity, if any')
+})
+export const ListUsersResponse = zod.array(ListUsersResponseItem)
+
+
+/**
+ * @summary Create a user (admin only)
+ */
+export const createUserBodyPasswordMin = 8;
+export const createUserBodyPasswordMax = 72;
+
+
+
+export const CreateUserBody = zod.object({
+  "username": zod.string().describe('3-50 chars, letters\/digits\/._- only'),
+  "password": zod.string().min(createUserBodyPasswordMin).max(createUserBodyPasswordMax).describe('8-72 characters (bcrypt limit)'),
+  "role": zod.enum(['admin', 'user', 'viewer']),
+  "display_name": zod.string().nullish()
+})
+
+export const CreateUserResponse = zod.object({
+  "id": zod.string(),
+  "username": zod.string(),
+  "display_name": zod.string().nullish(),
+  "role": zod.enum(['admin', 'user', 'viewer']),
+  "disabled": zod.boolean(),
+  "created_at": zod.string(),
+  "last_seen": zod.string().nullish().describe('Last session activity, if any')
+})
+
+
+/**
+ * @summary Update a user's role, display name, disabled flag, or reset their password (admin only)
+ */
+export const UpdateUserParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateUserBodyPasswordMin = 8;
+export const updateUserBodyPasswordMax = 72;
+
+
+
+export const UpdateUserBody = zod.object({
+  "role": zod.union([zod.literal('admin'),zod.literal('user'),zod.literal('viewer'),zod.literal(null)]).nullish(),
+  "display_name": zod.string().nullish(),
+  "disabled": zod.boolean().nullish(),
+  "password": zod.string().min(updateUserBodyPasswordMin).max(updateUserBodyPasswordMax).nullish().describe('Set to reset the user\'s password (8-72 chars, bcrypt limit); invalidates their sessions')
+})
+
+export const UpdateUserResponse = zod.object({
+  "id": zod.string(),
+  "username": zod.string(),
+  "display_name": zod.string().nullish(),
+  "role": zod.enum(['admin', 'user', 'viewer']),
+  "disabled": zod.boolean(),
+  "created_at": zod.string(),
+  "last_seen": zod.string().nullish().describe('Last session activity, if any')
+})
+
+
+/**
+ * @summary Delete a user (admin only; cannot delete the last admin or yourself)
+ */
+export const DeleteUserParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteUserResponse = zod.void()
+
+

@@ -53,6 +53,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - **AI Q&A:** Ask questions about the video library; answers cite source files and timecodes
 - **External trends:** Insights page "Trending Now" — per-topic YouTube search (most-viewed past-week videos for top library topics) + self-hosted SearXNG news momentum per topic; auto-refreshes every 3 h, manual refresh queues a `trends` job (`POST /trends/refresh`)
 - **Clip lists:** Build named clip lists from search results, export as EDL/CSV/JSON
+- **User accounts:** Fully local login (username/password, HttpOnly session cookie, bcrypt). Roles: `admin` (user management + everything), `user` (everything except user management), `viewer` (read-only + search/AI Q&A). Admin page at `/users`; first admin bootstrapped from `ADMIN_USERNAME`/`ADMIN_PASSWORD` (random password printed once in api log if unset)
 
 ## User preferences
 
@@ -62,6 +63,10 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 ## Gotchas
 
 - Always restart the API server workflow after changing `src/routes/mock.ts`
+- Auth is enforced by ASGI middleware on all `/api/*` paths (incl. the StaticFiles thumbnail mount) — allowlist only `/api/auth/login` + `/api/healthz`; viewer POST allowlist lives in `services/api/app/auth.py` (`VIEWER_POST_ALLOWLIST`) and must be mirrored in `artifacts/api-server/src/routes/auth.ts`
+- `INTERNAL_API_TOKEN` env is REQUIRED in production — the watcher authenticates with the `X-Internal-Token` header; watched-folder ingest breaks without it
+- Mock preview logins: `admin` / `editor` / `viewer`, all password `obtv` (in-memory, reset on workflow restart)
+- Use the `bcrypt` package directly, never passlib (passlib 1.7.4 breaks with bcrypt>=4.1 and was removed from requirements)
 - Re-run codegen after any OpenAPI spec change: `pnpm --filter @workspace/api-spec run codegen`
 - The production stack requires a HuggingFace token for pyannote speaker diarization — see `.env.example`
 - Docker Compose GPU workers require NVIDIA Container Toolkit on the host

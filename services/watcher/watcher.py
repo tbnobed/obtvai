@@ -21,6 +21,8 @@ MEDIA_ROOTS = [
     p for p in os.getenv("MEDIA_ROOTS", os.getenv("MEDIA_ROOT", "/media")).split(":") if p
 ]
 API_URL = os.getenv("API_URL", "http://api:8000/api")
+INTERNAL_API_TOKEN = os.getenv("INTERNAL_API_TOKEN", "")
+_HEADERS = {"X-Internal-Token": INTERNAL_API_TOKEN} if INTERNAL_API_TOKEN else {}
 STABLE_SECONDS = int(os.getenv("STABLE_SECONDS", "5"))
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "30"))
 SCAN_ON_START = os.getenv("SCAN_ON_START", "1") not in ("0", "false", "no")
@@ -49,6 +51,7 @@ def _ingest(path: str):
         resp = httpx.post(
             f"{API_URL}/media",
             json={"file_path": path},
+            headers=_HEADERS,
             timeout=30,
         )
         resp.raise_for_status()

@@ -1,8 +1,10 @@
 import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
+import { getGetCurrentUserQueryKey } from "@workspace/api-client-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
+import { AuthProvider, useAuth, useIsAdmin } from "@/lib/auth";
 import NotFound from "@/pages/not-found";
 
 import Dashboard from "@/pages/dashboard";
@@ -17,8 +19,37 @@ import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
 import Graphics from "@/pages/graphics";
 import SearchPage from "@/pages/search";
+import Login from "@/pages/login";
+import UsersPage from "@/pages/users";
 
-const queryClient = new QueryClient();
+function is401(error: unknown): boolean {
+  return (error as { status?: number })?.status === 401;
+}
+
+// Any 401 anywhere flips the app to the login screen by clearing the
+// current-user cache entry (the auth gate below renders from it).
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      if (is401(error) && query.queryKey[0] !== getGetCurrentUserQueryKey()[0]) {
+        queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
+      }
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      if (is401(error)) {
+        queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
+      }
+    },
+  }),
+});
+
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const isAdmin = useIsAdmin();
+  if (!isAdmin) return <Redirect to="/" />;
+  return <Component />;
+}
 
 function Router() {
   return (
@@ -36,6 +67,9 @@ function Router() {
         <Route path="/jobs" component={Jobs} />
         <Route path="/ai" component={AIQA} />
         <Route path="/search" component={SearchPage} />
+        <Route path="/users">
+          <AdminRoute component={UsersPage} />
+        </Route>
         {/* Old workflow pages now live inside Projects */}
         <Route path="/clips"><Redirect to="/projects" /></Route>
         <Route path="/reels"><Redirect to="/projects" /></Route>
@@ -48,13 +82,31 @@ function Router() {
   );
 }
 
+function AuthGate() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return <Login />;
+
+  return <Router />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <AuthProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <AuthGate />
+          </WouterRouter>
+        </AuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
