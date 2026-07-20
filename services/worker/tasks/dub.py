@@ -28,7 +28,10 @@ MMS_LANG_CODES = {
 }
 
 # Max speed-up applied to a synthesized clip so it fits its transcript slot.
-_MAX_ATEMPO = 2.0
+# Cap fit-to-slot speed-up at a barely noticeable rate. Anything above ~1.35x
+# sounds like chipmunk speech; overlong clips instead spill into the following
+# silence (the placement cursor below prevents overlap with the next segment).
+_MAX_ATEMPO = 1.35
 # Loaded (tokenizer, model, sample_rate) per language, one at a time.
 _tts_cache: dict = {}
 
@@ -499,6 +502,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         total = len(rows)
         last_report = time.monotonic()
         synthesized = 0
+        place_cursor = 0
 
         cloned_count = 0
         chatterbox_count = 0
@@ -563,12 +567,18 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 clip_len = clip.size / sample_rate
                 if clip_len > slot * 1.05:
                     factor = min(_MAX_ATEMPO, clip_len / slot)
-                    clip = _atempo(clip, sample_rate, factor, workdir)
+                    if factor > 1.02:
+                        clip = _atempo(clip, sample_rate, factor, workdir)
 
-                offset = int(start * sample_rate)
+                # Never overlap the previous clip: if it ran past this
+                # segment's start, begin right after it instead. Translated
+                # speech runs longer than the original, so bounded drift
+                # sounds far better than double-talk or 2x chipmunk speed.
+                offset = max(int(start * sample_rate), place_cursor)
                 end = min(offset + clip.size, timeline.size)
                 if offset < timeline.size:
                     timeline[offset:end] += clip[: end - offset]
+                    place_cursor = end
                 synthesized += 1
 
                 now = time.monotonic()

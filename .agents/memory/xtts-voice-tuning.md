@@ -11,3 +11,6 @@ description: What actually changes XTTS-v2 cloned voice output; preset/settings 
 - Cloned-voice dubbing prefers Chatterbox multilingual; `chatterbox-tts` pins old torch/transformers so it must be installed `--no-deps` (like facenet-pytorch) with its light deps added manually, or it silently downgrades the +cu128 torch pin.
 - Chatterbox has no top_p/repetition_penalty equivalent — map temperature directly and speed via ffmpeg atempo; always keep XTTS as load-time and per-segment fallback since Chatterbox can't be tested off-GPU.
 - transformers rejects float `top_k` ("must be a strictly positive integer, but is 30.0") — cast top_k to int after clamping; JSON-stored settings arrive as floats.
+
+## Dub timeline fitting
+Dubbed segments must not be atempo-fitted to their transcript slot beyond ~1.35x — translated speech runs longer than the source and a 2.0x cap makes alternating chipmunk/normal playback. Use a placement cursor so overlong clips spill into following silence instead of overlapping the next clip.
