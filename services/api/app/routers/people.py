@@ -237,9 +237,15 @@ async def enroll_person(
         img = await run_in_threadpool(decode_photo, data)
     except Exception:
         raise HTTPException(status_code=422, detail="Could not read the image file")
-    # Model/runtime failures (first-run download, onnxruntime) surface as 500s
-    # instead of being masked as a bad image.
-    emb, crop = await run_in_threadpool(extract_face, img)
+    # Model/runtime failures (first-run download, onnxruntime) get a clear
+    # 503 detail instead of being masked as a bad image or an opaque 500.
+    try:
+        emb, crop = await run_in_threadpool(extract_face, img)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Face model failed to load or run: {type(e).__name__}: {e}",
+        )
     if emb is None or crop is None:
         raise HTTPException(status_code=422, detail="No face detected in the photo")
 

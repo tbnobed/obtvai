@@ -19,6 +19,19 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ImagePlus, User, Film, Loader2 } from "lucide-react";
 
+function extractErrorMessage(err: unknown): string {
+  if (typeof err === "object" && err !== null) {
+    const data = (err as { data?: unknown }).data;
+    if (typeof data === "object" && data !== null) {
+      const detail = (data as { detail?: unknown }).detail;
+      if (typeof detail === "string" && detail.trim()) return detail;
+    }
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return "Enrollment failed — the API server did not respond.";
+}
+
 export default function EnrollPersonDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -78,11 +91,7 @@ export default function EnrollPersonDialog() {
           invalidate();
         },
         onError: (err: unknown) => {
-          const detail =
-            typeof err === "object" && err !== null && "detail" in err
-              ? String((err as { detail: unknown }).detail)
-              : null;
-          setError(detail ?? "Enrollment failed — no face detected, or the API server is unreachable.");
+          setError(extractErrorMessage(err));
         },
       }
     );
