@@ -335,6 +335,7 @@ async def create_clip_list_rough_cut(
         project_id=cl.project_id,
         preset=body.preset,
         burn_captions=body.burn_captions,
+        unreviewed=any(not c.approved for c in cl_out.clips),
         clips=[
             {
                 "media_id": c.media_id,

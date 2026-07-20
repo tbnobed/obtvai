@@ -1311,7 +1311,7 @@ type MockRender = {
   id: string; media_id: string; filename: string | null; clip_list_id: string | null;
   project_id: string | null;
   label: string | null; start_time: number; end_time: number;
-  preset: string; burn_captions: boolean; status: string; progress: number;
+  preset: string; burn_captions: boolean; unreviewed: boolean; status: string; progress: number;
   output_url: string | null; error_message: string | null;
   publish_status: string | null; publish_url: string | null; publish_error: string | null;
   publish_stats: { platform: string; views: number; likes: number; comments: number; fetched_at: string } | null;
@@ -1321,7 +1321,7 @@ type MockRender = {
 
 const renders: MockRender[] = [];
 
-function makeRender(mediaId: string, start: number, end: number, preset: string, burnCaptions: boolean, label: string | null, clipListId: string | null, projectId: string | null = null): MockRender {
+function makeRender(mediaId: string, start: number, end: number, preset: string, burnCaptions: boolean, label: string | null, clipListId: string | null, projectId: string | null = null, unreviewed = false): MockRender {
   touchProject(projectId);
   return {
     id: `render-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -1334,6 +1334,7 @@ function makeRender(mediaId: string, start: number, end: number, preset: string,
     end_time: end,
     preset,
     burn_captions: burnCaptions,
+    unreviewed,
     status: "pending",
     progress: 0,
     output_url: null,
@@ -1390,7 +1391,8 @@ router.post("/clips/:id/render", (req, res) => {
   if (!cl.clips.length) { res.status(400).json({ detail: "Clip list has no clips" }); return; }
   const preset = req.body.preset || "original";
   const burn = !!req.body.burn_captions;
-  const created = cl.clips.map((c) => makeRender(c.media_id, c.start_time, c.end_time, preset, burn, c.label, cl.id, cl.project_id ?? null));
+  const unreviewed = !cl.clips.every((c) => c.approved);
+  const created = cl.clips.map((c) => makeRender(c.media_id, c.start_time, c.end_time, preset, burn, c.label, cl.id, cl.project_id ?? null, unreviewed));
   renders.unshift(...created);
   res.status(202).json(created.map(renderOut));
 });
@@ -1514,7 +1516,7 @@ router.post("/media/:id/social/cuts", (req, res) => {
 type MockReel = {
   id: string; prompt: string; media_id: string | null; project_id: string | null;
   target_duration_seconds: number | null;
-  preset: string; burn_captions: boolean;
+  preset: string; burn_captions: boolean; unreviewed: boolean;
   clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null; thumbnail_url: string | null }[];
   status: string; progress: number;
   output_url: string | null; error_message: string | null;
@@ -1643,6 +1645,7 @@ router.post("/reels", (req, res) => {
     target_duration_seconds: targetDuration,
     preset,
     burn_captions: burn,
+    unreviewed: false,
     clips,
     status: "pending",
     progress: 0,
@@ -1774,11 +1777,11 @@ router.post("/media/:id/tighten", (req, res) => {
   });
 });
 
-function makeMockReel(prompt: string, mediaId: string | null, preset: string, burn: boolean, clips: MockReel["clips"], projectId: string | null = null): MockReel {
+function makeMockReel(prompt: string, mediaId: string | null, preset: string, burn: boolean, clips: MockReel["clips"], projectId: string | null = null, unreviewed = false): MockReel {
   touchProject(projectId);
   const reel: MockReel = {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-    prompt, media_id: mediaId, project_id: projectId, target_duration_seconds: null, preset, burn_captions: burn, clips,
+    prompt, media_id: mediaId, project_id: projectId, target_duration_seconds: null, preset, burn_captions: burn, unreviewed, clips,
     status: "pending", progress: 0, output_url: null, error_message: null,
     created_at: new Date().toISOString(), finished_at: null, _startedAt: Date.now(),
   };
@@ -1818,7 +1821,7 @@ router.post("/clips/:id/roughcut", (req, res) => {
     start_time: c.start_time, end_time: c.end_time, snippet: c.label || null,
     thumbnail_url: nearestSceneThumb(c.media_id, c.start_time),
   }));
-  const reel = makeMockReel(`Rough cut — ${cl.name}`, null, preset, !!req.body?.burn_captions, clips, cl.project_id ?? null);
+  const reel = makeMockReel(`Rough cut — ${cl.name}`, null, preset, !!req.body?.burn_captions, clips, cl.project_id ?? null, !cl.clips.every((c) => c.approved));
   res.status(202).json(reelOut(reel));
 });
 

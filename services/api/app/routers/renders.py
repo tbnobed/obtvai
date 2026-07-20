@@ -40,6 +40,7 @@ def _to_out(r: RenderJob, filename: str | None) -> RenderJobOut:
         end_time=r.end_time,
         preset=r.preset,
         burn_captions=r.burn_captions,
+        unreviewed=bool(r.unreviewed),
         status=r.status,
         progress=r.progress or 0.0,
         output_url=f"/api/renders/{r.id}/download" if r.status == "success" and r.output_path else None,
@@ -91,6 +92,7 @@ async def _create_render(
     label: str | None = None,
     clip_list_id: str | None = None,
     project_id: str | None = None,
+    unreviewed: bool = False,
 ) -> RenderJob:
     r = RenderJob(
         id=str(uuid.uuid4()),
@@ -102,6 +104,7 @@ async def _create_render(
         end_time=end_time,
         preset=preset,
         burn_captions=burn_captions,
+        unreviewed=unreviewed,
         status="pending",
         progress=0.0,
         created_at=datetime.utcnow(),
@@ -266,6 +269,7 @@ async def create_renders_for_clip_list(
     if not clips:
         raise HTTPException(status_code=400, detail="Clip list has no clips")
 
+    unreviewed = any(not c.approved for c in clips)
     created: list[RenderJob] = []
     for c in clips:
         if c.end_time <= c.start_time:
@@ -273,6 +277,7 @@ async def create_renders_for_clip_list(
         r = await _create_render(
             db, c.media_id, c.start_time, c.end_time,
             preset, burn_captions, c.label, clip_list_id, cl.project_id,
+            unreviewed=unreviewed,
         )
         created.append(r)
     if not created:

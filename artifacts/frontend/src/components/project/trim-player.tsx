@@ -1,14 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight, Pause, Play, Plus } from "lucide-react";
+import { formatTC } from "@/lib/timecode";
+import { TimecodeInput } from "./timecode-input";
 
-export function fmtTC(s: number, fps = 25) {
-  if (!Number.isFinite(s) || s < 0) s = 0;
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  const fr = Math.floor((s - Math.floor(s)) * fps);
-  return `${m}:${String(sec).padStart(2, "0")}.${String(fr).padStart(2, "0")}`;
+export { formatTC as fmtTC };
+
+export interface TrimPlayerHandle {
+  seek: (t: number) => void;
+  playRange: (from: number, to: number) => void;
+  pause: () => void;
+  getCurrentTime: () => number;
 }
 
 interface TrimPlayerProps {
@@ -20,11 +22,18 @@ interface TrimPlayerProps {
   fps?: number | null;
   disabled?: boolean;
   onChange: (inPoint: number, outPoint: number) => void;
+  /** Fires on every timeupdate with the playhead position. */
+  onTime?: (t: number) => void;
+  /** Fires when a playRange() run reaches its stop point. */
+  onRangeDone?: () => void;
 }
 
 const HANDLE_PAD = 2;
 
-export function TrimPlayer({ mediaId, clipKey, inPoint, outPoint, fps, disabled, onChange }: TrimPlayerProps) {
+export const TrimPlayer = forwardRef<TrimPlayerHandle, TrimPlayerProps>(function TrimPlayer(
+  { mediaId, clipKey, inPoint, outPoint, fps, disabled, onChange, onTime, onRangeDone }: TrimPlayerProps,
+  ref,
+) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<"in" | "out" | "seek" | null>(null);
@@ -35,8 +44,46 @@ export function TrimPlayer({ mediaId, clipKey, inPoint, outPoint, fps, disabled,
   const [current, setCurrent] = useState(inPoint);
   const [duration, setDuration] = useState<number | null>(null);
 
+  /** While set, playback stops (not loops) at this time — used by play-around and play-all. */
+  const stopAtRef = useRef<number | null>(null);
+  /** Whether the active range should fire onRangeDone (external playRange) or not (internal play-around). */
+  const notifyRangeDoneRef = useRef(false);
+  /** Range queued before the media had metadata; started in onLoadedMetadata. */
+  const pendingRangeRef = useRef<[number, number, boolean] | null>(null);
+
+  const startRange = (from: number, to: number, notify: boolean) => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.readyState < HTMLMediaElement.HAVE_METADATA) {
+      pendingRangeRef.current = [from, to, notify];
+      return;
+    }
+    pendingRangeRef.current = null;
+    stopAtRef.current = to;
+    notifyRangeDoneRef.current = notify;
+    v.currentTime = Math.max(0, from);
+    setCurrent(Math.max(0, from));
+    v.play().catch(() => {});
+  };
+
+  useImperativeHandle(ref, () => ({
+    seek: (t: number) => {
+      const v = videoRef.current;
+      if (!v) return;
+      stopAtRef.current = null;
+      pendingRangeRef.current = null;
+      v.currentTime = Math.max(0, t);
+      setCurrent(Math.max(0, t));
+    },
+    playRange: (from: number, to: number) => startRange(from, to, true),
+    pause: () => videoRef.current?.pause(),
+    getCurrentTime: () => videoRef.current?.currentTime ?? 0,
+  }));
+
   useEffect(() => {
     setWin([Math.max(0, inPoint - HANDLE_PAD), outPoint + HANDLE_PAD]);
+    stopAtRef.current = null;
+    pendingRangeRef.current = null;
     const v = videoRef.current;
     if (v) {
       v.pause();
@@ -123,12 +170,41 @@ export function TrimPlayer({ mediaId, clipKey, inPoint, outPoint, fps, disabled,
     setCurrent(t);
   };
 
-  const numChange = (which: "in" | "out") => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    if (!Number.isFinite(val) || val < 0) return;
-    if (which === "in") onChange(Math.min(val, outPoint - frame), outPoint);
-    else onChange(inPoint, Math.max(val, inPoint + frame));
+  const playAround = (which: "in" | "out") => {
+    if (which === "in") startRange(Math.max(0, inPoint - 1), inPoint + 2, false);
+    else startRange(Math.max(0, outPoint - 2), outPoint + 1, false);
   };
+
+  const markIn = () => {
+    const v = videoRef.current;
+    if (!v || disabled) return;
+    onChange(Math.min(v.currentTime, outPoint - frame), outPoint);
+  };
+
+  const markOut = () => {
+    const v = videoRef.current;
+    if (!v || disabled) return;
+    onChange(inPoint, Math.max(v.currentTime, inPoint + frame));
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      switch (e.key) {
+        case " ": e.preventDefault(); togglePlay(); break;
+        case "ArrowLeft": e.preventDefault(); step(-1); break;
+        case "ArrowRight": e.preventDefault(); step(1); break;
+        case "i": case "I": e.preventDefault(); markIn(); break;
+        case "o": case "O": e.preventDefault(); markOut(); break;
+        case "[": e.preventDefault(); playAround("in"); break;
+        case "]": e.preventDefault(); playAround("out"); break;
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
 
   return (
     <div className="space-y-2">
@@ -140,11 +216,28 @@ export function TrimPlayer({ mediaId, clipKey, inPoint, outPoint, fps, disabled,
         onClick={togglePlay}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || null)}
+        onLoadedMetadata={(e) => {
+          setDuration(e.currentTarget.duration || null);
+          const pending = pendingRangeRef.current;
+          if (pending) startRange(pending[0], pending[1], pending[2]);
+        }}
         onTimeUpdate={(e) => {
           const v = e.currentTarget;
           setCurrent(v.currentTime);
-          if (!v.paused && v.currentTime >= outPoint - 0.02) v.currentTime = inPoint;
+          onTime?.(v.currentTime);
+          const stopAt = stopAtRef.current;
+          if (stopAt != null) {
+            if (!v.paused && v.currentTime >= stopAt - 0.02) {
+              v.pause();
+              stopAtRef.current = null;
+              if (notifyRangeDoneRef.current) {
+                notifyRangeDoneRef.current = false;
+                onRangeDone?.();
+              }
+            }
+          } else if (!v.paused && v.currentTime >= outPoint - 0.02) {
+            v.currentTime = inPoint;
+          }
         }}
       />
 
@@ -204,23 +297,36 @@ export function TrimPlayer({ mediaId, clipKey, inPoint, outPoint, fps, disabled,
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <span className="font-mono text-xs text-muted-foreground">{fmtTC(current, fps ?? 25)}</span>
+        <span className="font-mono text-xs text-muted-foreground">{formatTC(current, fps ?? 25)}</span>
         <div className="flex items-center gap-1.5 ml-auto">
+          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => playAround("in")}
+            title="Play around the in-point: 1s before to 2s after ( [ )">
+            <Play className="h-3 w-3 mr-1" /> In
+          </Button>
           <Button size="sm" variant="outline" className="h-8" disabled={disabled}
-            onClick={() => onChange(Math.min(current, outPoint - frame), outPoint)} title="Set the in-point at the playhead">
+            onClick={markIn} title="Set the in-point at the playhead (I)">
             Set IN
           </Button>
-          <Input type="number" step={Math.round(frame * 100) / 100} min={0} disabled={disabled}
-            className="h-8 w-24 font-mono text-xs" value={Number(inPoint.toFixed(2))} onChange={numChange("in")} />
+          <TimecodeInput value={inPoint} fps={fps} disabled={disabled}
+            className="h-8 w-24 font-mono text-xs" title="In-point (mm:ss.ff)"
+            onCommit={(v) => onChange(Math.min(v, outPoint - frame), outPoint)} />
           <span className="text-muted-foreground text-xs">→</span>
-          <Input type="number" step={Math.round(frame * 100) / 100} min={0} disabled={disabled}
-            className="h-8 w-24 font-mono text-xs" value={Number(outPoint.toFixed(2))} onChange={numChange("out")} />
+          <TimecodeInput value={outPoint} fps={fps} disabled={disabled}
+            className="h-8 w-24 font-mono text-xs" title="Out-point (mm:ss.ff)"
+            onCommit={(v) => onChange(inPoint, Math.max(v, inPoint + frame))} />
           <Button size="sm" variant="outline" className="h-8" disabled={disabled}
-            onClick={() => onChange(inPoint, Math.max(current, inPoint + frame))} title="Set the out-point at the playhead">
+            onClick={markOut} title="Set the out-point at the playhead (O)">
             Set OUT
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => playAround("out")}
+            title="Play around the out-point: 2s before to 1s after ( ] )">
+            <Play className="h-3 w-3 mr-1" /> Out
           </Button>
         </div>
       </div>
+      <p className="text-[10px] text-muted-foreground">
+        Shortcuts: <kbd>Space</kbd> play/pause · <kbd>I</kbd>/<kbd>O</kbd> set in/out · <kbd>[</kbd>/<kbd>]</kbd> play around cut · <kbd>←</kbd>/<kbd>→</kbd> 1 frame
+      </p>
     </div>
   );
-}
+});

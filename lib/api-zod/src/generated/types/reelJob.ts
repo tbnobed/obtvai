@@ -25,6 +25,11 @@ export interface ReelJob {
   /** original | vertical */
   preset: string;
   burn_captions: boolean;
+  /**
+     * True when the source clip list was not fully approved at render time
+     * @nullable
+     */
+  unreviewed?: boolean | null;
   clips: ReelClip[];
   /** pending | running | success | error */
   status: string;

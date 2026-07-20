@@ -1,0 +1,50 @@
+Find → Assemble → Refine → Cut → Deliver. Refine is a beat review screen (beat list with thumbnails, video player, Set IN/OUT fields, transcript panel, per-beat Approve, "Lock story"). Cut renders clip lists to video. The core flow works — these are six fixes to enforcement and ergonomics. Do them in order, don't break existing functionality, match the existing dark theme.
+1. Make the approval gate real (soft-block, not hard-block).
+Currently a clip list showing "0/5 approved" can still be rendered in Cut with no friction, which makes the whole Refine approval flow skippable and silently ignored. Change:
+
+In Cut, when the user clicks "Rough cut" (or Render in Deliver) on a clip list that is not fully approved, show a confirmation dialog: "0 of 5 beats approved. Render anyway?" with buttons "Review in Refine" (navigates to Refine with that story loaded) and "Render unreviewed."
+If they render anyway, tag that render as Unreviewed: store an unreviewed: true flag on the render record, and display an amber "Unreviewed" badge on the render card in Cut and on the render row in Deliver, next to the existing Success badge.
+Fully-approved lists render with no dialog and no badge. If a story is locked, show a "Locked ✓" state instead.
+Do NOT hard-block rendering — deadline workflows need the escape hatch. The goal is making skipped review visible, not impossible.
+
+2. Timecode-native in/out fields.
+The Set IN/OUT inputs currently take raw seconds (e.g. 120 → 166) while beat times display as mm:ss (2:00.00 – 2:46.00). Unify on timecode:
+
+Display and accept mm:ss or mm:ss.ff in the in/out fields. Parse flexible input: "146" alone is ambiguous, so require a colon — if the user types digits with no colon, interpret ≤59 as seconds, otherwise reject with inline hint "Use mm:ss format."
+Store internally as seconds/frames (whatever the backend uses now); this is a display/input-layer change only.
+Apply the same format everywhere times appear: beat list, player readout, Refine fields, render rows in Deliver.
+
+3. "Play around cut" — audition the edit points.
+Editors need to hear whether the in-point clips a word and the out-point ends clean. In Refine, add two small buttons flanking the Set IN / Set OUT controls:
+
+"▶ In" — plays from 1s before the current in-point to 2s after it, then stops.
+"▶ Out" — plays from 2s before the current out-point to 1s after it, then stops.
+Implement with the existing HTML5 video element: seek, play, and pause via a timeupdate listener when the boundary is reached. No re-render or backend call.
+Keyboard: i/o set in/out at the playhead, [/] trigger play-around-in/out, ←/→ step ±1 frame (use the asset's fps if known, else 1/30s), space play/pause. Ignore keystrokes when focus is in a text input.
+
+4. Wire the transcript to the trim.
+The transcript panel currently displays timestamped speaker lines but is inert. Make it interactive:
+
+Highlight (background tint) all transcript lines whose timestamps fall inside the current in/out range; update live as in/out change.
+Click a line → seek the player to that timestamp.
+Add per-line hover actions: "Set in here" and "Set out here" — sets the in/out to that line's start timestamp.
+Auto-scroll the transcript to keep the playhead's current line visible during playback (with a pause-on-user-scroll so it doesn't fight manual scrolling).
+
+5. "Play all" story preview in Refine.
+Before locking, editors need to feel the flow of the whole sequence without rendering. Add a "Play all" button next to "Lock story":
+
+Plays the beats sequentially in the existing player: seek to beat 1's in-point, play to its out-point, then load/seek beat 2, etc. Handle source-file switches between beats (beats may come from different assets).
+Show which beat is playing by highlighting it in the beat list as playback progresses; clicking a different beat during play-all jumps there.
+A small progress indicator: "Playing beat 2 of 5." Stop button returns to normal single-beat mode.
+Accept the brief gap/black flash when switching source files — this is a preview, not a render. Preload the next beat's source ~3s before the current beat ends to minimize it.
+
+6. Naming and pacing polish.
+
+Rename "Lock picture" in Assemble to "Lock story" so it matches Refine — one action, one name everywhere.
+In the Refine beat list, show each beat's duration next to its timecode range (e.g. "0:46") so pacing imbalance is visible at a glance. Also show total story duration at the top of the beat list ("5 beats · 2:08 total"), updating live as trims change.
+
+Constraints:
+
+All duration math must round for display — no float artifacts.
+The play-around and play-all features are frontend-only; do not add render or backend processing for them.
+If beats reference source assets by ID, and the player currently can't switch sources mid-session, fix that as part of step 5 — it's required for play-all.

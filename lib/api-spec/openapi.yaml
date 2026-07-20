@@ -3937,6 +3937,9 @@ components:
           description: original | vertical
         burn_captions:
           type: boolean
+        unreviewed:
+          type: ["boolean", "null"]
+          description: True when the source clip list was not fully approved at render time
         status:
           type: string
           description: pending | running | success | error
@@ -4085,6 +4088,9 @@ components:
           description: original | vertical
         burn_captions:
           type: boolean
+        unreviewed:
+          type: ["boolean", "null"]
+          description: True when the source clip list was not fully approved at render time
         clips:
           type: array
           items:

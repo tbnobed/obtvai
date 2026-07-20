@@ -192,6 +192,7 @@ class RenderJobOut(BaseModel):
     end_time: float
     preset: str
     burn_captions: bool
+    unreviewed: Optional[bool] = None
     status: str
     progress: float
     output_url: Optional[str] = None
@@ -246,6 +247,7 @@ class ReelJobOut(BaseModel):
     target_duration_seconds: Optional[float] = None
     preset: str
     burn_captions: bool
+    unreviewed: Optional[bool] = None
     clips: List[ReelClipOut] = []
     status: str
     progress: float

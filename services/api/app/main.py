@@ -49,6 +49,8 @@ _COLUMN_MIGRATIONS = [
     ("clips", "match_reason", "TEXT"),
     ("library_insights", "opportunities", "JSONB"),
     ("library_insights", "coverage_gaps", "JSONB"),
+    ("render_jobs", "unreviewed", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("reel_jobs", "unreviewed", "BOOLEAN NOT NULL DEFAULT FALSE"),
 ]
 
 

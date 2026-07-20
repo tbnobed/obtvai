@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useUpdateClipList,
   useCreateClipList,
@@ -12,10 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowDown, ArrowUp, CheckCircle2, Circle, Copy, ExternalLink, FileText,
-  Loader2, Lock, LockOpen, Save, Wand2, X,
+  ListVideo, Loader2, Lock, LockOpen, Save, Square, Wand2, X,
 } from "lucide-react";
 import { ClipThumb } from "./clip-thumb";
-import { TrimPlayer, fmtTC } from "./trim-player";
+import { TrimPlayer, fmtTC, type TrimPlayerHandle } from "./trim-player";
+import { formatTC } from "@/lib/timecode";
 import { ClipPlayerDialog, type PlayerClip } from "./clip-player-dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -65,9 +66,10 @@ interface RefineTabProps {
   clipLists: ClipList[] | undefined;
   assets: MediaAsset[] | undefined;
   onChanged: () => void;
+  focusList?: { id: string } | null;
 }
 
-export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTabProps) {
+export function RefineTab({ projectId, clipLists, assets, onChanged, focusList }: RefineTabProps) {
   const { toast } = useToast();
   const [preview, setPreview] = useState<PlayerClip | null>(null);
   const lists = useMemo(() => clipLists ?? [], [clipLists]);
@@ -78,9 +80,20 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
     if (!list && lists.length) setListId((lists.find((l) => l.clips.length) ?? lists[0]).id);
   }, [lists, list]);
 
+  const lastFocusRef = useRef<{ id: string } | null>(null);
+  useEffect(() => {
+    if (focusList && focusList !== lastFocusRef.current && lists.some((l) => l.id === focusList.id)) {
+      lastFocusRef.current = focusList;
+      setListId(focusList.id);
+    }
+  }, [focusList, lists]);
+
   const [draft, setDraft] = useState<DraftClip[]>([]);
   const [dirty, setDirty] = useState(false);
   const [selIdx, setSelIdx] = useState(0);
+  const [playhead, setPlayhead] = useState(0);
+  const [playAllIdx, setPlayAllIdx] = useState<number | null>(null);
+  const playerRef = useRef<TrimPlayerHandle>(null);
 
   useEffect(() => {
     if (list && !dirty) setDraft(list.clips.map(fromClip));
@@ -89,7 +102,44 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
   useEffect(() => {
     setDirty(false);
     setSelIdx(0);
+    setPlayAllIdx(null);
   }, [listId]);
+
+  // Play-all driver: select the beat first (clipKey reset runs in the child),
+  // then start the range once the selection matches.
+  useEffect(() => {
+    if (playAllIdx == null) return;
+    if (playAllIdx >= draft.length) { setPlayAllIdx(null); return; }
+    if (selIdx !== playAllIdx) { setSelIdx(playAllIdx); return; }
+    const c = draft[playAllIdx];
+    playerRef.current?.playRange(c.start_time, c.end_time);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playAllIdx, selIdx]);
+
+  const stopPlayAll = () => {
+    setPlayAllIdx(null);
+    playerRef.current?.pause();
+  };
+
+  // Auto-scroll the transcript to the playhead's line, pausing while the user scrolls.
+  const transcriptBoxRef = useRef<HTMLDivElement>(null);
+  const autoScrollingRef = useRef(false);
+  const userScrollUntilRef = useRef(0);
+  useEffect(() => {
+    const box = transcriptBoxRef.current;
+    if (!box || Date.now() < userScrollUntilRef.current) return;
+    const el = box.querySelector<HTMLElement>('[data-active-line="true"]');
+    if (!el) return;
+    const bt = box.getBoundingClientRect();
+    const et = el.getBoundingClientRect();
+    if (et.top < bt.top || et.bottom > bt.bottom) {
+      autoScrollingRef.current = true;
+      el.scrollIntoView({ block: "nearest" });
+      window.setTimeout(() => { autoScrollingRef.current = false; }, 150);
+    }
+  }, [playhead]);
+
+  const totalDur = draft.reduce((acc, c) => acc + Math.max(0, c.end_time - c.start_time), 0);
 
   const updateMutation = useUpdateClipList();
   const createMutation = useCreateClipList();
@@ -296,8 +346,26 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
         <div className="grid gap-4 lg:grid-cols-[minmax(280px,340px)_1fr]">
           {/* Beat list */}
           <Card className="self-start">
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm">Beats</CardTitle>
+            <CardHeader className="py-3 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm">
+                {draft.length} beat{draft.length === 1 ? "" : "s"} · {formatTC(totalDur, 25, false)} total
+              </CardTitle>
+              {playAllIdx == null ? (
+                <Button size="sm" variant="outline" className="h-7" onClick={() => setPlayAllIdx(selIdx)}
+                  title="Play every beat in order from the selected one">
+                  <ListVideo className="h-3.5 w-3.5 mr-1.5" /> Play all
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    Playing beat {Math.min(playAllIdx + 1, draft.length)} of {draft.length}
+                  </span>
+                  <Button size="sm" variant="outline" className="h-7 text-amber-500" onClick={stopPlayAll}
+                    title="Stop playing through the beats">
+                    <Square className="h-3 w-3 mr-1.5" /> Stop
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-1.5 max-h-[560px] overflow-y-auto">
               {draft.map((c, i) => (
@@ -306,7 +374,7 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
                   className={`flex items-center gap-2 rounded p-1.5 text-sm cursor-pointer border ${
                     i === selIdx ? "border-primary/60 bg-primary/10" : "border-transparent bg-muted/50 hover:bg-muted"
                   }`}
-                  onClick={() => setSelIdx(i)}
+                  onClick={() => { setSelIdx(i); if (playAllIdx != null) setPlayAllIdx(i); }}
                 >
                   <div className="flex flex-col shrink-0">
                     <Button size="icon" variant="ghost" className="h-4 w-4" disabled={locked || i === 0}
@@ -322,7 +390,7 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-medium">{i + 1}. {c.label || c.filename || c.media_id}</div>
                     <div className="font-mono text-[10px] text-muted-foreground">
-                      {fmtTC(c.start_time)} – {fmtTC(c.end_time)}
+                      {fmtTC(c.start_time)} – {fmtTC(c.end_time)} · {formatTC(Math.max(0, c.end_time - c.start_time), 25, false)}
                     </div>
                   </div>
                   <button
@@ -347,6 +415,7 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
               <Card>
                 <CardContent className="pt-4 space-y-3">
                   <TrimPlayer
+                    ref={playerRef}
                     mediaId={sel.media_id}
                     clipKey={`${listId}-${selIdx}`}
                     inPoint={sel.start_time}
@@ -354,7 +423,15 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
                     fps={selAsset?.fps}
                     disabled={locked}
                     onChange={(inP, outP) => patchClip(selIdx, { start_time: inP, end_time: outP })}
+                    onTime={setPlayhead}
+                    onRangeDone={() => {
+                      if (playAllIdx != null) setPlayAllIdx(playAllIdx + 1);
+                    }}
                   />
+                  {playAllIdx != null && draft[playAllIdx + 1] && draft[playAllIdx + 1].media_id !== draft[playAllIdx].media_id && (
+                    <video className="hidden" preload="auto" muted
+                      src={`/api/media/${draft[playAllIdx + 1].media_id}/stream`} />
+                  )}
                   <div className="flex items-center gap-2">
                     <Input
                       className="h-8 flex-1"
@@ -408,14 +485,55 @@ export function RefineTab({ projectId, clipLists, assets, onChanged }: RefineTab
                     </Button>
                   </div>
                   {whySegments.length > 0 && (
-                    <div className="space-y-1.5 border-t border-border pt-3 max-h-52 overflow-y-auto">
+                    <div
+                      ref={transcriptBoxRef}
+                      className="space-y-0.5 border-t border-border pt-3 max-h-52 overflow-y-auto"
+                      onScroll={() => {
+                        if (!autoScrollingRef.current) userScrollUntilRef.current = Date.now() + 3000;
+                      }}
+                    >
                       {whySegments.map((t) => {
                         const inRange = t.end_time > sel.start_time && t.start_time < sel.end_time;
+                        const atPlayhead = playhead >= t.start_time && playhead < t.end_time;
                         return (
-                          <p key={t.id} className={`text-xs leading-relaxed ${inRange ? "text-foreground" : "text-muted-foreground/50"}`}>
+                          <p
+                            key={t.id}
+                            data-active-line={atPlayhead || undefined}
+                            className={`group text-xs leading-relaxed rounded px-1 py-0.5 cursor-pointer transition-colors ${
+                              atPlayhead ? "bg-primary/25" : inRange ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted"
+                            } ${inRange ? "text-foreground" : "text-muted-foreground/50"}`}
+                            title="Click to move the playhead here"
+                            onClick={() => playerRef.current?.seek(t.start_time)}
+                          >
                             <span className="font-mono text-[10px] text-muted-foreground mr-1.5">{fmtTC(t.start_time)}</span>
                             {t.speaker && <span className="text-primary/80 mr-1">{t.speaker}:</span>}
                             {t.text}
+                            {!locked && (
+                              <span className="hidden group-hover:inline-flex gap-1 ml-1.5 align-middle">
+                                <button
+                                  type="button"
+                                  className="text-[10px] leading-none px-1 py-0.5 rounded border border-border text-muted-foreground hover:bg-primary/20 hover:text-foreground"
+                                  title="Move the in-point to this line"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    patchClip(selIdx, { start_time: Math.min(t.start_time, sel.end_time - 0.04) });
+                                  }}
+                                >
+                                  Set in here
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-[10px] leading-none px-1 py-0.5 rounded border border-border text-muted-foreground hover:bg-primary/20 hover:text-foreground"
+                                  title="Move the out-point to this line"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    patchClip(selIdx, { end_time: Math.max(t.start_time, sel.start_time + 0.04) });
+                                  }}
+                                >
+                                  Set out here
+                                </button>
+                              </span>
+                            )}
                           </p>
                         );
                       })}

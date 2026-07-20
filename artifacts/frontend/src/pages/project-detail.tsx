@@ -60,12 +60,14 @@ import {
   ArrowLeft, Search, FileText, Scissors, BookOpen, Wand2, Clapperboard,
   Play, Download, Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown,
   Monitor, Smartphone, ChevronDown, Upload, Archive, ArchiveRestore,
-  ExternalLink, Lock, LockOpen, SlidersHorizontal, CheckCircle2,
+  ExternalLink, Lock, LockOpen, SlidersHorizontal, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import { RefineTab } from "@/components/project/refine-tab";
 import { ClipThumb } from "@/components/project/clip-thumb";
 import { MediaPickerGrid } from "@/components/project/media-picker";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
+import { TimecodeInput } from "@/components/project/timecode-input";
+import { formatTC } from "@/lib/timecode";
 import { useToast } from "@/hooks/use-toast";
 
 const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
@@ -77,9 +79,7 @@ const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
 ];
 
 function fmtTime(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
+  return formatTC(s, 25, false);
 }
 
 function JobStatusBadge({ status }: { status: string }) {
@@ -91,6 +91,17 @@ function JobStatusBadge({ status }: { status: string }) {
 
 function ApprovalBadge({ list }: { list: ClipList }) {
   if (!list.clips.length) return null;
+  if (list.locked) {
+    return (
+      <Badge
+        variant="outline"
+        className="shrink-0 text-[10px] px-1.5 py-0 font-normal text-emerald-400 border-emerald-500/40"
+        title="Story locked — beats are final"
+      >
+        Locked ✓
+      </Badge>
+    );
+  }
   const n = list.clips.filter((c) => c.approved).length;
   const all = n === list.clips.length;
   return (
@@ -104,10 +115,30 @@ function ApprovalBadge({ list }: { list: ClipList }) {
   );
 }
 
+function UnreviewedBadge({ show }: { show: boolean | null | undefined }) {
+  if (!show) return null;
+  return (
+    <Badge
+      variant="outline"
+      className="shrink-0 text-[10px] px-1.5 py-0 font-normal text-amber-500 border-amber-500/40"
+      title="Rendered before all beats were approved in Refine"
+    >
+      Unreviewed
+    </Badge>
+  );
+}
+
 export default function ProjectDetail() {
   const { id = "" } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
+
+  const [tab, setTab] = useState<string>(() => {
+    const t = new URLSearchParams(window.location.search).get("tab") ?? "";
+    return ["find", "assemble", "refine", "cut", "deliver"].includes(t) ? t : "find";
+  });
+  const [refineFocus, setRefineFocus] = useState<{ id: string } | null>(null);
+  const [approvalGate, setApprovalGate] = useState<{ list: ClipList; action: "roughcut" | "render" } | null>(null);
 
   const { data: project, isLoading } = useGetProject(id);
   const updateMutation = useUpdateProject();
@@ -610,11 +641,7 @@ export default function ProjectDetail() {
         <span className="flex items-center gap-1.5"><Clapperboard className="h-3.5 w-3.5" /> {stageCounts.delivered}/{stageCounts.renders} renders done</span>
       </div>
 
-      <Tabs defaultValue={
-        ["find", "assemble", "refine", "cut", "deliver"].includes(
-          new URLSearchParams(window.location.search).get("tab") ?? "",
-        ) ? (new URLSearchParams(window.location.search).get("tab") as string) : "find"
-      }>
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6">
           <TabsTrigger value="find"><Search className="h-4 w-4 mr-2" /> Find</TabsTrigger>
           <TabsTrigger value="assemble"><Scissors className="h-4 w-4 mr-2" /> Assemble</TabsTrigger>
@@ -804,7 +831,7 @@ export default function ProjectDetail() {
                         {toggleLockPending === list.id
                           ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           : list.locked ? <Lock className="h-4 w-4 mr-2" /> : <LockOpen className="h-4 w-4 mr-2" />}
-                        {list.locked ? "Unlock" : "Lock picture"}
+                        {list.locked ? "Unlock" : "Lock story"}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => startEdit(list)} disabled={!list.clips.length || list.locked}
                         title={list.locked ? "Picture locked — unlock to edit" : undefined}>
@@ -842,20 +869,20 @@ export default function ProjectDetail() {
                           cs.map((x, xi) => xi === i ? { ...x, label: e.target.value } : x))}
                       />
                       <div className="flex items-center gap-1 shrink-0">
-                        <Input
-                          type="number" step="0.1" min={0}
+                        <TimecodeInput
                           className="h-8 w-20 font-mono text-xs"
                           value={c.start_time}
-                          onChange={(e) => editClips(list.id, (cs) =>
-                            cs.map((x, xi) => xi === i ? { ...x, start_time: Number(e.target.value) } : x))}
+                          title="Start (mm:ss.ff)"
+                          onCommit={(v) => editClips(list.id, (cs) =>
+                            cs.map((x, xi) => xi === i ? { ...x, start_time: v } : x))}
                         />
                         <span className="text-muted-foreground text-xs">→</span>
-                        <Input
-                          type="number" step="0.1" min={0}
+                        <TimecodeInput
                           className="h-8 w-20 font-mono text-xs"
                           value={c.end_time}
-                          onChange={(e) => editClips(list.id, (cs) =>
-                            cs.map((x, xi) => xi === i ? { ...x, end_time: Number(e.target.value) } : x))}
+                          title="End (mm:ss.ff)"
+                          onCommit={(v) => editClips(list.id, (cs) =>
+                            cs.map((x, xi) => xi === i ? { ...x, end_time: v } : x))}
                         />
                       </div>
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-red-400 shrink-0"
@@ -987,7 +1014,7 @@ export default function ProjectDetail() {
           <p className="text-sm text-muted-foreground">
             Review and trim each beat right here — play it, drag the in/out points, see why it was picked, and approve it. Lock the story when the cut is final.
           </p>
-          <RefineTab projectId={id} clipLists={clipLists} assets={media?.items} onChanged={invalidateAll} />
+          <RefineTab projectId={id} clipLists={clipLists} assets={media?.items} onChanged={invalidateAll} focusList={refineFocus} />
         </TabsContent>
 
         {/* ------------------------------ CUT ------------------------------ */}
@@ -1052,7 +1079,11 @@ export default function ProjectDetail() {
                     <span className="truncate">{l.name} · {l.clips.length} clips</span>
                     <div className="flex items-center gap-2 shrink-0">
                       <ApprovalBadge list={l} />
-                      <Button size="sm" variant="outline" onClick={() => startRoughCut(l.id)}
+                      <Button size="sm" variant="outline"
+                        onClick={() => {
+                          if (!l.locked && !l.clips.every((c) => c.approved)) setApprovalGate({ list: l, action: "roughcut" });
+                          else startRoughCut(l.id);
+                        }}
                         disabled={!l.clips.length || roughCutMutation.isPending}
                         title={l.clips.length && !l.clips.every((c) => c.approved) ? "Some beats aren't approved yet — review them in Refine first" : undefined}>
                         {roughCutMutation.isPending
@@ -1074,6 +1105,7 @@ export default function ProjectDetail() {
                   <CardHeader className="flex flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-base truncate pr-3">{reel.prompt}</CardTitle>
                     <div className="flex items-center gap-1 shrink-0">
+                      <UnreviewedBadge show={reel.unreviewed} />
                       <JobStatusBadge status={reel.status} />
                       <Button
                         size="icon"
@@ -1145,7 +1177,11 @@ export default function ProjectDetail() {
                           ))}
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      <Button size="sm" onClick={() => { setPreset("original"); setBurnCaptions(false); setRenderTarget(l); }}
+                      <Button size="sm"
+                        onClick={() => {
+                          if (!l.locked && !l.clips.every((c) => c.approved)) setApprovalGate({ list: l, action: "render" });
+                          else { setPreset("original"); setBurnCaptions(false); setRenderTarget(l); }
+                        }}
                         disabled={!l.clips.length}>
                         <Clapperboard className="h-3.5 w-3.5 mr-2" /> Render
                       </Button>
@@ -1189,6 +1225,7 @@ export default function ProjectDetail() {
                           {r.publish_status === "success" ? "published" : `publish: ${r.publish_status}`}
                         </Badge>
                       )}
+                      <UnreviewedBadge show={r.unreviewed} />
                       <JobStatusBadge status={r.status} />
                       {r.publish_url && (
                         <a href={r.publish_url} target="_blank" rel="noreferrer">
@@ -1270,6 +1307,47 @@ export default function ProjectDetail() {
             <Button variant="outline" onClick={() => setRenderTarget(null)}>Cancel</Button>
             <Button onClick={submitRender} disabled={renderListMutation.isPending}>
               {renderListMutation.isPending ? "Starting..." : "Start Render"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval gate dialog */}
+      <Dialog open={!!approvalGate} onOpenChange={(open) => !open && setApprovalGate(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" /> Render unreviewed beats?
+            </DialogTitle>
+          </DialogHeader>
+          {approvalGate && (
+            <p className="text-sm text-muted-foreground">
+              {approvalGate.list.clips.filter((c) => c.approved).length} of {approvalGate.list.clips.length} beats approved. Render anyway?
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (approvalGate) {
+                  setRefineFocus({ id: approvalGate.list.id });
+                  setTab("refine");
+                }
+                setApprovalGate(null);
+              }}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 mr-2" /> Review in Refine
+            </Button>
+            <Button
+              onClick={() => {
+                if (approvalGate) {
+                  if (approvalGate.action === "roughcut") startRoughCut(approvalGate.list.id);
+                  else { setPreset("original"); setBurnCaptions(false); setRenderTarget(approvalGate.list); }
+                }
+                setApprovalGate(null);
+              }}
+            >
+              Render unreviewed
             </Button>
           </DialogFooter>
         </DialogContent>

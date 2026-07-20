@@ -44,6 +44,7 @@ def _to_out(r: ReelJob) -> ReelJobOut:
         target_duration_seconds=r.target_duration_seconds,
         preset=r.preset,
         burn_captions=r.burn_captions,
+        unreviewed=bool(r.unreviewed),
         clips=[ReelClipOut(**c) for c in (r.clips or [])],
         status=r.status,
         progress=r.progress or 0.0,
