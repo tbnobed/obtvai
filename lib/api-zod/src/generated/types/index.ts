@@ -123,6 +123,7 @@ export * from './renderPresetInput';
 export * from './renderPresetInputPreset';
 export * from './renderRequest';
 export * from './renderRequestPreset';
+export * from './reprofileRequest';
 export * from './resumeStalledResult';
 export * from './retryFailedResult';
 export * from './roughCutInput';

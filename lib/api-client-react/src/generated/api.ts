@@ -93,6 +93,7 @@ import type {
   RenderJob,
   RenderPresetInput,
   RenderRequest,
+  ReprofileRequest,
   ResumeStalledResult,
   RetryFailedResult,
   RoughCutInput,
@@ -4462,14 +4463,15 @@ export const getReprofilePersonUrl = (id: string,) => {
 /**
  * @summary Re-run the AI profile (bio, speech style, key topics) for one person
  */
-export const reprofilePerson = async (id: string, options?: RequestInit): Promise<void> => {
+export const reprofilePerson = async (id: string,
+    reprofileRequest?: ReprofileRequest, options?: RequestInit): Promise<void> => {
 
   return customFetch<void>(getReprofilePersonUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reprofileRequest)
   }
 );}
 
@@ -4478,8 +4480,8 @@ export const reprofilePerson = async (id: string, options?: RequestInit): Promis
 
 
 export const getReprofilePersonMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reprofilePerson>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof reprofilePerson>>, TError,{id: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reprofilePerson>>, TError,{id: string;data?: BodyType<ReprofileRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reprofilePerson>>, TError,{id: string;data?: BodyType<ReprofileRequest>}, TContext> => {
 
 const mutationKey = ['reprofilePerson'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -4491,10 +4493,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reprofilePerson>>, {id: string}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reprofilePerson>>, {id: string;data?: BodyType<ReprofileRequest>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  reprofilePerson(id,requestOptions)
+          return  reprofilePerson(id,data,requestOptions)
         }
 
 
@@ -4505,18 +4507,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type ReprofilePersonMutationResult = NonNullable<Awaited<ReturnType<typeof reprofilePerson>>>
-
+    export type ReprofilePersonMutationBody = BodyType<ReprofileRequest> | undefined
     export type ReprofilePersonMutationError = ErrorType<void>
 
     /**
  * @summary Re-run the AI profile (bio, speech style, key topics) for one person
  */
 export const useReprofilePerson = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reprofilePerson>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reprofilePerson>>, TError,{id: string;data?: BodyType<ReprofileRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof reprofilePerson>>,
         TError,
-        {id: string},
+        {id: string;data?: BodyType<ReprofileRequest>},
         TContext
       > => {
       return useMutation(getReprofilePersonMutationOptions(options));

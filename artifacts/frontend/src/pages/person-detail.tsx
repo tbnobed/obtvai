@@ -48,7 +48,7 @@ import {
   ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors,
   AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
   SlidersHorizontal, ChevronDown, ChevronUp, Eye, Undo2, Check, Search,
-  RefreshCw,
+  RefreshCw, Globe,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -683,6 +683,8 @@ export default function PersonDetail() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [openMoments, setOpenMoments] = useState<Record<string, boolean>>({});
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioDraft, setBioDraft] = useState("");
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getGetPersonQueryKey(id) });
@@ -857,7 +859,57 @@ export default function PersonDetail() {
             </span>
             <span>{person.segment_count} segments</span>
           </div>
-          {person.summary && <p className="text-sm mt-3 max-w-3xl">{person.summary}</p>}
+          {editingBio ? (
+            <div className="mt-3 max-w-3xl space-y-2">
+              <Textarea
+                value={bioDraft}
+                onChange={(e) => setBioDraft(e.target.value)}
+                rows={4}
+                maxLength={2000}
+                placeholder="Write a short bio for this person…"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={updatePerson.isPending}
+                  onClick={() =>
+                    updatePerson.mutate(
+                      { id, data: { summary: bioDraft } },
+                      {
+                        onSuccess: () => {
+                          setEditingBio(false);
+                          invalidate();
+                        },
+                      }
+                    )
+                  }
+                >
+                  {updatePerson.isPending ? "Saving..." : "Save Bio"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditingBio(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 max-w-3xl flex items-start gap-2 group">
+              <p className="text-sm">
+                {person.summary || <span className="text-muted-foreground italic">No bio yet.</span>}
+              </p>
+              <button
+                type="button"
+                className="shrink-0 mt-0.5 text-muted-foreground/50 hover:text-foreground transition-colors"
+                title="Edit bio"
+                onClick={() => {
+                  setBioDraft(person.summary ?? "");
+                  setEditingBio(true);
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <div className="flex gap-2 mt-4">
             <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
               <DialogTrigger asChild>
@@ -1014,6 +1066,30 @@ export default function PersonDetail() {
             >
               <RefreshCw className={`h-3.5 w-3.5 ${reprofilePerson.isPending ? "animate-spin" : ""}`} />
               {reprofileQueued ? "Profile Queued" : "Regenerate Profile"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-2"
+              disabled={reprofilePerson.isPending || reprofileQueued}
+              title="Regenerate the profile using a web search (self-hosted SearXNG) for this person's name"
+              onClick={() =>
+                reprofilePerson.mutate(
+                  { id, data: { use_web: true } },
+                  {
+                    onSuccess: () => {
+                      setReprofileQueued(true);
+                      setTimeout(() => {
+                        setReprofileQueued(false);
+                        invalidate();
+                      }, 60_000);
+                    },
+                  }
+                )
+              }
+            >
+              <Globe className="h-3.5 w-3.5" />
+              {reprofileQueued ? "Profile Queued" : "Regenerate with Web Search"}
             </Button>
           </div>
         </div>

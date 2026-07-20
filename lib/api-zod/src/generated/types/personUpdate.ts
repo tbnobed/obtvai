@@ -8,5 +8,10 @@
 
 export interface PersonUpdate {
   /** @minLength 1 */
-  display_name: string;
+  display_name?: string;
+  /**
+     * Manually edited bio — overwrites the AI-generated profile text
+     * @maxLength 2000
+     */
+  summary?: string;
 }

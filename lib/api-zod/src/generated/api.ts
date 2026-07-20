@@ -1021,10 +1021,13 @@ export const UpdatePersonParams = zod.object({
 })
 
 
+export const updatePersonBodySummaryMax = 2000;
+
 
 
 export const UpdatePersonBody = zod.object({
-  "display_name": zod.string().min(1)
+  "display_name": zod.string().min(1).optional(),
+  "summary": zod.string().max(updatePersonBodySummaryMax).optional().describe('Manually edited bio — overwrites the AI-generated profile text')
 })
 
 export const UpdatePersonResponse = zod.object({
@@ -1713,6 +1716,12 @@ export const AddGraphicsToLibraryResponse = zod.object({
  */
 export const ReprofilePersonParams = zod.object({
   "id": zod.coerce.string()
+})
+
+export const reprofilePersonBodyUseWebDefault = false;
+
+export const ReprofilePersonBody = zod.object({
+  "use_web": zod.boolean().default(reprofilePersonBodyUseWebDefault).describe('Enrich the profile with a self-hosted SearXNG web search for the person\'s name')
 })
 
 export const ReprofilePersonResponse = zod.void()

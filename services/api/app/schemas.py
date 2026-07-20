@@ -515,7 +515,12 @@ class AssetPersonOut(BaseModel):
 
 
 class PersonUpdateIn(BaseModel):
-    display_name: str
+    display_name: str | None = None
+    summary: str | None = None
+
+
+class ReprofileIn(BaseModel):
+    use_web: bool = False
 
 
 class PersonMergeIn(BaseModel):

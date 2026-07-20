@@ -114,7 +114,42 @@ def _extract_name(db, media_id: str, speaker: str, tokenizer, model) -> str | No
     return None
 
 
-def _profile_person(db, person_id: str, tokenizer, model, job_id: str):
+def _web_search_context(name: str, db=None, job_id: str = "") -> str:
+    """Fetch top SearXNG results for the person's name and format them as
+    LLM context. Returns "" when SearXNG is unconfigured/unreachable — the
+    profile then generates from transcripts alone. Only the person's name
+    leaves the network, matching the trends feature's privacy posture."""
+    import httpx
+    from config import SEARXNG_URL
+    if not SEARXNG_URL:
+        if db is not None:
+            append_log(db, job_id, "Web search skipped: SEARXNG_URL not configured")
+        return ""
+    base = SEARXNG_URL.rstrip("/")
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(
+                f"{base}/search",
+                params={"q": f'"{name}"', "format": "json"},
+            )
+            resp.raise_for_status()
+            results = (resp.json().get("results") or [])[:6]
+    except Exception as exc:
+        if db is not None:
+            append_log(db, job_id, f"Web search failed ({exc}) — profiling from transcripts only")
+        return ""
+    lines = []
+    for r in results:
+        title = str(r.get("title") or "").strip()
+        content = str(r.get("content") or "").strip()
+        if title or content:
+            lines.append(f"- {title}: {content}"[:500])
+    if db is not None:
+        append_log(db, job_id, f"Web search: {len(lines)} results for '{name}'")
+    return "\n".join(lines)[:4000]
+
+
+def _profile_person(db, person_id: str, tokenizer, model, job_id: str, use_web: bool = False):
     """Regenerate summary / speech_style / key_topics from everything this person has said."""
     from sqlalchemy import text
     from tasks.analyze import _generate, _extract_json
@@ -146,11 +181,23 @@ def _profile_person(db, person_id: str, tokenizer, model, job_id: str):
     # deadlocks against API startup DDL (ALTER TABLE queues an
     # AccessExclusiveLock, blocking and being blocked in a cycle).
     db.commit()
+    web_block = ""
+    if use_web:
+        ctx = _web_search_context(display_name, db, job_id)
+        if ctx:
+            web_block = (
+                f"\nWeb search results for \"{display_name}\" (these may describe a "
+                "DIFFERENT person with the same name — only use facts that are "
+                "consistent with what the person says in the transcript below; "
+                "if the results clearly match, you may use them to state their "
+                "real role/affiliation):\n" + ctx + "\n"
+            )
     prompt = (
         f"The following are things {display_name} has said across a video library.\n"
         f"The person's name is {display_name}. Refer to them ONLY by this name, "
         "even if the transcript mentions or suggests other names (those may be "
         "people they are talking about or introducing).\n"
+        + web_block +
         "Analyze them and respond with ONLY a JSON object of this exact shape:\n"
         '{"summary": "1-2 sentence bio of who this person appears to be and their role", '
         '"speech_style": "1-2 sentences describing how they speak: tone, pacing, vocabulary, verbal habits", '
@@ -600,16 +647,18 @@ def identify_people(self, media_id: str, job_id: str):
 
 
 @celery_app.task(name="tasks.identify.regenerate_profile", queue="gpu")
-def regenerate_profile(person_id: str, job_id: str = ""):
+def regenerate_profile(person_id: str, job_id: str = "", use_web: bool = False):
     """Rebuild one person's LLM profile (summary/speech style/topics).
 
     Queued fire-and-forget after a manual rename so the bio reflects the
     new name instead of whatever identity the LLM inferred from speech.
+    With use_web=True, self-hosted SearXNG results for the person's name are
+    added as (guarded) context so the bio can reflect their real-world role.
     """
     db = get_session()
     try:
         from tasks.analyze import _load_llm
         tokenizer, model = _load_llm()
-        _profile_person(db, person_id, tokenizer, model, job_id)
+        _profile_person(db, person_id, tokenizer, model, job_id, use_web=use_web)
     finally:
         db.close()

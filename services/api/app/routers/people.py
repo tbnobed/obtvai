@@ -8,6 +8,7 @@ from ..schemas import (
     PersonDetailOut,
     PersonAppearanceOut,
     PersonUpdateIn,
+    ReprofileIn,
     PersonMergeIn,
     PersonSplitIn,
     PersonUnmergeIn,
@@ -580,13 +581,19 @@ async def get_person_asset_moments(id: str, media_id: str, db: AsyncSession = De
 
 @router.patch("/{id}", response_model=PersonOut)
 async def update_person(id: str, body: PersonUpdateIn, db: AsyncSession = Depends(get_db)):
-    name = body.display_name.strip()
-    if not name:
-        raise HTTPException(status_code=422, detail="display_name must not be empty")
+    if body.display_name is None and body.summary is None:
+        raise HTTPException(status_code=422, detail="Provide display_name and/or summary")
     person, assets, speaking, segments = await _get_person_with_stats(id, db)
-    name_changed = person.display_name != name
-    person.display_name = name
-    person.name_source = "manual"
+    name_changed = False
+    if body.display_name is not None:
+        name = body.display_name.strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="display_name must not be empty")
+        name_changed = person.display_name != name
+        person.display_name = name
+        person.name_source = "manual"
+    if body.summary is not None:
+        person.summary = body.summary.strip()[:2000] or None
     await db.commit()
     await db.refresh(person)
     if name_changed:
@@ -604,7 +611,11 @@ async def update_person(id: str, body: PersonUpdateIn, db: AsyncSession = Depend
 
 
 @router.post("/{id}/reprofile", status_code=202)
-async def reprofile_person(id: str, db: AsyncSession = Depends(get_db)):
+async def reprofile_person(
+    id: str,
+    body: ReprofileIn | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     """Re-run the AI profile (bio / speech style / key topics) for one person."""
     person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
     if not person:
@@ -613,7 +624,7 @@ async def reprofile_person(id: str, db: AsyncSession = Depends(get_db)):
     import uuid as _uuid
     await _publish(
         "gpu", "tasks.identify.regenerate_profile",
-        {"person_id": id}, str(_uuid.uuid4()),
+        {"person_id": id, "use_web": bool(body and body.use_web)}, str(_uuid.uuid4()),
     )
     return None
 

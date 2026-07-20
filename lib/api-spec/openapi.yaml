@@ -1394,6 +1394,12 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReprofileRequest"
       responses:
         "202":
           description: Profile regeneration queued
@@ -3296,11 +3302,23 @@ components:
 
     PersonUpdate:
       type: object
-      required: [display_name]
+      minProperties: 1
       properties:
         display_name:
           type: string
           minLength: 1
+        summary:
+          type: string
+          maxLength: 2000
+          description: Manually edited bio — overwrites the AI-generated profile text
+
+    ReprofileRequest:
+      type: object
+      properties:
+        use_web:
+          type: boolean
+          default: false
+          description: Enrich the profile with a self-hosted SearXNG web search for the person's name
 
     PersonMergeRequest:
       type: object

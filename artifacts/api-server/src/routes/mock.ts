@@ -2284,10 +2284,19 @@ router.get("/people/:id/appearances/:mediaId", (req, res) => {
 router.patch("/people/:id", (req, res) => {
   const p = people.find((x) => x.id === req.params.id);
   if (!p) { res.status(404).json({ error: "Not found" }); return; }
-  const name = String(req.body?.display_name ?? "").trim();
-  if (!name) { res.status(422).json({ error: "display_name must not be empty" }); return; }
-  p.display_name = name;
-  p.name_source = "manual";
+  if (req.body?.display_name === undefined && req.body?.summary === undefined) {
+    res.status(422).json({ error: "Provide display_name and/or summary" });
+    return;
+  }
+  if (req.body?.display_name !== undefined) {
+    const name = String(req.body.display_name ?? "").trim();
+    if (!name) { res.status(422).json({ error: "display_name must not be empty" }); return; }
+    p.display_name = name;
+    p.name_source = "manual";
+  }
+  if (req.body?.summary !== undefined) {
+    p.summary = String(req.body.summary ?? "").trim().slice(0, 2000) || null;
+  }
   p.updated_at = new Date().toISOString();
   res.json(p);
 });
