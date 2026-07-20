@@ -1,13 +1,32 @@
+import { useState } from "react";
 import {
   useGetLibraryStats,
   getGetLibraryStatsQueryKey,
   useGetLibraryInsights,
   getGetLibraryInsightsQueryKey,
+  useListProjects,
+  getListProjectsQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Link } from "wouter";
-import { Film, Clock, HardDrive, Activity, Search, Lightbulb, MapPinned, Sparkles, ArrowRight } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import {
+  Film,
+  Clock,
+  HardDrive,
+  Activity,
+  Search,
+  Lightbulb,
+  MapPinned,
+  Sparkles,
+  ArrowRight,
+  FolderKanban,
+  Scissors,
+  BookOpen,
+  Clapperboard,
+  AlertTriangle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatHours } from "@/lib/format";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -20,11 +39,29 @@ const EVENT_LABELS: Record<string, string> = {
 export default function Dashboard() {
   const { data: stats, isLoading } = useGetLibraryStats({ query: { queryKey: getGetLibraryStatsQueryKey() } });
   const { data: insights } = useGetLibraryInsights({ query: { queryKey: getGetLibraryInsightsQueryKey() } });
+  const { data: projects } = useListProjects({ query: { queryKey: getListProjectsQueryKey() } });
+  const [, navigate] = useLocation();
+  const [quickQuery, setQuickQuery] = useState("");
 
   function formatBytes(bytes: number) {
     const gb = bytes / (1024 * 1024 * 1024);
     return `${gb.toFixed(2)} GB`;
   }
+
+  const submitQuickSearch = () => {
+    const q = quickQuery.trim();
+    if (q.length < 2) return;
+    navigate(`/search?q=${encodeURIComponent(q)}`);
+  };
+
+  const errorCount = stats?.status_counts.error || 0;
+
+  const activeProjects = (projects ?? [])
+    .slice()
+    .sort((a, b) =>
+      (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at),
+    )
+    .slice(0, 4);
 
   const teasers =
     insights?.generated_at
@@ -49,13 +86,26 @@ export default function Dashboard() {
 
   return (
     <div className="flex-1 p-8 overflow-y-auto">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-        <Button asChild>
+        <Button asChild variant="outline">
           <Link href="/projects" className="gap-2">
-            <Search className="h-4 w-4" />
-            Find Footage
+            <FolderKanban className="h-4 w-4" />
+            Projects
           </Link>
+        </Button>
+      </div>
+
+      <div className="flex gap-2 mb-8 max-w-2xl">
+        <Input
+          value={quickQuery}
+          onChange={(e) => setQuickQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submitQuickSearch()}
+          placeholder="Search the whole library — people, quotes, scenes…"
+          className="h-10"
+        />
+        <Button className="h-10" onClick={submitQuickSearch} disabled={quickQuery.trim().length < 2}>
+          <Search className="h-4 w-4" />
         </Button>
       </div>
 
@@ -67,16 +117,18 @@ export default function Dashboard() {
         </div>
       ) : stats ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
-              <Film className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total_assets}</div>
-              <p className="text-xs text-muted-foreground mt-1">Indexed media files</p>
-            </CardContent>
-          </Card>
+          <Link href="/library">
+            <Card className="hover:border-primary transition-colors cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
+                <Film className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.total_assets}</div>
+                <p className="text-xs text-muted-foreground mt-1">Indexed media files</p>
+              </CardContent>
+            </Card>
+          </Link>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium">Total Duration</CardTitle>
@@ -99,18 +151,58 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground mt-1">Across all qualities</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Processing</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.status_counts.processing || 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">Active jobs</p>
-            </CardContent>
-          </Card>
+          <Link href="/jobs">
+            <Card className={`hover:border-primary transition-colors cursor-pointer h-full ${errorCount > 0 ? "border-red-500/50" : ""}`}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <CardTitle className="text-sm font-medium">Pipeline</CardTitle>
+                {errorCount > 0 ? (
+                  <AlertTriangle className="h-4 w-4 text-red-400" />
+                ) : (
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.status_counts.processing || 0}</div>
+                <p className={`text-xs mt-1 ${errorCount > 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                  {errorCount > 0
+                    ? `Processing · ${errorCount} failed asset${errorCount === 1 ? "" : "s"} need attention`
+                    : `Processing · ${stats.status_counts.pending || 0} queued`}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       ) : null}
+
+      {activeProjects.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold tracking-tight">Active Projects</h2>
+            <Link href="/projects" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+              All projects <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {activeProjects.map((p) => (
+              <Link key={p.id} href={`/projects/${p.id}`}>
+                <Card className="hover:border-primary transition-colors cursor-pointer h-full">
+                  <CardContent className="p-4">
+                    <p className="text-sm font-medium truncate" title={p.name}>{p.name}</p>
+                    {p.description && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate" title={p.description}>{p.description}</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Scissors className="h-3 w-3" />{p.counts.clip_lists}</span>
+                      <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{p.counts.stories}</span>
+                      <span className="flex items-center gap-1"><Clapperboard className="h-3 w-3" />{p.counts.renders}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {teasers.length > 0 && (
         <div className="mt-8">

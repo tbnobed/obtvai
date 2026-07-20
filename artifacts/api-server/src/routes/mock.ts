@@ -703,6 +703,15 @@ router.post("/search", (req, res) => {
   }
 
   results.sort((a, b) => b.score - a.score);
+  if (req.body.query && String(req.body.query).trim()) {
+    searchHistory.unshift({
+      id: `sh-${Date.now()}`,
+      query: String(req.body.query).trim(),
+      result_count: results.length,
+      searched_at: new Date().toISOString(),
+    });
+    if (searchHistory.length > 20) searchHistory.length = 20;
+  }
   setTimeout(() => res.json({ results, query: req.body.query, took_ms: 42 + Math.random() * 80 }), 150);
 });
 

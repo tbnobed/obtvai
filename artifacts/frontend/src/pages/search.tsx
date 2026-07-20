@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useRef, useState } from "react";
+import { Link, useSearch } from "wouter";
 import {
   useSemanticSearch,
   useGetSearchHistory,
@@ -36,6 +36,19 @@ export default function SearchPage() {
       },
     );
   };
+
+  // Support /search?q=… deep links (e.g. from the Dashboard search box).
+  const searchString = useSearch();
+  const ranInitialQuery = useRef(false);
+  useEffect(() => {
+    if (ranInitialQuery.current) return;
+    const q = new URLSearchParams(searchString).get("q");
+    if (q && q.trim().length >= 2) {
+      ranInitialQuery.current = true;
+      runSearch(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchString]);
 
   const resultRow = (r: SearchResult, key: string) => (
     <div key={key} className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm gap-3">
