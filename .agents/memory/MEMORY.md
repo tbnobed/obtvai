@@ -17,5 +17,6 @@
 - [Model stack upgrade notes](model-upgrade-2026.md) — embedding swaps need full reindex + Qdrant recreate; SigLIP/pyannote4/ArcFace/MADLAD API quirks and score-scale changes.
 - [XTTS cloning quality](xtts-cloning-quality.md) — stock inference defaults beat hand-tuned sampling; 1-2 long clean reference wavs beat many mixed ones.
 - [Driving ComfyUI over REST](comfyui-driving.md) — history entry = done signal; SaveImage+ffmpeg beats video-save nodes; gate on /object_info; cancel-race + poll-tolerance guards.
+- [External API error hygiene](external-api-error-hygiene.md) — httpx HTTPStatusError text embeds the full URL incl. api_key; sanitize before persisting errors; pending statuses need queued_at for stuck-state retry.
 - [queryClient.clear() orphans observers](react-query-clear-orphan.md) — never clear() with mounted observers; works in dev, silently freezes prod builds; removeQueries+setQueryData instead.
 - [Replit preview cookies](replit-preview-cookies.md) — preview iframe drops SameSite=Lax cookies (login 200 then me 401); dev/mock cookies need SameSite=None; Secure.

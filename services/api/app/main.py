@@ -53,6 +53,7 @@ _COLUMN_MIGRATIONS = [
     ("render_jobs", "unreviewed", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("reel_jobs", "unreviewed", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("person_appearances", "merged_from", "JSONB"),
+    ("people", "face_search", "JSONB"),
 ]
 
 

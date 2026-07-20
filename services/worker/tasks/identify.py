@@ -10,6 +10,7 @@ Serialized globally via a Postgres advisory lock so concurrent runs (diarize
 and face_detect both trigger it) cannot create duplicate people.
 """
 import json
+import os
 import time
 import uuid
 from datetime import datetime
@@ -643,6 +644,109 @@ def identify_people(self, media_id: str, job_id: str):
                 db.commit()
             except Exception:
                 pass
+        db.close()
+
+
+def _litterbox_upload(path: str) -> str:
+    """Upload a file to litterbox.catbox.moe (expires after 1 hour) and return
+    its public URL. Google Lens (SerpAPI) can only fetch images by URL, so the
+    face crop must be briefly reachable from the internet."""
+    import httpx
+    with open(path, "rb") as fh:
+        resp = httpx.post(
+            "https://litterbox.catbox.moe/resources/internals/api.php",
+            data={"reqtype": "fileupload", "time": "1h"},
+            files={"fileToUpload": (os.path.basename(path), fh, "image/jpeg")},
+            timeout=60.0,
+        )
+    resp.raise_for_status()
+    url = resp.text.strip()
+    if not url.startswith("http"):
+        raise RuntimeError(f"Unexpected upload response: {url[:200]}")
+    return url
+
+
+@celery_app.task(name="tasks.identify.face_search", queue="cpu")
+def face_search(person_id: str, job_id: str = ""):
+    """Reverse-search a person's face on the web via Google Lens (SerpAPI).
+
+    Uploads the person's face thumbnail to a 1-hour temporary public host,
+    runs a Google Lens visual match search on it, and stores the top
+    candidates in people.face_search for the UI to present. A human decides
+    what to do with the candidates — nothing is renamed automatically."""
+    import httpx
+    from datetime import datetime, timezone
+    from sqlalchemy import text
+    from config import SERPAPI_KEY, THUMBNAILS_DIR
+
+    db = get_session()
+
+    def _store(payload: dict):
+        db.rollback()
+        db.execute(
+            text("UPDATE people SET face_search = CAST(:p AS jsonb) WHERE id = :pid"),
+            {"p": json.dumps(payload), "pid": person_id},
+        )
+        db.commit()
+
+    try:
+        row = db.execute(
+            text("SELECT thumbnail_url FROM people WHERE id = :pid"),
+            {"pid": person_id},
+        ).fetchone()
+        if row is None:
+            return
+        if not SERPAPI_KEY:
+            _store({"status": "error", "error": "SERPAPI_KEY is not configured on the server"})
+            return
+        thumb = os.path.join(THUMBNAILS_DIR, os.path.basename(row[0] or ""))
+        if not row[0] or not os.path.isfile(thumb):
+            _store({"status": "error", "error": "Face thumbnail file not found"})
+            return
+
+        image_url = _litterbox_upload(thumb)
+        try:
+            with httpx.Client(timeout=90.0) as client:
+                resp = client.get(
+                    "https://serpapi.com/search.json",
+                    params={"engine": "google_lens", "url": image_url, "api_key": SERPAPI_KEY},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+        except httpx.HTTPStatusError as exc:
+            # Never persist the raw exception — httpx embeds the full request
+            # URL (including api_key) in its message.
+            raise RuntimeError(f"SerpAPI returned HTTP {exc.response.status_code}") from None
+        if data.get("error"):
+            raise RuntimeError(str(data["error"])[:300])
+
+        candidates = []
+        for m in (data.get("visual_matches") or [])[:15]:
+            title = str(m.get("title") or "").strip()
+            link = str(m.get("link") or "").strip()
+            if not title or not link:
+                continue
+            candidates.append({
+                "title": title[:200],
+                "link": link,
+                "source": (str(m.get("source")) if m.get("source") else None),
+                "thumbnail": (str(m.get("thumbnail")) if m.get("thumbnail") else None),
+            })
+        _store({
+            "status": "done",
+            "searched_at": datetime.now(timezone.utc).isoformat(),
+            "candidates": candidates,
+        })
+    except Exception as exc:
+        # Belt and braces: strip any api_key that made it into the message.
+        import re
+        msg = re.sub(r"api_key=[^&\s'\"]+", "api_key=***", str(exc))
+        try:
+            _store({"status": "error", "error": msg[:300]})
+        except Exception:
+            pass
+        raise
+    finally:
         db.close()
 
 

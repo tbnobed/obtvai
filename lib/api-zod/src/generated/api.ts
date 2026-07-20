@@ -883,7 +883,19 @@ export const ListPeopleResponse = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)'),
+  "face_search": zod.union([zod.object({
+  "status": zod.enum(['pending', 'done', 'error']),
+  "queued_at": zod.string().nullish().describe('When the search was queued — lets the UI treat a long-stuck pending state as retryable'),
+  "searched_at": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "candidates": zod.array(zod.object({
+  "title": zod.string(),
+  "link": zod.string(),
+  "source": zod.string().nullish().describe('Site the match was found on'),
+  "thumbnail": zod.string().nullish().describe('External thumbnail URL of the matched image')
+})).optional()
+}),zod.null()]).optional().describe('Latest web face-search state\/results for this person')
 })),
   "total": zod.number().describe('Total number of people in the library')
 })
@@ -945,7 +957,19 @@ export const EnrollPersonResponse = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)'),
+  "face_search": zod.union([zod.object({
+  "status": zod.enum(['pending', 'done', 'error']),
+  "queued_at": zod.string().nullish().describe('When the search was queued — lets the UI treat a long-stuck pending state as retryable'),
+  "searched_at": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "candidates": zod.array(zod.object({
+  "title": zod.string(),
+  "link": zod.string(),
+  "source": zod.string().nullish().describe('Site the match was found on'),
+  "thumbnail": zod.string().nullish().describe('External thumbnail URL of the matched image')
+})).optional()
+}),zod.null()]).optional().describe('Latest web face-search state\/results for this person')
 }),
   "matches": zod.array(zod.object({
   "person_id": zod.string(),
@@ -983,7 +1007,19 @@ export const GetPersonResponse = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)'),
+  "face_search": zod.union([zod.object({
+  "status": zod.enum(['pending', 'done', 'error']),
+  "queued_at": zod.string().nullish().describe('When the search was queued — lets the UI treat a long-stuck pending state as retryable'),
+  "searched_at": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "candidates": zod.array(zod.object({
+  "title": zod.string(),
+  "link": zod.string(),
+  "source": zod.string().nullish().describe('Site the match was found on'),
+  "thumbnail": zod.string().nullish().describe('External thumbnail URL of the matched image')
+})).optional()
+}),zod.null()]).optional().describe('Latest web face-search state\/results for this person')
 }).and(zod.object({
   "appearances": zod.array(zod.object({
   "media_id": zod.string(),
@@ -1048,7 +1084,19 @@ export const UpdatePersonResponse = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)'),
+  "face_search": zod.union([zod.object({
+  "status": zod.enum(['pending', 'done', 'error']),
+  "queued_at": zod.string().nullish().describe('When the search was queued — lets the UI treat a long-stuck pending state as retryable'),
+  "searched_at": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "candidates": zod.array(zod.object({
+  "title": zod.string(),
+  "link": zod.string(),
+  "source": zod.string().nullish().describe('Site the match was found on'),
+  "thumbnail": zod.string().nullish().describe('External thumbnail URL of the matched image')
+})).optional()
+}),zod.null()]).optional().describe('Latest web face-search state\/results for this person')
 })
 
 
@@ -1081,7 +1129,19 @@ export const MergePersonResponse = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)'),
+  "face_search": zod.union([zod.object({
+  "status": zod.enum(['pending', 'done', 'error']),
+  "queued_at": zod.string().nullish().describe('When the search was queued — lets the UI treat a long-stuck pending state as retryable'),
+  "searched_at": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "candidates": zod.array(zod.object({
+  "title": zod.string(),
+  "link": zod.string(),
+  "source": zod.string().nullish().describe('Site the match was found on'),
+  "thumbnail": zod.string().nullish().describe('External thumbnail URL of the matched image')
+})).optional()
+}),zod.null()]).optional().describe('Latest web face-search state\/results for this person')
 })
 
 
@@ -1116,7 +1176,19 @@ export const SplitPersonResponse = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)'),
+  "face_search": zod.union([zod.object({
+  "status": zod.enum(['pending', 'done', 'error']),
+  "queued_at": zod.string().nullish().describe('When the search was queued — lets the UI treat a long-stuck pending state as retryable'),
+  "searched_at": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "candidates": zod.array(zod.object({
+  "title": zod.string(),
+  "link": zod.string(),
+  "source": zod.string().nullish().describe('Site the match was found on'),
+  "thumbnail": zod.string().nullish().describe('External thumbnail URL of the matched image')
+})).optional()
+}),zod.null()]).optional().describe('Latest web face-search state\/results for this person')
 })
 
 
@@ -1149,7 +1221,19 @@ export const UnmergePersonResponse = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)'),
+  "face_search": zod.union([zod.object({
+  "status": zod.enum(['pending', 'done', 'error']),
+  "queued_at": zod.string().nullish().describe('When the search was queued — lets the UI treat a long-stuck pending state as retryable'),
+  "searched_at": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "candidates": zod.array(zod.object({
+  "title": zod.string(),
+  "link": zod.string(),
+  "source": zod.string().nullish().describe('Site the match was found on'),
+  "thumbnail": zod.string().nullish().describe('External thumbnail URL of the matched image')
+})).optional()
+}),zod.null()]).optional().describe('Latest web face-search state\/results for this person')
 })
 
 
@@ -1725,6 +1809,16 @@ export const ReprofilePersonBody = zod.object({
 })
 
 export const ReprofilePersonResponse = zod.void()
+
+
+/**
+ * @summary Reverse-search this person's face on the web (Google Lens via SerpAPI) to help identify them
+ */
+export const FaceSearchPersonParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const FaceSearchPersonResponse = zod.void()
 
 
 /**

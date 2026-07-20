@@ -733,6 +733,42 @@ router.post("/people/:id/reprofile", (req, res) => {
   res.status(202).end();
 });
 
+router.post("/people/:id/face-search", (req, res) => {
+  const person = people.find((p) => p.id === req.params.id);
+  if (!person) {
+    res.status(404).json({ error: "Person not found" });
+    return;
+  }
+  person.face_search = { status: "pending", queued_at: new Date().toISOString() };
+  setTimeout(() => {
+    person.face_search = {
+      status: "done",
+      searched_at: new Date().toISOString(),
+      candidates: [
+        {
+          title: `${person.display_name} — Keynote at TechForward 2023`,
+          link: "https://example.com/techforward-2023-speakers",
+          source: "example.com",
+          thumbnail: null,
+        },
+        {
+          title: `Interview: ${person.display_name} on local AI infrastructure`,
+          link: "https://example.com/interviews/local-ai",
+          source: "example.com",
+          thumbnail: null,
+        },
+        {
+          title: "Panel discussion — Broadcast Media Summit",
+          link: "https://example.com/panels/broadcast-summit",
+          source: "example.com",
+          thumbnail: null,
+        },
+      ],
+    };
+  }, 2500);
+  res.status(202).end();
+});
+
 router.post("/people/reanalyze", (_req, res) => {
   res.status(202).json({ assets_queued: 3, jobs_created: 6 });
 });
@@ -2020,6 +2056,7 @@ const people = [
     total_speaking_seconds: 1845.2,
     segment_count: 214,
     updated_at: now,
+    face_search: null as Record<string, any> | null,
   },
   {
     id: "person-002",
@@ -2035,6 +2072,7 @@ const people = [
     total_speaking_seconds: 612.7,
     segment_count: 98,
     updated_at: now,
+    face_search: null as Record<string, any> | null,
   },
   {
     id: "person-003",
@@ -2050,6 +2088,7 @@ const people = [
     total_speaking_seconds: 1120.4,
     segment_count: 156,
     updated_at: now,
+    face_search: null as Record<string, any> | null,
   },
   {
     id: "person-004",
@@ -2063,6 +2102,7 @@ const people = [
     total_speaking_seconds: 87.3,
     segment_count: 12,
     updated_at: now,
+    face_search: null as Record<string, any> | null,
   },
 ];
 
@@ -2229,6 +2269,7 @@ router.post("/people/enroll", upload.single("photo"), (req, res) => {
     total_speaking_seconds: 0,
     segment_count: 0,
     updated_at: new Date().toISOString(),
+    face_search: null as Record<string, any> | null,
   };
   people.push(newPerson);
   personAppearances[newPerson.id] = [];

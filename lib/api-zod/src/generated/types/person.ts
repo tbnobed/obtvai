@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { FaceSearchResult } from './faceSearchResult';
 import type { VoiceSettings } from './voiceSettings';
 
 export interface Person {
@@ -40,4 +41,6 @@ export interface Person {
   voice_preset?: string | null;
   /** Saved custom synthesis settings (take precedence over voice_preset) */
   voice_settings?: VoiceSettings;
+  /** Latest web face-search state/results for this person */
+  face_search?: FaceSearchResult | null;
 }

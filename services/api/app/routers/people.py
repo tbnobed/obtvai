@@ -55,6 +55,7 @@ def _person_out(person: Person, asset_count: int, speaking: float, segments: int
         updated_at=person.updated_at,
         voice_preset=person.voice_preset,
         voice_settings=person.voice_settings,
+        face_search=person.face_search,
     )
 
 
@@ -625,6 +626,30 @@ async def reprofile_person(
     await _publish(
         "gpu", "tasks.identify.regenerate_profile",
         {"person_id": id, "use_web": bool(body and body.use_web)}, str(_uuid.uuid4()),
+    )
+    return None
+
+
+@router.post("/{id}/face-search", status_code=202)
+async def face_search_person(id: str, db: AsyncSession = Depends(get_db)):
+    """Queue a reverse web face search (Google Lens via SerpAPI) for this person.
+
+    The person's face thumbnail is uploaded to a short-lived public host so
+    Google Lens can fetch it — this is the only feature that sends media
+    outside the network, and it only runs on explicit user request."""
+    person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+    if not person.thumbnail_url:
+        raise HTTPException(status_code=409, detail="Person has no face thumbnail to search with")
+    from datetime import datetime, timezone
+    person.face_search = {"status": "pending", "queued_at": datetime.now(timezone.utc).isoformat()}
+    await db.commit()
+    from ..worker_client import _publish
+    import uuid as _uuid
+    await _publish(
+        "cpu", "tasks.identify.face_search",
+        {"person_id": id}, str(_uuid.uuid4()),
     )
     return None
 

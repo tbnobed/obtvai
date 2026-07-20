@@ -24,8 +24,9 @@ import {
   useGetPersonAssetMoments,
   getGetPersonAssetMomentsQueryKey,
   useReprofilePerson,
+  useFaceSearchPerson,
 } from "@workspace/api-client-react";
-import type { PersonAppearance, VoiceGeneration, VoiceSettings } from "@workspace/api-client-react";
+import type { FaceSearchResult, PersonAppearance, VoiceGeneration, VoiceSettings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +49,7 @@ import {
   ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors,
   AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
   SlidersHorizontal, ChevronDown, ChevronUp, Eye, Undo2, Check, Search,
-  RefreshCw, Globe,
+  RefreshCw, Globe, ScanSearch, ExternalLink, AlertTriangle,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -71,6 +72,14 @@ const XTTS_LANGUAGES: { code: string; label: string }[] = [
   { code: "ko", label: "Korean" },
   { code: "hi", label: "Hindi" },
 ];
+
+// A pending face search older than 10 minutes is treated as stuck (worker died,
+// queue unavailable) so the button re-enables and polling stops.
+function faceSearchActive(fs?: FaceSearchResult | null): boolean {
+  if (fs?.status !== "pending") return false;
+  if (!fs.queued_at) return true;
+  return Date.now() - Date.parse(fs.queued_at) <= 10 * 60 * 1000;
+}
 
 function parseTimecode(v: string): number | null {
   const t = v.trim();
@@ -642,7 +651,12 @@ export default function PersonDetail() {
   const id = params?.id ?? "";
   const queryClient = useQueryClient();
   const { data: person, isLoading } = useGetPerson(id, {
-    query: { queryKey: getGetPersonQueryKey(id), enabled: !!id },
+    query: {
+      queryKey: getGetPersonQueryKey(id),
+      enabled: !!id,
+      refetchInterval: (query) =>
+        faceSearchActive(query.state.data?.face_search) ? 4000 : false,
+    },
   });
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeSearch, setMergeSearch] = useState("");
@@ -674,6 +688,7 @@ export default function PersonDetail() {
 
   const updatePerson = useUpdatePerson();
   const reprofilePerson = useReprofilePerson();
+  const faceSearchPerson = useFaceSearchPerson();
   const [reprofileQueued, setReprofileQueued] = useState(false);
   const mergePerson = useMergePerson();
   const splitPerson = useSplitPerson();
@@ -1091,9 +1106,101 @@ export default function PersonDetail() {
               <Globe className="h-3.5 w-3.5" />
               {reprofileQueued ? "Profile Queued" : "Regenerate with Web Search"}
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-2"
+              disabled={faceSearchPerson.isPending || faceSearchActive(person.face_search)}
+              title="Search the web for this face (Google Lens). The face thumbnail is uploaded to a temporary public host for one hour so Google can fetch it."
+              onClick={() => faceSearchPerson.mutate({ id }, { onSuccess: invalidate })}
+            >
+              {faceSearchActive(person.face_search) ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ScanSearch className="h-3.5 w-3.5" />
+              )}
+              {faceSearchActive(person.face_search) ? "Searching Web..." : "Web Face Search"}
+            </Button>
           </div>
         </div>
       </div>
+
+      {person.face_search && (
+        <div className="border border-border bg-card rounded-md p-4 mb-8">
+          <h2 className="text-sm font-semibold flex items-center gap-2 mb-1">
+            <ScanSearch className="h-4 w-4 text-primary" />
+            Web Face Search
+            {person.face_search.searched_at && (
+              <span className="text-xs font-normal text-muted-foreground">
+                {new Date(person.face_search.searched_at).toLocaleString()}
+              </span>
+            )}
+          </h2>
+          {person.face_search.status === "pending" && (
+            faceSearchActive(person.face_search) ? (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Searching the web for this face... this usually takes under a minute.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                This search appears to be stuck — you can try again.
+              </p>
+            )
+          )}
+          {person.face_search.status === "error" && (
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {person.face_search.error || "Face search failed"}
+            </p>
+          )}
+          {person.face_search.status === "done" && (
+            person.face_search.candidates?.length ? (
+              <>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Possible web matches for this face — review before trusting; visual matches can be wrong. Nothing is renamed automatically.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {person.face_search.candidates.map((c, i) => (
+                    <a
+                      key={i}
+                      href={c.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-3 border border-border rounded-md p-2.5 hover:bg-accent/50 transition-colors"
+                    >
+                      {c.thumbnail ? (
+                        <img
+                          src={c.thumbnail}
+                          alt=""
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                          className="h-14 w-14 rounded object-cover bg-muted shrink-0"
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="h-14 w-14 rounded bg-muted flex items-center justify-center shrink-0">
+                          <User className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium leading-snug line-clamp-2">{c.title}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 truncate">
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{c.source || new URL(c.link).hostname}</span>
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No visual matches found on the web.</p>
+            )
+          )}
+        </div>
+      )}
 
       {(person.speech_style || person.key_topics?.length) ? (
         <div className="grid gap-4 md:grid-cols-2 mb-8">

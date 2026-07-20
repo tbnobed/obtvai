@@ -4524,6 +4524,77 @@ export const useReprofilePerson = <TError = ErrorType<void>,
       return useMutation(getReprofilePersonMutationOptions(options));
     }
 
+export const getFaceSearchPersonUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/face-search`
+}
+
+/**
+ * @summary Reverse-search this person's face on the web (Google Lens via SerpAPI) to help identify them
+ */
+export const faceSearchPerson = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getFaceSearchPersonUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getFaceSearchPersonMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof faceSearchPerson>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof faceSearchPerson>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['faceSearchPerson'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof faceSearchPerson>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  faceSearchPerson(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FaceSearchPersonMutationResult = NonNullable<Awaited<ReturnType<typeof faceSearchPerson>>>
+
+    export type FaceSearchPersonMutationError = ErrorType<void>
+
+    /**
+ * @summary Reverse-search this person's face on the web (Google Lens via SerpAPI) to help identify them
+ */
+export const useFaceSearchPerson = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof faceSearchPerson>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof faceSearchPerson>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getFaceSearchPersonMutationOptions(options));
+    }
+
 export const getReanalyzePeopleUrl = () => {
 
 

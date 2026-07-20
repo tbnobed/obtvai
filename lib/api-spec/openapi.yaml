@@ -1406,6 +1406,25 @@ paths:
         "404":
           description: Not found
 
+  /people/{id}/face-search:
+    post:
+      operationId: faceSearchPerson
+      tags: [people]
+      summary: Reverse-search this person's face on the web (Google Lens via SerpAPI) to help identify them
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Face search queued — poll the person until face_search.status leaves "pending"
+        "404":
+          description: Not found
+        "409":
+          description: Person has no face thumbnail to search with
+
   /people/reanalyze:
     post:
       operationId: reanalyzePeople
@@ -3107,6 +3126,45 @@ components:
           allOf:
             - $ref: "#/components/schemas/VoiceSettings"
           description: Saved custom synthesis settings (take precedence over voice_preset)
+        face_search:
+          oneOf:
+            - $ref: "#/components/schemas/FaceSearchResult"
+            - type: "null"
+          description: Latest web face-search state/results for this person
+
+    FaceSearchCandidate:
+      type: object
+      required: [title, link]
+      properties:
+        title:
+          type: string
+        link:
+          type: string
+        source:
+          type: ["string", "null"]
+          description: Site the match was found on
+        thumbnail:
+          type: ["string", "null"]
+          description: External thumbnail URL of the matched image
+
+    FaceSearchResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, done, error]
+        queued_at:
+          type: ["string", "null"]
+          description: When the search was queued — lets the UI treat a long-stuck pending state as retryable
+        searched_at:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/FaceSearchCandidate"
 
     PersonAppearance:
       type: object

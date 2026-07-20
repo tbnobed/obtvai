@@ -468,6 +468,7 @@ class PersonOut(BaseModel):
     updated_at: Optional[datetime] = None
     voice_preset: Optional[str] = None
     voice_settings: Optional[dict] = None
+    face_search: Optional[dict] = None
 
 
 class PersonAppearanceOut(BaseModel):

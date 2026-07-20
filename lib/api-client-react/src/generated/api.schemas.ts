@@ -346,6 +346,44 @@ export interface VoiceSettings {
   repetition_penalty?: number | null;
 }
 
+export type FaceSearchResultStatus = typeof FaceSearchResultStatus[keyof typeof FaceSearchResultStatus];
+
+
+export const FaceSearchResultStatus = {
+  pending: 'pending',
+  done: 'done',
+  error: 'error',
+} as const;
+
+export interface FaceSearchCandidate {
+  title: string;
+  link: string;
+  /**
+     * Site the match was found on
+     * @nullable
+     */
+  source?: string | null;
+  /**
+     * External thumbnail URL of the matched image
+     * @nullable
+     */
+  thumbnail?: string | null;
+}
+
+export interface FaceSearchResult {
+  status: FaceSearchResultStatus;
+  /**
+     * When the search was queued — lets the UI treat a long-stuck pending state as retryable
+     * @nullable
+     */
+  queued_at?: string | null;
+  /** @nullable */
+  searched_at?: string | null;
+  /** @nullable */
+  error?: string | null;
+  candidates?: FaceSearchCandidate[];
+}
+
 export interface Person {
   id: string;
   display_name: string;
@@ -379,6 +417,8 @@ export interface Person {
   voice_preset?: string | null;
   /** Saved custom synthesis settings (take precedence over voice_preset) */
   voice_settings?: VoiceSettings;
+  /** Latest web face-search state/results for this person */
+  face_search?: FaceSearchResult | null;
 }
 
 /**
