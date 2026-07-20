@@ -288,6 +288,7 @@ def generate_speech(self, generation_id: str):
                             model, text_value, cb_lang, speaker_wavs[0], workdir, merged)
                     _write_wav(out_path, samples, rate)
                     used_chatterbox = True
+                    print(f"[voice] generated with chatterbox for generation {generation_id}")
                 except Exception as e:
                     print(f"[voice] chatterbox failed, falling back to XTTS: {e}")
         if not used_chatterbox:
