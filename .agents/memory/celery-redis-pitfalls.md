@@ -40,3 +40,4 @@ The api warms models in a background daemon thread at startup (non-blocking, hea
 Re-analyze/backfill endpoints that re-queue mid-pipeline tasks (e.g. face_detect) silently no-op for assets whose upstream outputs (scenes) are missing — a fix to an upstream task only takes effect if the backfill re-runs that stage when its output table is empty.
 **Why:** scene_detect start_in_scene fix was deployed but reanalyze only queued diarize+face_detect; zero-scene assets kept logging "No faces" and two threshold changes were blind guesses.
 **How to apply:** when adding a backfill route, for each queued stage verify its input rows exist; if not, queue the producing stage instead (it chains downstream).
+- Commit/close the DB transaction BEFORE long LLM/GPU work in a task: an open read transaction holds AccessShareLock for minutes and deadlocks against API-startup `ALTER TABLE` (queued AccessExclusiveLock). Retry once on OperationalError deadlocks.

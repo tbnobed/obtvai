@@ -10,8 +10,10 @@ Serialized globally via a Postgres advisory lock so concurrent runs (diarize
 and face_detect both trigger it) cannot create duplicate people.
 """
 import json
+import time
 import uuid
 from datetime import datetime
+from sqlalchemy.exc import OperationalError
 from app import celery_app
 from db import get_session
 from tasks.base import update_job, append_log
@@ -139,6 +141,11 @@ def _profile_person(db, person_id: str, tokenizer, model, job_id: str):
         text("SELECT display_name FROM people WHERE id = :pid"), {"pid": person_id}
     ).fetchone()
     display_name = name_row[0] if name_row else "this person"
+    # End the read transaction NOW: LLM generation below takes minutes, and an
+    # open transaction holding AccessShareLock on transcript_segments/people
+    # deadlocks against API startup DDL (ALTER TABLE queues an
+    # AccessExclusiveLock, blocking and being blocked in a cycle).
+    db.commit()
     prompt = (
         f"The following are things {display_name} has said across a video library.\n"
         f"The person's name is {display_name}. Refer to them ONLY by this name, "
@@ -558,7 +565,18 @@ def identify_people(self, media_id: str, job_id: str):
             append_log(db, job_id, f"Generating AI profiles for {len(touched)} people...")
             tok, mdl = _ensure_llm()
             for pid in touched:
-                _profile_person(db, pid, tok, mdl, job_id)
+                # Retry once on deadlock/lock-timeout: transient collisions
+                # with API startup migrations or concurrent identify runs.
+                for attempt in (1, 2):
+                    try:
+                        _profile_person(db, pid, tok, mdl, job_id)
+                        break
+                    except OperationalError as e:
+                        db.rollback()
+                        if attempt == 2:
+                            append_log(db, job_id, f"Profile skipped for {pid}: {e.orig}")
+                        else:
+                            time.sleep(3)
 
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         append_log(

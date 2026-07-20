@@ -200,7 +200,10 @@ def _sanitize_settings(kwargs: dict) -> dict:
             f = default
         if not math.isfinite(f) or f <= 0:
             f = default
-        clean[k] = min(hi, max(lo, f))
+        f = min(hi, max(lo, f))
+        # transformers requires top_k to be a strictly positive *int*; a float
+        # like 30.0 raises ValueError deep inside XTTS generation.
+        clean[k] = int(round(f)) if k == "top_k" else f
     return clean
 
 
