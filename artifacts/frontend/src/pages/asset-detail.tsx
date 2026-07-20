@@ -812,7 +812,7 @@ export default function AssetDetail() {
                               ) : (
                                 <Scissors className="h-4 w-4" />
                               )}
-                              Create cuts
+                              {asset.key_moments?.length ? "Create cuts" : "Run AI analysis first"}
                             </Button>
                           </div>
                         );
