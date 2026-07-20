@@ -67,7 +67,7 @@ def _load_translator():
     return _translator
 
 
-def _translate_batch(tokenizer, model, texts: list[str], target: str, nllb_code: str) -> list[str]:
+def _generate(tokenizer, model, texts: list[str], target: str, nllb_code: str) -> list[str]:
     import torch
     if _is_madlad():
         batch = [f"<2{target}> {t}" for t in texts]
@@ -83,35 +83,83 @@ def _translate_batch(tokenizer, model, texts: list[str], target: str, nllb_code:
     with torch.no_grad():
         generated = model.generate(
             **inputs,
-            max_new_tokens=512,
+            max_new_tokens=256,
             num_beams=4,
-            no_repeat_ngram_size=4,
+            no_repeat_ngram_size=3,
+            repetition_penalty=1.2,
             **gen_kwargs,
         )
-    decoded = tokenizer.batch_decode(generated, skip_special_tokens=True)
-    return [_clean_degeneration(src, out) for src, out in zip(texts, decoded)]
+    return tokenizer.batch_decode(generated, skip_special_tokens=True)
+
+
+def _translate_batch(tokenizer, model, texts: list[str], target: str, nllb_code: str) -> list[str]:
+    decoded = _generate(tokenizer, model, texts, target, nllb_code)
+    results = []
+    for src, out in zip(texts, decoded):
+        cleaned = _clean_degeneration(src, out)
+        # Degenerate outputs are usually a padded-batch artifact (short
+        # segments batched with long ones). Retry the segment alone — this
+        # fixes it far more often than any text cleanup can.
+        if _is_degenerate(src, cleaned) and len(texts) > 1:
+            solo = _clean_degeneration(src, _generate(tokenizer, model, [src], target, nllb_code)[0])
+            if not _is_degenerate(src, solo) or len(solo) < len(cleaned):
+                cleaned = solo
+        results.append(cleaned)
+    return results
 
 
 _ELLIPSIS_RE = re.compile(r"\.{4,}")
-# A short chunk (1-8 chars, optionally followed by space/comma) repeated 3+
-# times back-to-back, e.g. "1.1.1.1.1." or "no no no no no".
-_LOOP_RE = re.compile(r"(\S{1,8}[ ,]?)(?:\1){3,}")
+
+
+def _collapse_token_loops(value: str) -> str:
+    """Collapse runs where a window of 1-4 whitespace tokens repeats 3+ times,
+    e.g. '- Sí. - Sí. - Sí. - Sí.' -> '- Sí.' or '1.1 1.1 1.1 1.1' -> '1.1'."""
+    toks = value.split()
+    out: list[str] = []
+    i, n = 0, len(toks)
+    while i < n:
+        collapsed = False
+        for w in (1, 2, 3, 4):
+            if i + 3 * w > n:
+                break
+            unit = toks[i:i + w]
+            reps = 1
+            while toks[i + reps * w:i + (reps + 1) * w] == unit:
+                reps += 1
+            if reps >= 3:
+                out.extend(unit)
+                i += reps * w
+                collapsed = True
+                break
+        if not collapsed:
+            out.append(toks[i])
+            i += 1
+    return " ".join(out)
 
 
 def _clean_degeneration(source: str, out: str) -> str:
     """Strip repetition-loop artifacts the translation model sometimes emits."""
     cleaned = _ELLIPSIS_RE.sub("...", out)
-    for _ in range(5):
-        collapsed = _LOOP_RE.sub(r"\1", cleaned)
-        if collapsed == cleaned:
-            break
-        cleaned = collapsed
-    cleaned = cleaned.strip()
+    # Also collapse repeats glued together with no spaces, e.g. '1.1.1.1.1.'
+    cleaned = re.sub(r"(\S{1,4})\1{3,}", r"\1", cleaned)
+    cleaned = _collapse_token_loops(cleaned).strip()
     # If the output is still wildly longer than the source, it degenerated in a
-    # way the regexes didn't catch — better to keep it truncated than garbled.
+    # way the collapse didn't catch — better truncated than garbled.
     if source and len(cleaned) > max(80, 4 * len(source)):
         cleaned = cleaned[: 4 * len(source)].rstrip()
     return cleaned
+
+
+def _is_degenerate(source: str, cleaned: str) -> bool:
+    """Heuristic: is this translation output still repetition-looped?"""
+    if not cleaned:
+        return True
+    if source and len(cleaned) > max(80, 4 * len(source)):
+        return True
+    toks = cleaned.split()
+    if len(toks) >= 8 and len(set(t.lower() for t in toks)) / len(toks) < 0.35:
+        return True
+    return False
 
 
 @celery_app.task(bind=True, name="tasks.translate.translate_transcript", queue="gpu")

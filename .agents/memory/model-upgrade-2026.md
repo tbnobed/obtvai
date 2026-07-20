@@ -18,4 +18,4 @@ Stack: Qwen3-8B (Q&A), BAAI/bge-m3 (text embeds), SigLIP-2 so400m (visual), MADL
 - insightface needs g++ in the image to build; runs on onnxruntime-gpu, not torch.
 
 ## MADLAD degeneration
-MADLAD-400 beam search can degenerate into repetition loops ("......", "1.1.1.1.") on some segments. Fix: `no_repeat_ngram_size=4` in generate + a post-process that collapses dot runs / repeated short chunks and truncates outputs >4x source length. Regexes are intentionally broad — if legit repeated phrasing gets collapsed, tighten to numeric/punctuation patterns first.
+MADLAD-400 beam search can degenerate into repetition loops ("......", "1.1.1.1.") on some segments. Worst on short segments padded into batches with long ones. Fix: no_repeat_ngram_size + repetition_penalty in generate, token-window collapse (1-4 token units repeated 3+) instead of regexes (regex separators miss patterns like '- Si. - Si.'), and a solo re-generate retry when output still looks degenerate (uniqueness ratio <0.35 or >4x source length) — the solo retry fixes what cleanup can't.
