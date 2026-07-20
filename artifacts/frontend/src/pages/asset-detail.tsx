@@ -505,8 +505,8 @@ export default function AssetDetail() {
                 )}
               </TabsList>
               <TabsContent value="selects" className="mt-4">
-                <div className="space-y-4 max-w-3xl">
-                  <div className="flex items-end gap-2 flex-wrap">
+                <div className="space-y-4">
+                  <div className="flex items-end gap-2 flex-wrap max-w-3xl">
                     <div className="flex-1 min-w-48">
                       <Label htmlFor="marker-note" className="text-xs text-muted-foreground">Note (optional)</Label>
                       <Input
@@ -530,6 +530,7 @@ export default function AssetDetail() {
                   <p className="text-xs text-muted-foreground">
                     Marks are placed at the current playhead position. AI-suggested beats appear on the heat strip under the player — promote the good ones to selects here or from the AI Analysis tab.
                   </p>
+                  <div className="grid gap-8 lg:grid-cols-2">
                   {asset.key_moments && asset.key_moments.length > 0 && (
                     <div>
                       <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">AI Suggestions</h3>
@@ -593,17 +594,30 @@ export default function AssetDetail() {
                       </div>
                     )}
                   </div>
+                  </div>
                 </div>
               </TabsContent>
               <TabsContent value="analysis" className="mt-4">
                 {hasAnalysis ? (
-                  <div className="space-y-6 max-w-3xl">
-                    {asset.synopsis && (
-                      <div>
-                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Synopsis</h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{asset.synopsis}</p>
-                      </div>
-                    )}
+                  <div className="grid gap-8 lg:grid-cols-2">
+                    <div className="space-y-6">
+                      {asset.synopsis && (
+                        <div>
+                          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Synopsis</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">{asset.synopsis}</p>
+                        </div>
+                      )}
+                      {asset.topics && asset.topics.length > 0 && (
+                        <div>
+                          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Topics</h3>
+                          <div className="flex flex-wrap gap-1.5">
+                            {asset.topics.map(topic => (
+                              <Badge key={topic} variant="secondary" className="text-xs">{topic}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     {asset.key_moments && asset.key_moments.length > 0 && (
                       <div>
                         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Key Moments</h3>
@@ -624,16 +638,6 @@ export default function AssetDetail() {
                                 )}
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {asset.topics && asset.topics.length > 0 && (
-                      <div>
-                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Topics</h3>
-                        <div className="flex flex-wrap gap-1.5">
-                          {asset.topics.map(topic => (
-                            <Badge key={topic} variant="secondary" className="text-xs">{topic}</Badge>
                           ))}
                         </div>
                       </div>
@@ -879,7 +883,7 @@ export default function AssetDetail() {
                 </div>
               </TabsContent>
               <TabsContent value="jobs" className="mt-4">
-                <div className="space-y-2">
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                   {jobs?.map(job => (
                     <div key={job.id} className="p-3 border border-border rounded flex justify-between items-center">
                       <div>
@@ -1211,7 +1215,7 @@ function AssetPeople({
       )
     : [];
   return (
-    <div className="max-w-4xl space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -1250,7 +1254,7 @@ function AssetPeople({
           </button>
         ))}
       </div>
-      <div className="relative">
+      <div className="relative max-w-2xl">
         <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
           value={query}
@@ -1326,11 +1330,11 @@ function AssetPeople({
       </p>
       {q ? (
         matches.length ? (
-          <div className="border border-border rounded-md divide-y divide-border max-h-80 overflow-y-auto">
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3 max-h-96 overflow-y-auto">
             {matches.map(({ person, moment }, i) => (
               <div
                 key={i}
-                className="flex gap-3 items-baseline p-2.5 cursor-pointer hover:bg-muted transition-colors"
+                className="flex gap-3 items-baseline p-2.5 border border-border rounded-md cursor-pointer hover:bg-muted transition-colors"
                 onClick={() => seekTo(moment.start_time)}
               >
                 <span className="text-xs font-mono text-primary shrink-0 w-16 text-right">
@@ -1574,7 +1578,7 @@ function CreativeSection({
   }
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-8">
       {onRoughCut && creative.clip_suggestions.length > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-border p-3">
           <div>
@@ -1596,6 +1600,8 @@ function CreativeSection({
         </div>
       )}
 
+      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="space-y-8">
       {creative.story_beats.length > 0 && (
         <div>
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Story Arc</h3>
@@ -1629,6 +1635,25 @@ function CreativeSection({
           </div>
         </div>
       )}
+
+      {creative.editorial_notes.length > 0 && (
+        <div>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
+            Editorial Notes
+          </h3>
+          <div className="space-y-2">
+            {creative.editorial_notes.map((note, i) => (
+              <div key={i} className="flex gap-3 items-start">
+                <Badge variant="secondary" className="text-[10px] uppercase tracking-wide shrink-0 mt-0.5 w-20 justify-center">
+                  {NOTE_LABELS[note.category] ?? note.category}
+                </Badge>
+                <p className="text-sm text-muted-foreground leading-relaxed">{note.note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      </div>
 
       {creative.clip_suggestions.length > 0 && (
         <div>
@@ -1683,23 +1708,7 @@ function CreativeSection({
         </div>
       )}
 
-      {creative.editorial_notes.length > 0 && (
-        <div>
-          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
-            Editorial Notes
-          </h3>
-          <div className="space-y-2">
-            {creative.editorial_notes.map((note, i) => (
-              <div key={i} className="flex gap-3 items-start">
-                <Badge variant="secondary" className="text-[10px] uppercase tracking-wide shrink-0 mt-0.5 w-20 justify-center">
-                  {NOTE_LABELS[note.category] ?? note.category}
-                </Badge>
-                <p className="text-sm text-muted-foreground leading-relaxed">{note.note}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      </div>
 
       <div className="flex items-center gap-3 pt-2">
         <Button variant="outline" size="sm" className="gap-2" onClick={onRun}>
