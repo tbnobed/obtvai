@@ -268,7 +268,7 @@ export default function AssetDetail() {
   const dubJob = jobs?.find(j => j.job_type === "dub" && (j.status === "pending" || j.status === "running") && (j.logs ?? []).includes(`Target language: ${transcriptLang}`));
   const dubBusy = dubMutation.isPending || Boolean(dubJob);
 
-  const [dubClonedVoices, setDubClonedVoices] = useState(false);
+  const [dubClonedVoices, setDubClonedVoices] = useState(true);
   const startDub = (lang: string) => {
     if (!id) return;
     dubMutation.mutate({ id, data: { target_language: lang, use_cloned_voices: dubClonedVoices } }, {
