@@ -389,10 +389,32 @@ async def get_co_appearances(db: AsyncSession = Depends(get_db)):
                     key = (ordered[i], ordered[j])
                     together[key] = together.get(key, 0.0) + _interval_overlap(ia, ib)
 
-    top_pairs = sorted(
+    ranked = sorted(
         pair_assets.items(),
         key=lambda kv: (-kv[1], -together.get(kv[0], 0.0)),
-    )[:MAX_CO_APPEARANCE_PAIRS]
+    )
+    # Guarantee every person keeps their strongest link before the cap trims
+    # the rest — otherwise interview-style pairs (same asset, never in frame
+    # together, so zero overlap seconds) are the first to be cut and the
+    # interviewer looks unconnected.
+    strongest: set[tuple[str, str]] = set()
+    seen_people: set[str] = set()
+    for key, _ in ranked:
+        a, b = key
+        if a not in seen_people or b not in seen_people:
+            strongest.add(key)
+        seen_people.add(a)
+        seen_people.add(b)
+    top_pairs = [kv for kv in ranked if kv[0] in strongest]
+    budget = MAX_CO_APPEARANCE_PAIRS - len(top_pairs)
+    if budget > 0:
+        for kv in ranked:
+            if kv[0] not in strongest:
+                top_pairs.append(kv)
+                budget -= 1
+                if budget == 0:
+                    break
+        top_pairs.sort(key=lambda kv: (-kv[1], -together.get(kv[0], 0.0)))
 
     # Every identified person is a node — including people who never share a
     # video with anyone (they render unconnected on the map).
