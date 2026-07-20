@@ -977,6 +977,25 @@ export default function AssetDetail() {
               </div>
               {transcriptLang !== "original" && langAvailable && (
                 <div className="px-3 pt-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="w-full gap-2 mb-1.5 text-muted-foreground"
+                    onClick={() => startTranslate(transcriptLang)}
+                    disabled={translateBusy}
+                  >
+                    {translateBusy ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Retranslating{translateJob?.progress ? ` — ${Math.round(translateJob.progress)}%` : "..."}
+                      </>
+                    ) : (
+                      <>
+                        <Languages className="h-3.5 w-3.5" />
+                        Retranslate
+                      </>
+                    )}
+                  </Button>
                   {dubAvailable ? (
                     <>
                       <Button

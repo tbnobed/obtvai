@@ -5,6 +5,7 @@ text prefix) and NLLB-200 (legacy — target selected via forced BOS token).
 The engine is picked from the TRANSLATE_MODEL name.
 """
 import json
+import re
 import time
 from datetime import datetime
 from app import celery_app
@@ -84,9 +85,33 @@ def _translate_batch(tokenizer, model, texts: list[str], target: str, nllb_code:
             **inputs,
             max_new_tokens=512,
             num_beams=4,
+            no_repeat_ngram_size=4,
             **gen_kwargs,
         )
-    return tokenizer.batch_decode(generated, skip_special_tokens=True)
+    decoded = tokenizer.batch_decode(generated, skip_special_tokens=True)
+    return [_clean_degeneration(src, out) for src, out in zip(texts, decoded)]
+
+
+_ELLIPSIS_RE = re.compile(r"\.{4,}")
+# A short chunk (1-8 chars, optionally followed by space/comma) repeated 3+
+# times back-to-back, e.g. "1.1.1.1.1." or "no no no no no".
+_LOOP_RE = re.compile(r"(\S{1,8}[ ,]?)(?:\1){3,}")
+
+
+def _clean_degeneration(source: str, out: str) -> str:
+    """Strip repetition-loop artifacts the translation model sometimes emits."""
+    cleaned = _ELLIPSIS_RE.sub("...", out)
+    for _ in range(5):
+        collapsed = _LOOP_RE.sub(r"\1", cleaned)
+        if collapsed == cleaned:
+            break
+        cleaned = collapsed
+    cleaned = cleaned.strip()
+    # If the output is still wildly longer than the source, it degenerated in a
+    # way the regexes didn't catch — better to keep it truncated than garbled.
+    if source and len(cleaned) > max(80, 4 * len(source)):
+        cleaned = cleaned[: 4 * len(source)].rstrip()
+    return cleaned
 
 
 @celery_app.task(bind=True, name="tasks.translate.translate_transcript", queue="gpu")

@@ -16,3 +16,6 @@ Stack: Qwen3-8B (Q&A), BAAI/bge-m3 (text embeds), SigLIP-2 so400m (visual), MADL
 - Qwen3: pass `enable_thinking=False` to `apply_chat_template` or answers contain reasoning traces.
 - MADLAD-400 selects target language via text prefix `<2xx> ` (ISO-639-1), not forced BOS tokens like NLLB.
 - insightface needs g++ in the image to build; runs on onnxruntime-gpu, not torch.
+
+## MADLAD degeneration
+MADLAD-400 beam search can degenerate into repetition loops ("......", "1.1.1.1.") on some segments. Fix: `no_repeat_ngram_size=4` in generate + a post-process that collapses dot runs / repeated short chunks and truncates outputs >4x source length. Regexes are intentionally broad — if legit repeated phrasing gets collapsed, tighten to numeric/punctuation patterns first.
