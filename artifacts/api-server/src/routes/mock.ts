@@ -2190,11 +2190,9 @@ router.get("/people/co-appearances", (_req, res) => {
     }
   }
   const pairList = Object.values(pairs);
-  const nodeIds = new Set(pairList.flatMap((p) => [p.person_a_id, p.person_b_id]));
+  // Every identified person is a node — solo people render unconnected.
   res.json({
-    nodes: people
-      .filter((p) => nodeIds.has(p.id))
-      .map((p) => ({ person_id: p.id, display_name: p.display_name, thumbnail_url: p.thumbnail_url, asset_count: p.asset_count })),
+    nodes: people.map((p) => ({ person_id: p.id, display_name: p.display_name, thumbnail_url: p.thumbnail_url, asset_count: p.asset_count })),
     pairs: pairList,
   });
 });

@@ -353,9 +353,6 @@ async def get_co_appearances(db: AsyncSession = Depends(get_db)):
                 key = (ordered[i], ordered[j])
                 pair_assets[key] = pair_assets.get(key, 0) + 1
 
-    if not pair_assets:
-        return CoAppearanceGraphOut(nodes=[], pairs=[])
-
     # On-camera intervals per (asset, person) — only for assets shared by 2+
     # people, from the face clusters the identify pass attached to each person.
     shared_media = [mid for mid, pids in by_media.items() if len(pids) >= 2]
@@ -397,12 +394,12 @@ async def get_co_appearances(db: AsyncSession = Depends(get_db)):
         key=lambda kv: (-kv[1], -together.get(kv[0], 0.0)),
     )[:MAX_CO_APPEARANCE_PAIRS]
 
-    node_ids = {p for (a, b), _ in top_pairs for p in (a, b)}
+    # Every identified person is a node — including people who never share a
+    # video with anyone (they render unconnected on the map).
     people_rows = (
         await db.execute(
             select(Person, _STATS.c.assets)
             .outerjoin(_STATS, _STATS.c.person_id == Person.id)
-            .where(Person.id.in_(node_ids))
         )
     ).all()
     known_ids = {p.id for p, _ in people_rows}

@@ -105,13 +105,13 @@ export default function CoAppearanceMap() {
     return <div className="animate-pulse bg-muted rounded-md w-full" style={{ aspectRatio: `${W}/${H}` }} />;
   }
 
-  if (!nodes.length || !pairs.length) {
+  if (!nodes.length) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-24">
         <Share2 className="h-12 w-12 mb-4 opacity-50" />
-        <p>No co-appearances yet.</p>
+        <p>No people identified yet.</p>
         <p className="text-xs mt-1 max-w-md text-center">
-          The map fills in once at least two identified people appear in the same video.
+          The map fills in as people are identified in your videos. Lines appear when two people share a video.
         </p>
       </div>
     );
