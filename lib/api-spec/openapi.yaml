@@ -680,6 +680,22 @@ paths:
       operationId: getCoAppearances
       tags: [people]
       summary: Co-appearance graph — who appears together, with shared asset counts and overlapping on-camera time
+      parameters:
+        - name: named_only
+          in: query
+          required: false
+          description: Only include people with a real name (enrolled, renamed, or auto-recognized); hides unnamed "Person N" / speaker-label placeholders
+          schema:
+            type: boolean
+            default: false
+        - name: min_shared
+          in: query
+          required: false
+          description: Only include connections with at least this many shared videos
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
       responses:
         "200":
           description: OK

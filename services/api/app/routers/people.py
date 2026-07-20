@@ -330,10 +330,29 @@ MAX_CO_APPEARANCE_PAIRS = 300
 # NOTE: must be registered before the /{id} routes below, or FastAPI would
 # treat "co-appearances" as a person id.
 @router.get("/co-appearances", response_model=CoAppearanceGraphOut)
-async def get_co_appearances(db: AsyncSession = Depends(get_db)):
+async def get_co_appearances(
+    named_only: bool = False,
+    min_shared: int = Query(1, ge=1),
+    db: AsyncSession = Depends(get_db),
+):
     """Who appears together on camera: every pair of people sharing at least
     one asset, plus the seconds both are visibly on camera at the same time
-    (computed from overlapping face-cluster appearance ranges)."""
+    (computed from overlapping face-cluster appearance ranges).
+
+    named_only restricts the graph to people with a real name (enrolled,
+    renamed, or auto-recognized) so unnamed "Person N" / speaker-label
+    placeholders don't flood the map; min_shared drops connections weaker
+    than N shared videos."""
+    people_query = select(Person, _STATS.c.assets).outerjoin(
+        _STATS, _STATS.c.person_id == Person.id
+    )
+    if named_only:
+        # Real names only (enrolled, renamed, or auto-recognized) — hides
+        # "Person N" / raw speaker-label placeholders, whose name_source is NULL.
+        people_query = people_query.where(Person.name_source.isnot(None))
+    people_rows = (await db.execute(people_query)).all()
+    known_ids = {p.id for p, _ in people_rows}
+
     rows = (
         await db.execute(
             select(
@@ -343,6 +362,9 @@ async def get_co_appearances(db: AsyncSession = Depends(get_db)):
             )
         )
     ).all()
+    # Filter appearances before pair-building so the pair cap budgets only the
+    # people that will actually be drawn.
+    rows = [r for r in rows if r[0] in known_ids]
 
     by_media: dict[str, set[str]] = {}
     clusters_of: dict[tuple[str, str], set[str]] = {}
@@ -395,6 +417,9 @@ async def get_co_appearances(db: AsyncSession = Depends(get_db)):
                     key = (ordered[i], ordered[j])
                     together[key] = together.get(key, 0.0) + _interval_overlap(ia, ib)
 
+    if min_shared > 1:
+        pair_assets = {k: n for k, n in pair_assets.items() if n >= min_shared}
+
     ranked = sorted(
         pair_assets.items(),
         key=lambda kv: (-kv[1], -together.get(kv[0], 0.0)),
@@ -422,16 +447,8 @@ async def get_co_appearances(db: AsyncSession = Depends(get_db)):
                     break
         top_pairs.sort(key=lambda kv: (-kv[1], -together.get(kv[0], 0.0)))
 
-    # Every identified person is a node — including people who never share a
-    # video with anyone (they render unconnected on the map).
-    people_rows = (
-        await db.execute(
-            select(Person, _STATS.c.assets)
-            .outerjoin(_STATS, _STATS.c.person_id == Person.id)
-        )
-    ).all()
-    known_ids = {p.id for p, _ in people_rows}
-
+    # Every person passing the filter is a node — including people who never
+    # share a video with anyone (they render unconnected on the map).
     return CoAppearanceGraphOut(
         nodes=[
             CoAppearanceNodeOut(

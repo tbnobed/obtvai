@@ -75,8 +75,12 @@ function computeLayout(nodes: CoAppearanceNode[], pairs: CoAppearancePair[]) {
   return { px, py, idx };
 }
 
+const MIN_SHARED_OPTIONS = [1, 2, 3, 5] as const;
+
 export default function CoAppearanceMap() {
-  const { data, isLoading } = useGetCoAppearances();
+  const [namedOnly, setNamedOnly] = useState(true);
+  const [minShared, setMinShared] = useState<number>(1);
+  const { data, isLoading } = useGetCoAppearances({ named_only: namedOnly, min_shared: minShared });
   const [, navigate] = useLocation();
   const [hoveredPair, setHoveredPair] = useState<number | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
@@ -101,26 +105,77 @@ export default function CoAppearanceMap() {
     return set;
   }, [hoveredNode, pairs]);
 
-  if (isLoading) {
-    return <div className="animate-pulse bg-muted rounded-md w-full" style={{ aspectRatio: `${W}/${H}` }} />;
-  }
+  const hovered = (hoveredPair !== null ? pairs[hoveredPair] : null) ?? null;
 
-  if (!nodes.length) {
+  const controls = (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={namedOnly}
+          onChange={(e) => setNamedOnly(e.target.checked)}
+          className="h-4 w-4 accent-primary"
+        />
+        <span>Named people only</span>
+      </label>
+      <label className="flex items-center gap-2">
+        <span className="text-muted-foreground">Min shared videos</span>
+        <select
+          value={minShared}
+          onChange={(e) => setMinShared(Number(e.target.value))}
+          className="bg-card border border-border rounded px-2 py-1 text-sm"
+        >
+          {MIN_SHARED_OPTIONS.map((n) => (
+            <option key={n} value={n}>{n}+</option>
+          ))}
+        </select>
+      </label>
+      {!isLoading && (
+        <span className="text-xs text-muted-foreground ml-auto">
+          {nodes.length} {nodes.length === 1 ? "person" : "people"} · {pairs.length} {pairs.length === 1 ? "connection" : "connections"}
+        </span>
+      )}
+    </div>
+  );
+
+  if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-24">
-        <Share2 className="h-12 w-12 mb-4 opacity-50" />
-        <p>No people identified yet.</p>
-        <p className="text-xs mt-1 max-w-md text-center">
-          The map fills in as people are identified in your videos. Lines appear when two people share a video.
-        </p>
+      <div className="flex flex-col gap-3">
+        {controls}
+        <div className="animate-pulse bg-muted rounded-md w-full" style={{ aspectRatio: `${W}/${H}` }} />
       </div>
     );
   }
 
-  const hovered = hoveredPair !== null ? pairs[hoveredPair] : null;
+  if (!nodes.length) {
+    return (
+      <div className="flex flex-col gap-3">
+        {controls}
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-24">
+          <Share2 className="h-12 w-12 mb-4 opacity-50" />
+          {namedOnly ? (
+            <>
+              <p>No named people match these filters.</p>
+              <p className="text-xs mt-1 max-w-md text-center">
+                Name people (rename them or enroll from a photo) to see them here, or untick "Named people only" to show everyone detected.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>No people identified yet.</p>
+              <p className="text-xs mt-1 max-w-md text-center">
+                The map fills in as people are identified in your videos. Lines appear when two people share a video.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
+      {controls}
       <div className="border border-border bg-card rounded-md overflow-hidden">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label="Co-appearance map">
           {pairs.map((p, i) => {

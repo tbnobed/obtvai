@@ -1588,6 +1588,18 @@ export const ListPeopleSort = {
   name: 'name',
 } as const;
 
+export type GetCoAppearancesParams = {
+/**
+ * Only include people with a real name (enrolled, renamed, or auto-recognized); hides unnamed "Person N" / speaker-label placeholders
+ */
+named_only?: boolean;
+/**
+ * Only include connections with at least this many shared videos
+ * @minimum 1
+ */
+min_shared?: number;
+};
+
 export type ListGraphicsGenerationsParams = {
 limit?: number;
 offset?: number;

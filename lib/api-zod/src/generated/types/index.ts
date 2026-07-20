@@ -32,6 +32,7 @@ export * from './faceCluster';
 export * from './faceClusterAppearancesItem';
 export * from './getCaptionsFormat';
 export * from './getCaptionsParams';
+export * from './getCoAppearancesParams';
 export * from './getMediaFrameParams';
 export * from './getMediaTranscriptParams';
 export * from './graphicsGenerateInput';

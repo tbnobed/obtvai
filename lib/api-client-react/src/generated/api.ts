@@ -34,6 +34,7 @@ import type {
   DubRequest,
   FaceCluster,
   GetCaptionsParams,
+  GetCoAppearancesParams,
   GetMediaFrameParams,
   GetMediaTranscriptParams,
   GraphicsGenerateInput,
@@ -2198,20 +2199,27 @@ export function useListPeople<TData = Awaited<ReturnType<typeof listPeople>>, TE
 
 
 
-export const getGetCoAppearancesUrl = () => {
+export const getGetCoAppearancesUrl = (params?: GetCoAppearancesParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/people/co-appearances`
+  return stringifiedParams.length > 0 ? `/api/people/co-appearances?${stringifiedParams}` : `/api/people/co-appearances`
 }
 
 /**
  * @summary Co-appearance graph — who appears together, with shared asset counts and overlapping on-camera time
  */
-export const getCoAppearances = async ( options?: RequestInit): Promise<CoAppearanceGraph> => {
+export const getCoAppearances = async (params?: GetCoAppearancesParams, options?: RequestInit): Promise<CoAppearanceGraph> => {
 
-  return customFetch<CoAppearanceGraph>(getGetCoAppearancesUrl(),
+  return customFetch<CoAppearanceGraph>(getGetCoAppearancesUrl(params),
   {
     ...options,
     method: 'GET'
@@ -2224,23 +2232,23 @@ export const getCoAppearances = async ( options?: RequestInit): Promise<CoAppear
 
 
 
-export const getGetCoAppearancesQueryKey = () => {
+export const getGetCoAppearancesQueryKey = (params?: GetCoAppearancesParams,) => {
     return [
-    `/api/people/co-appearances`
+    `/api/people/co-appearances`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetCoAppearancesQueryOptions = <TData = Awaited<ReturnType<typeof getCoAppearances>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoAppearances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCoAppearancesQueryOptions = <TData = Awaited<ReturnType<typeof getCoAppearances>>, TError = ErrorType<unknown>>(params?: GetCoAppearancesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoAppearances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetCoAppearancesQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetCoAppearancesQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoAppearances>>> = ({ signal }) => getCoAppearances({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoAppearances>>> = ({ signal }) => getCoAppearances(params, { signal, ...requestOptions });
 
 
 
@@ -2258,11 +2266,11 @@ export type GetCoAppearancesQueryError = ErrorType<unknown>
  */
 
 export function useGetCoAppearances<TData = Awaited<ReturnType<typeof getCoAppearances>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoAppearances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetCoAppearancesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoAppearances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetCoAppearancesQueryOptions(options)
+  const queryOptions = getGetCoAppearancesQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

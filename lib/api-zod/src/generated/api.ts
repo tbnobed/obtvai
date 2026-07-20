@@ -892,6 +892,16 @@ export const ListPeopleResponse = zod.object({
 /**
  * @summary Co-appearance graph — who appears together, with shared asset counts and overlapping on-camera time
  */
+export const getCoAppearancesQueryNamedOnlyDefault = false;
+export const getCoAppearancesQueryMinSharedDefault = 1;
+
+
+
+export const GetCoAppearancesQueryParams = zod.object({
+  "named_only": zod.coerce.boolean().default(getCoAppearancesQueryNamedOnlyDefault).describe('Only include people with a real name (enrolled, renamed, or auto-recognized); hides unnamed \"Person N\" \/ speaker-label placeholders'),
+  "min_shared": zod.coerce.number().min(1).default(getCoAppearancesQueryMinSharedDefault).describe('Only include connections with at least this many shared videos')
+})
+
 export const GetCoAppearancesResponse = zod.object({
   "nodes": zod.array(zod.object({
   "person_id": zod.string(),

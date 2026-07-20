@@ -2166,9 +2166,13 @@ router.get("/people", (req, res) => {
 });
 
 // Must be registered before /people/:id, or "co-appearances" is treated as an id.
-router.get("/people/co-appearances", (_req, res) => {
+router.get("/people/co-appearances", (req, res) => {
+  const namedOnly = String(req.query.named_only ?? "") === "true";
+  const minShared = Math.max(1, parseInt(String(req.query.min_shared ?? "1"), 10) || 1);
+  const visible = namedOnly ? people.filter((p) => p.name_source != null) : people;
+  const visibleIds = new Set(visible.map((p) => p.id));
   const byMedia: Record<string, string[]> = {};
-  for (const p of people) {
+  for (const p of visible) {
     for (const a of personAppearances[p.id] ?? []) {
       (byMedia[a.media_id] ??= []).push(p.id);
     }
@@ -2189,10 +2193,12 @@ router.get("/people/co-appearances", (_req, res) => {
       }
     }
   }
-  const pairList = Object.values(pairs);
-  // Every identified person is a node — solo people render unconnected.
+  const pairList = Object.values(pairs).filter(
+    (p) => p.shared_assets >= minShared && visibleIds.has(p.person_a_id) && visibleIds.has(p.person_b_id)
+  );
+  // Every person passing the filter is a node — solo people render unconnected.
   res.json({
-    nodes: people.map((p) => ({ person_id: p.id, display_name: p.display_name, thumbnail_url: p.thumbnail_url, asset_count: p.asset_count })),
+    nodes: visible.map((p) => ({ person_id: p.id, display_name: p.display_name, thumbnail_url: p.thumbnail_url, asset_count: p.asset_count })),
     pairs: pairList,
   });
 });
