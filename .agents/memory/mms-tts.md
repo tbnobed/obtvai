@@ -11,3 +11,4 @@ description: Which languages facebook/mms-tts supports and the uroman/prefork go
 - Some checkpoints set `tokenizer.is_uroman=True` (non-Latin scripts) — input must be romanized first; the `uroman` PyPI package (Python port) handles it without the perl tool.
 - Load via `snapshot_download` then `from_pretrained(local_dir)` — same daemonic-prefork-safe pattern as other HF loads in Celery workers.
 - VITS output is mono at `model.config.sampling_rate` (typically 16 kHz); fit clips into transcript slots with ffmpeg `atempo` (pitch-preserving), not resampling.
+- Chatterbox + transformers>=4.48: generation requests output_attentions, sdpa attention rejects it — after from_pretrained, set `_attn_implementation = "eager"` on every HF submodule config (t3/s3gen/ve and their .tfmr) or every generation dies with "output_attentions ... set it to 'eager'".

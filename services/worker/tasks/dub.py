@@ -145,8 +145,48 @@ def _load_chatterbox():
     from chatterbox.mtl_tts import ChatterboxMultilingualTTS
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = ChatterboxMultilingualTTS.from_pretrained(device=device)
+    # transformers>=4.48 defaults attention to sdpa, but Chatterbox's
+    # generation requests output_attentions (alignment stream analyzer),
+    # which sdpa rejects: "The `output_attentions` attribute is not
+    # supported ... set it to 'eager' instead." Force eager attention on
+    # every HF submodule config.
+    _force_eager_attention(model)
     _chatterbox_cache["model"] = model
     return model
+
+
+def _force_eager_attention(model):
+    """Set attn_implementation='eager' on all HF configs inside a Chatterbox model."""
+    seen = set()
+
+    def _patch(cfg):
+        if cfg is None or id(cfg) in seen:
+            return
+        seen.add(id(cfg))
+        try:
+            cfg._attn_implementation = "eager"
+            if hasattr(cfg, "attn_implementation"):
+                cfg.attn_implementation = "eager"
+        except Exception:
+            pass
+
+    for attr in ("t3", "s3gen", "ve"):
+        sub = getattr(model, attr, None)
+        if sub is None:
+            continue
+        _patch(getattr(sub, "config", None))
+        tfmr = getattr(sub, "tfmr", None)
+        if tfmr is not None:
+            _patch(getattr(tfmr, "config", None))
+            gen_cfg = getattr(tfmr, "generation_config", None)
+            _patch(gen_cfg)
+        try:
+            import torch.nn as nn
+            if isinstance(sub, nn.Module):
+                for m in sub.modules():
+                    _patch(getattr(m, "config", None))
+        except Exception:
+            pass
 
 
 def _synthesize_chatterbox(model, text_value: str, lang_id: str, ref_wav: str,
