@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
 from .projects import touch_project
-from ..models import StoryJob, MediaAsset
+from ..models import StoryJob, MediaAsset, ClipList
 from ..schemas import StoryRequestIn, StoryJobOut
 from ..worker_client import enqueue_story
 
@@ -79,5 +79,14 @@ async def delete_story(id: str, db: AsyncSession = Depends(get_db)):
     s = (await db.execute(select(StoryJob).where(StoryJob.id == id))).scalar_one_or_none()
     if not s:
         raise HTTPException(status_code=404, detail="Story not found")
+    if s.clip_list_id:
+        cl = (await db.execute(
+            select(ClipList).where(ClipList.id == s.clip_list_id)
+        )).scalar_one_or_none()
+        if cl:
+            if cl.locked:
+                raise HTTPException(423, "This story's clip list is picture-locked. Unlock it to delete the story.")
+            await db.delete(cl)
+    await touch_project(db, s.project_id)
     await db.delete(s)
     await db.commit()

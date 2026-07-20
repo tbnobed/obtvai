@@ -1923,7 +1923,19 @@ router.get("/stories/:id", (req, res) => {
 router.delete("/stories/:id", (req, res) => {
   const idx = stories.findIndex((x) => x.id === req.params.id);
   if (idx === -1) { res.status(404).json({ detail: "Story not found" }); return; }
+  const story = stories[idx];
+  if (story.clip_list_id) {
+    const clIdx = clipLists.findIndex((c) => c.id === story.clip_list_id);
+    if (clIdx !== -1) {
+      if ((clipLists[clIdx] as any).locked) {
+        res.status(423).json({ detail: "This story's clip list is picture-locked. Unlock it to delete the story." });
+        return;
+      }
+      clipLists.splice(clIdx, 1);
+    }
+  }
   stories.splice(idx, 1);
+  touchProject(story.project_id);
   res.status(204).send();
 });
 
