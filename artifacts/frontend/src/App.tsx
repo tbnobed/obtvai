@@ -16,6 +16,7 @@ import Insights from "@/pages/insights";
 import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
 import Graphics from "@/pages/graphics";
+import SearchPage from "@/pages/search";
 
 const queryClient = new QueryClient();
 
@@ -34,8 +35,8 @@ function Router() {
         <Route path="/insights" component={Insights} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/ai" component={AIQA} />
+        <Route path="/search" component={SearchPage} />
         {/* Old workflow pages now live inside Projects */}
-        <Route path="/search"><Redirect to="/projects" /></Route>
         <Route path="/clips"><Redirect to="/projects" /></Route>
         <Route path="/reels"><Redirect to="/projects" /></Route>
         <Route path="/stories" nest><Redirect to="/projects" /></Route>

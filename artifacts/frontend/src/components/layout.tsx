@@ -8,7 +8,8 @@ import {
   Users,
   Sparkles,
   FolderKanban,
-  Wand2
+  Wand2,
+  Search
 } from "lucide-react";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
 
@@ -22,6 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutGrid },
     { href: "/projects", label: "Projects", icon: FolderKanban },
+    { href: "/search", label: "Search", icon: Search },
     { href: "/library", label: "Media Library", icon: Film },
     { href: "/people", label: "People", icon: Users },
     { href: "/graphics", label: "Graphics", icon: Wand2 },
