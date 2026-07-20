@@ -22,9 +22,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutGrid },
+    { href: "/library", label: "Media Library", icon: Film },
     { href: "/projects", label: "Projects", icon: FolderKanban },
     { href: "/search", label: "Search", icon: Search },
-    { href: "/library", label: "Media Library", icon: Film },
     { href: "/people", label: "People", icon: Users },
     { href: "/graphics", label: "Graphics", icon: Wand2 },
     { href: "/insights", label: "Insights", icon: Sparkles },
