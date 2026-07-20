@@ -774,18 +774,10 @@ export default function AssetDetail() {
                       <p className="text-xs text-destructive">{cutsError}</p>
                     )}
                     {cutsCreated !== null && (
-                      <div className="flex items-center justify-between gap-3 border border-green-500/30 bg-green-500/10 rounded-md px-3 py-2">
+                      <div className="border border-green-500/30 bg-green-500/10 rounded-md px-3 py-2">
                         <p className="text-xs text-green-500">
-                          {cutsCreated} cut{cutsCreated === 1 ? "" : "s"} queued and rendering — they appear under the Highlight Reel tab as they finish.
+                          {cutsCreated} cut{cutsCreated === 1 ? "" : "s"} queued — rendering below, download when ready.
                         </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0"
-                          onClick={() => setActiveTab("highlight")}
-                        >
-                          View cuts
-                        </Button>
                       </div>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -864,6 +856,7 @@ export default function AssetDetail() {
                         );
                       })}
                     </div>
+                    <AssetRendersSection mediaId={id!} socialOnly />
                   </div>
                 ) : (
                   <div className="py-10 flex flex-col items-center text-center gap-3">
@@ -1764,9 +1757,11 @@ function reelStatusBadge(status: string) {
   return map[status] || "bg-muted text-muted-foreground";
 }
 
-function AssetRendersSection({ mediaId }: { mediaId: string }) {
+const SOCIAL_CUT_LABEL = /^(youtube|instagram|x|facebook|tiktok): /;
+
+function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialOnly?: boolean }) {
   const listParams = { media_id: mediaId };
-  const { data: renders } = useListRenders(listParams, {
+  const { data: allRenders } = useListRenders(listParams, {
     query: {
       queryKey: getListRendersQueryKey(listParams),
       refetchInterval: (q) =>
@@ -1774,16 +1769,22 @@ function AssetRendersSection({ mediaId }: { mediaId: string }) {
     },
   });
 
+  const renders = socialOnly
+    ? allRenders?.filter((r) => SOCIAL_CUT_LABEL.test(r.label ?? ""))
+    : allRenders;
+
   if (!renders?.length) return null;
 
   return (
     <div className="border-t border-border pt-5 space-y-3 max-w-5xl">
       <div>
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Clapperboard className="h-4 w-4" /> Renders
+          <Clapperboard className="h-4 w-4" /> {socialOnly ? "Social cuts" : "Renders"}
         </h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Clips and social cuts rendered from this video.
+          {socialOnly
+            ? "Cuts rendered from this video — download when ready."
+            : "Clips and social cuts rendered from this video."}
         </p>
       </div>
       <div className="space-y-2">
