@@ -35,7 +35,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -420,12 +420,6 @@ export default function AssetDetail() {
               ))}
             </div>
 
-            <AssetPeople
-              mediaId={id!}
-              duration={asset.duration_seconds ?? 0}
-              seekTo={seekTo}
-            />
-
             <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
               <DialogContent>
                 <DialogHeader>
@@ -480,6 +474,10 @@ export default function AssetDetail() {
                 <TabsTrigger value="analysis" className="gap-1.5">
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Analysis
+                </TabsTrigger>
+                <TabsTrigger value="people" className="gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  People
                 </TabsTrigger>
                 <TabsTrigger value="creative" className="gap-1.5">
                   <Clapperboard className="h-3.5 w-3.5" />
@@ -647,6 +645,13 @@ export default function AssetDetail() {
                     or re-run the index job from the Pipeline Jobs tab.
                   </div>
                 )}
+              </TabsContent>
+              <TabsContent value="people" className="mt-4">
+                <AssetPeople
+                  mediaId={id!}
+                  duration={asset.duration_seconds ?? 0}
+                  seekTo={seekTo}
+                />
               </TabsContent>
               <TabsContent value="creative" className="mt-4">
                 <CreativeSection
@@ -1183,17 +1188,83 @@ function AssetPeople({
   seekTo: (time: number) => void;
 }) {
   const { data: people } = useGetAssetPeople(mediaId);
-  if (!people?.length || duration <= 0) return null;
+  const [isolatedId, setIsolatedId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  if (!people?.length || duration <= 0) {
+    return (
+      <div className="text-sm text-muted-foreground py-8 text-center">
+        No people identified in this video yet. People appear here after
+        diarization and face analysis complete.
+      </div>
+    );
+  }
   const pct = (t: number) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%`;
   const widthPct = (a: number, b: number) =>
     `${Math.max(0.5, Math.min(100, ((b - a) / duration) * 100))}%`;
+  const shown = isolatedId ? people.filter((p) => p.person_id === isolatedId) : people;
+  const q = query.trim().toLowerCase();
+  const matches = q
+    ? shown.flatMap((p) =>
+        (p.speaking ?? [])
+          .filter((s) => (s.text ?? "").toLowerCase().includes(q))
+          .map((s) => ({ person: p, moment: s }))
+      )
+    : [];
   return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
-        <Users className="h-4 w-4" /> People in this video
-      </h2>
-      <div className="space-y-3">
+    <div className="max-w-4xl space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setIsolatedId(null)}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+            isolatedId === null
+              ? "bg-primary text-primary-foreground border-primary"
+              : "border-border text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          All people
+        </button>
         {people.map((p) => (
+          <button
+            key={p.person_id}
+            type="button"
+            onClick={() => setIsolatedId(isolatedId === p.person_id ? null : p.person_id)}
+            className={`flex items-center gap-2 pl-1 pr-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              isolatedId === p.person_id
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {p.thumbnail_url ? (
+              <img
+                src={`/api/thumbnails/${p.thumbnail_url}`}
+                alt={p.display_name}
+                className="h-6 w-6 rounded-full object-cover"
+              />
+            ) : (
+              <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">
+                {p.display_name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+              </span>
+            )}
+            {p.display_name}
+          </button>
+        ))}
+      </div>
+      <div className="relative">
+        <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={
+            isolatedId
+              ? `Search what ${shown[0]?.display_name ?? "this person"} says in this video…`
+              : "Search what anyone says in this video…"
+          }
+          className="pl-9"
+        />
+      </div>
+      <div className="space-y-3">
+        {shown.map((p) => (
           <div key={p.person_id} className="flex items-center gap-3">
             <Link href={`/people/${p.person_id}`} className="flex items-center gap-2.5 w-48 shrink-0 group">
               {p.thumbnail_url ? (
@@ -1228,22 +1299,60 @@ function AssetPeople({
                   onClick={() => seekTo(r.start_time)}
                 />
               ))}
-              {(p.speaking ?? []).map((s, i) => (
-                <div
-                  key={`spk-${i}`}
-                  className="absolute bottom-0 h-2.5 bg-primary hover:bg-primary/80 cursor-pointer rounded-sm"
-                  style={{ left: pct(s.start_time), width: widthPct(s.start_time, s.end_time) }}
-                  title={`${formatTimecode(s.start_time)} — ${s.text}`}
-                  onClick={() => seekTo(s.start_time)}
-                />
-              ))}
+              {(p.speaking ?? []).map((s, i) => {
+                const isMatch = q && (s.text ?? "").toLowerCase().includes(q);
+                return (
+                  <div
+                    key={`spk-${i}`}
+                    className={`absolute bottom-0 h-2.5 cursor-pointer rounded-sm ${
+                      q
+                        ? isMatch
+                          ? "bg-amber-400 hover:bg-amber-300"
+                          : "bg-primary/30"
+                        : "bg-primary hover:bg-primary/80"
+                    }`}
+                    style={{ left: pct(s.start_time), width: widthPct(s.start_time, s.end_time) }}
+                    title={`${formatTimecode(s.start_time)} — ${s.text}`}
+                    onClick={() => seekTo(s.start_time)}
+                  />
+                );
+              })}
             </div>
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-muted-foreground mt-2">
-        Solid marks = speaking · shaded blocks = on camera · click any mark to jump the player there.
+      <p className="text-[11px] text-muted-foreground">
+        Solid marks = speaking · shaded blocks = on camera{q ? " · amber = search match" : ""} · click any mark to jump the player there.
       </p>
+      {q ? (
+        matches.length ? (
+          <div className="border border-border rounded-md divide-y divide-border max-h-80 overflow-y-auto">
+            {matches.map(({ person, moment }, i) => (
+              <div
+                key={i}
+                className="flex gap-3 items-baseline p-2.5 cursor-pointer hover:bg-muted transition-colors"
+                onClick={() => seekTo(moment.start_time)}
+              >
+                <span className="text-xs font-mono text-primary shrink-0 w-16 text-right">
+                  {formatTimecode(moment.start_time)}
+                </span>
+                <div className="min-w-0">
+                  {!isolatedId && (
+                    <span className="text-xs font-medium text-muted-foreground mr-2">
+                      {person.display_name}:
+                    </span>
+                  )}
+                  <span className="text-sm">{moment.text}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground py-2">
+            No spoken lines match "{query}"{isolatedId && shown[0] ? ` for ${shown[0].display_name}` : ""}.
+          </p>
+        )
+      ) : null}
     </div>
   );
 }
