@@ -424,7 +424,9 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 append_log(db, job_id, "Loading Chatterbox multilingual (cloned voices)")
                 update_job(db, job_id, progress=2.0)
                 chatterbox = _load_chatterbox()
+                print("[dub] chatterbox loaded — cloned segments will use chatterbox")
             except Exception as e:
+                print(f"[dub] chatterbox unavailable, cloned voices will use XTTS: {e}")
                 append_log(db, job_id, f"Chatterbox unavailable ({e}) — cloned voices will use XTTS-v2")
 
         # Generic (non-cloned) segments: prefer XTTS stock studio voices,
@@ -461,6 +463,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         synthesized = 0
 
         cloned_count = 0
+        chatterbox_count = 0
         with tempfile.TemporaryDirectory() as workdir:
             if use_xtts_stock:
                 speaker_genders = _speaker_genders(db, media_id, workdir)
@@ -483,6 +486,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                                     chatterbox, seg_text, chatterbox_lang,
                                     speaker_wavs[0], workdir, voice_settings,
                                 )
+                                chatterbox_count += 1
                             except Exception as e:
                                 append_log(db, job_id, f"Chatterbox failed on segment {i + 1} ({e}) — XTTS fallback")
                         if clip is None:
@@ -597,7 +601,13 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         db.commit()
 
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
-        cloned_note = f" ({cloned_count} in cloned voices)" if cloned_count else ""
+        cloned_note = (
+            f" ({cloned_count} in cloned voices — {chatterbox_count} chatterbox, "
+            f"{cloned_count - chatterbox_count} XTTS)"
+        ) if cloned_count else ""
+        print(f"[dub] {target}: {synthesized}/{total} segments — "
+              f"{chatterbox_count} chatterbox, {cloned_count - chatterbox_count} cloned-XTTS, "
+              f"{synthesized - cloned_count} stock/MMS")
         append_log(db, job_id, f"Dubbed {synthesized}/{total} segments to '{target}'{cloned_note} → {os.path.basename(out_path)}")
 
     except Exception as e:
