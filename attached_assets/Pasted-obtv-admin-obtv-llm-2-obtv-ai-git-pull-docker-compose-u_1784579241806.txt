@@ -1,0 +1,88 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull && docker compose up -d --build worker-gpu worker-gpu-2 worker-cpu worker-graphics
+remote: Enumerating objects: 21, done.
+remote: Counting objects: 100% (21/21), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 12 (delta 8), reused 12 (delta 8), pack-reused 0 (from 0)
+Unpacking objects: 100% (12/12), 107.47 KiB | 1.21 MiB/s, done.
+From https://github.com/tbnobed/obtvai
+   ddd334a..58b0aa6  main       -> origin/main
+Updating ddd334a..58b0aa6
+Fast-forward
+ .agents/memory/model-upgrade-2026.md    |   2 +-
+ attached_assets/image_1784579074999.png | Bin 0 -> 53787 bytes
+ attached_assets/image_1784579105080.png | Bin 0 -> 58243 bytes
+ services/worker/tasks/translate.py      |  78 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++---------------
+ 4 files changed, 64 insertions(+), 16 deletions(-)
+ create mode 100644 attached_assets/image_1784579074999.png
+ create mode 100644 attached_assets/image_1784579105080.png
+[+] Building 2.0s (24/25)
+ => [internal] load local bake definitions                                                                                                                                           0.0s
+ => => reading from stdin 1.96kB                                                                                                                                                     0.0s
+ => [worker-gpu internal] load build definition from Dockerfile                                                                                                                      0.0s
+ => => transferring dockerfile: 2.36kB                                                                                                                                               0.0s
+ => [worker-gpu-2 internal] load metadata for docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04                                                                                 0.0s
+ => [worker-gpu internal] load .dockerignore                                                                                                                                         0.0s
+ => => transferring context: 2B                                                                                                                                                      0.0s
+ => [worker-graphics internal] load build context                                                                                                                                    1.8s
+ => => transferring context: 10.39kB                                                                                                                                                 0.0s
+ => [worker-cpu  3/11] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz /tmp/ffmpeg.tar.xz                               0.3s
+ => [worker-graphics  1/11] FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                      0.0s
+ => => resolve docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                                        0.0s
+ => CACHED [worker-cpu  2/11] RUN apt-get update && apt-get install -y --no-install-recommends     python3.11     python3.11-dev     python3-dev     python3-pip     ffmpeg     lib  0.0s
+ => CACHED [worker-cpu  3/11] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz /tmp/ffmpeg.tar.xz                        0.0s
+ => CACHED [worker-cpu  4/11] RUN tar -xf /tmp/ffmpeg.tar.xz -C /tmp     && cp /tmp/ffmpeg-n8.1-latest-linux64-gpl-8.1/bin/ffmpeg /usr/local/bin/ffmpeg     && cp /tmp/ffmpeg-n8.1-  0.0s
+ => CACHED [worker-cpu  5/11] RUN ln -s /usr/bin/python3.11 /usr/bin/python                                                                                                          0.0s
+ => CACHED [worker-cpu  6/11] WORKDIR /worker                                                                                                                                        0.0s
+ => CACHED [worker-cpu  7/11] COPY requirements.txt .                                                                                                                                0.0s
+ => CACHED [worker-cpu  8/11] RUN pip install --no-cache-dir -r requirements.txt                                                                                                     0.0s
+ => CACHED [worker-cpu  9/11] RUN pip install --no-cache-dir requests                                                                                                                0.0s
+ => CACHED [worker-cpu 10/11] RUN pip install --no-cache-dir --no-deps chatterbox-tts==0.1.4     && pip install --no-cache-dir librosa==0.11.0 s3tokenizer resemble-perth conformer  0.0s
+ => [worker-gpu-2 11/11] COPY . .                                                                                                                                                    0.1s
+ => [worker-cpu] exporting to image                                                                                                                                                  0.9s
+ => => exporting layers                                                                                                                                                              0.1s
+ => => exporting manifest sha256:ac0c86060dfb40a1c0f7013239fc16e0577154b497e3fb25a4fd4279c50fcbd0                                                                                    0.1s
+ => => exporting config sha256:2d1eddbfaee81d994b2372825ca6e590c0b2c4541680bfdb227dbec78eb8a8be                                                                                      0.1s
+ => => exporting attestation manifest sha256:d3bf9754fbb301d598682e377c97cdcac0e8a3a078d1c3e2f91e92d4b688d950                                                                        0.2s
+ => => exporting manifest list sha256:628a86e06b85a547a2a346246cf293edb4809790ae7fa3b2589105586065605b                                                                               0.1s
+ => => naming to docker.io/library/obtv-ai-worker-cpu:latest                                                                                                                         0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-cpu:latest                                                                                                                      0.1s
+ => [worker-graphics] exporting to image                                                                                                                                             0.9s
+ => => exporting layers                                                                                                                                                              0.2s
+ => => exporting manifest sha256:b80990ecb3681cc08a6a4089cdd3d10b44f87c69f8a9d4308aa6034ed3d61c64                                                                                    0.1s
+ => => exporting config sha256:5e66eaf061cd43d34ab04a593b95695f53f88ebb3f816f3b4aff8f2604c75258                                                                                      0.1s
+ => => exporting attestation manifest sha256:b3e6a0d6fc8b62839c2fc248560d3b8a599160a183cfb093578a5bb51222ac35                                                                        0.2s
+ => => exporting manifest list sha256:15138c1b79e6df4b202b5691e65729691f256a37655f3256f486b8ba9600d5c8                                                                               0.1s
+ => => naming to docker.io/library/obtv-ai-worker-graphics:latest                                                                                                                    0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-graphics:latest                                                                                                                 0.1s
+ => [worker-gpu-2] exporting to image                                                                                                                                                0.9s
+ => => exporting layers                                                                                                                                                              0.2s
+ => => exporting manifest sha256:3ebfb9a338f5cc91df7d2668d86f5aa6e51a266f300874d3ff800e0733b1be71                                                                                    0.1s
+ => => exporting config sha256:979788e7e840396380617059bc57f7e08450a0e98a8fcf845f8291223f011a9b                                                                                      0.1s
+ => => exporting attestation manifest sha256:ccf11cd47b2fb2d350b34c81b25494e6dda3cb3820f48395cd75f5ff82d8525d                                                                        0.2s
+ => => exporting manifest list sha256:9e94de46ba536251b28913e3ffba1c177e5d89a32ccde1ea73ff78686a8469cf                                                                               0.1s
+ => => naming to docker.io/library/obtv-ai-worker-gpu-2:latest                                                                                                                       0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-gpu-2:latest                                                                                                                    0.1s
+ => [worker-gpu] exporting to image                                                                                                                                                  0.9s
+ => => exporting layers                                                                                                                                                              0.2s
+ => => exporting manifest sha256:e3fb374fb3e0f17b9ec2c7af35122f88c12de1e0041be208ba5a14171c35220f                                                                                    0.1s
+ => => exporting config sha256:1d2d3d90e3f6424043385a2f0becf3131fd927621e6dd16abcac5d6aed335fd3                                                                                      0.1s
+ => => exporting attestation manifest sha256:03cf2329640aa0062e81c4db6ffbf9d6563202259ea718b8d309cb897e2b7e4f                                                                        0.2s
+ => => exporting manifest list sha256:2cce286eba85d44acbf4f929a522ccf24421322ad3127ecc70bcd9e75ee6a3c2                                                                               0.1s
+ => => naming to docker.io/library/obtv-ai-worker-gpu:latest                                                                                                                         0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-gpu:latest                                                                                                                      0.1s
+ => [worker-gpu-2] resolving provenance for metadata file                                                                                                                            0.2s
+ => [worker-cpu] resolving provenance for metadata file                                                                                                                              0.2s
+ => [worker-gpu] resolving provenance for metadata file                                                                                                                              0.1s
+ => [worker-graphics] resolving provenance for metadata file                                                                                                                         0.0s
+[+] up 10/10
+ ✔ Image obtv-ai-worker-cpu            Built                                                                                                                                          2.0s
+ ✔ Image obtv-ai-worker-gpu-2          Built                                                                                                                                          2.0s
+ ✔ Image obtv-ai-worker-graphics       Built                                                                                                                                          2.0s
+ ✔ Image obtv-ai-worker-gpu            Built                                                                                                                                          2.0s
+ ✔ Container obtv-ai-redis-1           Healthy                                                                                                                                        3.8s
+ ✔ Container obtv-ai-postgres-1        Healthy                                                                                                                                        3.8s
+ ✔ Container obtv-ai-worker-cpu-1      Started                                                                                                                                        4.2s
+ ✔ Container obtv-ai-worker-graphics-1 Started                                                                                                                                        4.0s
+ ✔ Container obtv-ai-worker-gpu-1      Started                                                                                                                                        4.1s
+ ✔ Container obtv-ai-worker-gpu-2-1    Started                                                                                                                                        4.2s
+obtv-admin@obtv-llm-2:~/obtv-ai$
