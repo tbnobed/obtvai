@@ -37,7 +37,11 @@ function readToken(req: Request): string | null {
 }
 
 function setSessionCookie(res: Response, token: string | null) {
-  const base = `${COOKIE_NAME}=${token ? encodeURIComponent(token) : ""}; Path=/; HttpOnly; SameSite=Lax`;
+  // The Replit preview renders inside a cross-site iframe over HTTPS, so the
+  // cookie must be SameSite=None + Secure or the browser silently drops it.
+  // Production (FastAPI) keeps SameSite=Lax — it is not iframed and runs on
+  // plain HTTP inside the LAN.
+  const base = `${COOKIE_NAME}=${token ? encodeURIComponent(token) : ""}; Path=/; HttpOnly; SameSite=None; Secure`;
   res.setHeader("Set-Cookie", token ? base : `${base}; Max-Age=0`);
 }
 
