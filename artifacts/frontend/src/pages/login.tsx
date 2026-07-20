@@ -33,11 +33,9 @@ export default function Login() {
   };
 
   return (
-    <div className="dark min-h-screen flex items-center justify-center bg-background text-foreground">
+    <div className="dark min-h-screen flex flex-col items-center justify-center gap-10 bg-background text-foreground">
+      <img src={logoUrl} alt="OBTV.AI" className="h-36 w-auto logo-alive" />
       <div className="w-full max-w-sm p-8 rounded-lg border border-border bg-card space-y-6">
-        <div className="flex justify-center">
-          <img src={logoUrl} alt="OBTV.AI" className="h-12 w-auto rounded" />
-        </div>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
