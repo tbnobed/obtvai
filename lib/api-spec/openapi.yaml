@@ -1383,6 +1383,23 @@ paths:
         "409":
           description: Not a video, or already added
 
+  /people/{id}/reprofile:
+    post:
+      operationId: reprofilePerson
+      tags: [people]
+      summary: Re-run the AI profile (bio, speech style, key topics) for one person
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Profile regeneration queued
+        "404":
+          description: Not found
+
   /people/reanalyze:
     post:
       operationId: reanalyzePeople

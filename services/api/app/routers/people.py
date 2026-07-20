@@ -603,6 +603,21 @@ async def update_person(id: str, body: PersonUpdateIn, db: AsyncSession = Depend
     return _person_out(person, assets or 0, speaking or 0, segments or 0)
 
 
+@router.post("/{id}/reprofile", status_code=202)
+async def reprofile_person(id: str, db: AsyncSession = Depends(get_db)):
+    """Re-run the AI profile (bio / speech style / key topics) for one person."""
+    person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+    from ..worker_client import _publish
+    import uuid as _uuid
+    await _publish(
+        "gpu", "tasks.identify.regenerate_profile",
+        {"person_id": id}, str(_uuid.uuid4()),
+    )
+    return None
+
+
 @router.delete("/{id}", status_code=204)
 async def delete_person(id: str, db: AsyncSession = Depends(get_db)):
     """Remove a person entirely — for deleting false-positive detections.

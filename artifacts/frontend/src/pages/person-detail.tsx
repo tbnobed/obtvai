@@ -23,6 +23,7 @@ import {
   useSetVoiceSettings,
   useGetPersonAssetMoments,
   getGetPersonAssetMomentsQueryKey,
+  useReprofilePerson,
 } from "@workspace/api-client-react";
 import type { PersonAppearance, VoiceGeneration, VoiceSettings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -47,6 +48,7 @@ import {
   ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors,
   AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
   SlidersHorizontal, ChevronDown, ChevronUp, Eye, Undo2, Check, Search,
+  RefreshCw,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -671,6 +673,8 @@ export default function PersonDetail() {
   );
 
   const updatePerson = useUpdatePerson();
+  const reprofilePerson = useReprofilePerson();
+  const [reprofileQueued, setReprofileQueued] = useState(false);
   const mergePerson = useMergePerson();
   const splitPerson = useSplitPerson();
   const unmergePerson = useUnmergePerson();
@@ -988,6 +992,29 @@ export default function PersonDetail() {
                 </form>
               </DialogContent>
             </Dialog>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-2"
+              disabled={reprofilePerson.isPending || reprofileQueued}
+              onClick={() =>
+                reprofilePerson.mutate(
+                  { id },
+                  {
+                    onSuccess: () => {
+                      setReprofileQueued(true);
+                      setTimeout(() => {
+                        setReprofileQueued(false);
+                        invalidate();
+                      }, 60_000);
+                    },
+                  }
+                )
+              }
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${reprofilePerson.isPending ? "animate-spin" : ""}`} />
+              {reprofileQueued ? "Profile Queued" : "Regenerate Profile"}
+            </Button>
           </div>
         </div>
       </div>

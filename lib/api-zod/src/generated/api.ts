@@ -1709,6 +1709,16 @@ export const AddGraphicsToLibraryResponse = zod.object({
 
 
 /**
+ * @summary Re-run the AI profile (bio, speech style, key topics) for one person
+ */
+export const ReprofilePersonParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ReprofilePersonResponse = zod.void()
+
+
+/**
  * @summary Re-run diarization and face analysis across the library to backfill person identification
  */
 export const ReanalyzePeopleResponse = zod.object({

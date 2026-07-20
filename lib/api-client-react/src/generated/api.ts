@@ -4451,6 +4451,77 @@ export const useAddGraphicsToLibrary = <TError = ErrorType<void>,
       return useMutation(getAddGraphicsToLibraryMutationOptions(options));
     }
 
+export const getReprofilePersonUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/reprofile`
+}
+
+/**
+ * @summary Re-run the AI profile (bio, speech style, key topics) for one person
+ */
+export const reprofilePerson = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getReprofilePersonUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReprofilePersonMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reprofilePerson>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reprofilePerson>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['reprofilePerson'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reprofilePerson>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  reprofilePerson(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReprofilePersonMutationResult = NonNullable<Awaited<ReturnType<typeof reprofilePerson>>>
+
+    export type ReprofilePersonMutationError = ErrorType<void>
+
+    /**
+ * @summary Re-run the AI profile (bio, speech style, key topics) for one person
+ */
+export const useReprofilePerson = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reprofilePerson>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reprofilePerson>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getReprofilePersonMutationOptions(options));
+    }
+
 export const getReanalyzePeopleUrl = () => {
 
 

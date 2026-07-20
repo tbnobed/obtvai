@@ -724,6 +724,15 @@ router.post("/search/reindex", (_req, res) => {
 });
 
 // ── Jobs ─────────────────────────────────────────────────────────────────────
+router.post("/people/:id/reprofile", (req, res) => {
+  const person = people.find((p) => p.id === req.params.id);
+  if (!person) {
+    res.status(404).json({ error: "Person not found" });
+    return;
+  }
+  res.status(202).end();
+});
+
 router.post("/people/reanalyze", (_req, res) => {
   res.status(202).json({ assets_queued: 3, jobs_created: 6 });
 });
