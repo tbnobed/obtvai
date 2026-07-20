@@ -72,6 +72,7 @@ import type {
   PersonEnrollInput,
   PersonEnrollResult,
   PersonMergeRequest,
+  PersonPhotoInput,
   PersonSplitRequest,
   PersonUnmergeRequest,
   PersonUpdate,
@@ -4593,6 +4594,80 @@ export const useFaceSearchPerson = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getFaceSearchPersonMutationOptions(options));
+    }
+
+export const getUpdatePersonPhotoUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/photo`
+}
+
+/**
+ * @summary Replace this person's picture with an uploaded photo — the face is detected and cropped; face matching signatures are not changed
+ */
+export const updatePersonPhoto = async (id: string,
+    personPhotoInput: PersonPhotoInput, options?: RequestInit): Promise<Person> => {
+    const formData = new FormData();
+formData.append(`photo`, personPhotoInput.photo);
+
+  return customFetch<Person>(getUpdatePersonPhotoUrl(id),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getUpdatePersonPhotoMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePersonPhoto>>, TError,{id: string;data: BodyType<PersonPhotoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePersonPhoto>>, TError,{id: string;data: BodyType<PersonPhotoInput>}, TContext> => {
+
+const mutationKey = ['updatePersonPhoto'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePersonPhoto>>, {id: string;data: BodyType<PersonPhotoInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePersonPhoto(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePersonPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof updatePersonPhoto>>>
+    export type UpdatePersonPhotoMutationBody = BodyType<PersonPhotoInput>
+    export type UpdatePersonPhotoMutationError = ErrorType<void>
+
+    /**
+ * @summary Replace this person's picture with an uploaded photo — the face is detected and cropped; face matching signatures are not changed
+ */
+export const useUpdatePersonPhoto = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePersonPhoto>>, TError,{id: string;data: BodyType<PersonPhotoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePersonPhoto>>,
+        TError,
+        {id: string;data: BodyType<PersonPhotoInput>},
+        TContext
+      > => {
+      return useMutation(getUpdatePersonPhotoMutationOptions(options));
     }
 
 export const getReanalyzePeopleUrl = () => {

@@ -630,6 +630,66 @@ async def reprofile_person(
     return None
 
 
+@router.post("/{id}/photo", response_model=PersonOut)
+async def update_person_photo(
+    id: str,
+    photo: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Replace this person's picture with an uploaded photo. The most
+    prominent face is detected and cropped the same way enroll does, but the
+    stored face-matching signature is NOT touched — identification behavior
+    stays exactly as before, only the displayed picture changes."""
+    import os
+    import uuid as _uuid
+    from fastapi.concurrency import run_in_threadpool
+    from ..config import settings
+    from ..face_enroll import decode_photo, extract_face, MAX_PHOTO_BYTES
+
+    person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    data = await photo.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="Empty photo upload")
+    if len(data) > MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="Photo too large (15 MB max)")
+    try:
+        img = await run_in_threadpool(decode_photo, data)
+    except Exception:
+        raise HTTPException(status_code=422, detail="Could not read the image file")
+    try:
+        emb, crop = await run_in_threadpool(extract_face, img)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Face model failed to load or run: {type(e).__name__}: {e}",
+        )
+    if crop is None:
+        raise HTTPException(status_code=422, detail="No face detected in the photo")
+
+    os.makedirs(settings.thumbnails_dir, exist_ok=True)
+    thumb_name = f"person_photo_{_uuid.uuid4().hex}.jpg"
+    with open(os.path.join(settings.thumbnails_dir, thumb_name), "wb") as f:
+        f.write(crop)
+
+    old = person.thumbnail_url
+    person.thumbnail_url = thumb_name
+    await db.commit()
+
+    # Best-effort cleanup of a previous manually-uploaded photo (never touch
+    # cluster thumbnails — they are shared with face clusters).
+    if old and old.startswith("person_photo_"):
+        try:
+            os.remove(os.path.join(settings.thumbnails_dir, os.path.basename(old)))
+        except OSError:
+            pass
+
+    person_row, assets, speaking, segments = await _get_person_with_stats(id, db)
+    return _person_out(person_row, assets or 0, speaking or 0, segments or 0)
+
+
 @router.post("/{id}/face-search", status_code=202)
 async def face_search_person(id: str, db: AsyncSession = Depends(get_db)):
     """Queue a reverse web face search (Google Lens via SerpAPI) for this person.

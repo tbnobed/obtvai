@@ -90,6 +90,7 @@ export * from './personEnrollInput';
 export * from './personEnrollResult';
 export * from './personMatch';
 export * from './personMergeRequest';
+export * from './personPhotoInput';
 export * from './personSplitRequest';
 export * from './personUnmergeRequest';
 export * from './personUpdate';

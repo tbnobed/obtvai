@@ -733,6 +733,41 @@ router.post("/people/:id/reprofile", (req, res) => {
   res.status(202).end();
 });
 
+const mockPersonPhotos: Record<string, { buf: Buffer; mime: string }> = {};
+
+router.get("/thumbnails/:name", (req, res) => {
+  const stored = mockPersonPhotos[req.params.name];
+  if (!stored) {
+    res.status(404).end();
+    return;
+  }
+  res.set("Content-Type", stored.mime).send(stored.buf);
+});
+
+router.post("/people/:id/photo", upload.single("photo"), (req, res) => {
+  const person = people.find((p) => p.id === req.params.id);
+  if (!person) {
+    res.status(404).json({ error: "Person not found" });
+    return;
+  }
+  const file = (req as any).file;
+  if (!file || !file.buffer?.length) {
+    res.status(422).json({ error: "Empty photo upload" });
+    return;
+  }
+  if (file.buffer.length > 15 * 1024 * 1024) {
+    res.status(413).json({ error: "Photo too large (15 MB max)" });
+    return;
+  }
+  const name = `mock_person_photo_${person.id}_${Date.now()}.jpg`;
+  const old = person.thumbnail_url;
+  mockPersonPhotos[name] = { buf: file.buffer, mime: file.mimetype || "image/jpeg" };
+  person.thumbnail_url = name;
+  person.updated_at = new Date().toISOString();
+  if (old && mockPersonPhotos[old]) delete mockPersonPhotos[old];
+  res.json(person);
+});
+
 router.post("/people/:id/face-search", (req, res) => {
   const person = people.find((p) => p.id === req.params.id);
   if (!person) {

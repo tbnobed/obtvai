@@ -25,6 +25,7 @@ import {
   getGetPersonAssetMomentsQueryKey,
   useReprofilePerson,
   useFaceSearchPerson,
+  useUpdatePersonPhoto,
 } from "@workspace/api-client-react";
 import type { FaceSearchResult, PersonAppearance, VoiceGeneration, VoiceSettings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -689,6 +690,9 @@ export default function PersonDetail() {
   const updatePerson = useUpdatePerson();
   const reprofilePerson = useReprofilePerson();
   const faceSearchPerson = useFaceSearchPerson();
+  const updatePersonPhoto = useUpdatePersonPhoto();
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [reprofileQueued, setReprofileQueued] = useState(false);
   const mergePerson = useMergePerson();
   const splitPerson = useSplitPerson();
@@ -841,17 +845,68 @@ export default function PersonDetail() {
       </Link>
 
       <div className="flex flex-col md:flex-row gap-6 mb-8">
-        <div className="w-40 h-40 rounded-md bg-muted flex-shrink-0 overflow-hidden">
-          {person.thumbnail_url ? (
-            <img
-              src={`/api/thumbnails/${person.thumbnail_url}`}
-              alt={person.display_name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <User className="h-16 w-16 text-muted-foreground/50" />
+        <div className="flex-shrink-0">
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              setPhotoError(null);
+              updatePersonPhoto.mutate(
+                { id, data: { photo: file } },
+                {
+                  onSuccess: invalidate,
+                  onError: (err: any) => {
+                    const detail = err?.detail || err?.error || err?.message;
+                    setPhotoError(
+                      typeof detail === "string" && detail
+                        ? detail
+                        : "Photo update failed — make sure a face is clearly visible."
+                    );
+                  },
+                }
+              );
+            }}
+          />
+          <button
+            type="button"
+            className="group relative w-40 h-40 rounded-md bg-muted overflow-hidden block"
+            title="Upload a new picture for this person"
+            disabled={updatePersonPhoto.isPending}
+            onClick={() => photoInputRef.current?.click()}
+          >
+            {person.thumbnail_url ? (
+              <img
+                src={`/api/thumbnails/${person.thumbnail_url}`}
+                alt={person.display_name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <User className="h-16 w-16 text-muted-foreground/50" />
+              </div>
+            )}
+            <div
+              className={`absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 text-white text-xs font-medium transition-opacity ${
+                updatePersonPhoto.isPending ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}
+            >
+              {updatePersonPhoto.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Upload className="h-5 w-5" />
+                  Change photo
+                </>
+              )}
             </div>
+          </button>
+          {photoError && (
+            <p className="mt-2 w-40 text-xs text-destructive">{photoError}</p>
           )}
         </div>
         <div className="flex-1 min-w-0">

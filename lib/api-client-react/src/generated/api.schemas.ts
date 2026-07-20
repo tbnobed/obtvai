@@ -487,6 +487,10 @@ export interface PersonEnrollInput {
   display_name: string;
 }
 
+export interface PersonPhotoInput {
+  photo: Blob;
+}
+
 export interface PersonMatch {
   person_id: string;
   display_name: string;

@@ -1425,6 +1425,37 @@ paths:
         "409":
           description: Person has no face thumbnail to search with
 
+  /people/{id}/photo:
+    post:
+      operationId: updatePersonPhoto
+      tags: [people]
+      summary: Replace this person's picture with an uploaded photo — the face is detected and cropped; face matching signatures are not changed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PersonPhotoInput"
+      responses:
+        "200":
+          description: Updated person
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "404":
+          description: Not found
+        "413":
+          description: Photo too large
+        "422":
+          description: Could not read the image or no face detected
+
   /people/reanalyze:
     post:
       operationId: reanalyzePeople
@@ -3258,6 +3289,14 @@ components:
           format: binary
         display_name:
           type: string
+
+    PersonPhotoInput:
+      type: object
+      required: [photo]
+      properties:
+        photo:
+          type: string
+          format: binary
 
     PersonMatch:
       type: object
