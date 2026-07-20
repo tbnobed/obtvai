@@ -15,9 +15,17 @@ export default function Login() {
   const login = useLogin({
     mutation: {
       onSuccess: (user) => {
-        // Drop everything cached for a previous user before flipping the gate.
-        queryClient.clear();
-        queryClient.setQueryData(getGetCurrentUserQueryKey(), user);
+        // Drop caches from a previous user, but NEVER via queryClient.clear():
+        // clear() destroys the active current-user query entry (and the
+        // in-flight login mutation), orphaning the auth gate's subscription —
+        // in production builds the gate then never re-renders and the login
+        // button appears to do nothing. Remove everything else, then update
+        // the live current-user entry so its subscribers are notified.
+        const userKey = getGetCurrentUserQueryKey();
+        queryClient.removeQueries({
+          predicate: (q) => q.queryKey[0] !== userKey[0],
+        });
+        queryClient.setQueryData(userKey, user);
       },
       onError: (err: unknown) => {
         const status = (err as { status?: number })?.status;

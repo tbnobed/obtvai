@@ -52,9 +52,16 @@ export function useLogoutAndReset() {
   const logout = useLogout({
     mutation: {
       onSettled: () => {
-        queryClient.clear();
-        queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
-        queryClient.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() });
+        // Same rule as login: never queryClient.clear() while the auth gate's
+        // current-user query is mounted — it orphans the subscription and the
+        // UI never flips. Remove all other caches, then null out the live
+        // current-user entry.
+        const userKey = getGetCurrentUserQueryKey();
+        queryClient.removeQueries({
+          predicate: (q) => q.queryKey[0] !== userKey[0],
+        });
+        queryClient.getMutationCache().clear();
+        queryClient.setQueryData(userKey, null);
       },
     },
   });
