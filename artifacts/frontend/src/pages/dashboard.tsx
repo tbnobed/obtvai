@@ -6,6 +6,8 @@ import {
   getGetLibraryInsightsQueryKey,
   useListProjects,
   getListProjectsQueryKey,
+  useGetJobStats,
+  getGetJobStatsQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
@@ -40,6 +42,7 @@ export default function Dashboard() {
   const { data: stats, isLoading } = useGetLibraryStats({ query: { queryKey: getGetLibraryStatsQueryKey() } });
   const { data: insights } = useGetLibraryInsights({ query: { queryKey: getGetLibraryInsightsQueryKey() } });
   const { data: projects } = useListProjects({ query: { queryKey: getListProjectsQueryKey() } });
+  const { data: jobStats } = useGetJobStats({ query: { queryKey: getGetJobStatsQueryKey(), refetchInterval: 15000 } });
   const [, navigate] = useLocation();
   const [quickQuery, setQuickQuery] = useState("");
 
@@ -162,11 +165,11 @@ export default function Dashboard() {
                 )}
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.status_counts.processing || 0}</div>
+                <div className="text-2xl font-bold">{jobStats?.jobs_running ?? stats.status_counts.processing ?? 0}</div>
                 <p className={`text-xs mt-1 ${errorCount > 0 ? "text-red-400" : "text-muted-foreground"}`}>
                   {errorCount > 0
-                    ? `Processing · ${errorCount} failed asset${errorCount === 1 ? "" : "s"} need attention`
-                    : `Processing · ${stats.status_counts.pending || 0} queued`}
+                    ? `Jobs running · ${errorCount} failed asset${errorCount === 1 ? "" : "s"} need attention`
+                    : `Jobs running · ${jobStats?.jobs_pending ?? stats.status_counts.pending ?? 0} queued`}
                 </p>
               </CardContent>
             </Card>
