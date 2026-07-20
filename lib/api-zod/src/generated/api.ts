@@ -994,7 +994,11 @@ export const GetPersonResponse = zod.object({
   "face_cluster_id": zod.string().nullish(),
   "speaking_seconds": zod.number().nullish(),
   "segment_count": zod.number().nullish(),
-  "first_spoken_at": zod.number().nullish().describe('Seconds into the asset where this person first speaks')
+  "first_spoken_at": zod.number().nullish().describe('Seconds into the asset where this person first speaks'),
+  "merged_from": zod.object({
+  "person_id": zod.string().describe('Id of the original person (deleted by the merge)'),
+  "display_name": zod.string().describe('Display name the original person had at merge time')
+}).nullish().describe('Set when this appearance arrived via a person merge — records who it originally belonged to so the merge can be undone')
 }))
 }))
 
@@ -1092,6 +1096,39 @@ export const SplitPersonBody = zod.object({
 })
 
 export const SplitPersonResponse = zod.object({
+  "id": zod.string(),
+  "display_name": zod.string(),
+  "name_source": zod.string().nullish().describe('auto (LLM-extracted from transcripts) | manual | null (unnamed)'),
+  "thumbnail_url": zod.string().nullish(),
+  "speech_style": zod.string().nullish().describe('AI summary of how this person speaks'),
+  "key_topics": zod.array(zod.string()).optional(),
+  "summary": zod.string().nullish().describe('AI bio of who this person appears to be'),
+  "asset_count": zod.number(),
+  "total_speaking_seconds": zod.number(),
+  "segment_count": zod.number(),
+  "updated_at": zod.string().nullish(),
+  "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
+  "voice_settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Saved custom synthesis settings (take precedence over voice_preset)')
+})
+
+
+/**
+ * @summary Undo a merge — pull every appearance that came from a merged-in person back out into a restored person
+ */
+export const UnmergePersonParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UnmergePersonBody = zod.object({
+  "merged_from_person_id": zod.string().describe('Original id of the merged-in person whose appearances should be pulled back out (from PersonAppearance.merged_from)')
+})
+
+export const UnmergePersonResponse = zod.object({
   "id": zod.string(),
   "display_name": zod.string(),
   "name_source": zod.string().nullish().describe('auto (LLM-extracted from transcripts) | manual | null (unnamed)'),

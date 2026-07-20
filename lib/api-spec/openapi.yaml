@@ -842,6 +842,33 @@ paths:
         "409":
           description: Cannot split the person's only appearance
 
+  /people/{id}/unmerge:
+    post:
+      operationId: unmergePerson
+      tags: [people]
+      summary: Undo a merge — pull every appearance that came from a merged-in person back out into a restored person
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonUnmergeRequest"
+      responses:
+        "200":
+          description: Restored person carrying the unmerged appearances
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "404":
+          description: Person not found, or no appearances from that merge remain
+
   /people/{id}/appearances/{media_id}:
     get:
       operationId: getPersonAssetMoments
@@ -2731,6 +2758,17 @@ components:
         first_spoken_at:
           type: ["number", "null"]
           description: Seconds into the asset where this person first speaks
+        merged_from:
+          type: ["object", "null"]
+          description: Set when this appearance arrived via a person merge — records who it originally belonged to so the merge can be undone
+          required: [person_id, display_name]
+          properties:
+            person_id:
+              type: string
+              description: Id of the original person (deleted by the merge)
+            display_name:
+              type: string
+              description: Display name the original person had at merge time
 
     PersonDetail:
       allOf:
@@ -2920,6 +2958,14 @@ components:
           type: string
           nullable: true
           description: Face cluster of the appearance (when face-based)
+
+    PersonUnmergeRequest:
+      type: object
+      required: [merged_from_person_id]
+      properties:
+        merged_from_person_id:
+          type: string
+          description: Original id of the merged-in person whose appearances should be pulled back out (from PersonAppearance.merged_from)
 
     PeoplePage:
       type: object

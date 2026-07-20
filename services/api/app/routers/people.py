@@ -10,6 +10,7 @@ from ..schemas import (
     PersonUpdateIn,
     PersonMergeIn,
     PersonSplitIn,
+    PersonUnmergeIn,
     ReanalyzeOut,
     PeoplePageOut,
     PersonAssetMomentsOut,
@@ -510,6 +511,7 @@ async def get_person(id: str, db: AsyncSession = Depends(get_db)):
                 speaking_seconds=pa.speaking_seconds,
                 segment_count=pa.segment_count,
                 first_spoken_at=pa.first_spoken_at,
+                merged_from=pa.merged_from,
             )
             for pa, asset in app_rows
         ],
@@ -743,6 +745,23 @@ async def merge_person(id: str, body: PersonMergeIn, db: AsyncSession = Depends(
         await db.rollback()
         raise HTTPException(status_code=409, detail="Person changed during merge — retry")
 
+    # Stamp merge provenance BEFORE re-parenting so every moved appearance
+    # remembers who it belonged to (unmerge relies on this). Rows that already
+    # carry provenance from an earlier merge keep their original owner.
+    await db.execute(
+        sa_update(PersonAppearance)
+        .where(
+            PersonAppearance.person_id == source.id,
+            PersonAppearance.merged_from.is_(None),
+        )
+        .values(
+            merged_from={
+                "person_id": source.id,
+                "display_name": source.display_name,
+                "name_source": source.name_source,
+            }
+        )
+    )
     await db.execute(
         sa_update(PersonAppearance)
         .where(PersonAppearance.person_id == source.id)
@@ -760,3 +779,145 @@ async def merge_person(id: str, body: PersonMergeIn, db: AsyncSession = Depends(
 
     person, assets, speaking, segments = await _get_person_with_stats(id, db)
     return _person_out(person, assets or 0, speaking or 0, segments or 0)
+
+
+def _avg_norm(vectors: list) -> list | None:
+    """Average a list of embedding vectors and renormalize; skips mismatched
+    lengths (keyed off the first vector) and returns None when nothing usable."""
+    vecs = [v for v in vectors if v]
+    if not vecs:
+        return None
+    dim = len(vecs[0])
+    vecs = [v for v in vecs if len(v) == dim]
+    avg = [sum(col) / len(vecs) for col in zip(*vecs)]
+    norm = sum(v * v for v in avg) ** 0.5
+    if norm <= 0:
+        return None
+    return [v / norm for v in avg]
+
+
+async def _identity_from_appearances(apps, db: AsyncSession):
+    """Rebuild voice/face embeddings + thumbnail from appearances' source
+    assets (speaker embeddings per diarized label, face-cluster embeddings) —
+    never from blended person embeddings, which is what causes bad merges to
+    stick. Returns (voice_embedding, face_embedding, thumbnail_url)."""
+    media_ids = {a.media_id for a in apps}
+    assets = {}
+    if media_ids:
+        assets = {
+            m.id: m
+            for m in (
+                await db.execute(select(MediaAsset).where(MediaAsset.id.in_(media_ids)))
+            ).scalars()
+        }
+    cluster_ids = [a.face_cluster_id for a in apps if a.face_cluster_id]
+    clusters = {}
+    if cluster_ids:
+        clusters = {
+            c.cluster_id: c
+            for c in (
+                await db.execute(
+                    select(FaceCluster).where(FaceCluster.cluster_id.in_(cluster_ids))
+                )
+            ).scalars()
+        }
+
+    voice_embs: list = []
+    face_embs: list = []
+    thumb: str | None = None
+    for a in apps:
+        if a.speaker_label:
+            asset = assets.get(a.media_id)
+            if asset and asset.speaker_embeddings:
+                emb = asset.speaker_embeddings.get(a.speaker_label)
+                if emb:
+                    voice_embs.append(emb)
+        if a.face_cluster_id:
+            cluster = clusters.get(a.face_cluster_id)
+            if cluster:
+                if cluster.embedding:
+                    face_embs.append(cluster.embedding)
+                if not thumb and cluster.thumbnail_url:
+                    thumb = cluster.thumbnail_url
+    return _avg_norm(voice_embs), _avg_norm(face_embs), thumb
+
+
+@router.post("/{id}/unmerge", response_model=PersonOut)
+async def unmerge_person(id: str, body: PersonUnmergeIn, db: AsyncSession = Depends(get_db)):
+    """Undo a merge: every appearance stamped with merged_from=<person> moves
+    back out into a restored person carrying the original name. Identity
+    signals are rebuilt from the source assets themselves (not the blended
+    embeddings the merge created)."""
+    from sqlalchemy import text
+
+    # Same lock the identify worker holds, so an unmerge can't interleave
+    # with an in-flight identification pass.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_identify'))"))
+
+    person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    apps = (
+        (
+            await db.execute(
+                select(PersonAppearance).where(
+                    PersonAppearance.person_id == id,
+                    PersonAppearance.merged_from["person_id"].astext
+                    == body.merged_from_person_id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not apps:
+        raise HTTPException(
+            status_code=404,
+            detail="No appearances from that merge remain on this person",
+        )
+
+    info = apps[0].merged_from or {}
+
+    # Rebuild the restored person's identity signals from the source assets so
+    # future identify runs match them — never from the target's blended
+    # embeddings, which is what caused the bad merge to stick.
+    voice_emb, face_emb, thumb = await _identity_from_appearances(apps, db)
+
+    restored = Person(
+        display_name=info.get("display_name") or "Restored person",
+        name_source=info.get("name_source"),
+        thumbnail_url=thumb,
+        voice_embedding=voice_emb,
+        face_embedding=face_emb,
+    )
+    db.add(restored)
+    await db.flush()
+    for a in apps:
+        a.person_id = restored.id
+        a.merged_from = None
+
+    # The merge blended the removed person's voice/face into the target's
+    # embeddings; rebuild the target from its remaining appearances so identify
+    # runs don't silently re-absorb the restored person later. Keep the old
+    # embedding when the rebuild yields nothing usable (e.g. enrollment-only
+    # people with no diarized/face-clustered footage).
+    remaining = (
+        (
+            await db.execute(
+                select(PersonAppearance).where(PersonAppearance.person_id == id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if remaining:
+        t_voice, t_face, _ = await _identity_from_appearances(remaining, db)
+        if t_voice:
+            person.voice_embedding = t_voice
+        if t_face:
+            person.face_embedding = t_face
+    await db.commit()
+
+    person_row, assets_n, speaking, segments = await _get_person_with_stats(restored.id, db)
+    return _person_out(person_row, assets_n or 0, speaking or 0, segments or 0)

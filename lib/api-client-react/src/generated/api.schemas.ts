@@ -381,6 +381,17 @@ export interface Person {
   voice_settings?: VoiceSettings;
 }
 
+/**
+ * Set when this appearance arrived via a person merge — records who it originally belonged to so the merge can be undone
+ * @nullable
+ */
+export type PersonAppearanceMergedFrom = {
+  /** Id of the original person (deleted by the merge) */
+  person_id: string;
+  /** Display name the original person had at merge time */
+  display_name: string;
+} | null;
+
 export interface PersonAppearance {
   media_id: string;
   filename: string;
@@ -401,6 +412,11 @@ export interface PersonAppearance {
      * @nullable
      */
   first_spoken_at?: number | null;
+  /**
+     * Set when this appearance arrived via a person merge — records who it originally belonged to so the merge can be undone
+     * @nullable
+     */
+  merged_from?: PersonAppearanceMergedFrom;
 }
 
 export type PersonDetail = Person & {
@@ -507,6 +523,11 @@ export interface PersonSplitRequest {
   speaker_label?: string | null;
   /** Face cluster of the appearance (when face-based) */
   face_cluster_id?: string | null;
+}
+
+export interface PersonUnmergeRequest {
+  /** Original id of the merged-in person whose appearances should be pulled back out (from PersonAppearance.merged_from) */
+  merged_from_person_id: string;
 }
 
 export interface PeoplePage {

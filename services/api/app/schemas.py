@@ -480,6 +480,7 @@ class PersonAppearanceOut(BaseModel):
     speaking_seconds: Optional[float] = None
     segment_count: Optional[int] = None
     first_spoken_at: Optional[float] = None
+    merged_from: Optional[dict] = None
 
 
 class PersonDetailOut(PersonOut):
@@ -525,6 +526,10 @@ class PersonSplitIn(BaseModel):
     media_id: str
     speaker_label: str | None = None
     face_cluster_id: str | None = None
+
+
+class PersonUnmergeIn(BaseModel):
+    merged_from_person_id: str
 
 
 class VoiceSampleOut(BaseModel):

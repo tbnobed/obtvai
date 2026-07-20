@@ -2061,7 +2061,7 @@ const personAppearances: Record<string, any[]> = {
   "person-001": [
     { media_id: "asset-001", filename: "interview_sarah_chen.mp4", thumbnail_url: null, duration_seconds: 1122.5, speaker_label: "SPEAKER_00", face_cluster_id: "cluster-001", speaking_seconds: 812.4, segment_count: 96, first_spoken_at: 2.1 },
     { media_id: "asset-003", filename: "documentary_rough_cut_v3.mkv", thumbnail_url: null, duration_seconds: 5406.0, speaker_label: "SPEAKER_02", face_cluster_id: null, speaking_seconds: 734.5, segment_count: 84, first_spoken_at: 341.8 },
-    { media_id: "asset-004", filename: "press_conference_may15.mp4", thumbnail_url: null, duration_seconds: 1863.2, speaker_label: "SPEAKER_01", face_cluster_id: "cluster-004", speaking_seconds: 298.3, segment_count: 34, first_spoken_at: 122.6 },
+    { media_id: "asset-004", filename: "press_conference_may15.mp4", thumbnail_url: null, duration_seconds: 1863.2, speaker_label: "SPEAKER_01", face_cluster_id: "cluster-004", speaking_seconds: 298.3, segment_count: 34, first_spoken_at: 122.6, merged_from: { person_id: "person-legacy-012", display_name: "Person 12" } },
   ],
   "person-002": [
     { media_id: "asset-001", filename: "interview_sarah_chen.mp4", thumbnail_url: null, duration_seconds: 1122.5, speaker_label: "SPEAKER_01", face_cluster_id: "cluster-002", speaking_seconds: 310.2, segment_count: 52, first_spoken_at: 9.0 },
@@ -2308,7 +2308,16 @@ router.post("/people/:id/merge", (req, res) => {
   target.asset_count += source.asset_count;
   target.total_speaking_seconds += source.total_speaking_seconds;
   target.segment_count += source.segment_count;
-  personAppearances[target.id] = [...(personAppearances[target.id] ?? []), ...(personAppearances[sourceId] ?? [])];
+  // Stamp merge provenance so the merge can be undone; earlier provenance wins.
+  const moved = (personAppearances[sourceId] ?? []).map((a: any) => ({
+    ...a,
+    merged_from: a.merged_from ?? {
+      person_id: source.id,
+      display_name: source.display_name,
+      name_source: source.name_source ?? null,
+    },
+  }));
+  personAppearances[target.id] = [...(personAppearances[target.id] ?? []), ...moved];
   delete personAppearances[sourceId];
   people.splice(sourceIdx, 1);
   res.json(target);
@@ -2353,6 +2362,41 @@ router.post("/people/:id/split", (req, res) => {
   source.total_speaking_seconds = Math.max(0, source.total_speaking_seconds - (app.speaking_seconds ?? 0));
   source.segment_count = Math.max(0, source.segment_count - (app.segment_count ?? 0));
   res.json(newPerson);
+});
+
+router.post("/people/:id/unmerge", (req, res) => {
+  const target = people.find((x) => x.id === req.params.id);
+  if (!target) { res.status(404).json({ error: "Not found" }); return; }
+  const fromId = String(req.body?.merged_from_person_id ?? "");
+  const apps = personAppearances[target.id] ?? [];
+  const moved = apps.filter((a: any) => a.merged_from?.person_id === fromId);
+  if (!moved.length) {
+    res.status(404).json({ error: "No appearances from that merge remain on this person" });
+    return;
+  }
+  personAppearances[target.id] = apps.filter((a: any) => a.merged_from?.person_id !== fromId);
+  const info = moved[0].merged_from;
+  const restored = {
+    id: `person-${Date.now()}`,
+    display_name: info.display_name ?? "Restored person",
+    name_source: info.name_source ?? null,
+    thumbnail_url: moved[0].thumbnail_url ?? null,
+    speech_style: null as string | null,
+    key_topics: [] as string[],
+    summary: null as string | null,
+    asset_count: new Set(moved.map((a: any) => a.media_id)).size,
+    total_speaking_seconds: moved.reduce((s: number, a: any) => s + (a.speaking_seconds ?? 0), 0),
+    segment_count: moved.reduce((s: number, a: any) => s + (a.segment_count ?? 0), 0),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  people.push(restored as any);
+  personAppearances[restored.id] = moved.map((a: any) => ({ ...a, merged_from: null }));
+  target.asset_count = new Set((personAppearances[target.id] ?? []).map((a: any) => a.media_id)).size;
+  target.total_speaking_seconds = Math.max(0, target.total_speaking_seconds - restored.total_speaking_seconds);
+  target.segment_count = Math.max(0, target.segment_count - restored.segment_count);
+  target.updated_at = new Date().toISOString();
+  res.json(restored);
 });
 
 // ── Voice cloning ────────────────────────────────────────────────────────────

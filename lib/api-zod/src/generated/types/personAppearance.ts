@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { PersonAppearanceMergedFrom } from './personAppearanceMergedFrom';
 
 export interface PersonAppearance {
   media_id: string;
@@ -26,4 +27,9 @@ export interface PersonAppearance {
      * @nullable
      */
   first_spoken_at?: number | null;
+  /**
+     * Set when this appearance arrived via a person merge — records who it originally belonged to so the merge can be undone
+     * @nullable
+     */
+  merged_from?: PersonAppearanceMergedFrom;
 }

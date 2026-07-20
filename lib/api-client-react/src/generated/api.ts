@@ -69,6 +69,7 @@ import type {
   PersonEnrollResult,
   PersonMergeRequest,
   PersonSplitRequest,
+  PersonUnmergeRequest,
   PersonUpdate,
   ProcessingJob,
   Project,
@@ -2719,6 +2720,78 @@ export const useSplitPerson = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSplitPersonMutationOptions(options));
+    }
+
+export const getUnmergePersonUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/unmerge`
+}
+
+/**
+ * @summary Undo a merge — pull every appearance that came from a merged-in person back out into a restored person
+ */
+export const unmergePerson = async (id: string,
+    personUnmergeRequest: PersonUnmergeRequest, options?: RequestInit): Promise<Person> => {
+
+  return customFetch<Person>(getUnmergePersonUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(personUnmergeRequest)
+  }
+);}
+
+
+
+
+
+export const getUnmergePersonMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unmergePerson>>, TError,{id: string;data: BodyType<PersonUnmergeRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unmergePerson>>, TError,{id: string;data: BodyType<PersonUnmergeRequest>}, TContext> => {
+
+const mutationKey = ['unmergePerson'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unmergePerson>>, {id: string;data: BodyType<PersonUnmergeRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  unmergePerson(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnmergePersonMutationResult = NonNullable<Awaited<ReturnType<typeof unmergePerson>>>
+    export type UnmergePersonMutationBody = BodyType<PersonUnmergeRequest>
+    export type UnmergePersonMutationError = ErrorType<void>
+
+    /**
+ * @summary Undo a merge — pull every appearance that came from a merged-in person back out into a restored person
+ */
+export const useUnmergePerson = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unmergePerson>>, TError,{id: string;data: BodyType<PersonUnmergeRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unmergePerson>>,
+        TError,
+        {id: string;data: BodyType<PersonUnmergeRequest>},
+        TContext
+      > => {
+      return useMutation(getUnmergePersonMutationOptions(options));
     }
 
 export const getGetPersonAssetMomentsUrl = (id: string,

@@ -138,6 +138,9 @@ class PersonAppearance(Base):
     speaking_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     segment_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     first_spoken_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Merge provenance: {"person_id", "display_name", "name_source"} of the
+    # original owner when this appearance arrived via a person merge.
+    merged_from: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     person: Mapped["Person"] = relationship("Person", back_populates="appearances")

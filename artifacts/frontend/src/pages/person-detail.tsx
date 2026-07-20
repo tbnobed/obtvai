@@ -7,6 +7,7 @@ import {
   useUpdatePerson,
   useMergePerson,
   useSplitPerson,
+  useUnmergePerson,
   useListPeople,
   useGetVoiceProfile,
   getGetVoiceProfileQueryKey,
@@ -45,7 +46,7 @@ import {
 import {
   ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors,
   AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
-  SlidersHorizontal, ChevronDown, ChevronUp, Eye,
+  SlidersHorizontal, ChevronDown, ChevronUp, Eye, Undo2,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -646,6 +647,7 @@ export default function PersonDetail() {
   const updatePerson = useUpdatePerson();
   const mergePerson = useMergePerson();
   const splitPerson = useSplitPerson();
+  const unmergePerson = useUnmergePerson();
   const [, navigate] = useLocation();
 
   const [renameOpen, setRenameOpen] = useState(false);
@@ -702,9 +704,31 @@ export default function PersonDetail() {
           navigate(`/people/${newPerson.id}`);
         },
         onError: (err: unknown) => {
-          const detail =
-            (err as { response?: { data?: { detail?: string; error?: string } } })?.response?.data;
-          window.alert(detail?.detail || detail?.error || "Split failed");
+          const e = err as { data?: { detail?: string; error?: string }; message?: string };
+          window.alert(e?.data?.detail || e?.data?.error || e?.message || "Split failed");
+        },
+      }
+    );
+  };
+
+  const handleUnmerge = (fromId: string, name: string, count: number) => {
+    if (unmergePerson.isPending) return;
+    if (
+      !window.confirm(
+        `Undo the merge with "${name}"? All ${count} appearance${count === 1 ? "" : "s"} that came from them will move back out into a restored "${name}".`
+      )
+    )
+      return;
+    unmergePerson.mutate(
+      { id, data: { merged_from_person_id: fromId } },
+      {
+        onSuccess: (restored) => {
+          invalidate();
+          navigate(`/people/${restored.id}`);
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { detail?: string; error?: string }; message?: string };
+          window.alert(e?.data?.detail || e?.data?.error || e?.message || "Unmerge failed");
         },
       }
     );
@@ -749,6 +773,15 @@ export default function PersonDetail() {
   }
 
   const mergeCandidates = (allPeople?.items ?? []).filter((p) => p.id !== id);
+
+  const mergedGroups: { person_id: string; display_name: string; count: number }[] = [];
+  for (const a of person.appearances ?? []) {
+    const mf = a.merged_from as { person_id?: string; display_name?: string } | null | undefined;
+    if (!mf?.person_id) continue;
+    const existing = mergedGroups.find((g) => g.person_id === mf.person_id);
+    if (existing) existing.count += 1;
+    else mergedGroups.push({ person_id: mf.person_id, display_name: mf.display_name ?? "Unknown", count: 1 });
+  }
 
   return (
     <div className="flex-1 p-8 overflow-y-auto">
@@ -883,6 +916,29 @@ export default function PersonDetail() {
       <VoiceSection personId={id} personName={person.display_name} appearances={person.appearances ?? []} voicePreset={person.voice_preset} voiceSettings={person.voice_settings} />
 
       <h2 className="text-lg font-semibold mb-4">Appearances</h2>
+      {mergedGroups.length > 0 && (
+        <div className="border border-border bg-card rounded-md p-4 mb-4">
+          <p className="text-sm font-medium mb-1">Merged people</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            These people were merged into {person.display_name}. Undo a merge to move their appearances back out into a restored person.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {mergedGroups.map((g) => (
+              <Button
+                key={g.person_id}
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={unmergePerson.isPending}
+                onClick={() => handleUnmerge(g.person_id, g.display_name, g.count)}
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+                Unmerge {g.display_name} ({g.count} video{g.count === 1 ? "" : "s"})
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
       {person.appearances?.length ? (
         <div className="space-y-2">
           {person.appearances.map((a) => {
@@ -914,6 +970,11 @@ export default function PersonDetail() {
                         {formatDuration(a.speaking_seconds)} speaking · {a.segment_count ?? 0} segments
                         {a.first_spoken_at != null ? ` · first speaks at ${formatTimecode(a.first_spoken_at)}` : ""}
                       </p>
+                      {(a.merged_from as { display_name?: string } | null | undefined)?.display_name && (
+                        <Badge variant="secondary" className="mt-1.5 text-[10px] font-normal">
+                          merged from {(a.merged_from as { display_name?: string }).display_name}
+                        </Badge>
+                      )}
                     </div>
                     <span className="text-xs text-muted-foreground flex-shrink-0">
                       {formatDuration(a.duration_seconds)}
