@@ -1,0 +1,20 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs worker-gpu worker-gpu-2 --since 24h | grep -i -E "chatterbox|xtts"
+worker-gpu-2-1  | [2026-07-20 20:10:37,113: WARNING/ForkPoolWorker-1] [dub] chatterbox loaded — cloned segments will use chatterbox
+worker-gpu-2-1  | [2026-07-20 20:10:43,647: INFO/ForkPoolWorker-1] Downloading model to /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs worker-gpu worker-gpu-2 --since 24h | grep -i -E "chatterbox|xtts"
+worker-gpu-2-1  | [2026-07-20 20:10:37,113: WARNING/ForkPoolWorker-1] [dub] chatterbox loaded — cloned segments will use chatterbox
+worker-gpu-2-1  | [2026-07-20 20:10:43,647: INFO/ForkPoolWorker-1] Downloading model to /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs worker-gpu worker-gpu-2 --since 24h | grep -i -E "chatterbox|xtts"
+worker-gpu-2-1  | [2026-07-20 20:10:37,113: WARNING/ForkPoolWorker-1] [dub] chatterbox loaded — cloned segments will use chatterbox
+worker-gpu-2-1  | [2026-07-20 20:10:43,647: INFO/ForkPoolWorker-1] Downloading model to /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs worker-gpu worker-gpu-2 --since 24h | grep -i -E "chatterbox|xtts"
+worker-gpu-2-1  | [2026-07-20 20:10:37,113: WARNING/ForkPoolWorker-1] [dub] chatterbox loaded — cloned segments will use chatterbox
+worker-gpu-2-1  | [2026-07-20 20:10:43,647: INFO/ForkPoolWorker-1] Downloading model to /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs worker-gpu worker-gpu-2 --since 24h | grep -i -E "chatterbox|xtts"
+worker-gpu-2-1  | [2026-07-20 20:10:37,113: WARNING/ForkPoolWorker-1] [dub] chatterbox loaded — cloned segments will use chatterbox
+worker-gpu-2-1  | [2026-07-20 20:10:43,647: INFO/ForkPoolWorker-1] Downloading model to /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2
+worker-gpu-2-1  | [2026-07-20 20:11:08,629: INFO/ForkPoolWorker-1] Using model: xtts
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs worker-gpu worker-gpu-2 --since 24h | grep -i -E "chatterbox|xtts"
+worker-gpu-2-1  | [2026-07-20 20:10:37,113: WARNING/ForkPoolWorker-1] [dub] chatterbox loaded — cloned segments will use chatterbox
+worker-gpu-2-1  | [2026-07-20 20:10:43,647: INFO/ForkPoolWorker-1] Downloading model to /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2
+worker-gpu-2-1  | [2026-07-20 20:11:08,629: INFO/ForkPoolWorker-1] Using model: xtts
