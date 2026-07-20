@@ -1,6 +1,6 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import String, Integer, Float, Boolean, Text, DateTime, ForeignKey, JSON, BigInteger
+from datetime import datetime, date
+from sqlalchemy import String, Integer, Float, Boolean, Text, DateTime, Date, ForeignKey, JSON, BigInteger, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY, JSONB
 from .database import Base
@@ -422,3 +422,59 @@ class UserSession(Base):
     last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="sessions")
+
+
+class RatingsImportBatch(Base):
+    """One imported ratings file (CSV today; a measurement API later)."""
+    __tablename__ = "ratings_imports"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    filename: Mapped[str] = mapped_column(String, nullable=False)
+    provider: Mapped[str] = mapped_column(String, nullable=False, default="manual")
+    row_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    records: Mapped[list["RatingRecord"]] = relationship(
+        "RatingRecord", back_populates="import_batch", cascade="all, delete-orphan"
+    )
+
+
+class RatingRecord(Base):
+    """A single audience-measurement data point (one program airing on one station).
+
+    Provider-agnostic: `provider` + `import_id` are the seam for adding an
+    automated measurement-API ingest later without schema changes. `is_own` is
+    NOT stored — it is computed at read time from the OWN_STATIONS env.
+    """
+    __tablename__ = "ratings_records"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    import_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("ratings_imports.id", ondelete="CASCADE"), nullable=True
+    )
+    provider: Mapped[str] = mapped_column(String, nullable=False, default="manual")
+    market: Mapped[str | None] = mapped_column(String, nullable=True)
+    station: Mapped[str] = mapped_column(String, nullable=False)
+    program_title: Mapped[str] = mapped_column(String, nullable=False)
+    air_date: Mapped[date] = mapped_column(Date, nullable=False)
+    start_time: Mapped[str | None] = mapped_column(String, nullable=True)  # "HH:MM"
+    end_time: Mapped[str | None] = mapped_column(String, nullable=True)  # "HH:MM"
+    rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    viewers: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    demo: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    asset_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("media_assets.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    import_batch: Mapped["RatingsImportBatch | None"] = relationship(
+        "RatingsImportBatch", back_populates="records"
+    )
+    asset: Mapped["MediaAsset | None"] = relationship("MediaAsset")
+
+    __table_args__ = (
+        Index("ix_ratings_records_air_date_station", "air_date", "station"),
+        Index("ix_ratings_records_import_id", "import_id"),
+    )

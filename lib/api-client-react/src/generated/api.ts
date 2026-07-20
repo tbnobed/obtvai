@@ -37,6 +37,7 @@ import type {
   GetCoAppearancesParams,
   GetMediaFrameParams,
   GetMediaTranscriptParams,
+  GetRatingsOverviewParams,
   GraphicsGenerateInput,
   GraphicsGeneration,
   GraphicsGenerationListResponse,
@@ -52,6 +53,7 @@ import type {
   ListJobsParams,
   ListMediaParams,
   ListPeopleParams,
+  ListRatingsParams,
   ListReelsParams,
   ListRendersParams,
   ListStoriesParams,
@@ -79,6 +81,12 @@ import type {
   ProjectUpdate,
   PublishPlatforms,
   PublishRequest,
+  RatingRecord,
+  RatingUpdate,
+  RatingsImport,
+  RatingsImportInput,
+  RatingsListResponse,
+  RatingsOverview,
   ReanalyzeResult,
   ReelJob,
   ReelRequest,
@@ -4808,6 +4816,471 @@ export const useRefreshTrends = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRefreshTrendsMutationOptions(options));
+    }
+
+export const getListRatingsUrl = (params?: ListRatingsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/ratings?${stringifiedParams}` : `/api/ratings`
+}
+
+/**
+ * @summary List audience ratings records
+ */
+export const listRatings = async (params?: ListRatingsParams, options?: RequestInit): Promise<RatingsListResponse> => {
+
+  return customFetch<RatingsListResponse>(getListRatingsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRatingsQueryKey = (params?: ListRatingsParams,) => {
+    return [
+    `/api/ratings`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListRatingsQueryOptions = <TData = Awaited<ReturnType<typeof listRatings>>, TError = ErrorType<unknown>>(params?: ListRatingsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRatings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRatingsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRatings>>> = ({ signal }) => listRatings(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRatings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRatingsQueryResult = NonNullable<Awaited<ReturnType<typeof listRatings>>>
+export type ListRatingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List audience ratings records
+ */
+
+export function useListRatings<TData = Awaited<ReturnType<typeof listRatings>>, TError = ErrorType<unknown>>(
+ params?: ListRatingsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRatings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRatingsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetRatingsOverviewUrl = (params?: GetRatingsOverviewParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/ratings/overview?${stringifiedParams}` : `/api/ratings/overview`
+}
+
+/**
+ * @summary Ratings dashboard aggregates — own-station KPIs and trend, competitive station shares, top programs
+ */
+export const getRatingsOverview = async (params?: GetRatingsOverviewParams, options?: RequestInit): Promise<RatingsOverview> => {
+
+  return customFetch<RatingsOverview>(getGetRatingsOverviewUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRatingsOverviewQueryKey = (params?: GetRatingsOverviewParams,) => {
+    return [
+    `/api/ratings/overview`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetRatingsOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getRatingsOverview>>, TError = ErrorType<unknown>>(params?: GetRatingsOverviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRatingsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRatingsOverviewQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRatingsOverview>>> = ({ signal }) => getRatingsOverview(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRatingsOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRatingsOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getRatingsOverview>>>
+export type GetRatingsOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Ratings dashboard aggregates — own-station KPIs and trend, competitive station shares, top programs
+ */
+
+export function useGetRatingsOverview<TData = Awaited<ReturnType<typeof getRatingsOverview>>, TError = ErrorType<unknown>>(
+ params?: GetRatingsOverviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRatingsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRatingsOverviewQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getImportRatingsUrl = () => {
+
+
+
+
+  return `/api/ratings/import`
+}
+
+/**
+ * @summary Import a ratings CSV (see the downloadable template for the column format)
+ */
+export const importRatings = async (ratingsImportInput: RatingsImportInput, options?: RequestInit): Promise<RatingsImport> => {
+    const formData = new FormData();
+formData.append(`file`, ratingsImportInput.file);
+formData.append(`provider`, ratingsImportInput.provider);
+if(ratingsImportInput.market !== undefined) {
+ formData.append(`market`, ratingsImportInput.market);
+ }
+
+  return customFetch<RatingsImport>(getImportRatingsUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getImportRatingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importRatings>>, TError,{data: BodyType<RatingsImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importRatings>>, TError,{data: BodyType<RatingsImportInput>}, TContext> => {
+
+const mutationKey = ['importRatings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importRatings>>, {data: BodyType<RatingsImportInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importRatings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportRatingsMutationResult = NonNullable<Awaited<ReturnType<typeof importRatings>>>
+    export type ImportRatingsMutationBody = BodyType<RatingsImportInput>
+    export type ImportRatingsMutationError = ErrorType<void>
+
+    /**
+ * @summary Import a ratings CSV (see the downloadable template for the column format)
+ */
+export const useImportRatings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importRatings>>, TError,{data: BodyType<RatingsImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importRatings>>,
+        TError,
+        {data: BodyType<RatingsImportInput>},
+        TContext
+      > => {
+      return useMutation(getImportRatingsMutationOptions(options));
+    }
+
+export const getListRatingsImportsUrl = () => {
+
+
+
+
+  return `/api/ratings/imports`
+}
+
+/**
+ * @summary Import history
+ */
+export const listRatingsImports = async ( options?: RequestInit): Promise<RatingsImport[]> => {
+
+  return customFetch<RatingsImport[]>(getListRatingsImportsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRatingsImportsQueryKey = () => {
+    return [
+    `/api/ratings/imports`
+    ] as const;
+    }
+
+
+export const getListRatingsImportsQueryOptions = <TData = Awaited<ReturnType<typeof listRatingsImports>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRatingsImports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRatingsImportsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRatingsImports>>> = ({ signal }) => listRatingsImports({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRatingsImports>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRatingsImportsQueryResult = NonNullable<Awaited<ReturnType<typeof listRatingsImports>>>
+export type ListRatingsImportsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Import history
+ */
+
+export function useListRatingsImports<TData = Awaited<ReturnType<typeof listRatingsImports>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRatingsImports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRatingsImportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteRatingsImportUrl = (id: string,) => {
+
+
+
+
+  return `/api/ratings/imports/${id}`
+}
+
+/**
+ * @summary Delete an import batch and all records it created
+ */
+export const deleteRatingsImport = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteRatingsImportUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteRatingsImportMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRatingsImport>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRatingsImport>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteRatingsImport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRatingsImport>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteRatingsImport(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRatingsImportMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRatingsImport>>>
+
+    export type DeleteRatingsImportMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete an import batch and all records it created
+ */
+export const useDeleteRatingsImport = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRatingsImport>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRatingsImport>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteRatingsImportMutationOptions(options));
+    }
+
+export const getUpdateRatingUrl = (id: string,) => {
+
+
+
+
+  return `/api/ratings/${id}`
+}
+
+/**
+ * @summary Link or unlink a ratings record to an indexed media asset
+ */
+export const updateRating = async (id: string,
+    ratingUpdate: RatingUpdate, options?: RequestInit): Promise<RatingRecord> => {
+
+  return customFetch<RatingRecord>(getUpdateRatingUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(ratingUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateRatingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRating>>, TError,{id: string;data: BodyType<RatingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRating>>, TError,{id: string;data: BodyType<RatingUpdate>}, TContext> => {
+
+const mutationKey = ['updateRating'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRating>>, {id: string;data: BodyType<RatingUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateRating(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRatingMutationResult = NonNullable<Awaited<ReturnType<typeof updateRating>>>
+    export type UpdateRatingMutationBody = BodyType<RatingUpdate>
+    export type UpdateRatingMutationError = ErrorType<void>
+
+    /**
+ * @summary Link or unlink a ratings record to an indexed media asset
+ */
+export const useUpdateRating = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRating>>, TError,{id: string;data: BodyType<RatingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRating>>,
+        TError,
+        {id: string;data: BodyType<RatingUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRatingMutationOptions(options));
     }
 
 export const getSemanticSearchUrl = () => {

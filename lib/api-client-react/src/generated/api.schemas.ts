@@ -902,6 +902,167 @@ export interface Trends {
   web: WebTrend[];
 }
 
+/**
+ * Demo breakdowns keyed by demo name (e.g. A25-54, P2+)
+ * @nullable
+ */
+export type RatingRecordDemo = {[key: string]: number} | null;
+
+export interface RatingRecord {
+  id: string;
+  /** nielsen | comscore | ispot | manual (CSV import) */
+  provider: string;
+  /**
+     * Measurement market (e.g. "Columbus, OH")
+     * @nullable
+     */
+  market?: string | null;
+  /** Station or channel call letters (normalized uppercase) */
+  station: string;
+  program_title: string;
+  air_date: string;
+  /**
+     * HH:MM local time slot start
+     * @nullable
+     */
+  start_time?: string | null;
+  /**
+     * HH:MM local time slot end
+     * @nullable
+     */
+  end_time?: string | null;
+  /**
+     * Household rating points
+     * @nullable
+     */
+  rating?: number | null;
+  /**
+     * Share of households using TV
+     * @nullable
+     */
+  share?: number | null;
+  /**
+     * Average audience (impressions)
+     * @nullable
+     */
+  viewers?: number | null;
+  /**
+     * Demo breakdowns keyed by demo name (e.g. A25-54, P2+)
+     * @nullable
+     */
+  demo?: RatingRecordDemo;
+  /** Whether the station is one of ours (computed from OWN_STATIONS at read time) */
+  is_own: boolean;
+  /**
+     * Linked library asset, if any
+     * @nullable
+     */
+  asset_id?: string | null;
+  /**
+     * Filename of the linked asset (display convenience)
+     * @nullable
+     */
+  asset_filename?: string | null;
+  /** @nullable */
+  import_id?: string | null;
+}
+
+export interface RatingsListResponse {
+  items: RatingRecord[];
+  total: number;
+}
+
+/**
+ * Own-station KPIs over the selected range
+ */
+export type RatingsOverviewKpis = {
+  record_count: number;
+  program_count: number;
+  /** @nullable */
+  avg_rating?: number | null;
+  /** @nullable */
+  avg_share?: number | null;
+  /** @nullable */
+  peak_viewers?: number | null;
+};
+
+export type RatingsOverviewTrendItem = {
+  date: string;
+  /** @nullable */
+  avg_rating?: number | null;
+  /** @nullable */
+  avg_share?: number | null;
+  /** @nullable */
+  total_viewers?: number | null;
+};
+
+export type RatingsOverviewStationSharesItem = {
+  station: string;
+  is_own: boolean;
+  /** @nullable */
+  avg_rating?: number | null;
+  /** @nullable */
+  avg_share?: number | null;
+  record_count: number;
+};
+
+export type RatingsOverviewTopProgramsItem = {
+  program_title: string;
+  station: string;
+  airings: number;
+  /** @nullable */
+  avg_rating?: number | null;
+  /** @nullable */
+  avg_share?: number | null;
+  /** @nullable */
+  best_rating?: number | null;
+};
+
+export interface RatingsOverview {
+  /** Configured own-station call letters (OWN_STATIONS) */
+  own_stations: string[];
+  /** Own-station KPIs over the selected range */
+  kpis: RatingsOverviewKpis;
+  /** Own-station daily averages over the selected range */
+  trend: RatingsOverviewTrendItem[];
+  /** All stations ranked by average share (competitive view) */
+  station_shares: RatingsOverviewStationSharesItem[];
+  /** Own-station programs ranked by average rating */
+  top_programs: RatingsOverviewTopProgramsItem[];
+}
+
+export interface RatingsImport {
+  id: string;
+  filename: string;
+  provider: string;
+  /** Rows successfully imported */
+  row_count: number;
+  /** Rows skipped due to parse errors */
+  error_count: number;
+  /**
+     * First few parse errors (import response only)
+     * @nullable
+     */
+  errors?: string[] | null;
+  created_at: string;
+}
+
+export interface RatingsImportInput {
+  file: Blob;
+  /** Source of this file: nielsen | comscore | ispot | manual */
+  provider: string;
+  /** Default market when the CSV has no Market column */
+  market?: string;
+}
+
+export interface RatingUpdate {
+  /**
+     * Media asset to link, or null to unlink
+     * @nullable
+     */
+  asset_id?: string | null;
+}
+
 export interface SearchQuery {
   query: string;
   /**
@@ -1787,6 +1948,34 @@ min_shared?: number;
 export type ListGraphicsGenerationsParams = {
 limit?: number;
 offset?: number;
+};
+
+export type ListRatingsParams = {
+/**
+ * Only records on or after this air date
+ */
+from?: string;
+/**
+ * Only records on or before this air date
+ */
+to?: string;
+station?: string;
+provider?: string;
+/**
+ * Case-insensitive match on program title
+ */
+q?: string;
+/**
+ * Only records linked to this media asset
+ */
+asset_id?: string;
+limit?: number;
+offset?: number;
+};
+
+export type GetRatingsOverviewParams = {
+from?: string;
+to?: string;
 };
 
 export type ListJobsParams = {

@@ -1847,6 +1847,160 @@ export const RefreshTrendsResponse = zod.object({
 
 
 /**
+ * @summary List audience ratings records
+ */
+export const ListRatingsQueryParams = zod.object({
+  "from": zod.date().optional().describe('Only records on or after this air date'),
+  "to": zod.date().optional().describe('Only records on or before this air date'),
+  "station": zod.coerce.string().optional(),
+  "provider": zod.coerce.string().optional(),
+  "q": zod.coerce.string().optional().describe('Case-insensitive match on program title'),
+  "asset_id": zod.coerce.string().optional().describe('Only records linked to this media asset'),
+  "limit": zod.coerce.number().optional(),
+  "offset": zod.coerce.number().optional()
+})
+
+export const ListRatingsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "provider": zod.string().describe('nielsen | comscore | ispot | manual (CSV import)'),
+  "market": zod.string().nullish().describe('Measurement market (e.g. \"Columbus, OH\")'),
+  "station": zod.string().describe('Station or channel call letters (normalized uppercase)'),
+  "program_title": zod.string(),
+  "air_date": zod.coerce.date(),
+  "start_time": zod.string().nullish().describe('HH:MM local time slot start'),
+  "end_time": zod.string().nullish().describe('HH:MM local time slot end'),
+  "rating": zod.number().nullish().describe('Household rating points'),
+  "share": zod.number().nullish().describe('Share of households using TV'),
+  "viewers": zod.number().nullish().describe('Average audience (impressions)'),
+  "demo": zod.record(zod.string(), zod.number()).nullish().describe('Demo breakdowns keyed by demo name (e.g. A25-54, P2+)'),
+  "is_own": zod.boolean().describe('Whether the station is one of ours (computed from OWN_STATIONS at read time)'),
+  "asset_id": zod.string().nullish().describe('Linked library asset, if any'),
+  "asset_filename": zod.string().nullish().describe('Filename of the linked asset (display convenience)'),
+  "import_id": zod.string().nullish()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Ratings dashboard aggregates — own-station KPIs and trend, competitive station shares, top programs
+ */
+export const GetRatingsOverviewQueryParams = zod.object({
+  "from": zod.date().optional(),
+  "to": zod.date().optional()
+})
+
+export const GetRatingsOverviewResponse = zod.object({
+  "own_stations": zod.array(zod.string()).describe('Configured own-station call letters (OWN_STATIONS)'),
+  "kpis": zod.object({
+  "record_count": zod.number(),
+  "program_count": zod.number(),
+  "avg_rating": zod.number().nullish(),
+  "avg_share": zod.number().nullish(),
+  "peak_viewers": zod.number().nullish()
+}).describe('Own-station KPIs over the selected range'),
+  "trend": zod.array(zod.object({
+  "date": zod.coerce.date(),
+  "avg_rating": zod.number().nullish(),
+  "avg_share": zod.number().nullish(),
+  "total_viewers": zod.number().nullish()
+})).describe('Own-station daily averages over the selected range'),
+  "station_shares": zod.array(zod.object({
+  "station": zod.string(),
+  "is_own": zod.boolean(),
+  "avg_rating": zod.number().nullish(),
+  "avg_share": zod.number().nullish(),
+  "record_count": zod.number()
+})).describe('All stations ranked by average share (competitive view)'),
+  "top_programs": zod.array(zod.object({
+  "program_title": zod.string(),
+  "station": zod.string(),
+  "airings": zod.number(),
+  "avg_rating": zod.number().nullish(),
+  "avg_share": zod.number().nullish(),
+  "best_rating": zod.number().nullish()
+})).describe('Own-station programs ranked by average rating')
+})
+
+
+/**
+ * @summary Import a ratings CSV (see the downloadable template for the column format)
+ */
+export const ImportRatingsBody = zod.object({
+  "file": zod.instanceof(File),
+  "provider": zod.string().describe('Source of this file: nielsen | comscore | ispot | manual'),
+  "market": zod.string().optional().describe('Default market when the CSV has no Market column')
+})
+
+export const ImportRatingsResponse = zod.object({
+  "id": zod.string(),
+  "filename": zod.string(),
+  "provider": zod.string(),
+  "row_count": zod.number().describe('Rows successfully imported'),
+  "error_count": zod.number().describe('Rows skipped due to parse errors'),
+  "errors": zod.array(zod.string()).nullish().describe('First few parse errors (import response only)'),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Import history
+ */
+export const ListRatingsImportsResponseItem = zod.object({
+  "id": zod.string(),
+  "filename": zod.string(),
+  "provider": zod.string(),
+  "row_count": zod.number().describe('Rows successfully imported'),
+  "error_count": zod.number().describe('Rows skipped due to parse errors'),
+  "errors": zod.array(zod.string()).nullish().describe('First few parse errors (import response only)'),
+  "created_at": zod.string()
+})
+export const ListRatingsImportsResponse = zod.array(ListRatingsImportsResponseItem)
+
+
+/**
+ * @summary Delete an import batch and all records it created
+ */
+export const DeleteRatingsImportParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteRatingsImportResponse = zod.void()
+
+
+/**
+ * @summary Link or unlink a ratings record to an indexed media asset
+ */
+export const UpdateRatingParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateRatingBody = zod.object({
+  "asset_id": zod.string().nullish().describe('Media asset to link, or null to unlink')
+})
+
+export const UpdateRatingResponse = zod.object({
+  "id": zod.string(),
+  "provider": zod.string().describe('nielsen | comscore | ispot | manual (CSV import)'),
+  "market": zod.string().nullish().describe('Measurement market (e.g. \"Columbus, OH\")'),
+  "station": zod.string().describe('Station or channel call letters (normalized uppercase)'),
+  "program_title": zod.string(),
+  "air_date": zod.coerce.date(),
+  "start_time": zod.string().nullish().describe('HH:MM local time slot start'),
+  "end_time": zod.string().nullish().describe('HH:MM local time slot end'),
+  "rating": zod.number().nullish().describe('Household rating points'),
+  "share": zod.number().nullish().describe('Share of households using TV'),
+  "viewers": zod.number().nullish().describe('Average audience (impressions)'),
+  "demo": zod.record(zod.string(), zod.number()).nullish().describe('Demo breakdowns keyed by demo name (e.g. A25-54, P2+)'),
+  "is_own": zod.boolean().describe('Whether the station is one of ours (computed from OWN_STATIONS at read time)'),
+  "asset_id": zod.string().nullish().describe('Linked library asset, if any'),
+  "asset_filename": zod.string().nullish().describe('Filename of the linked asset (display convenience)'),
+  "import_id": zod.string().nullish()
+})
+
+
+/**
  * @summary Semantic search across indexed media
  */
 export const semanticSearchBodySearchTypeDefault = `combined`;

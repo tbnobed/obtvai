@@ -921,3 +921,85 @@ class UserUpdateIn(BaseModel):
     display_name: Optional[str] = None
     disabled: Optional[bool] = None
     password: Optional[str] = Field(default=None, min_length=8, max_length=72)
+
+
+# ── Ratings ───────────────────────────────────────────────────────────────────
+
+class RatingRecordOut(BaseModel):
+    id: str
+    provider: str
+    market: Optional[str] = None
+    station: str
+    program_title: str
+    air_date: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    rating: Optional[float] = None
+    share: Optional[float] = None
+    viewers: Optional[int] = None
+    demo: Optional[dict] = None
+    is_own: bool
+    asset_id: Optional[str] = None
+    asset_filename: Optional[str] = None
+    import_id: Optional[str] = None
+
+
+class RatingsListOut(BaseModel):
+    items: List[RatingRecordOut]
+    total: int
+
+
+class RatingsKpisOut(BaseModel):
+    record_count: int
+    program_count: int
+    avg_rating: Optional[float] = None
+    avg_share: Optional[float] = None
+    peak_viewers: Optional[int] = None
+
+
+class RatingsTrendPointOut(BaseModel):
+    date: str
+    avg_rating: Optional[float] = None
+    avg_share: Optional[float] = None
+    total_viewers: Optional[int] = None
+
+
+class RatingsStationShareOut(BaseModel):
+    station: str
+    is_own: bool
+    avg_rating: Optional[float] = None
+    avg_share: Optional[float] = None
+    record_count: int
+
+
+class RatingsTopProgramOut(BaseModel):
+    program_title: str
+    station: str
+    airings: int
+    avg_rating: Optional[float] = None
+    avg_share: Optional[float] = None
+    best_rating: Optional[float] = None
+
+
+class RatingsOverviewOut(BaseModel):
+    own_stations: List[str]
+    kpis: RatingsKpisOut
+    trend: List[RatingsTrendPointOut]
+    station_shares: List[RatingsStationShareOut]
+    top_programs: List[RatingsTopProgramOut]
+
+
+class RatingsImportOut(BaseModel):
+    id: str
+    filename: str
+    provider: str
+    row_count: int
+    error_count: int
+    errors: Optional[List[str]] = None
+    created_at: str
+
+
+class RatingUpdateIn(BaseModel):
+    # asset_id is tri-state: absent = no change, null = unlink, value = link.
+    asset_id: Optional[str] = None
+    model_config = {"extra": "forbid"}

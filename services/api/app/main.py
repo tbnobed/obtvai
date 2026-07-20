@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends, auth as auth_router, users as users_router
+from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends, ratings, auth as auth_router, users as users_router
 from .auth import auth_middleware
 
 
@@ -258,6 +258,7 @@ app.include_router(projects.router, prefix="/api")
 app.include_router(voice.router, prefix="/api")
 app.include_router(graphics.router, prefix="/api")
 app.include_router(trends.router, prefix="/api")
+app.include_router(ratings.router, prefix="/api")
 
 
 @app.get("/api/healthz")

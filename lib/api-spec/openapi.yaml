@@ -31,6 +31,8 @@ tags:
     description: Library-wide AI insights
   - name: trends
     description: External trend correlation (YouTube trending, web news momentum)
+  - name: ratings
+    description: TV audience ratings (provider-agnostic; CSV import now, measurement APIs later)
   - name: auth
     description: Session authentication
   - name: users
@@ -1451,6 +1453,163 @@ paths:
                 $ref: "#/components/schemas/ProcessingJob"
         "409":
           description: A trends job is already running
+
+  # ── Ratings ───────────────────────────────────────────────────────────────
+  /ratings:
+    get:
+      operationId: listRatings
+      tags: [ratings]
+      summary: List audience ratings records
+      parameters:
+        - name: from
+          in: query
+          description: Only records on or after this air date
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: Only records on or before this air date
+          schema:
+            type: string
+            format: date
+        - name: station
+          in: query
+          schema:
+            type: string
+        - name: provider
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: Case-insensitive match on program title
+          schema:
+            type: string
+        - name: asset_id
+          in: query
+          description: Only records linked to this media asset
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RatingsListResponse"
+
+  /ratings/overview:
+    get:
+      operationId: getRatingsOverview
+      tags: [ratings]
+      summary: Ratings dashboard aggregates — own-station KPIs and trend, competitive station shares, top programs
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RatingsOverview"
+
+  /ratings/import:
+    post:
+      operationId: importRatings
+      tags: [ratings]
+      summary: Import a ratings CSV (see the downloadable template for the column format)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/RatingsImportInput"
+      responses:
+        "201":
+          description: Imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RatingsImport"
+        "400":
+          description: Unparsable file or no valid rows
+
+  /ratings/imports:
+    get:
+      operationId: listRatingsImports
+      tags: [ratings]
+      summary: Import history
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RatingsImport"
+
+  /ratings/imports/{id}:
+    delete:
+      operationId: deleteRatingsImport
+      tags: [ratings]
+      summary: Delete an import batch and all records it created
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /ratings/{id}:
+    patch:
+      operationId: updateRating
+      tags: [ratings]
+      summary: Link or unlink a ratings record to an indexed media asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RatingUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RatingRecord"
+        "404":
+          description: Record or asset not found
 
   # ── Search ────────────────────────────────────────────────────────────────
   /search:
@@ -3716,6 +3875,192 @@ components:
           description: Library topics ranked by recent news momentum
           items:
             $ref: "#/components/schemas/WebTrend"
+
+    # ── Ratings ───────────────────────────────────────────────────────────────
+    RatingRecord:
+      type: object
+      required: [id, provider, station, program_title, air_date, is_own]
+      properties:
+        id:
+          type: string
+        provider:
+          type: string
+          description: "nielsen | comscore | ispot | manual (CSV import)"
+        market:
+          type: ["string", "null"]
+          description: Measurement market (e.g. "Columbus, OH")
+        station:
+          type: string
+          description: Station or channel call letters (normalized uppercase)
+        program_title:
+          type: string
+        air_date:
+          type: string
+          format: date
+        start_time:
+          type: ["string", "null"]
+          description: "HH:MM local time slot start"
+        end_time:
+          type: ["string", "null"]
+          description: "HH:MM local time slot end"
+        rating:
+          type: ["number", "null"]
+          description: Household rating points
+        share:
+          type: ["number", "null"]
+          description: Share of households using TV
+        viewers:
+          type: ["integer", "null"]
+          description: Average audience (impressions)
+        demo:
+          type: ["object", "null"]
+          additionalProperties:
+            type: number
+          description: "Demo breakdowns keyed by demo name (e.g. A25-54, P2+)"
+        is_own:
+          type: boolean
+          description: Whether the station is one of ours (computed from OWN_STATIONS at read time)
+        asset_id:
+          type: ["string", "null"]
+          description: Linked library asset, if any
+        asset_filename:
+          type: ["string", "null"]
+          description: Filename of the linked asset (display convenience)
+        import_id:
+          type: ["string", "null"]
+
+    RatingsListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RatingRecord"
+        total:
+          type: integer
+
+    RatingsOverview:
+      type: object
+      required: [own_stations, kpis, trend, station_shares, top_programs]
+      properties:
+        own_stations:
+          type: array
+          items:
+            type: string
+          description: Configured own-station call letters (OWN_STATIONS)
+        kpis:
+          type: object
+          required: [record_count, program_count]
+          description: Own-station KPIs over the selected range
+          properties:
+            record_count:
+              type: integer
+            program_count:
+              type: integer
+            avg_rating:
+              type: ["number", "null"]
+            avg_share:
+              type: ["number", "null"]
+            peak_viewers:
+              type: ["integer", "null"]
+        trend:
+          type: array
+          description: Own-station daily averages over the selected range
+          items:
+            type: object
+            required: [date]
+            properties:
+              date:
+                type: string
+                format: date
+              avg_rating:
+                type: ["number", "null"]
+              avg_share:
+                type: ["number", "null"]
+              total_viewers:
+                type: ["integer", "null"]
+        station_shares:
+          type: array
+          description: All stations ranked by average share (competitive view)
+          items:
+            type: object
+            required: [station, is_own, record_count]
+            properties:
+              station:
+                type: string
+              is_own:
+                type: boolean
+              avg_rating:
+                type: ["number", "null"]
+              avg_share:
+                type: ["number", "null"]
+              record_count:
+                type: integer
+        top_programs:
+          type: array
+          description: Own-station programs ranked by average rating
+          items:
+            type: object
+            required: [program_title, station, airings]
+            properties:
+              program_title:
+                type: string
+              station:
+                type: string
+              airings:
+                type: integer
+              avg_rating:
+                type: ["number", "null"]
+              avg_share:
+                type: ["number", "null"]
+              best_rating:
+                type: ["number", "null"]
+
+    RatingsImport:
+      type: object
+      required: [id, filename, provider, row_count, error_count, created_at]
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        provider:
+          type: string
+        row_count:
+          type: integer
+          description: Rows successfully imported
+        error_count:
+          type: integer
+          description: Rows skipped due to parse errors
+        errors:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: First few parse errors (import response only)
+        created_at:
+          type: string
+
+    RatingsImportInput:
+      type: object
+      required: [file, provider]
+      properties:
+        file:
+          type: string
+          format: binary
+        provider:
+          type: string
+          description: "Source of this file: nielsen | comscore | ispot | manual"
+        market:
+          type: string
+          description: Default market when the CSV has no Market column
+
+    RatingUpdate:
+      type: object
+      properties:
+        asset_id:
+          type: ["string", "null"]
+          description: Media asset to link, or null to unlink
 
     # ── Search ────────────────────────────────────────────────────────────────
     SearchQuery:

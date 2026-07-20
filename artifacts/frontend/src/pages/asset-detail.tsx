@@ -25,7 +25,8 @@ import {
   useDeleteMarker,
   useListClipLists, getListClipListsQueryKey,
   useCreateClipList,
-  useUpdateClipList, getGetClipListQueryKey
+  useUpdateClipList, getGetClipListQueryKey,
+  useListRatings, getListRatingsQueryKey
 } from "@workspace/api-client-react";
 import type { SocialScore, SocialCutsRequestPlatform, ReelJob, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,7 +35,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -150,6 +151,7 @@ export default function AssetDetail() {
   // ── Add transcript segment to clip list ────────────────────────────────
   const [clipListSegment, setClipListSegment] = useState<TranscriptSegment | null>(null);
   const { data: jobs } = useListJobs({ media_id: id! }, { query: { enabled: !!id, queryKey: getListJobsQueryKey({ media_id: id! }), refetchInterval: 3000 } });
+  const { data: assetRatings } = useListRatings({ asset_id: id!, limit: 100 }, { query: { enabled: !!id, queryKey: getListRatingsQueryKey({ asset_id: id!, limit: 100 }) } });
 
   const highlightMutation = useCreateHighlight();
   const highlightJob = jobs?.find(j => j.job_type === "highlight" && (j.status === "pending" || j.status === "running"));
@@ -497,6 +499,12 @@ export default function AssetDetail() {
                 </TabsTrigger>
                 <TabsTrigger value="scenes">Scenes</TabsTrigger>
                 <TabsTrigger value="jobs">Pipeline Jobs</TabsTrigger>
+                {(assetRatings?.total ?? 0) > 0 && (
+                  <TabsTrigger value="ratings" className="gap-1.5">
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    Ratings
+                  </TabsTrigger>
+                )}
               </TabsList>
               <TabsContent value="selects" className="mt-4">
                 <div className="space-y-4 max-w-3xl">
@@ -876,6 +884,28 @@ export default function AssetDetail() {
                       <Badge variant={job.status === 'success' ? 'default' : job.status === 'error' ? 'destructive' : 'secondary'}>
                         {job.status}
                       </Badge>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="ratings" className="mt-4">
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Audience measurement records linked to this asset —{" "}
+                    <Link href="/ratings" className="text-primary hover:underline">open the Ratings dashboard</Link>
+                  </p>
+                  {assetRatings?.items?.map(r => (
+                    <div key={r.id} className="p-3 border border-border rounded flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                      <Badge variant={r.is_own ? "default" : "outline"} className="text-xs">{r.station}</Badge>
+                      <span className="font-medium">{r.program_title}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {r.air_date}{r.start_time ? ` · ${r.start_time}${r.end_time ? `–${r.end_time}` : ""}` : ""}
+                      </span>
+                      <span className="ml-auto flex items-center gap-4 text-xs">
+                        <span>Rating <span className="font-semibold">{r.rating ?? "—"}</span></span>
+                        <span>Share <span className="font-semibold">{r.share ?? "—"}</span></span>
+                        <span>Viewers <span className="font-semibold">{r.viewers != null ? r.viewers.toLocaleString() : "—"}</span></span>
+                      </span>
                     </div>
                   ))}
                 </div>

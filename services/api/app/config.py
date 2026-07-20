@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     admin_password: str = ""  # empty = random password printed once to the API log
     # Shared secret for internal services (watcher) calling the API.
     internal_api_token: str = ""
+    # Comma-separated call letters of our own stations (marks ratings rows as
+    # "own" vs competitive at read time, e.g. "OBTV,OBTV2").
+    own_stations: str = ""
 
     class Config:
         env_file = ".env"

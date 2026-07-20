@@ -3072,4 +3072,353 @@ router.post("/graphics/generations/:id/add-to-library", (req, res) => {
   res.status(202).json(asset);
 });
 
+// ---------------------------------------------------------------------------
+// Ratings (provider-agnostic audience measurement; CSV import, OWN_STATIONS env
+// in production — mocked here with a generated 30-day dataset)
+
+const OWN_STATIONS = ["OBTV", "OBTV2"];
+
+const RATINGS_STATIONS: { station: string; programs: string[] }[] = [
+  { station: "OBTV", programs: ["Morning Rush", "OBTV Midday", "OBTV Evening News"] },
+  { station: "OBTV2", programs: ["Daybreak 2", "City Desk", "The 614 Tonight"] },
+  { station: "WKRX", programs: ["WKRX Daybreak", "WKRX at Noon", "WKRX News at 7"] },
+  { station: "KTVL", programs: ["Metro This Morning", "KTVL Midday Report", "KTVL Tonight"] },
+  { station: "WQBN", programs: ["Sunrise 5", "News 5 at Noon", "The Evening Desk"] },
+];
+
+const RATING_SLOTS = [
+  { start: "07:00", end: "09:00" },
+  { start: "12:00", end: "12:30" },
+  { start: "19:00", end: "19:30" },
+];
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const ratingsNoise = (seed: number) => {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+const ratingsRecords: any[] = [];
+const ratingsImports: any[] = [];
+let ratingsSeq = 1;
+
+(function seedRatings() {
+  const seedImportId = "rimp-001";
+  const today = new Date();
+  for (let back = 29; back >= 0; back--) {
+    const day = new Date(today.getTime() - back * 86400000);
+    const airDate = day.toISOString().slice(0, 10);
+    const weekend = day.getUTCDay() === 0 || day.getUTCDay() === 6;
+    RATINGS_STATIONS.forEach((s, si) => {
+      s.programs.forEach((program, pi) => {
+        const seed = si * 997 + pi * 131 + (29 - back);
+        // Own stations trend slightly upward across the month; evening slots rate highest.
+        const base = 3.4 - si * 0.45 + pi * 0.9 + (si < 2 ? (29 - back) * 0.012 : 0);
+        let rating = base + ratingsNoise(seed) * 1.1 - 0.55;
+        if (weekend) rating *= 0.78;
+        rating = Math.max(0.3, round1(rating));
+        const share = round1(rating * (5.2 + ratingsNoise(seed + 7) * 1.6));
+        const viewers = Math.round(rating * 12400 + ratingsNoise(seed + 13) * 3000);
+        const demo =
+          pi === 2
+            ? { "A25-54": round1(rating * (0.45 + ratingsNoise(seed + 3) * 0.2)), "P2+": rating }
+            : null;
+        let asset_id: string | null = null;
+        if (s.station === "OBTV" && pi === 2 && back === 2) asset_id = assets[0]?.id ?? null;
+        if (s.station === "OBTV" && pi === 0 && back === 4) asset_id = assets[1]?.id ?? null;
+        ratingsRecords.push({
+          id: `rating-${ratingsSeq++}`,
+          provider: "nielsen",
+          market: "Columbus, OH",
+          station: s.station,
+          program_title: program,
+          air_date: airDate,
+          start_time: RATING_SLOTS[pi].start,
+          end_time: RATING_SLOTS[pi].end,
+          rating,
+          share,
+          viewers,
+          demo,
+          asset_id,
+          import_id: seedImportId,
+          created_at: now,
+        });
+      });
+    });
+  }
+  ratingsImports.push({
+    id: seedImportId,
+    filename: "nielsen_overnights_seed.csv",
+    provider: "nielsen",
+    row_count: ratingsRecords.length,
+    error_count: 0,
+    errors: null,
+    created_at: now,
+  });
+})();
+
+const ratingIsOwn = (station: string) => OWN_STATIONS.includes(station.toUpperCase());
+
+const ratingOut = (r: any) => ({
+  ...r,
+  is_own: ratingIsOwn(r.station),
+  asset_filename: r.asset_id ? assets.find((a) => a.id === r.asset_id)?.filename ?? null : null,
+});
+
+router.get("/ratings", (req, res) => {
+  const { from, to, station, provider, q, asset_id } = req.query as Record<string, string | undefined>;
+  let rows = ratingsRecords.slice();
+  if (from) rows = rows.filter((r) => r.air_date >= from);
+  if (to) rows = rows.filter((r) => r.air_date <= to);
+  if (station) rows = rows.filter((r) => r.station.toUpperCase() === station.toUpperCase());
+  if (provider) rows = rows.filter((r) => r.provider === provider);
+  if (q) {
+    const needle = q.toLowerCase();
+    rows = rows.filter((r) => r.program_title.toLowerCase().includes(needle));
+  }
+  if (asset_id) rows = rows.filter((r) => r.asset_id === asset_id);
+  rows.sort((a, b) => (b.air_date + (b.start_time ?? "")).localeCompare(a.air_date + (a.start_time ?? "")) || a.station.localeCompare(b.station));
+  const total = rows.length;
+  const offset = Math.max(0, parseInt((req.query.offset as string) ?? "0", 10) || 0);
+  const limit = Math.min(500, Math.max(1, parseInt((req.query.limit as string) ?? "50", 10) || 50));
+  res.json({ items: rows.slice(offset, offset + limit).map(ratingOut), total });
+});
+
+router.get("/ratings/overview", (req, res) => {
+  const to = (req.query.to as string) || new Date().toISOString().slice(0, 10);
+  const from =
+    (req.query.from as string) ||
+    new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+  const inRange = ratingsRecords.filter((r) => r.air_date >= from && r.air_date <= to);
+  const own = inRange.filter((r) => ratingIsOwn(r.station));
+
+  const avg = (rows: any[], field: string) => {
+    const vals = rows.map((r) => r[field]).filter((v) => v != null);
+    return vals.length ? round1(vals.reduce((s, v) => s + v, 0) / vals.length) : null;
+  };
+
+  const byDate = new Map<string, any[]>();
+  for (const r of own) {
+    if (!byDate.has(r.air_date)) byDate.set(r.air_date, []);
+    byDate.get(r.air_date)!.push(r);
+  }
+  const trend = [...byDate.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, rows]) => ({
+      date,
+      avg_rating: avg(rows, "rating"),
+      avg_share: avg(rows, "share"),
+      total_viewers: rows.some((r) => r.viewers != null)
+        ? rows.reduce((s, r) => s + (r.viewers ?? 0), 0)
+        : null,
+    }));
+
+  const byStation = new Map<string, any[]>();
+  for (const r of inRange) {
+    if (!byStation.has(r.station)) byStation.set(r.station, []);
+    byStation.get(r.station)!.push(r);
+  }
+  const station_shares = [...byStation.entries()]
+    .map(([st, rows]) => ({
+      station: st,
+      is_own: ratingIsOwn(st),
+      avg_rating: avg(rows, "rating"),
+      avg_share: avg(rows, "share"),
+      record_count: rows.length,
+    }))
+    .sort((a, b) => (b.avg_share ?? -1) - (a.avg_share ?? -1));
+
+  const byProgram = new Map<string, any[]>();
+  for (const r of own) {
+    const key = `${r.program_title}\u0000${r.station}`;
+    if (!byProgram.has(key)) byProgram.set(key, []);
+    byProgram.get(key)!.push(r);
+  }
+  const top_programs = [...byProgram.entries()]
+    .map(([key, rows]) => {
+      const [program_title, st] = key.split("\u0000");
+      const ratings = rows.map((r) => r.rating).filter((v: number | null) => v != null);
+      return {
+        program_title,
+        station: st,
+        airings: rows.length,
+        avg_rating: avg(rows, "rating"),
+        avg_share: avg(rows, "share"),
+        best_rating: ratings.length ? Math.max(...ratings) : null,
+      };
+    })
+    .sort((a, b) => (b.avg_rating ?? -1) - (a.avg_rating ?? -1))
+    .slice(0, 10);
+
+  const viewersVals = own.map((r) => r.viewers).filter((v) => v != null);
+  res.json({
+    own_stations: OWN_STATIONS,
+    kpis: {
+      record_count: own.length,
+      program_count: new Set(own.map((r) => r.program_title)).size,
+      avg_rating: avg(own, "rating"),
+      avg_share: avg(own, "share"),
+      peak_viewers: viewersVals.length ? Math.max(...viewersVals) : null,
+    },
+    trend,
+    station_shares,
+    top_programs,
+  });
+});
+
+const RATINGS_HEADER_ALIASES: Record<string, string> = {
+  date: "air_date", air_date: "air_date", airdate: "air_date",
+  station: "station", channel: "station", call_letters: "station",
+  program: "program_title", program_title: "program_title", program_name: "program_title", title: "program_title",
+  start: "start_time", start_time: "start_time", time: "start_time",
+  end: "end_time", end_time: "end_time",
+  rating: "rating", hh_rtg: "rating", hh_rating: "rating", rtg: "rating",
+  share: "share", hh_share: "share", shr: "share",
+  viewers: "viewers", impressions: "viewers", impressions_000: "viewers", avg_audience: "viewers", aa_000: "viewers",
+  market: "market", dma: "market",
+};
+
+const normalizeCsvHeader = (h: string) => h.trim().toLowerCase().replace(/[^a-z0-9+-]+/g, "_").replace(/^_+|_+$/g, "");
+
+const splitCsvLine = (line: string): string[] => {
+  const out: string[] = [];
+  let cur = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') quoted = false;
+      else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out.map((v) => v.trim());
+};
+
+const parseCsvDate = (v: string): string | null => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const us = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (us) return `${us[3]}-${us[1].padStart(2, "0")}-${us[2].padStart(2, "0")}`;
+  return null;
+};
+
+router.post("/ratings/import", upload.single("file"), (req, res) => {
+  const file = (req as any).file as { originalname: string; buffer: Buffer } | undefined;
+  if (!file) { res.status(400).json({ error: "No file uploaded" }); return; }
+  const provider = (req.body?.provider as string) || "manual";
+  const defaultMarket = (req.body?.market as string) || null;
+  const text = file.buffer.toString("utf-8").replace(/^\uFEFF/, "");
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) { res.status(400).json({ error: "CSV has no data rows" }); return; }
+
+  const rawHeaders = splitCsvLine(lines[0]).map(normalizeCsvHeader);
+  const fields = rawHeaders.map((h) =>
+    h.startsWith("demo_") ? { kind: "demo" as const, key: h.slice(5) } :
+    RATINGS_HEADER_ALIASES[h] ? { kind: "field" as const, key: RATINGS_HEADER_ALIASES[h] } :
+    { kind: "skip" as const, key: h },
+  );
+  if (!fields.some((f) => f.kind === "field" && f.key === "air_date") ||
+      !fields.some((f) => f.kind === "field" && f.key === "station") ||
+      !fields.some((f) => f.kind === "field" && f.key === "program_title")) {
+    res.status(400).json({ error: "CSV must include date, station, and program columns" });
+    return;
+  }
+
+  const errors: string[] = [];
+  const inserted: any[] = [];
+  const importId = `rimp-${Date.now()}`;
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i]);
+    const row: any = { demo: null as Record<string, number> | null };
+    fields.forEach((f, ci) => {
+      const v = cells[ci]?.trim() ?? "";
+      if (!v) return;
+      if (f.kind === "demo") {
+        const n = parseFloat(v.replace(/,/g, ""));
+        if (!isNaN(n)) { row.demo = row.demo ?? {}; row.demo[f.key] = n; }
+      } else if (f.kind === "field") {
+        row[f.key] = v;
+      }
+    });
+    const airDate = row.air_date ? parseCsvDate(row.air_date) : null;
+    if (!airDate || !row.station || !row.program_title) {
+      if (errors.length < 5) errors.push(`Row ${i + 1}: missing/invalid date, station, or program`);
+      continue;
+    }
+    const num = (v: string | undefined) => {
+      if (v == null) return null;
+      const n = parseFloat(String(v).replace(/,/g, ""));
+      return isNaN(n) ? null : n;
+    };
+    const viewersNum = num(row.viewers);
+    inserted.push({
+      id: `rating-${ratingsSeq++}`,
+      provider,
+      market: row.market ?? defaultMarket,
+      station: String(row.station).toUpperCase(),
+      program_title: row.program_title,
+      air_date: airDate,
+      start_time: row.start_time ?? null,
+      end_time: row.end_time ?? null,
+      rating: num(row.rating),
+      share: num(row.share),
+      viewers: viewersNum != null ? Math.round(viewersNum) : null,
+      demo: row.demo,
+      asset_id: null,
+      import_id: importId,
+      created_at: new Date().toISOString(),
+    });
+  }
+  const errorCount = lines.length - 1 - inserted.length;
+  if (inserted.length === 0) {
+    res.status(400).json({ error: `No valid rows (${errorCount} skipped)`, errors });
+    return;
+  }
+  ratingsRecords.push(...inserted);
+  const imp = {
+    id: importId,
+    filename: file.originalname,
+    provider,
+    row_count: inserted.length,
+    error_count: errorCount,
+    errors: errors.length ? errors : null,
+    created_at: new Date().toISOString(),
+  };
+  ratingsImports.unshift(imp);
+  res.status(201).json(imp);
+});
+
+router.get("/ratings/imports", (_req, res) => {
+  res.json(ratingsImports);
+});
+
+router.delete("/ratings/imports/:id", (req, res) => {
+  const idx = ratingsImports.findIndex((i) => i.id === req.params.id);
+  if (idx < 0) { res.status(404).json({ error: "Not found" }); return; }
+  for (let i = ratingsRecords.length - 1; i >= 0; i--) {
+    if (ratingsRecords[i].import_id === req.params.id) ratingsRecords.splice(i, 1);
+  }
+  ratingsImports.splice(idx, 1);
+  res.status(204).end();
+});
+
+router.patch("/ratings/:id", (req, res) => {
+  const rec = ratingsRecords.find((r) => r.id === req.params.id);
+  if (!rec) { res.status(404).json({ error: "Not found" }); return; }
+  if ("asset_id" in (req.body ?? {})) {
+    const assetId = req.body.asset_id;
+    if (assetId != null) {
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) { res.status(404).json({ error: "Asset not found" }); return; }
+      rec.asset_id = assetId;
+    } else {
+      rec.asset_id = null;
+    }
+  }
+  res.json(ratingOut(rec));
+});
+
 export default router;
