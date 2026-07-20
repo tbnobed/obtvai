@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, Link } from "wouter";
 import {
   useGetPerson,
@@ -46,7 +46,7 @@ import {
 import {
   ArrowLeft, User, Pencil, Merge, Film, Mic, MessageSquareQuote, Scissors,
   AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
-  SlidersHorizontal, ChevronDown, ChevronUp, Eye, Undo2,
+  SlidersHorizontal, ChevronDown, ChevronUp, Eye, Undo2, Check, Search,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -642,7 +642,33 @@ export default function PersonDetail() {
   const { data: person, isLoading } = useGetPerson(id, {
     query: { queryKey: getGetPersonQueryKey(id), enabled: !!id },
   });
-  const { data: allPeople } = useListPeople({ limit: 200 });
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergeSource, setMergeSource] = useState<{
+    id: string;
+    display_name: string;
+    thumbnail_url?: string | null;
+    asset_count?: number;
+  } | null>(null);
+  const [mergeSearchDebounced, setMergeSearchDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setMergeSearchDebounced(mergeSearch.trim()), 300);
+    return () => clearTimeout(t);
+  }, [mergeSearch]);
+  const mergeParams = useMemo(
+    () => ({ ...(mergeSearchDebounced ? { q: mergeSearchDebounced } : {}), limit: 100 }),
+    [mergeSearchDebounced]
+  );
+  const { data: mergePeoplePage, isLoading: mergePeopleLoading } = useListPeople(
+    mergeParams,
+    {
+      query: {
+        queryKey: getListPeopleQueryKey(mergeParams),
+        enabled: mergeOpen,
+        placeholderData: (p) => p,
+      },
+    }
+  );
 
   const updatePerson = useUpdatePerson();
   const mergePerson = useMergePerson();
@@ -652,8 +678,6 @@ export default function PersonDetail() {
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [newName, setNewName] = useState("");
-  const [mergeOpen, setMergeOpen] = useState(false);
-  const [mergeSource, setMergeSource] = useState("");
   const [openMoments, setOpenMoments] = useState<Record<string, boolean>>({});
 
   const invalidate = () => {
@@ -738,12 +762,17 @@ export default function PersonDetail() {
     e.preventDefault();
     if (!mergeSource) return;
     mergePerson.mutate(
-      { id, data: { source_person_id: mergeSource } },
+      { id, data: { source_person_id: mergeSource.id } },
       {
         onSuccess: () => {
           setMergeOpen(false);
-          setMergeSource("");
+          setMergeSource(null);
+          setMergeSearch("");
           invalidate();
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { detail?: string; error?: string }; message?: string };
+          window.alert(e?.data?.detail || e?.data?.error || e?.message || "Merge failed");
         },
       }
     );
@@ -772,7 +801,7 @@ export default function PersonDetail() {
     );
   }
 
-  const mergeCandidates = (allPeople?.items ?? []).filter((p) => p.id !== id);
+  const mergeCandidates = (mergePeoplePage?.items ?? []).filter((p) => p.id !== id);
 
   const mergedGroups: { person_id: string; display_name: string; count: number }[] = [];
   for (const a of person.appearances ?? []) {
@@ -850,35 +879,111 @@ export default function PersonDetail() {
                 </form>
               </DialogContent>
             </Dialog>
-            <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
+            <Dialog
+              open={mergeOpen}
+              onOpenChange={(open) => {
+                setMergeOpen(open);
+                if (!open) {
+                  setMergeSource(null);
+                  setMergeSearch("");
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button variant="secondary" size="sm" className="gap-2">
                   <Merge className="h-3.5 w-3.5" />
                   Merge Into This Person
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Merge a Duplicate Into {person.display_name}</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleMerge} className="space-y-4 pt-4">
+                <form onSubmit={handleMerge} className="space-y-3 pt-2">
                   <p className="text-sm text-muted-foreground">
-                    The selected person's appearances will be moved into {person.display_name}, and the duplicate will be removed. This cannot be undone.
+                    The selected person's appearances will be moved into {person.display_name}, and the duplicate will be removed.
                   </p>
-                  <select
-                    value={mergeSource}
-                    onChange={(e) => setMergeSource(e.target.value)}
-                    className="w-full h-9 px-3 py-1 rounded-md border border-input bg-background text-sm"
-                  >
-                    <option value="">Select a person to merge in...</option>
-                    {mergeCandidates.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.display_name} ({p.asset_count} assets)
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      autoFocus
+                      placeholder="Search people by name..."
+                      value={mergeSearch}
+                      onChange={(e) => setMergeSearch(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                  <div className="max-h-[40vh] overflow-y-auto border border-border rounded-md divide-y divide-border bg-background">
+                    {mergePeopleLoading ? (
+                      <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading people...
+                      </div>
+                    ) : mergeCandidates.length === 0 ? (
+                      <div className="py-8 text-center text-sm text-muted-foreground">
+                        {mergeSearch.trim() ? `No people match "${mergeSearch.trim()}"` : "No other people in the library"}
+                      </div>
+                    ) : (
+                      mergeCandidates.map((p) => {
+                        const selected = mergeSource?.id === p.id;
+                        return (
+                          <button
+                            type="button"
+                            key={p.id}
+                            onClick={() => setMergeSource(selected ? null : p)}
+                            className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                              selected ? "bg-primary/15" : "hover:bg-muted/50"
+                            }`}
+                          >
+                            <div className="h-12 w-12 rounded bg-muted overflow-hidden shrink-0 flex items-center justify-center">
+                              {p.thumbnail_url ? (
+                                <img
+                                  src={`/api/thumbnails/${p.thumbnail_url}`}
+                                  alt={p.display_name}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <User className="h-5 w-5 text-muted-foreground/50" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{p.display_name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {p.asset_count} {p.asset_count === 1 ? "video" : "videos"}
+                              </div>
+                            </div>
+                            {selected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                  {mergeSource && (
+                    <div className="flex items-center gap-2 text-sm border border-border rounded-md px-3 py-2 bg-muted/40">
+                      <div className="h-8 w-8 rounded bg-muted overflow-hidden shrink-0 flex items-center justify-center">
+                        {mergeSource.thumbnail_url ? (
+                          <img
+                            src={`/api/thumbnails/${mergeSource.thumbnail_url}`}
+                            alt={mergeSource.display_name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="h-4 w-4 text-muted-foreground/50" />
+                        )}
+                      </div>
+                      <span className="min-w-0 truncate">
+                        <span className="font-medium">{mergeSource.display_name}</span>
+                        {" "}will be merged into{" "}
+                        <span className="font-medium">{person.display_name}</span> and removed. This can be undone later from this page.
+                      </span>
+                    </div>
+                  )}
                   <Button type="submit" className="w-full" disabled={!mergeSource || mergePerson.isPending}>
-                    {mergePerson.isPending ? "Merging..." : "Merge"}
+                    {mergePerson.isPending
+                      ? "Merging..."
+                      : mergeSource
+                        ? `Merge ${mergeSource.display_name} into ${person.display_name}`
+                        : "Merge"}
                   </Button>
                 </form>
               </DialogContent>
