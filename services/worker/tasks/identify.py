@@ -34,6 +34,10 @@ MANUAL_BLEND_FLOOR = 5.0    # manually named people keep their embeddings after 
                             # library wipe but lose their appearance rows, so
                             # n_prev=0 would let the first re-match shift a curated
                             # identity 50% — floor their weight instead
+BLEND_WEIGHT_FLOOR = 3.0    # a brand-new person (1 prior appearance) used to shift
+                            # 50% on its very next match, so one early cross-match
+                            # re-poisoned a freshly rebuilt print immediately; floor
+                            # the weight so any single asset moves a print ≤25%
 VOICE_VETO_THRESHOLD = 0.2  # pyannote same-speaker sims run ~0.75+; if a face
                             # match's voices score below this, the attached face
                             # is likely the wrong on-screen person — reject
@@ -278,51 +282,55 @@ def identify_people(self, media_id: str, job_id: str):
             return tokenizer, model
 
         # Each diarized speaker in this asset must resolve to a DISTINCT person:
-        # two different voices in the same video are never the same person, so
-        # once a person is claimed by one speaker, other speakers can't match it.
+        # two different voices in the same video are never the same person.
+        #
+        # Assignment is GLOBAL, not first-come-first-served: the old loop
+        # processed speakers in arbitrary SQL order and let whichever speaker
+        # came first claim a person, even when another speaker in the same
+        # video matched that person far more strongly. One such theft cascades
+        # into a full rotation — the real owner takes the next-best person,
+        # and the last speaker gets a brand-new "Person N". Instead, score
+        # every speaker↔person pair first, then hand each person to their
+        # STRONGEST claimant (pairs ranked by margin above their threshold, so
+        # voice and face scores are comparable).
         assigned_pids: set[str] = set()
 
+        speaker_signals: dict[str, tuple] = {}
         for spk, segs, secs, first_at in speaker_stats:
-            voice = voice_map.get(spk)
             cluster = cluster_for_speaker.get(spk)
-            face = cluster[1] if cluster else None
+            speaker_signals[spk] = (
+                voice_map.get(spk),
+                cluster[1] if cluster else None,
+                cluster,
+            )
 
-            match = None
-            best_sim = 0.0
-            for p in people:
-                if p[0] in assigned_pids:
-                    continue
-                sim = -1.0
+        candidates: list[tuple[float, float, str, int]] = []
+        for spk, (voice, face, _cluster) in speaker_signals.items():
+            voice_cands: list[tuple[float, float, str, int]] = []
+            face_cands: list[tuple[float, float, str, int]] = []
+            for idx, p in enumerate(people):
                 if voice and p[3]:
                     sim = _cosine(voice, p[3])
-                    threshold = VOICE_SIM_THRESHOLD
-                    # Face veto: a voice match against a visibly different face
-                    # is a wrong match (drifted/blended voiceprints pass 0.75
-                    # for the wrong speaker). Reject it rather than blending a
-                    # second real person into this identity.
-                    if sim >= threshold and face and p[4]:
-                        face_sim = _cosine(face, p[4])
-                        if face_sim < FACE_VETO_THRESHOLD:
-                            append_log(
-                                db, job_id,
-                                f"Vetoed voice match: speaker {spk} vs {p[1]} "
-                                f"(voice sim {sim:.2f}, but face sim {face_sim:.2f})",
-                            )
-                            continue
-                elif face and p[4]:
-                    sim = _cosine(face, p[4])
-                    threshold = FACE_SIM_THRESHOLD
-                else:
-                    continue
-                if sim >= threshold and sim > best_sim:
-                    best_sim, match = sim, p
-
-            if match is None and face:
-                for p in people:
-                    if p[0] in assigned_pids or not p[4]:
+                    if sim >= VOICE_SIM_THRESHOLD:
+                        # Face veto: a voice match against a visibly different
+                        # face is a wrong match (drifted/blended voiceprints
+                        # pass 0.75 for the wrong speaker). Reject it rather
+                        # than blending a second real person into this identity.
+                        if face and p[4]:
+                            face_sim = _cosine(face, p[4])
+                            if face_sim < FACE_VETO_THRESHOLD:
+                                append_log(
+                                    db, job_id,
+                                    f"Vetoed voice match: speaker {spk} vs {p[1]} "
+                                    f"(voice sim {sim:.2f}, but face sim {face_sim:.2f})",
+                                )
+                                continue
+                        rank = (sim - VOICE_SIM_THRESHOLD) / (1.0 - VOICE_SIM_THRESHOLD)
+                        voice_cands.append((rank, sim, spk, idx))
                         continue
+                if face and p[4]:
                     sim = _cosine(face, p[4])
-                    if sim >= FACE_SIM_THRESHOLD and sim > best_sim:
+                    if sim >= FACE_SIM_THRESHOLD:
                         # Voice veto (symmetric to the face veto above): if both
                         # sides have voiceprints and they clearly contradict, the
                         # face cluster was likely attached to the wrong speaker
@@ -336,7 +344,25 @@ def identify_people(self, media_id: str, job_id: str):
                                     f"(face sim {sim:.2f}, but voice sim {voice_sim:.2f})",
                                 )
                                 continue
-                        best_sim, match = sim, p
+                        rank = (sim - FACE_SIM_THRESHOLD) / (1.0 - FACE_SIM_THRESHOLD)
+                        face_cands.append((rank, sim, spk, idx))
+            # Voice is the primary signal: face-based matches for this speaker
+            # only compete when no person voice-matched at all (same semantics
+            # as the old two-pass loop).
+            candidates.extend(voice_cands if voice_cands else face_cands)
+
+        candidates.sort(key=lambda c: c[0], reverse=True)
+        assignment: dict[str, tuple[int, float]] = {}
+        for rank, sim, spk, idx in candidates:
+            if spk in assignment or people[idx][0] in assigned_pids:
+                continue
+            assignment[spk] = (idx, sim)
+            assigned_pids.add(people[idx][0])
+
+        for spk, segs, secs, first_at in speaker_stats:
+            voice, face, cluster = speaker_signals[spk]
+            hit = assignment.get(spk)
+            match, best_sim = (people[hit[0]], hit[1]) if hit else (None, 0.0)
 
             if match is None:
                 pid = str(uuid.uuid4())
@@ -376,7 +402,7 @@ def identify_people(self, media_id: str, job_id: str):
                     text("SELECT COUNT(*) FROM person_appearances WHERE person_id = :pid"),
                     {"pid": pid},
                 ).fetchone()[0]
-                w = float(max(1, min(int(n_prev), BLEND_WEIGHT_CAP)))
+                w = max(BLEND_WEIGHT_FLOOR, float(min(int(n_prev), BLEND_WEIGHT_CAP)))
                 if match[2] == "manual":
                     w = max(w, MANUAL_BLEND_FLOOR)
                 new_voice = _blend(match[3], voice, w) if voice else match[3]
