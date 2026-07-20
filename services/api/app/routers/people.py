@@ -692,6 +692,33 @@ async def update_person_photo(
     return _person_out(person_row, assets or 0, speaking or 0, segments or 0)
 
 
+@router.delete("/{id}/photo", response_model=PersonOut)
+async def delete_person_photo(id: str, db: AsyncSession = Depends(get_db)):
+    """Clear this person's picture so the placeholder icon shows instead.
+    Face-matching signatures are not touched."""
+    import os
+    from ..config import settings
+
+    person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    old = person.thumbnail_url
+    person.thumbnail_url = None
+    await db.commit()
+
+    # Only delete manually-uploaded photo files — cluster thumbnails are
+    # shared with face clusters.
+    if old and old.startswith("person_photo_"):
+        try:
+            os.remove(os.path.join(settings.thumbnails_dir, os.path.basename(old)))
+        except OSError:
+            pass
+
+    person_row, assets, speaking, segments = await _get_person_with_stats(id, db)
+    return _person_out(person_row, assets or 0, speaking or 0, segments or 0)
+
+
 @router.post("/{id}/face-search", status_code=202)
 async def face_search_person(id: str, db: AsyncSession = Depends(get_db)):
     """Queue a reverse web face search (Google Lens via SerpAPI) for this person.

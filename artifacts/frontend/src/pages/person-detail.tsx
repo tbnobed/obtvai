@@ -26,6 +26,7 @@ import {
   useReprofilePerson,
   useFaceSearchPerson,
   useUpdatePersonPhoto,
+  useDeletePersonPhoto,
 } from "@workspace/api-client-react";
 import type { FaceSearchResult, PersonAppearance, VoiceGeneration, VoiceSettings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -691,6 +692,7 @@ export default function PersonDetail() {
   const reprofilePerson = useReprofilePerson();
   const faceSearchPerson = useFaceSearchPerson();
   const updatePersonPhoto = useUpdatePersonPhoto();
+  const deletePersonPhoto = useDeletePersonPhoto();
   const [photoError, setPhotoError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [reprofileQueued, setReprofileQueued] = useState(false);
@@ -905,6 +907,30 @@ export default function PersonDetail() {
               )}
             </div>
           </button>
+          {person.thumbnail_url && (
+            <button
+              type="button"
+              className="mt-1.5 w-40 text-xs text-muted-foreground hover:text-destructive text-center transition-colors disabled:opacity-50"
+              disabled={deletePersonPhoto.isPending}
+              onClick={() => {
+                setPhotoError(null);
+                deletePersonPhoto.mutate(
+                  { id },
+                  {
+                    onSuccess: invalidate,
+                    onError: (err: any) => {
+                      const detail = err?.detail || err?.error || err?.message;
+                      setPhotoError(
+                        typeof detail === "string" && detail ? detail : "Could not remove the photo."
+                      );
+                    },
+                  }
+                );
+              }}
+            >
+              {deletePersonPhoto.isPending ? "Removing…" : "Remove photo"}
+            </button>
+          )}
           {photoError && (
             <p className="mt-2 w-40 text-xs text-destructive">{photoError}</p>
           )}

@@ -4670,6 +4670,77 @@ export const useUpdatePersonPhoto = <TError = ErrorType<void>,
       return useMutation(getUpdatePersonPhotoMutationOptions(options));
     }
 
+export const getDeletePersonPhotoUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/photo`
+}
+
+/**
+ * @summary Clear this person's picture — the placeholder icon is shown instead; face matching signatures are not changed
+ */
+export const deletePersonPhoto = async (id: string, options?: RequestInit): Promise<Person> => {
+
+  return customFetch<Person>(getDeletePersonPhotoUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeletePersonPhotoMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePersonPhoto>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePersonPhoto>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deletePersonPhoto'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePersonPhoto>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePersonPhoto(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePersonPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof deletePersonPhoto>>>
+
+    export type DeletePersonPhotoMutationError = ErrorType<void>
+
+    /**
+ * @summary Clear this person's picture — the placeholder icon is shown instead; face matching signatures are not changed
+ */
+export const useDeletePersonPhoto = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePersonPhoto>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePersonPhoto>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeletePersonPhotoMutationOptions(options));
+    }
+
 export const getReanalyzePeopleUrl = () => {
 
 

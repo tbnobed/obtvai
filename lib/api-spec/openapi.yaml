@@ -1455,6 +1455,25 @@ paths:
           description: Photo too large
         "422":
           description: Could not read the image
+    delete:
+      operationId: deletePersonPhoto
+      tags: [people]
+      summary: Clear this person's picture — the placeholder icon is shown instead; face matching signatures are not changed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated person
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "404":
+          description: Not found
 
   /people/reanalyze:
     post:

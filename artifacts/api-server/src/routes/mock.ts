@@ -768,6 +768,19 @@ router.post("/people/:id/photo", upload.single("photo"), (req, res) => {
   res.json(person);
 });
 
+router.delete("/people/:id/photo", (req, res) => {
+  const person = people.find((p) => p.id === req.params.id);
+  if (!person) {
+    res.status(404).json({ error: "Person not found" });
+    return;
+  }
+  const old = person.thumbnail_url;
+  person.thumbnail_url = null;
+  person.updated_at = new Date().toISOString();
+  if (old && mockPersonPhotos[old]) delete mockPersonPhotos[old];
+  res.json(person);
+});
+
 router.post("/people/:id/face-search", (req, res) => {
   const person = people.find((p) => p.id === req.params.id);
   if (!person) {
