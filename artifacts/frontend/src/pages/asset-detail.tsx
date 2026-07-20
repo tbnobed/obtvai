@@ -234,17 +234,31 @@ export default function AssetDetail() {
     });
   };
 
+  const [activeTab, setActiveTab] = useState<string | null>(null);
   const cutsMutation = useCreateSocialCuts();
   const [cutsPlatform, setCutsPlatform] = useState<string | null>(null);
+  const [cutsCreated, setCutsCreated] = useState<number | null>(null);
+  const [cutsError, setCutsError] = useState<string | null>(null);
 
   const startCuts = (platform: SocialCutsRequestPlatform | null) => {
     if (!id) return;
     setCutsPlatform(platform ?? "all");
+    setCutsCreated(null);
+    setCutsError(null);
     cutsMutation.mutate(
       { id, data: platform ? { platform } : {} },
       {
-        onSuccess: () => {
+        onSuccess: (created) => {
+          setCutsCreated(Array.isArray(created) ? created.length : 0);
           queryClient.invalidateQueries({ queryKey: getListRendersQueryKey({ media_id: id }) });
+        },
+        onError: (err: any) => {
+          const detail = err?.detail || err?.error || err?.message;
+          setCutsError(
+            typeof detail === "string" && detail
+              ? detail
+              : "Failed to create cuts. Check that key moments exist and the pipeline is running."
+          );
         },
         onSettled: () => setCutsPlatform(null),
       },
@@ -469,7 +483,7 @@ export default function AssetDetail() {
               </DialogContent>
             </Dialog>
 
-            <Tabs defaultValue={hasAnalysis ? "analysis" : "scenes"}>
+            <Tabs value={activeTab ?? (hasAnalysis ? "analysis" : "scenes")} onValueChange={setActiveTab}>
               <TabsList>
                 <TabsTrigger value="analysis" className="gap-1.5">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -756,8 +770,23 @@ export default function AssetDetail() {
                         Cuts use AI-detected key moments — run AI analysis on the Highlights tab first.
                       </p>
                     )}
-                    {cutsMutation.isError && (
-                      <p className="text-xs text-destructive">Failed to create cuts. Check that key moments exist and the pipeline is running.</p>
+                    {cutsError && (
+                      <p className="text-xs text-destructive">{cutsError}</p>
+                    )}
+                    {cutsCreated !== null && (
+                      <div className="flex items-center justify-between gap-3 border border-green-500/30 bg-green-500/10 rounded-md px-3 py-2">
+                        <p className="text-xs text-green-500">
+                          {cutsCreated} cut{cutsCreated === 1 ? "" : "s"} queued and rendering — they appear under the Highlight Reel tab as they finish.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => setActiveTab("highlight")}
+                        >
+                          View cuts
+                        </Button>
+                      </div>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {(asset.social_scores as SocialScore[]).map((s) => {
