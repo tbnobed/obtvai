@@ -462,7 +462,7 @@ export default function AssetDetail() {
                     <div className="max-h-48 overflow-y-auto space-y-1">
                       {tightenResult.cuts.slice(0, 40).map((c, i) => (
                         <div key={i} className="flex items-center justify-between bg-muted/50 rounded px-2 py-1 text-xs font-mono">
-                          <span>{c.start.toFixed(1)}s → {c.end.toFixed(1)}s</span>
+                          <span>{formatTimecode(c.start)} → {formatTimecode(c.end)}</span>
                           <Badge variant="outline" className="text-[10px] uppercase">{c.reason}</Badge>
                         </div>
                       ))}
@@ -866,7 +866,7 @@ export default function AssetDetail() {
                           <img src={`/api/thumbnails/${scene.thumbnail_url}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                         )}
                         <div className="absolute bottom-1 right-1 bg-black/80 px-1 py-0.5 rounded text-[10px] text-white">
-                          {Math.floor(scene.start_time)}s
+                          {formatTimecode(scene.start_time)}
                         </div>
                       </div>
                     </div>
@@ -1120,7 +1120,7 @@ export default function AssetDetail() {
                     >
                       <div className="flex gap-2 items-baseline mb-1">
                         <span className="text-xs font-medium text-primary">{segment.speaker || 'Unknown'}</span>
-                        <span className="text-[10px] text-muted-foreground">{Math.floor(segment.start_time)}s</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{formatTimecode(segment.start_time)}</span>
                       </div>
                       <p className="text-sm">{segment.text}</p>
                       <Button

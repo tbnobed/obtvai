@@ -13,6 +13,16 @@ import { Send, User, Bot, Plus, MessageSquare, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
 
+function formatTimecode(seconds: number): string {
+  const total = Math.floor(seconds ?? 0);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    : `${m}:${String(s).padStart(2, "0")}`;
+}
+
 type Message = {
   role: string;
   content: string;
@@ -180,7 +190,7 @@ export default function AIQA() {
                         <Link key={j} href={`/library/${cite.media_id}?t=${cite.start_time}`}>
                           <div className="text-xs bg-background/50 hover:bg-background border border-border/50 p-2 rounded cursor-pointer transition-colors block">
                             <span className="font-mono text-primary mr-2">[{j+1}]</span>
-                            {cite.filename} @ {cite.start_time}s
+                            {cite.filename} @ {formatTimecode(cite.start_time)}
                           </div>
                         </Link>
                       ))}
