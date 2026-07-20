@@ -99,6 +99,7 @@ import type {
   TightenResult,
   TranscriptSegment,
   TranslateRequest,
+  Trends,
   VoiceGeneration,
   VoicePresetRequest,
   VoiceProfile,
@@ -4653,6 +4654,154 @@ export const useRefreshLibraryInsights = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRefreshLibraryInsightsMutationOptions(options));
+    }
+
+export const getGetTrendsUrl = () => {
+
+
+
+
+  return `/api/trends`
+}
+
+/**
+ * @summary External trends correlated against library topics at read time
+ */
+export const getTrends = async ( options?: RequestInit): Promise<Trends> => {
+
+  return customFetch<Trends>(getGetTrendsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTrendsQueryKey = () => {
+    return [
+    `/api/trends`
+    ] as const;
+    }
+
+
+export const getGetTrendsQueryOptions = <TData = Awaited<ReturnType<typeof getTrends>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrends>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTrendsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTrends>>> = ({ signal }) => getTrends({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTrends>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTrendsQueryResult = NonNullable<Awaited<ReturnType<typeof getTrends>>>
+export type GetTrendsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary External trends correlated against library topics at read time
+ */
+
+export function useGetTrends<TData = Awaited<ReturnType<typeof getTrends>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrends>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTrendsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRefreshTrendsUrl = () => {
+
+
+
+
+  return `/api/trends/refresh`
+}
+
+/**
+ * @summary Queue a fetch of external trend sources (YouTube, SearXNG)
+ */
+export const refreshTrends = async ( options?: RequestInit): Promise<ProcessingJob> => {
+
+  return customFetch<ProcessingJob>(getRefreshTrendsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRefreshTrendsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshTrends>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshTrends>>, TError,void, TContext> => {
+
+const mutationKey = ['refreshTrends'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshTrends>>, void> = () => {
+
+
+          return  refreshTrends(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshTrendsMutationResult = NonNullable<Awaited<ReturnType<typeof refreshTrends>>>
+
+    export type RefreshTrendsMutationError = ErrorType<void>
+
+    /**
+ * @summary Queue a fetch of external trend sources (YouTube, SearXNG)
+ */
+export const useRefreshTrends = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshTrends>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshTrends>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRefreshTrendsMutationOptions(options));
     }
 
 export const getSemanticSearchUrl = () => {

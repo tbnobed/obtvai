@@ -846,6 +846,62 @@ export interface LibraryInsights {
   top_topics: TopTopic[];
 }
 
+export interface TrendHeadline {
+  title: string;
+  /** @nullable */
+  url?: string | null;
+}
+
+export interface TrendMatchedTopic {
+  /** Normalized library topic key */
+  key: string;
+  /** Human-readable topic label */
+  topic: string;
+  asset_count: number;
+}
+
+export interface YoutubeTrend {
+  /** Position on the trending chart (1 = top) */
+  rank: number;
+  title: string;
+  /** @nullable */
+  channel?: string | null;
+  /** @nullable */
+  url?: string | null;
+  /** @nullable */
+  views?: number | null;
+  /** Library topics that appear in this trending video's title/tags */
+  matched_topics: TrendMatchedTopic[];
+}
+
+export interface WebTrend {
+  rank: number;
+  /** Normalized library topic key */
+  key: string;
+  topic: string;
+  /** Library assets tagged with this topic (computed at read time) */
+  asset_count: number;
+  /** Recent news results for this topic (past week) */
+  result_count: number;
+  headlines: TrendHeadline[];
+}
+
+export interface Trends {
+  /**
+     * When trend data was last fetched (null if never)
+     * @nullable
+     */
+  fetched_at?: string | null;
+  /** Whether YouTube credentials are configured */
+  youtube_configured: boolean;
+  /** Whether a SearXNG instance is configured */
+  web_configured: boolean;
+  /** Trending videos, chart order */
+  youtube: YoutubeTrend[];
+  /** Library topics ranked by recent news momentum */
+  web: WebTrend[];
+}
+
 export interface SearchQuery {
   query: string;
   /**

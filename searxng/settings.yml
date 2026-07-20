@@ -1,0 +1,18 @@
+# SearXNG config for the obtv-ai trends worker.
+# Inherits everything from the image defaults except what's below.
+use_default_settings: true
+
+server:
+  # Internal-only instance (not published on the host network), so the
+  # bot-detection limiter just gets in the worker's way.
+  limiter: false
+  # Required non-empty; this instance is unreachable from outside the
+  # docker network, so a static value is fine.
+  secret_key: "obtv-local-searxng"
+
+search:
+  # The JSON format is OFF by default — the worker's ?format=json requests
+  # return 403 without this.
+  formats:
+    - html
+    - json

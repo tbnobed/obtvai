@@ -1795,6 +1795,58 @@ export const RefreshLibraryInsightsResponse = zod.object({
 
 
 /**
+ * @summary External trends correlated against library topics at read time
+ */
+export const GetTrendsResponse = zod.object({
+  "fetched_at": zod.string().nullish().describe('When trend data was last fetched (null if never)'),
+  "youtube_configured": zod.boolean().describe('Whether YouTube credentials are configured'),
+  "web_configured": zod.boolean().describe('Whether a SearXNG instance is configured'),
+  "youtube": zod.array(zod.object({
+  "rank": zod.number().describe('Position on the trending chart (1 = top)'),
+  "title": zod.string(),
+  "channel": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "views": zod.number().nullish(),
+  "matched_topics": zod.array(zod.object({
+  "key": zod.string().describe('Normalized library topic key'),
+  "topic": zod.string().describe('Human-readable topic label'),
+  "asset_count": zod.number()
+})).describe('Library topics that appear in this trending video\'s title\/tags')
+})).describe('Trending videos, chart order'),
+  "web": zod.array(zod.object({
+  "rank": zod.number(),
+  "key": zod.string().describe('Normalized library topic key'),
+  "topic": zod.string(),
+  "asset_count": zod.number().describe('Library assets tagged with this topic (computed at read time)'),
+  "result_count": zod.number().describe('Recent news results for this topic (past week)'),
+  "headlines": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string().nullish()
+}))
+})).describe('Library topics ranked by recent news momentum')
+})
+
+
+/**
+ * @summary Queue a fetch of external trend sources (YouTube, SearXNG)
+ */
+export const RefreshTrendsResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
+  "filename": zod.string().nullish(),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
+  "status": zod.string().describe('pending | running | success | error | cancelled'),
+  "progress": zod.number().nullish().describe('0-100'),
+  "error_message": zod.string().nullish(),
+  "logs": zod.array(zod.string()).optional(),
+  "retry_count": zod.number().optional(),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Semantic search across indexed media
  */
 export const semanticSearchBodySearchTypeDefault = `combined`;

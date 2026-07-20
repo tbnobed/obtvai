@@ -31,6 +31,7 @@ celery_app = Celery(
         "tasks.publish",
         "tasks.social_stats",
         "tasks.graphics",
+        "tasks.trends",
     ],
 )
 celery_app.config_from_object("celeryconfig")

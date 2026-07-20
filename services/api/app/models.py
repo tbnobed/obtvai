@@ -349,6 +349,24 @@ class Project(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
 
+class TrendTopic(Base):
+    """External trend signals (YouTube trending, SearXNG news momentum).
+
+    Rows are replaced wholesale per source on every fetch; library-topic
+    matches and asset counts are computed at read time in the trends router.
+    """
+    __tablename__ = "trend_topics"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    source: Mapped[str] = mapped_column(String, nullable=False)  # youtube | web
+    label: Mapped[str] = mapped_column(String, nullable=False)
+    topic_key: Mapped[str | None] = mapped_column(String, nullable=True)  # web: normalized library topic key
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)  # youtube: views; web: recent result count
+    meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # url/channel/views/haystack or headlines
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class ClipList(Base):
     __tablename__ = "clip_lists"
 

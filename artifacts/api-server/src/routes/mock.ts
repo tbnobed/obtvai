@@ -2738,6 +2738,114 @@ router.post("/insights/refresh", (_req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// External trends (YouTube trending + SearXNG news momentum in production)
+
+let trendsFetchedAt = new Date(Date.now() - 45 * 60 * 1000).toISOString();
+
+router.get("/trends", (_req, res) => {
+  const rawCounts = new Map<string, number>();
+  for (const a of assets) {
+    for (const t of new Set(assetTopics(a).map((x) => normalizeTopicKey(x)))) {
+      rawCounts.set(t, (rawCounts.get(t) ?? 0) + 1);
+    }
+  }
+  const top = groupTopics(rawCounts.entries()).slice(0, 8);
+  const matched = (key: string) => ({
+    key,
+    topic: topicLabel(key),
+    asset_count: countAssetsWithTopic(key),
+  });
+
+  const channels = ["Breaking Now", "The Rundown", "Signal Desk"];
+  const youtube = [
+    ...top.slice(0, 3).map((g, i) => ({
+      rank: i + 1,
+      title: `${g.topic}: what just changed and why it matters`,
+      channel: channels[i] ?? "Newsroom",
+      url: "https://www.youtube.com/results?search_query=" + encodeURIComponent(g.topic),
+      views: 2400000 - i * 600000,
+      matched_topics: [matched(g.key)],
+    })),
+    {
+      rank: 4,
+      title: "We tested every camera drone under $500",
+      channel: "GearLab",
+      url: "https://www.youtube.com/results?search_query=camera+drone",
+      views: 980000,
+      matched_topics: [],
+    },
+    {
+      rank: 5,
+      title: "24 hours inside a broadcast control room",
+      channel: "Backstage Pass",
+      url: "https://www.youtube.com/results?search_query=broadcast+control+room",
+      views: 640000,
+      matched_topics: [],
+    },
+  ];
+
+  const web = top.map((g, i) => ({
+    rank: i + 1,
+    key: g.key,
+    topic: g.topic,
+    asset_count: g.asset_count,
+    result_count: Math.max(2, 28 - i * 4),
+    headlines: [
+      {
+        title: `${g.topic} back in the spotlight after new developments`,
+        url: "https://news.example.com/" + encodeURIComponent(g.key.replace(/ /g, "-")),
+      },
+      {
+        title: `Analysis: what the latest ${g.topic} coverage is missing`,
+        url: "https://news.example.com/analysis/" + encodeURIComponent(g.key.replace(/ /g, "-")),
+      },
+    ],
+  }));
+
+  res.json({
+    fetched_at: trendsFetchedAt,
+    youtube_configured: true,
+    web_configured: true,
+    youtube,
+    web,
+  });
+});
+
+router.post("/trends/refresh", (_req, res) => {
+  const running = jobs.find(
+    (j: any) => j.job_type === "trends" && (j.status === "pending" || j.status === "running"),
+  );
+  if (running) { res.status(202).json(running); return; }
+  const job: any = {
+    id: `job-trends-${Date.now()}`,
+    media_id: null,
+    filename: null,
+    job_type: "trends",
+    status: "running",
+    progress: 5,
+    error_message: null,
+    logs: ["Fetching YouTube trending chart..."],
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    finished_at: null,
+  };
+  jobs.unshift(job as any);
+  const timer = setInterval(() => {
+    job.progress = Math.min(100, (job.progress ?? 0) + 30);
+    if (job.progress >= 50 && job.logs.length < 2) job.logs.push("Querying SearXNG for library topics...");
+    if (job.progress >= 100) {
+      job.status = "success";
+      job.finished_at = new Date().toISOString();
+      job.logs.push("Trends updated: 5 videos, 8 topics");
+      trendsFetchedAt = new Date().toISOString();
+      clearInterval(timer);
+    }
+  }, 1200);
+  res.status(202).json(job);
+});
+
+// ---------------------------------------------------------------------------
 // Graphics generator (ComfyUI-backed in production; simulated here)
 
 const graphicsPresets: any[] = [

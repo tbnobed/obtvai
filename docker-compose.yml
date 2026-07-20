@@ -23,6 +23,8 @@ x-python-env: &python-env
   YOUTUBE_CLIENT_SECRET: "${YOUTUBE_CLIENT_SECRET:-}"
   YOUTUBE_REFRESH_TOKEN: "${YOUTUBE_REFRESH_TOKEN:-}"
   YOUTUBE_API_KEY: "${YOUTUBE_API_KEY:-}"
+  SEARXNG_URL: "${SEARXNG_URL:-http://searxng:8080}"
+  TRENDS_REGION: "${TRENDS_REGION:-US}"
   WHISPER_MODEL: "${WHISPER_MODEL:-large-v3}"
   EMBEDDINGS_MODEL: "${EMBEDDINGS_MODEL:-BAAI/bge-m3}"
   VISION_MODEL: "${VISION_MODEL:-google/siglip2-so400m-patch14-384}"
@@ -68,6 +70,17 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Self-hosted metasearch used by the trends worker to measure news momentum
+  # for library topics. Only topic keywords are sent out; not exposed on the
+  # host network. JSON output is enabled in ./searxng/settings.yml.
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    volumes:
+      - ./searxng:/etc/searxng
+    environment:
+      SEARXNG_BASE_URL: "http://searxng:8080/"
 
   qdrant:
     image: qdrant/qdrant:v1.12.4

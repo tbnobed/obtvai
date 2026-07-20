@@ -5,6 +5,9 @@ import {
   useRefreshLibraryInsights,
   useUpdatePerson,
   useCreateProject,
+  useGetTrends,
+  getGetTrendsQueryKey,
+  useRefreshTrends,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -26,6 +29,10 @@ import {
   Pencil,
   Check,
   X,
+  TrendingUp,
+  Youtube,
+  Newspaper,
+  ExternalLink,
 } from "lucide-react";
 import { formatHours } from "@/lib/format";
 
@@ -36,6 +43,9 @@ const personHref = (id: string, name: string) =>
 const topicHref = (key: string, label: string) =>
   `/library?topic=${encodeURIComponent(key)}&topic_label=${encodeURIComponent(label)}`;
 
+const formatViews = (n: number) =>
+  new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+
 export default function Insights() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -45,6 +55,10 @@ export default function Insights() {
   const refresh = useRefreshLibraryInsights();
   const updatePerson = useUpdatePerson();
   const createProject = useCreateProject();
+  const { data: trends } = useGetTrends({
+    query: { queryKey: getGetTrendsQueryKey() },
+  });
+  const refreshTrends = useRefreshTrends();
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -55,6 +69,16 @@ export default function Insights() {
       onSuccess: () => {
         setTimeout(() => {
           queryClient.invalidateQueries({ queryKey: getGetLibraryInsightsQueryKey() });
+        }, 8000);
+      },
+    });
+  };
+
+  const handleTrendsRefresh = () => {
+    refreshTrends.mutate(undefined as never, {
+      onSuccess: () => {
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: getGetTrendsQueryKey() });
         }, 8000);
       },
     });
@@ -260,6 +284,130 @@ export default function Insights() {
                 No AI findings yet. Refresh insights once media has been processed.
               </p>
             )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Trending Now
+              </h2>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-1.5 text-xs"
+                disabled={refreshTrends.isPending}
+                onClick={handleTrendsRefresh}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${refreshTrends.isPending ? "animate-spin" : ""}`} />
+                {refreshTrends.isPending ? "Queued..." : "Refresh"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              {trends?.fetched_at
+                ? `External trend data fetched ${new Date(trends.fetched_at).toLocaleString()} · keywords only, nothing leaves the library`
+                : "No trend data yet — refreshes automatically every 3 hours."}
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="border border-border bg-card rounded-md p-4">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Youtube className="h-4 w-4 text-red-500" />
+                  YouTube Trending
+                </h3>
+                {!trends?.youtube_configured ? (
+                  <p className="text-sm text-muted-foreground">
+                    Not configured — set YOUTUBE_API_KEY to pull the trending chart.
+                  </p>
+                ) : trends?.youtube?.length ? (
+                  <div className="space-y-3">
+                    {trends.youtube.slice(0, 8).map((v) => (
+                      <div key={`${v.rank}-${v.title}`} className="text-sm">
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs text-muted-foreground font-mono mt-0.5 flex-shrink-0 w-5">
+                            #{v.rank}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            {v.url ? (
+                              <a
+                                href={v.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-medium hover:text-primary inline-flex items-start gap-1"
+                              >
+                                <span className="line-clamp-2">{v.title}</span>
+                                <ExternalLink className="h-3 w-3 flex-shrink-0 mt-1 text-muted-foreground" />
+                              </a>
+                            ) : (
+                              <span className="font-medium line-clamp-2">{v.title}</span>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {v.channel}
+                              {v.views != null && <> · {formatViews(v.views)} views</>}
+                            </p>
+                            {v.matched_topics.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {v.matched_topics.map((t) => (
+                                  <Link key={t.key} href={topicHref(t.key, t.topic)}>
+                                    <Badge variant="outline" className="text-xs cursor-pointer hover:border-primary">
+                                      {t.topic}
+                                      <span className="ml-1.5 text-muted-foreground">{t.asset_count}</span>
+                                    </Badge>
+                                  </Link>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No trending data fetched yet.</p>
+                )}
+              </div>
+
+              <div className="border border-border bg-card rounded-md p-4">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Newspaper className="h-4 w-4 text-primary" />
+                  Your Topics in the News
+                </h3>
+                {!trends?.web_configured ? (
+                  <p className="text-sm text-muted-foreground">
+                    Not configured — start the SearXNG container to track news momentum.
+                  </p>
+                ) : trends?.web?.length ? (
+                  <div className="space-y-3">
+                    {trends.web.slice(0, 8).map((w) => (
+                      <div key={w.key} className="text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <Link href={topicHref(w.key, w.topic)}>
+                            <span className="font-medium cursor-pointer hover:text-primary">{w.topic}</span>
+                          </Link>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {w.result_count} {w.result_count === 1 ? "story" : "stories"} this week ·{" "}
+                            {w.asset_count} {w.asset_count === 1 ? "asset" : "assets"}
+                          </span>
+                        </div>
+                        {w.headlines.length > 0 && w.headlines[0].url && (
+                          <a
+                            href={w.headlines[0].url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-muted-foreground hover:text-primary line-clamp-1 mt-0.5 inline-block"
+                          >
+                            {w.headlines[0].title}
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No news matches yet — refresh once topics have been extracted.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

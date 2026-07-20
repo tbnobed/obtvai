@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics
+from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends
 
 
 # Columns created as `json` by earlier versions must become `jsonb` so workers
@@ -103,6 +103,15 @@ async def _run_startup_migrations():
             CREATE UNIQUE INDEX IF NOT EXISTS uq_processing_jobs_active_insights
             ON processing_jobs (job_type)
             WHERE job_type = 'insights' AND status IN ('pending', 'running')
+            """
+        ))
+
+        # Same singleton guarantee for library-wide trends refresh jobs.
+        await conn.execute(text(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_processing_jobs_active_trends
+            ON processing_jobs (job_type)
+            WHERE job_type = 'trends' AND status IN ('pending', 'running')
             """
         ))
 
@@ -208,6 +217,7 @@ app.include_router(stories.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
 app.include_router(voice.router, prefix="/api")
 app.include_router(graphics.router, prefix="/api")
+app.include_router(trends.router, prefix="/api")
 
 
 @app.get("/api/healthz")

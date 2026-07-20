@@ -714,6 +714,45 @@ class LibraryInsightsOut(BaseModel):
     top_topics: List[TopTopicOut] = []
 
 
+# ── Trends ────────────────────────────────────────────────────────────────────
+
+class TrendHeadlineOut(BaseModel):
+    title: str
+    url: Optional[str] = None
+
+
+class TrendMatchedTopicOut(BaseModel):
+    key: str
+    topic: str
+    asset_count: int
+
+
+class YoutubeTrendOut(BaseModel):
+    rank: int
+    title: str
+    channel: Optional[str] = None
+    url: Optional[str] = None
+    views: Optional[int] = None
+    matched_topics: List[TrendMatchedTopicOut] = []
+
+
+class WebTrendOut(BaseModel):
+    rank: int
+    key: str
+    topic: str
+    asset_count: int
+    result_count: int
+    headlines: List[TrendHeadlineOut] = []
+
+
+class TrendsOut(BaseModel):
+    fetched_at: Optional[datetime] = None
+    youtube_configured: bool
+    web_configured: bool
+    youtube: List[YoutubeTrendOut] = []
+    web: List[WebTrendOut] = []
+
+
 # ── Projects ──────────────────────────────────────────────────────────────────
 
 class ProjectCounts(BaseModel):

@@ -17,4 +17,9 @@ beat_schedule = {
         "schedule": 3600.0,  # hourly; videos.list is 1 quota unit per 50 videos
         "options": {"queue": "cpu"},
     },
+    "fetch-external-trends": {
+        "task": "tasks.trends.fetch_trends",
+        "schedule": 10800.0,  # every 3 h; 1 YouTube quota unit + ~25 SearXNG queries
+        "options": {"queue": "cpu"},
+    },
 }

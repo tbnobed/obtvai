@@ -29,6 +29,8 @@ tags:
     description: Cross-asset person identities
   - name: insights
     description: Library-wide AI insights
+  - name: trends
+    description: External trend correlation (YouTube trending, web news momentum)
 paths:
   /healthz:
     get:
@@ -1416,6 +1418,35 @@ paths:
                 $ref: "#/components/schemas/ProcessingJob"
         "409":
           description: An insights job is already running
+
+  # ── Trends ────────────────────────────────────────────────────────────────
+  /trends:
+    get:
+      operationId: getTrends
+      tags: [trends]
+      summary: External trends correlated against library topics at read time
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trends"
+
+  /trends/refresh:
+    post:
+      operationId: refreshTrends
+      tags: [trends]
+      summary: Queue a fetch of external trend sources (YouTube, SearXNG)
+      responses:
+        "202":
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+        "409":
+          description: A trends job is already running
 
   # ── Search ────────────────────────────────────────────────────────────────
   /search:
@@ -3435,6 +3466,96 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TopTopic"
+
+    # ── Trends ────────────────────────────────────────────────────────────────
+    TrendHeadline:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        url:
+          type: ["string", "null"]
+
+    TrendMatchedTopic:
+      type: object
+      required: [key, topic, asset_count]
+      properties:
+        key:
+          type: string
+          description: Normalized library topic key
+        topic:
+          type: string
+          description: Human-readable topic label
+        asset_count:
+          type: integer
+
+    YoutubeTrend:
+      type: object
+      required: [rank, title, matched_topics]
+      properties:
+        rank:
+          type: integer
+          description: Position on the trending chart (1 = top)
+        title:
+          type: string
+        channel:
+          type: ["string", "null"]
+        url:
+          type: ["string", "null"]
+        views:
+          type: ["integer", "null"]
+        matched_topics:
+          type: array
+          description: Library topics that appear in this trending video's title/tags
+          items:
+            $ref: "#/components/schemas/TrendMatchedTopic"
+
+    WebTrend:
+      type: object
+      required: [rank, key, topic, asset_count, result_count, headlines]
+      properties:
+        rank:
+          type: integer
+        key:
+          type: string
+          description: Normalized library topic key
+        topic:
+          type: string
+        asset_count:
+          type: integer
+          description: Library assets tagged with this topic (computed at read time)
+        result_count:
+          type: integer
+          description: Recent news results for this topic (past week)
+        headlines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendHeadline"
+
+    Trends:
+      type: object
+      required: [youtube_configured, web_configured, youtube, web]
+      properties:
+        fetched_at:
+          type: ["string", "null"]
+          description: When trend data was last fetched (null if never)
+        youtube_configured:
+          type: boolean
+          description: Whether YouTube credentials are configured
+        web_configured:
+          type: boolean
+          description: Whether a SearXNG instance is configured
+        youtube:
+          type: array
+          description: Trending videos, chart order
+          items:
+            $ref: "#/components/schemas/YoutubeTrend"
+        web:
+          type: array
+          description: Library topics ranked by recent news momentum
+          items:
+            $ref: "#/components/schemas/WebTrend"
 
     # ── Search ────────────────────────────────────────────────────────────────
     SearchQuery:
