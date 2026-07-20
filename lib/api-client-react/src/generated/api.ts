@@ -4605,7 +4605,7 @@ export const getUpdatePersonPhotoUrl = (id: string,) => {
 }
 
 /**
- * @summary Replace this person's picture with an uploaded photo — the face is detected and cropped; face matching signatures are not changed
+ * @summary Replace this person's picture with an uploaded photo — a detected face is cropped, otherwise the whole image is used (voice-over talent); face matching signatures are not changed
  */
 export const updatePersonPhoto = async (id: string,
     personPhotoInput: PersonPhotoInput, options?: RequestInit): Promise<Person> => {
@@ -4657,7 +4657,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdatePersonPhotoMutationError = ErrorType<void>
 
     /**
- * @summary Replace this person's picture with an uploaded photo — the face is detected and cropped; face matching signatures are not changed
+ * @summary Replace this person's picture with an uploaded photo — a detected face is cropped, otherwise the whole image is used (voice-over talent); face matching signatures are not changed
  */
 export const useUpdatePersonPhoto = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePersonPhoto>>, TError,{id: string;data: BodyType<PersonPhotoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}

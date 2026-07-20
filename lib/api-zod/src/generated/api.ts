@@ -1822,7 +1822,7 @@ export const FaceSearchPersonResponse = zod.void()
 
 
 /**
- * @summary Replace this person's picture with an uploaded photo — the face is detected and cropped; face matching signatures are not changed
+ * @summary Replace this person's picture with an uploaded photo — a detected face is cropped, otherwise the whole image is used (voice-over talent); face matching signatures are not changed
  */
 export const UpdatePersonPhotoParams = zod.object({
   "id": zod.coerce.string()

@@ -1429,7 +1429,7 @@ paths:
     post:
       operationId: updatePersonPhoto
       tags: [people]
-      summary: Replace this person's picture with an uploaded photo — the face is detected and cropped; face matching signatures are not changed
+      summary: Replace this person's picture with an uploaded photo — a detected face is cropped, otherwise the whole image is used (voice-over talent); face matching signatures are not changed
       parameters:
         - name: id
           in: path
@@ -1454,7 +1454,7 @@ paths:
         "413":
           description: Photo too large
         "422":
-          description: Could not read the image or no face detected
+          description: Could not read the image
 
   /people/reanalyze:
     post:

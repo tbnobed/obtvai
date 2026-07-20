@@ -636,15 +636,16 @@ async def update_person_photo(
     photo: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Replace this person's picture with an uploaded photo. The most
-    prominent face is detected and cropped the same way enroll does, but the
-    stored face-matching signature is NOT touched — identification behavior
-    stays exactly as before, only the displayed picture changes."""
+    """Replace this person's picture with an uploaded photo. If a face is
+    detected it is cropped the same way enroll does; otherwise the whole image
+    is used (voice-over talent never appears on camera). The stored
+    face-matching signature is NOT touched — identification behavior stays
+    exactly as before, only the displayed picture changes."""
     import os
     import uuid as _uuid
     from fastapi.concurrency import run_in_threadpool
     from ..config import settings
-    from ..face_enroll import decode_photo, extract_face, MAX_PHOTO_BYTES
+    from ..face_enroll import decode_photo, extract_face, whole_image_jpeg, MAX_PHOTO_BYTES
 
     person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
     if not person:
@@ -659,15 +660,16 @@ async def update_person_photo(
         img = await run_in_threadpool(decode_photo, data)
     except Exception:
         raise HTTPException(status_code=422, detail="Could not read the image file")
+    # Face crop is only cosmetic here — if no face is found (or the face
+    # model is unavailable) fall back to the whole image, center-cropped
+    # square. Voice-over people never appear on camera.
+    crop = None
     try:
-        emb, crop = await run_in_threadpool(extract_face, img)
-    except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Face model failed to load or run: {type(e).__name__}: {e}",
-        )
+        _, crop = await run_in_threadpool(extract_face, img)
+    except Exception:
+        pass
     if crop is None:
-        raise HTTPException(status_code=422, detail="No face detected in the photo")
+        crop = await run_in_threadpool(whole_image_jpeg, img)
 
     os.makedirs(settings.thumbnails_dir, exist_ok=True)
     thumb_name = f"person_photo_{_uuid.uuid4().hex}.jpg"

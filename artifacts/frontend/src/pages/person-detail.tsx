@@ -865,7 +865,7 @@ export default function PersonDetail() {
                     setPhotoError(
                       typeof detail === "string" && detail
                         ? detail
-                        : "Photo update failed — make sure a face is clearly visible."
+                        : "Photo update failed."
                     );
                   },
                 }

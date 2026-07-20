@@ -47,6 +47,22 @@ def decode_photo(photo_bytes: bytes):
     return img
 
 
+def whole_image_jpeg(img):
+    """Center-square crop + resize a decoded PIL image to JPEG bytes, for
+    person photos where no face is present (voice-over talent, logos, mics)."""
+    w, h = img.size
+    if w != h:
+        side = min(w, h)
+        left = (w - side) // 2
+        top = (h - side) // 2
+        img = img.crop((left, top, left + side, top + side))
+    if max(img.size) > 512:
+        img.thumbnail((512, 512))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=88)
+    return buf.getvalue()
+
+
 def extract_face(img):
     """Returns (embedding_list, crop_jpeg_bytes) for the most prominent face
     in a decoded PIL image, or (None, None) if no face is confidently detected."""
