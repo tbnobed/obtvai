@@ -218,6 +218,7 @@ export default function ProjectDetail() {
   const updateListMutation = useUpdateClipList();
 
   const [query, setQuery] = useState("");
+  const [searchAllMedia, setSearchAllMedia] = useState(false);
   const [targetListId, setTargetListId] = useState<string>("");
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   // Rapid "Add" clicks race the clip-list refetch: each click would rebuild the
@@ -231,11 +232,13 @@ export default function ProjectDetail() {
     if (!targetListId && clipLists?.length) setTargetListId(clipLists[0].id);
   }, [clipLists, targetListId]);
 
+  const searchScope = searchAllMedia || !mediaPool.length ? {} : { media_ids: mediaPool };
+
   const runSearch = () => {
     if (query.trim().length < 2) return;
     setSelectedResults({});
     searchMutation.mutate({
-      data: { query: query.trim(), ...(mediaPool.length ? { media_ids: mediaPool } : {}) },
+      data: { query: query.trim(), ...searchScope },
     });
   };
 
@@ -246,7 +249,7 @@ export default function ProjectDetail() {
       data: {
         script: script.trim(),
         matches_per_line: 3,
-        ...(mediaPool.length ? { media_ids: mediaPool } : {}),
+        ...searchScope,
       },
     });
   };
@@ -720,7 +723,15 @@ export default function ProjectDetail() {
               <CardTitle className="flex items-center gap-2 text-base">
                 <Search className="h-4 w-4" /> Search Footage
               </CardTitle>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap">
+                {mediaPool.length > 0 && (
+                  <div className="flex items-center gap-2" title="Search every indexed asset in the library instead of only this project's media pool">
+                    <Switch id="search-all-media" checked={searchAllMedia} onCheckedChange={setSearchAllMedia} />
+                    <Label htmlFor="search-all-media" className="text-xs text-muted-foreground cursor-pointer">
+                      Whole library
+                    </Label>
+                  </div>
+                )}
                 {addSelectedButton}
                 {addTargetPicker}
               </div>
