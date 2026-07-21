@@ -890,6 +890,7 @@ async def merge_person(id: str, body: PersonMergeIn, db: AsyncSession = Depends(
     # merge can never interleave with an in-flight identification pass. The
     # xact variant releases automatically on commit/rollback.
     from sqlalchemy import text, update as sa_update
+    from ..models import VoiceSample
 
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_identify'))"))
 
@@ -922,6 +923,14 @@ async def merge_person(id: str, body: PersonMergeIn, db: AsyncSession = Depends(
     await db.execute(
         sa_update(PersonAppearance)
         .where(PersonAppearance.person_id == source.id)
+        .values(person_id=target.id)
+    )
+    # Carry the source's voice samples to the target — voice_samples has
+    # ON DELETE CASCADE on person_id, so without this re-parent, merging a
+    # person silently destroys their cloned-voice profile.
+    await db.execute(
+        sa_update(VoiceSample)
+        .where(VoiceSample.person_id == source.id)
         .values(person_id=target.id)
     )
     if not target.thumbnail_url and source.thumbnail_url:
