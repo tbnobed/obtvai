@@ -139,6 +139,30 @@ export default function CoAppearanceMap() {
   // Manual node positions (world coords) after the user drags people around.
   const [overrides, setOverrides] = useState<Record<string, { x: number; y: number }>>({});
 
+  // The map must always fit inside the visible page (no page scroll): measure
+  // the space left below the controls and contain-fit the fixed W:H canvas
+  // into it, so the svg's pixel box always matches the viewBox aspect ratio
+  // (keeps cursor-to-world math exact — no letterboxing).
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setBox((prev) =>
+        prev && Math.abs(prev.w - r.width) < 1 && Math.abs(prev.h - r.height) < 1
+          ? prev
+          : { w: r.width, h: r.height }
+      );
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isLoading, nodes.length]);
+  const fit = box ? Math.max(0.1, Math.min(box.w / W, box.h / H)) : 0;
+
   useLayoutEffect(() => {
     setOverrides({});
     setViewT({ k: 1 / layout.s, tx: 0, ty: 0 });
@@ -310,16 +334,16 @@ export default function CoAppearanceMap() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 flex-1 min-h-0">
         {controls}
-        <div className="animate-pulse bg-muted rounded-md w-full" style={{ aspectRatio: `${W}/${H}` }} />
+        <div className="animate-pulse bg-muted rounded-md w-full flex-1 min-h-0" />
       </div>
     );
   }
 
   if (!nodes.length) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 flex-1 min-h-0">
         {controls}
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-24">
           <Share2 className="h-12 w-12 mb-4 opacity-50" />
@@ -344,13 +368,21 @@ export default function CoAppearanceMap() {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
       {controls}
-      <div className="relative border border-border bg-card rounded-md overflow-hidden">
+      <div ref={wrapRef} className="flex-1 min-h-0 flex items-start justify-center">
+      <div
+        className="relative border border-border bg-card rounded-md overflow-hidden"
+        style={
+          box
+            ? { width: Math.max(1, Math.floor(W * fit)), height: Math.max(1, Math.floor(H * fit)) }
+            : { width: "100%", aspectRatio: `${W}/${H}`, visibility: "hidden" as const }
+        }
+      >
         <svg
           ref={svgRef}
           viewBox={`0 0 ${W} ${H}`}
-          className="w-full h-auto block touch-none select-none"
+          className="w-full h-full block touch-none select-none"
           style={{ cursor: panRef.current ? "grabbing" : "grab" }}
           role="img"
           aria-label="Co-appearance map"
@@ -488,7 +520,8 @@ export default function CoAppearanceMap() {
           </button>
         </div>
       </div>
-      <div className="min-h-[1.5rem] text-sm text-muted-foreground">
+      </div>
+      <div className="min-h-[1.5rem] text-sm text-muted-foreground shrink-0">
         {hovered ? (
           <span>
             <span className="text-foreground font-medium">{nameOf.get(hovered.person_a_id)}</span>
