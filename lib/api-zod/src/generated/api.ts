@@ -250,6 +250,81 @@ export const UploadMediaResponse = zod.object({
 
 
 /**
+ * @summary Import media from a shared link (e.g. Dropbox) — downloads in the background and queues ingestion
+ */
+export const ImportMediaFromLinkBody = zod.object({
+  "url": zod.string().describe('Shared link to a video file or folder (Dropbox links are handled automatically; folder links download as a zip and every video inside is imported)'),
+  "title": zod.string().optional()
+})
+
+export const ImportMediaFromLinkResponse = zod.object({
+  "id": zod.string(),
+  "filename": zod.string(),
+  "original_path": zod.string().nullish(),
+  "proxy_path": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "duration_seconds": zod.number().nullish(),
+  "width": zod.number().nullish(),
+  "height": zod.number().nullish(),
+  "fps": zod.number().nullish(),
+  "codec": zod.string().nullish(),
+  "file_size_bytes": zod.number().nullish(),
+  "status": zod.string().describe('pending | processing | ready | error'),
+  "processing_stage": zod.string().nullish().describe('Current processing stage name'),
+  "processing_progress": zod.number().nullish().describe('0-100 percent'),
+  "scene_count": zod.number().nullish(),
+  "speaker_count": zod.number().nullish(),
+  "highlight_url": zod.string().nullish().describe('Set when a generated highlight reel is available'),
+  "translated_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages the transcript has been translated into'),
+  "dubbed_languages": zod.array(zod.string()).nullish().describe('ISO codes of languages with a generated dubbed audio track'),
+  "social_scores": zod.array(zod.object({
+  "platform": zod.string().describe('youtube | instagram | x | facebook | tiktok'),
+  "score": zod.number().describe('Predicted performance score, 0-100'),
+  "verdict": zod.string().nullish().describe('One-line performance verdict'),
+  "strengths": zod.array(zod.string()).nullish(),
+  "weaknesses": zod.array(zod.string()).nullish(),
+  "best_format": zod.string().nullish().describe('Recommended format\/cut for this platform'),
+  "suggested_caption": zod.string().nullish(),
+  "hashtags": zod.array(zod.string()).nullish()
+})).nullish().describe('Per-platform social media performance predictions'),
+  "synopsis": zod.string().nullish().describe('AI-generated synopsis of the content'),
+  "creative": zod.union([zod.object({
+  "logline": zod.string().nullish().describe('One-sentence editorial pitch for the piece'),
+  "story_beats": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "beat": zod.string().describe('hook | setup | development | turn | climax | resolution'),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emotion": zod.string().nullish().describe('Dominant emotional register of the beat')
+})),
+  "clip_suggestions": zod.array(zod.object({
+  "start": zod.number().describe('In point in seconds'),
+  "end": zod.number().describe('Out point in seconds'),
+  "title": zod.string(),
+  "quote": zod.string().nullish().describe('The strongest line spoken in the clip'),
+  "reason": zod.string().describe('Why an editor would pull this clip'),
+  "strength": zod.number().nullish().describe('Editorial strength score 1-100'),
+  "platforms": zod.array(zod.string()).nullish().describe('Platforms this clip suits best')
+})),
+  "editorial_notes": zod.array(zod.object({
+  "category": zod.string().describe('pacing | structure | cuts | broll | delivery | best_take'),
+  "note": zod.string()
+})),
+  "generated_at": zod.string().nullish()
+}),zod.null()]).optional().describe('Creative editor pass — story beats, clip suggestions, editorial notes'),
+  "qc_flags": zod.record(zod.string(), zod.unknown()).nullish().describe('Technical QC results (audio clipping, silence, black frames)'),
+  "key_moments": zod.array(zod.object({
+  "time": zod.number().describe('Timecode in seconds'),
+  "title": zod.string(),
+  "description": zod.string().nullish()
+})).nullish().describe('AI-detected key moments with timecodes'),
+  "topics": zod.array(zod.string()).nullish().describe('AI-extracted topic tags'),
+  "created_at": zod.string(),
+  "updated_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Get media asset details
  */
 export const GetMediaParams = zod.object({

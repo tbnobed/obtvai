@@ -79,6 +79,147 @@ def run_ingest_pipeline(self, media_id: str, job_id: str = None):
         db.close()
 
 
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wmv", ".flv", ".webm"}
+UPLOAD_DIR = "/uploads"
+
+
+def _sanitize_filename(name: str) -> str:
+    """Strip directories, separators, and control chars — the remote server
+    controls Content-Disposition, so treat it as hostile."""
+    import re
+    name = os.path.basename(name.replace("\\", "/")).strip()
+    name = re.sub(r"[\x00-\x1f]", "", name)
+    name = name.lstrip(".") or "download"
+    return name[:200]
+
+
+def _filename_from_response(resp, url: str) -> str:
+    """Best-effort real filename: Content-Disposition, else URL path."""
+    import re
+    from urllib.parse import urlparse, unquote
+    cd = resp.headers.get("content-disposition", "")
+    m = re.search(r"filename\*=UTF-8''([^;]+)", cd) or re.search(r'filename="?([^";]+)"?', cd)
+    if m:
+        return _sanitize_filename(unquote(m.group(1)))
+    return _sanitize_filename(unquote(os.path.basename(urlparse(url).path)) or "download")
+
+
+@celery_app.task(bind=True, name="tasks.ingest.import_from_link", queue="ingest")
+def import_from_link(self, media_id: str, url: str, title: str = None):
+    """Download a shared link (Dropbox etc.) into /uploads and queue ingest.
+
+    Single video file: becomes this asset. Zip (Dropbox folder link): every
+    video inside is extracted; the first becomes this asset, the rest get new
+    asset rows, each queued for the normal pipeline.
+    """
+    import shutil
+    import zipfile
+    import requests
+    from sqlalchemy import text
+
+    db = get_session()
+    job_id = None
+    tmp_path = os.path.join(UPLOAD_DIR, f".dl_{media_id}")
+    try:
+        job_id = create_job(db, media_id, "link_import")
+        update_job(db, job_id, status="running", started_at=datetime.utcnow(), celery_task_id=self.request.id)
+        update_asset(db, media_id, status="processing", processing_stage="downloading", processing_progress=1.0)
+        append_log(db, job_id, f"Downloading: {url}")
+
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        with requests.get(url, stream=True, timeout=(15, 300), allow_redirects=True) as resp:
+            resp.raise_for_status()
+            fname = _filename_from_response(resp, url)
+            total = int(resp.headers.get("content-length") or 0)
+            done = 0
+            last_pct = -10.0
+            with open(tmp_path, "wb") as out:
+                for chunk in resp.iter_content(chunk_size=8 * 1024 * 1024):
+                    out.write(chunk)
+                    done += len(chunk)
+                    if total:
+                        pct = min(89.0, (done / total) * 90.0)
+                        if pct - last_pct >= 5.0:
+                            last_pct = pct
+                            update_asset(db, media_id, processing_progress=round(pct, 1))
+        size = os.path.getsize(tmp_path)
+        if size == 0:
+            raise RuntimeError("Downloaded file is empty — is the link public?")
+        append_log(db, job_id, f"Downloaded {size / 1e6:.1f} MB ({fname})")
+
+        # Zip (Dropbox folder link) vs single file
+        is_zip = zipfile.is_zipfile(tmp_path) and os.path.splitext(fname)[1].lower() not in VIDEO_EXTENSIONS
+        if is_zip:
+            videos = []
+            with zipfile.ZipFile(tmp_path) as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    base = os.path.basename(info.filename)
+                    if base.startswith(".") or base.startswith("__MACOSX"):
+                        continue
+                    if os.path.splitext(base)[1].lower() in VIDEO_EXTENSIONS:
+                        videos.append((info, base))
+                if not videos:
+                    raise RuntimeError("The folder link contained no video files")
+                append_log(db, job_id, f"Folder link: extracting {len(videos)} video(s)")
+                for i, (info, base) in enumerate(videos):
+                    vid = media_id if i == 0 else str(uuid.uuid4())
+                    dest = os.path.join(UPLOAD_DIR, f"{vid}_{base}")
+                    with zf.open(info) as src, open(dest, "wb") as out:
+                        shutil.copyfileobj(src, out, 8 * 1024 * 1024)
+                    if i == 0:
+                        update_asset(db, media_id,
+                                     filename=(title or base)[:255],
+                                     original_path=dest,
+                                     file_size_bytes=os.path.getsize(dest))
+                    else:
+                        db.execute(
+                            text("""
+                                INSERT INTO media_assets (id, filename, original_path, status,
+                                                          file_size_bytes, created_at)
+                                VALUES (:id, :fn, :op, 'pending', :sz, :now)
+                            """),
+                            {"id": vid, "fn": base[:255], "op": dest,
+                             "sz": os.path.getsize(dest), "now": datetime.utcnow()},
+                        )
+                        db.commit()
+                        run_ingest_pipeline.delay(media_id=vid)
+            os.remove(tmp_path)
+        else:
+            ext = os.path.splitext(fname)[1].lower()
+            if ext not in VIDEO_EXTENSIONS:
+                raise RuntimeError(
+                    f"Link is not a video file (got '{fname}'). "
+                    "For Dropbox, share a video file or a folder of videos."
+                )
+            dest = os.path.join(UPLOAD_DIR, f"{media_id}_{fname}")
+            shutil.move(tmp_path, dest)
+            update_asset(db, media_id,
+                         filename=(title or fname)[:255],
+                         original_path=dest,
+                         file_size_bytes=os.path.getsize(dest))
+
+        update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
+        append_log(db, job_id, "Download complete — starting ingest pipeline")
+        update_asset(db, media_id, status="pending", processing_stage="queued_for_processing", processing_progress=0.0)
+        run_ingest_pipeline.delay(media_id=media_id)
+
+    except Exception as e:
+        db.rollback()
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
+        if job_id:
+            update_job(db, job_id, status="error", error_message=str(e)[:2000], finished_at=datetime.utcnow())
+        update_asset(db, media_id, status="error", processing_stage="download_failed")
+        raise
+    finally:
+        db.close()
+
+
 def _ffprobe(path: str) -> dict:
     cmd = [
         "ffprobe", "-v", "quiet", "-print_format", "json",

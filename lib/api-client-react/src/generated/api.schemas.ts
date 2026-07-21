@@ -266,6 +266,12 @@ export interface MediaIngestInput {
   title?: string;
 }
 
+export interface MediaLinkImportInput {
+  /** Shared link to a video file or folder (Dropbox links are handled automatically; folder links download as a zip and every video inside is imported) */
+  url: string;
+  title?: string;
+}
+
 export type LibraryStatsStatusCounts = {[key: string]: number};
 
 export interface LibraryStats {

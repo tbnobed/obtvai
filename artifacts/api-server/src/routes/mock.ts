@@ -549,6 +549,42 @@ router.post("/media/upload", upload.single("file"), (req, res) => {
   res.status(202).json(newAsset);
 });
 
+router.post("/media/import-link", (req, res) => {
+  const { url, title } = req.body ?? {};
+  if (typeof url !== "string" || !/^https?:\/\/\S+$/.test(url.trim())) {
+    res.status(400).json({ error: "Invalid URL — must be an http(s) link" });
+    return;
+  }
+  let guess = "link import";
+  try {
+    const p = decodeURIComponent(new URL(url.trim()).pathname);
+    guess = p.split("/").filter(Boolean).pop() || guess;
+  } catch { /* keep default */ }
+  const id = `asset-${Date.now()}`;
+  const newAsset = {
+    id,
+    filename: title || guess,
+    original_path: `pending-download:${id}`,
+    proxy_path: null,
+    thumbnail_url: null,
+    duration_seconds: null,
+    width: null,
+    height: null,
+    fps: null,
+    codec: null,
+    file_size_bytes: 0,
+    status: "pending",
+    processing_stage: "downloading",
+    processing_progress: 1,
+    scene_count: null,
+    speaker_count: null,
+    created_at: new Date().toISOString(),
+    updated_at: null,
+  };
+  assets.unshift(newAsset as unknown as (typeof assets)[number]);
+  res.status(202).json(newAsset);
+});
+
 router.get("/media/:id", (req, res) => {
   const asset = assets.find((a) => a.id === req.params.id);
   if (!asset) { res.status(404).json({ error: "Not found" }); return; }

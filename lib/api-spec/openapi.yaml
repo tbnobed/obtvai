@@ -136,6 +136,27 @@ paths:
         "400":
           description: Unsupported file type
 
+  /media/import-link:
+    post:
+      operationId: importMediaFromLink
+      tags: [media]
+      summary: Import media from a shared link (e.g. Dropbox) — downloads in the background and queues ingestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaLinkImportInput"
+      responses:
+        "202":
+          description: Accepted — download queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAsset"
+        "400":
+          description: Invalid or unsupported link
+
   /media/{id}:
     get:
       operationId: getMedia
@@ -3086,6 +3107,16 @@ components:
         file_path:
           type: string
           description: Absolute path to the source media file on the server
+        title:
+          type: string
+
+    MediaLinkImportInput:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: Shared link to a video file or folder (Dropbox links are handled automatically; folder links download as a zip and every video inside is imported)
         title:
           type: string
 

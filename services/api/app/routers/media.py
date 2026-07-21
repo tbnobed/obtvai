@@ -8,7 +8,7 @@ from sqlalchemy import select, func, desc, delete, text
 from ..database import get_db
 from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, ProcessingJob, Person, PersonAppearance
 from ..schemas import (
-    MediaAssetOut, MediaListResponse, MediaIngestInput,
+    MediaAssetOut, MediaListResponse, MediaIngestInput, MediaLinkImportInput,
     LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance,
     ProcessingJobOut, TranslateRequest, DubRequest,
     SocialCutsRequestIn, RenderJobOut,
@@ -407,6 +407,53 @@ async def upload_media(
     from ..worker_client import enqueue_ingest
     await enqueue_ingest(asset.id)
 
+    return MediaAssetOut.model_validate(asset)
+
+
+@router.post("/import-link", response_model=MediaAssetOut, status_code=202)
+async def import_media_from_link(body: MediaLinkImportInput, db: AsyncSession = Depends(get_db)):
+    """Import a video from a shared link (Dropbox links are normalized to
+    direct-download form). The download runs in a worker; folder links come
+    down as a zip and every video inside becomes its own asset."""
+    from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse, unquote
+
+    try:
+        parsed = urlparse(body.url.strip())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise HTTPException(status_code=400, detail="Invalid URL — must be an http(s) link")
+
+    url = body.url.strip()
+    host = parsed.netloc.lower()
+    if "dropbox.com" in host:
+        # Force direct download: dl=1 (works for file and folder shared links;
+        # folders arrive as a zip).
+        q = dict(parse_qsl(parsed.query))
+        q["dl"] = "1"
+        url = urlunparse(parsed._replace(query=urlencode(q)))
+
+    # Best-effort display name until the download reveals the real filename
+    guess = unquote(os.path.basename(parsed.path)) or "link import"
+    asset = MediaAsset(
+        id=str(uuid.uuid4()),
+        filename=(body.title or guess)[:255],
+        original_path=f"pending-download:{uuid.uuid4()}",
+        status="pending",
+        processing_stage="downloading",
+        file_size_bytes=0,
+        created_at=datetime.utcnow(),
+    )
+    db.add(asset)
+    await db.commit()
+    await db.refresh(asset)
+
+    from ..worker_client import _publish
+    await _publish(
+        "ingest", "tasks.ingest.import_from_link",
+        {"media_id": asset.id, "url": url, "title": body.title},
+        str(uuid.uuid4()),
+    )
     return MediaAssetOut.model_validate(asset)
 
 

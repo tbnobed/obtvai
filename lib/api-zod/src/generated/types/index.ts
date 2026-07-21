@@ -79,6 +79,7 @@ export * from './markerSource';
 export * from './mediaAsset';
 export * from './mediaAssetQcFlags';
 export * from './mediaIngestInput';
+export * from './mediaLinkImportInput';
 export * from './mediaListResponse';
 export * from './mediaUploadInput';
 export * from './onCameraRange';

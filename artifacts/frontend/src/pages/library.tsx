@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useListMedia, getListMediaQueryKey, useIngestMedia } from "@workspace/api-client-react";
+import { useListMedia, getListMediaQueryKey, useIngestMedia, useImportMediaFromLink } from "@workspace/api-client-react";
 import { Link, useLocation, useSearch } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, User, Tag, X } from "lucide-react";
+import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, User, Tag, X, Link2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 
@@ -167,6 +167,32 @@ export default function Library() {
     }
   };
 
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const importLink = useImportMediaFromLink();
+
+  const handleLinkImport = (e: React.FormEvent) => {
+    e.preventDefault();
+    const url = linkUrl.trim();
+    if (!url) return;
+    if (!/^https?:\/\/\S+$/.test(url)) {
+      setLinkError("Enter a valid http(s) link.");
+      return;
+    }
+    setLinkError(null);
+    importLink.mutate({ data: { url, title: linkTitle || undefined } }, {
+      onSuccess: () => {
+        setLinkOpen(false);
+        setLinkUrl("");
+        setLinkTitle("");
+        queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+      },
+      onError: () => setLinkError("Import failed — make sure the link is public and points to a video or folder."),
+    });
+  };
+
   const clearFilterParam = (param: "person" | "topic") => {
     const next = new URLSearchParams(searchString);
     next.delete(param);
@@ -302,6 +328,45 @@ export default function Library() {
                 )}
                 <Button type="submit" className="w-full" disabled={!uploadFile || uploading}>
                   {uploading ? (uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : "Finalizing...") : "Upload & Process"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={linkOpen} onOpenChange={(open) => { setLinkOpen(open); if (!open) { setLinkUrl(""); setLinkTitle(""); setLinkError(null); } }}>
+            <DialogTrigger asChild>
+              <Button variant="secondary" className="gap-2">
+                <Link2 className="h-4 w-4" />
+                Import Link
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Import from Link</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleLinkImport} className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Shared Link</label>
+                  <Input
+                    value={linkUrl}
+                    onChange={e => setLinkUrl(e.target.value)}
+                    placeholder="https://www.dropbox.com/scl/fi/..."
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Paste a public Dropbox link to a video file or a folder of videos — the server downloads it in the background and processes it like any other upload. Folder links import every video inside.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Title (Optional)</label>
+                  <Input
+                    value={linkTitle}
+                    onChange={e => setLinkTitle(e.target.value)}
+                    placeholder="Interview setup"
+                  />
+                </div>
+                {linkError && <p className="text-sm text-destructive">{linkError}</p>}
+                <Button type="submit" className="w-full" disabled={!linkUrl.trim() || importLink.isPending}>
+                  {importLink.isPending ? "Queuing download..." : "Import & Process"}
                 </Button>
               </form>
             </DialogContent>

@@ -244,7 +244,8 @@ services:
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
-      - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
+      # rw: link imports (Dropbox etc.) download into /uploads on this worker
+      - "${UPLOAD_PATH:-./uploads}:/uploads"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
     command: celery -A app worker -B --queues=cpu,ingest --concurrency=4 --loglevel=info

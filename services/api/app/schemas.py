@@ -60,6 +60,11 @@ class MediaIngestInput(BaseModel):
     title: Optional[str] = None
 
 
+class MediaLinkImportInput(BaseModel):
+    url: str
+    title: Optional[str] = None
+
+
 class LibraryStats(BaseModel):
     total_assets: int
     total_duration_seconds: float

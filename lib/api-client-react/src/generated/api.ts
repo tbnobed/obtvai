@@ -64,6 +64,7 @@ import type {
   MarkerInput,
   MediaAsset,
   MediaIngestInput,
+  MediaLinkImportInput,
   MediaListResponse,
   MediaUploadInput,
   PasswordChangeInput,
@@ -462,6 +463,77 @@ export const useUploadMedia = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUploadMediaMutationOptions(options));
+    }
+
+export const getImportMediaFromLinkUrl = () => {
+
+
+
+
+  return `/api/media/import-link`
+}
+
+/**
+ * @summary Import media from a shared link (e.g. Dropbox) — downloads in the background and queues ingestion
+ */
+export const importMediaFromLink = async (mediaLinkImportInput: MediaLinkImportInput, options?: RequestInit): Promise<MediaAsset> => {
+
+  return customFetch<MediaAsset>(getImportMediaFromLinkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mediaLinkImportInput)
+  }
+);}
+
+
+
+
+
+export const getImportMediaFromLinkMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importMediaFromLink>>, TError,{data: BodyType<MediaLinkImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importMediaFromLink>>, TError,{data: BodyType<MediaLinkImportInput>}, TContext> => {
+
+const mutationKey = ['importMediaFromLink'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importMediaFromLink>>, {data: BodyType<MediaLinkImportInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importMediaFromLink(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportMediaFromLinkMutationResult = NonNullable<Awaited<ReturnType<typeof importMediaFromLink>>>
+    export type ImportMediaFromLinkMutationBody = BodyType<MediaLinkImportInput>
+    export type ImportMediaFromLinkMutationError = ErrorType<void>
+
+    /**
+ * @summary Import media from a shared link (e.g. Dropbox) — downloads in the background and queues ingestion
+ */
+export const useImportMediaFromLink = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importMediaFromLink>>, TError,{data: BodyType<MediaLinkImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importMediaFromLink>>,
+        TError,
+        {data: BodyType<MediaLinkImportInput>},
+        TContext
+      > => {
+      return useMutation(getImportMediaFromLinkMutationOptions(options));
     }
 
 export const getGetMediaUrl = (id: string,) => {
