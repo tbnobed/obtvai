@@ -159,11 +159,20 @@ def build_story(self, story_id: str):
             raise RuntimeError("No usable moments found in the selected assets")
 
         # ── Reduce: order into one storyline ─────────────────────────────────
+        from tasks.visual_context import clip_visual_profile, describe_profile, diversify_order
+
+        profiles_by_key: dict[str, dict] = {}
         for i, c in enumerate(candidates):
             c["key"] = f"C{i + 1}"
+            try:
+                profile = clip_visual_profile(db, c["media_id"], c["start"], c["end"])
+            except Exception:
+                profile = {"people": [], "scene_count": 0, "vector": None}
+            profiles_by_key[c["key"]] = profile
+            c["visual"] = describe_profile(profile)
         listing = "\n".join(
             f"{c['key']}: [{c['filename']} {_format_timecode(c['start'])}–{_format_timecode(c['end'])}] "
-            f"{c['title']} — {c['why']}"
+            f"{c['title']} — {c['why']} (visuals: {c.get('visual', 'no visual data')})"
             for c in candidates
         )[:9000]
         direction = (
@@ -185,7 +194,10 @@ def build_story(self, story_id: str):
             '  "sequence": [{"key": "C1", "role": "why this moment sits here (opener, context, turn, payoff...)"}]\n'
             "}\n\n"
             "Rules: choose 4-12 moments, order them for story (not source order), "
-            "you may interleave moments from different videos, drop weak or redundant ones."
+            "you may interleave moments from different videos, drop weak or redundant ones. "
+            "Cut like a real editor: use the visuals notes to vary the picture — avoid "
+            "back-to-back moments showing the same person in the same framing; alternate "
+            "faces and source files so the sequence never feels static."
         )
         raw = _generate(tokenizer, model, reduce_prompt, max_new_tokens=1200)
         _set_story(db, story_id, progress=85.0)
@@ -207,6 +219,12 @@ def build_story(self, story_id: str):
         if not ordered:
             # Fallback: chronological within each asset, assets in given order
             ordered = sorted(candidates, key=lambda c: (asset_ids.index(c["media_id"]), c["start"]))[:12]
+        # Visual variety pass: break up back-to-back near-identical shots
+        # (verified against the real SigLIP embeddings, not the LLM's guess).
+        try:
+            ordered = diversify_order(ordered, [profiles_by_key.get(c["key"], {}) for c in ordered])
+        except Exception:
+            pass
         title = title or "Untitled story"
 
         # ── Write result as a clip list ──────────────────────────────────────

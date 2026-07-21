@@ -64,6 +64,7 @@ def _curate_clips(
         _load_llm, _generate, _extract_json,
         _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA,
     )
+    from tasks.visual_context import clip_visual_profile, describe_profile
 
     blocks = []
     windows = []  # (media_id, filename, ctx_start, ctx_end)
@@ -85,10 +86,14 @@ def _curate_clips(
             f"  [{_format_timecode(float(r[0]))}-{_format_timecode(float(r[1]))}] {r[2]}"
             for r in rows
         )
+        visual = describe_profile(
+            clip_visual_profile(db, mid, float(c["start_time"]), float(c["end_time"]))
+        )
         blocks.append(
             f"CANDIDATE {i} — file: {c['filename']} "
             f"(flagged moment {_format_timecode(float(c['start_time']))}-"
-            f"{_format_timecode(float(c['end_time']))}):\n{lines}"
+            f"{_format_timecode(float(c['end_time']))}):\n"
+            f"  VISUALS: {visual}\n{lines}"
         )
         windows.append((mid, c["filename"], float(rows[0][0]), float(rows[-1][1])))
         if len("\n\n".join(blocks)) > 14000:
@@ -115,6 +120,10 @@ def _curate_clips(
         "strong, quotable moments; drop candidates that are filler or redundant. "
         "Order the clips so the reel builds like a story: a hook first, then "
         "development, then the strongest emotional beat near the end.\n"
+        "Use the VISUALS line to cut like a real editor: vary the picture — avoid "
+        "placing two clips with the same person in the same framing back-to-back; "
+        "alternate faces, files, and shot energy so the reel never feels static. "
+        "When two candidates say the same thing, keep the more visually dynamic one.\n"
         + (
             f"The finished piece should run close to {int(target_duration // 60)} minutes "
             "— keep enough material to reach that length; do not over-trim.\n"
@@ -173,6 +182,20 @@ def _curate_clips(
     # Sanity: require a meaningful selection, otherwise keep raw candidates
     if len(refined) < min(3, len(candidates)):
         return None
+
+    # ── Visual variety pass ──────────────────────────────────────────────
+    # The LLM sees visuals only as text; verify with the actual SigLIP
+    # embeddings and break up any back-to-back near-identical shots, keeping
+    # the hook and the closer in place.
+    try:
+        from tasks.visual_context import diversify_order
+        profiles = [
+            clip_visual_profile(db, c["media_id"], c["start_time"], c["end_time"])
+            for c in refined
+        ]
+        refined = diversify_order(refined, profiles)
+    except Exception:
+        pass
     if target_duration:
         # Don't let curation gut a long-form build far below the runtime goal
         # when the raw candidates had the material to reach it.
