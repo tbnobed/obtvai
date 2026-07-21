@@ -14,7 +14,7 @@ import {
   useCreateTranslation,
   useCreateDub,
   useListReels, getListReelsQueryKey,
-  useListRenders, getListRendersQueryKey,
+  useListRenders, getListRendersQueryKey, useDeleteRender,
   useCreateReel,
   useDeleteReel,
   useCreateRoughCut,
@@ -1792,7 +1792,9 @@ function reelStatusBadge(status: string) {
 const SOCIAL_CUT_LABEL = /^(youtube|instagram|x|facebook|tiktok): /;
 
 function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialOnly?: boolean }) {
+  const queryClient = useQueryClient();
   const listParams = { media_id: mediaId };
+  const deleteMutation = useDeleteRender();
   const { data: allRenders } = useListRenders(listParams, {
     query: {
       queryKey: getListRendersQueryKey(listParams),
@@ -1838,6 +1840,20 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
                   </a>
                 </Button>
               )}
+              <Button
+                size="sm" variant="ghost"
+                className="text-muted-foreground hover:text-destructive"
+                title="Delete this render and its file"
+                disabled={deleteMutation.isPending}
+                onClick={() =>
+                  deleteMutation.mutate(
+                    { id: r.id },
+                    { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListRendersQueryKey(listParams) }) },
+                  )
+                }
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         ))}
