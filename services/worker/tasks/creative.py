@@ -30,7 +30,7 @@ def creative_pass(self, media_id: str, job_id: str):
         from sqlalchemy import text
         from tasks.analyze import (
             _load_llm, _generate, _extract_json, _build_chunks,
-            _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA,
+            _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA, EDITOR_RULES,
         )
 
         update_job(db, job_id, status="running", started_at=datetime.utcnow(),
@@ -66,7 +66,7 @@ def creative_pass(self, media_id: str, job_id: str):
         chunk_notes = []
         for i, (chunk_text, c_start, c_end) in enumerate(chunks):
             prompt = (
-                f"You are a senior creative video editor reviewing raw footage. {CREATIVE_PERSONA}\nBelow is "
+                f"You are a senior creative video editor reviewing raw footage. {CREATIVE_PERSONA}\n{EDITOR_RULES}\nBelow is "
                 f"a transcript segment covering {_format_timecode(c_start)} to "
                 f"{_format_timecode(c_end)} of a {_format_timecode(duration)} video.\n\n"
                 f"Transcript segment:\n{chunk_text}\n\n"

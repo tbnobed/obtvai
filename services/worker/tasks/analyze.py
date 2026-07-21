@@ -24,6 +24,26 @@ CREATIVE_PERSONA = (
     "and specific; never generic."
 )
 
+# Broadcast cutting discipline — append to prompts that SELECT or ORDER clips
+# (reel curation, story reduce, clip suggestions). Kept separate from
+# CREATIVE_PERSONA because analyst prompts (insights, summaries) reuse the
+# persona but have no cut to make.
+EDITOR_RULES = (
+    "Broadcast editing rules — apply them ruthlessly:\n"
+    "- HOOK FAST: the first clip must grab within its first 2 seconds — a bold "
+    "claim, a question, conflict, or emotion. Never open with setup, "
+    "pleasantries, or context.\n"
+    "- CUT ON ACTION: start clips where something is HAPPENING — mid-energy, "
+    "on the verb — not on a breath, a wind-up, or 'so, um'. End on the "
+    "punch, not the trail-off.\n"
+    "- NEVER LINGER: the moment the point lands, cut. If a sentence past the "
+    "payoff adds nothing, it's gone. Shorter is almost always better.\n"
+    "- VARY THE PICTURE: alternate speakers, files, and shot energy; never "
+    "let two similar-looking moments sit back-to-back.\n"
+    "- EVERY CLIP EARNS ITS PLACE: if you can't say in one line why a clip "
+    "moves the story forward, drop it."
+)
+
 
 def _load_llm():
     global _llm

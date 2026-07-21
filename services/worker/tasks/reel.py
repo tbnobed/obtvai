@@ -62,7 +62,7 @@ def _curate_clips(
     from sqlalchemy import text
     from tasks.analyze import (
         _load_llm, _generate, _extract_json,
-        _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA,
+        _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA, EDITOR_RULES,
     )
     from tasks.visual_context import clip_visual_profile, describe_profile
 
@@ -110,6 +110,7 @@ def _curate_clips(
     tokenizer, model = _load_llm()
     llm_prompt = (
         f"You are a senior video editor cutting a highlight reel. {CREATIVE_PERSONA}\n"
+        f"{EDITOR_RULES}\n"
         f'Editorial brief: "{prompt}"\n\n'
         "Below are candidate moments found by search, each with surrounding "
         "transcript context and timecodes.\n\n"
@@ -119,8 +120,9 @@ def _curate_clips(
         "self-contained thought — never start or end mid-sentence. Prefer emotionally "
         "strong, quotable moments; drop candidates that are filler or redundant. "
         "Order the clips so the reel builds like a story: a hook first, then "
-        "development, then the strongest emotional beat near the end.\n"
-        "Use the VISUALS line to cut like a real editor: vary the picture — avoid "
+        "development, then the strongest emotional beat near the end. The opening "
+        "clip must start ON its hook — trim any run-up so the first 2 seconds land.\n"
+        "Use the VISUALS line to vary the picture — avoid "
         "placing two clips with the same person in the same framing back-to-back; "
         "alternate faces, files, and shot energy so the reel never feels static. "
         "When two candidates say the same thing, keep the more visually dynamic one.\n"

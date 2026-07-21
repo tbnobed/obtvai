@@ -28,7 +28,7 @@ def build_story(self, story_id: str):
         from sqlalchemy import text
         from tasks.analyze import (
             _load_llm, _generate, _extract_json, _build_chunks,
-            _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA,
+            _format_timecode, _timecode_to_seconds, CREATIVE_PERSONA, EDITOR_RULES,
         )
         from tasks.creative import _clamp
 
@@ -124,6 +124,7 @@ def build_story(self, story_id: str):
                 for chunk_text, c_start, c_end in chunks:
                     prompt = (
                         f"You are a creative video editor. {CREATIVE_PERSONA}\n"
+                        f"{EDITOR_RULES}\n"
                         "You are mining raw footage for a "
                         "multi-video story edit.\n\n"
                         f"{mine_direction}"
@@ -184,6 +185,7 @@ def build_story(self, story_id: str):
         )
         reduce_prompt = (
             f"You are a senior story editor. {CREATIVE_PERSONA}\n"
+            f"{EDITOR_RULES}\n"
             "You are assembling ONE story from moments pulled "
             f"across {len(assets)} different videos.{direction}\n"
             f"Available moments:\n{listing}\n\n"
