@@ -41,6 +41,7 @@ _CACHES = [
     ("tasks.dub", "_tts_cache", "clear"),
     ("tasks.dub", "_chatterbox_cache", "clear"),
     ("tasks.dub", "_demucs_cache", "clear"),
+    ("tasks.lipsync", "_model_cache", "clear"),
 ]
 
 
