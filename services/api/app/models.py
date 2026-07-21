@@ -39,6 +39,9 @@ class MediaAsset(Base):
     creative: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     key_moments: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Source file's modification time — the content's real-world date. Ingest
+    # date (created_at) is meaningless for trends on a bulk-ingested archive.
+    recorded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 

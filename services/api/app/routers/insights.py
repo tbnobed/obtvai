@@ -53,7 +53,9 @@ async def get_keyword_heatmap(
     limit: int = Query(20, ge=5, le=50),
     db: AsyncSession = Depends(get_db),
 ):
-    """Videos per keyword per month, bucketed by ingest date. Raw topic tags
+    """Videos per keyword per month, bucketed by the content's real date
+    (recorded_at = source file mtime, falling back to ingest date for assets
+    whose file could not be dated). Raw topic tags
     are merged by normalized key so casing/underscore variants count as one
     keyword — same convention as the /insights topic aggregates."""
     # Month axis: oldest first, ending at the current month, always dense so
@@ -73,11 +75,11 @@ async def get_keyword_heatmap(
         await db.execute(
             text("""
                 SELECT topic,
-                       to_char(date_trunc('month', created_at), 'YYYY-MM') AS ym,
+                       to_char(date_trunc('month', COALESCE(recorded_at, created_at)), 'YYYY-MM') AS ym,
                        COUNT(DISTINCT id) AS n
                 FROM media_assets, jsonb_array_elements_text(topics) AS topic
                 WHERE topics IS NOT NULL
-                  AND created_at >= date_trunc('month', now()) - make_interval(months => :back)
+                  AND COALESCE(recorded_at, created_at) >= date_trunc('month', now()) - make_interval(months => :back)
                 GROUP BY topic, ym
             """),
             {"back": months - 1},

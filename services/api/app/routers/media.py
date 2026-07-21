@@ -319,6 +319,7 @@ async def ingest_media(body: MediaIngestInput, db: AsyncSession = Depends(get_db
         original_path=body.file_path,
         status="pending",
         file_size_bytes=os.path.getsize(body.file_path),
+        recorded_at=datetime.utcfromtimestamp(os.path.getmtime(body.file_path)),
         created_at=datetime.utcnow(),
     )
     db.add(asset)
@@ -396,6 +397,7 @@ async def upload_media(
         original_path=dest_path,
         status="pending",
         file_size_bytes=os.path.getsize(dest_path),
+        recorded_at=datetime.utcfromtimestamp(os.path.getmtime(dest_path)),
         created_at=datetime.utcnow(),
     )
     db.add(asset)

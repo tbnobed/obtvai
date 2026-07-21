@@ -54,6 +54,7 @@ _COLUMN_MIGRATIONS = [
     ("reel_jobs", "unreviewed", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("person_appearances", "merged_from", "JSONB"),
     ("people", "face_search", "JSONB"),
+    ("media_assets", "recorded_at", "TIMESTAMP"),
 ]
 
 
@@ -221,6 +222,41 @@ async def lifespan(app: FastAPI):
             print(f"[{_ts()}] Warm-up: LLM failed to load: {e}")
 
     threading.Thread(target=_warm_models, daemon=True).start()
+
+    # Backfill recorded_at from source file mtimes for assets ingested before
+    # the column existed — the keyword heatmap is meaningless without real
+    # content dates on a bulk-ingested archive. One-time per asset; files that
+    # are missing/unreadable are simply skipped (heatmap falls back to
+    # created_at for them).
+    async def _backfill_recorded_at():
+        from sqlalchemy import text as sql_text
+        from .database import AsyncSessionLocal
+        try:
+            async with AsyncSessionLocal() as db:
+                rows = (await db.execute(sql_text(
+                    "SELECT id, original_path FROM media_assets "
+                    "WHERE recorded_at IS NULL AND original_path IS NOT NULL"
+                ))).all()
+                if not rows:
+                    return
+                print(f"[{_ts()}] recorded_at backfill: dating {len(rows)} assets from file mtimes...")
+                updated = 0
+                for asset_id, path in rows:
+                    try:
+                        mtime = await asyncio.to_thread(os.path.getmtime, path)
+                    except OSError:
+                        continue
+                    await db.execute(
+                        sql_text("UPDATE media_assets SET recorded_at = to_timestamp(:ts) AT TIME ZONE 'UTC' WHERE id = :id"),
+                        {"ts": float(mtime), "id": asset_id},
+                    )
+                    updated += 1
+                await db.commit()
+                print(f"[{_ts()}] recorded_at backfill: dated {updated}/{len(rows)} assets")
+        except Exception as e:
+            print(f"[{_ts()}] recorded_at backfill failed: {e}")
+
+    backfill_task = asyncio.create_task(_backfill_recorded_at())
 
     yield
 
