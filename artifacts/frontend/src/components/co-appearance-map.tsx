@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGetCoAppearances } from "@workspace/api-client-react";
 import type { CoAppearanceNode, CoAppearancePair } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
-import { Share2 } from "lucide-react";
+import { Maximize2, Share2, ZoomIn, ZoomOut } from "lucide-react";
 
 const W = 960;
 const H = 620;
 const PAD = 60;
+const MIN_VIEW_W = W / 8;
 
 function formatTogether(seconds: number) {
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -90,6 +91,67 @@ export default function CoAppearanceMap() {
     () => [...(data?.pairs ?? [])].sort((a, b) => a.shared_assets - b.shared_assets),
     [data]
   );
+
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [view, setView] = useState({ x: 0, y: 0, w: W, h: H });
+  const zoomed = view.w < W - 0.5;
+  const didDragRef = useRef(false);
+  const panRef = useRef<{ pointerId: number; startX: number; startY: number; view: { x: number; y: number; w: number; h: number } } | null>(null);
+
+  const clampView = (x: number, y: number, w: number) => {
+    const cw = Math.min(W, Math.max(MIN_VIEW_W, w));
+    const ch = cw * (H / W);
+    return {
+      x: Math.min(W - cw, Math.max(0, x)),
+      y: Math.min(H - ch, Math.max(0, y)),
+      w: cw,
+      h: ch,
+    };
+  };
+
+  const zoomBy = (factor: number, relX = 0.5, relY = 0.5) =>
+    setView((v) => {
+      const w = Math.min(W, Math.max(MIN_VIEW_W, v.w * factor));
+      const scale = w / v.w;
+      const cx = v.x + relX * v.w;
+      const cy = v.y + relY * v.h;
+      return clampView(cx - (cx - v.x) * scale, cy - (cy - v.y) * scale, w);
+    });
+
+  const resetView = () => setView({ x: 0, y: 0, w: W, h: H });
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      zoomBy(e.deltaY > 0 ? 1.25 : 1 / 1.25, (e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, nodes.length]);
+
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.button !== 0) return;
+    didDragRef.current = false;
+    panRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, view };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const pan = panRef.current;
+    if (!pan || pan.pointerId !== e.pointerId) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dxPx = e.clientX - pan.startX;
+    const dyPx = e.clientY - pan.startY;
+    if (Math.abs(dxPx) + Math.abs(dyPx) > 4) didDragRef.current = true;
+    setView(clampView(pan.view.x - (dxPx / rect.width) * pan.view.w, pan.view.y - (dyPx / rect.height) * pan.view.h, pan.view.w));
+  };
+  const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (panRef.current?.pointerId === e.pointerId) panRef.current = null;
+  };
+
   const layout = useMemo(() => computeLayout(nodes, pairs), [nodes, pairs]);
   const nameOf = useMemo(() => new Map(nodes.map((n) => [n.person_id, n.display_name])), [nodes]);
   const maxAssets = useMemo(() => Math.max(1, ...nodes.map((n) => n.asset_count)), [nodes]);
@@ -176,8 +238,19 @@ export default function CoAppearanceMap() {
   return (
     <div className="flex flex-col gap-3">
       {controls}
-      <div className="border border-border bg-card rounded-md overflow-hidden">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label="Co-appearance map">
+      <div className="relative border border-border bg-card rounded-md overflow-hidden">
+        <svg
+          ref={svgRef}
+          viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
+          className="w-full h-auto block touch-none select-none"
+          style={{ cursor: panRef.current ? "grabbing" : zoomed ? "grab" : "default" }}
+          role="img"
+          aria-label="Co-appearance map"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        >
           {pairs.map((p, i) => {
             const a = layout.idx.get(p.person_a_id);
             const b = layout.idx.get(p.person_b_id);
@@ -223,7 +296,10 @@ export default function CoAppearanceMap() {
               <g
                 key={node.person_id}
                 style={{ cursor: "pointer", opacity: dimmed ? 0.3 : 1, transition: "opacity 120ms" }}
-                onClick={() => navigate(`/people/${node.person_id}`)}
+                onClick={() => {
+                  if (didDragRef.current) return;
+                  navigate(`/people/${node.person_id}`);
+                }}
                 onMouseEnter={() => setHoveredNode(node.person_id)}
                 onMouseLeave={() => setHoveredNode(null)}
               >
@@ -256,6 +332,38 @@ export default function CoAppearanceMap() {
             );
           })}
         </svg>
+        <div className="absolute top-2 right-2 flex flex-col gap-1">
+          <button
+            type="button"
+            title="Zoom in"
+            aria-label="Zoom in"
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-border bg-card/90 hover:bg-muted text-foreground disabled:opacity-40"
+            disabled={view.w <= MIN_VIEW_W + 0.5}
+            onClick={() => zoomBy(1 / 1.4)}
+          >
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            title="Zoom out"
+            aria-label="Zoom out"
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-border bg-card/90 hover:bg-muted text-foreground disabled:opacity-40"
+            disabled={!zoomed}
+            onClick={() => zoomBy(1.4)}
+          >
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            title="Reset view"
+            aria-label="Reset view"
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-border bg-card/90 hover:bg-muted text-foreground disabled:opacity-40"
+            disabled={!zoomed}
+            onClick={resetView}
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
       <div className="min-h-[1.5rem] text-sm text-muted-foreground">
         {hovered ? (
@@ -271,7 +379,7 @@ export default function CoAppearanceMap() {
           </span>
         ) : (
           <span>
-            Line thickness = videos shared · circle size = total videos · hover a line for details · click a person to open their profile
+            Scroll or use the buttons to zoom · drag to pan · line thickness = videos shared · circle size = total videos · hover a line for details · click a person to open their profile
           </span>
         )}
       </div>
