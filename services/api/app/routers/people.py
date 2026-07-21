@@ -75,12 +75,29 @@ async def list_people(
     offset: int = Query(0, ge=0),
     q: str | None = Query(None),
     sort: str = Query("appearances", pattern="^(appearances|name)$"),
+    faces_only: bool | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     count_stmt = select(func.count(Person.id))
     stmt = select(Person, _STATS.c.assets, _STATS.c.speaking, _STATS.c.segments).outerjoin(
         _STATS, _STATS.c.person_id == Person.id
     )
+    if faces_only:
+        # Voice-only speakers (diarized but never face-matched, e.g. off-camera
+        # crew) have no face embedding, no face-crop thumbnail, and no
+        # face-cluster-linked appearance.
+        face_filter = (
+            Person.face_embedding.isnot(None)
+            | Person.thumbnail_url.isnot(None)
+            | select(PersonAppearance.id)
+            .where(
+                PersonAppearance.person_id == Person.id,
+                PersonAppearance.face_cluster_id.isnot(None),
+            )
+            .exists()
+        )
+        count_stmt = count_stmt.where(face_filter)
+        stmt = stmt.where(face_filter)
     if q and q.strip():
         needle = f"%{q.strip()}%"
         count_stmt = count_stmt.where(Person.display_name.ilike(needle))

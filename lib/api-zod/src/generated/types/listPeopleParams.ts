@@ -25,4 +25,8 @@ q?: string;
  * Sort order — most-seen first (default) or name A-Z
  */
 sort?: ListPeopleSort;
+/**
+ * Only include people with a detected face — hides voice-only speakers (e.g. off-camera crew picked up by diarization)
+ */
+faces_only?: boolean;
 };

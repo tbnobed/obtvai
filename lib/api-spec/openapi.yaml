@@ -675,6 +675,12 @@ paths:
             type: string
             enum: [appearances, name]
             default: appearances
+        - name: faces_only
+          in: query
+          required: false
+          description: Only include people with a detected face — hides voice-only speakers (e.g. off-camera crew picked up by diarization)
+          schema:
+            type: boolean
       responses:
         "200":
           description: OK

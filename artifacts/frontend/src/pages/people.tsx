@@ -31,6 +31,16 @@ export default function People() {
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"appearances" | "name">("appearances");
+  const [facesOnly, setFacesOnly] = useState<boolean>(
+    () => localStorage.getItem("people-faces-only") !== "false"
+  );
+  const toggleFacesOnly = () => {
+    setFacesOnly((v) => {
+      localStorage.setItem("people-faces-only", String(!v));
+      return !v;
+    });
+    setPage(0);
+  };
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -45,6 +55,7 @@ export default function People() {
     offset: page * PAGE_SIZE,
     ...(query ? { q: query } : {}),
     sort,
+    ...(facesOnly ? { faces_only: true } : {}),
   });
   const people = data?.items;
   const total = data?.total ?? 0;
@@ -224,6 +235,16 @@ export default function People() {
                 Most seen
               </>
             )}
+          </Button>
+          <Button
+            size="sm"
+            variant={facesOnly ? "secondary" : "outline"}
+            className="gap-1.5 shrink-0"
+            onClick={toggleFacesOnly}
+            title={facesOnly ? "Showing only people with a detected face — click to include voice-only speakers" : "Including voice-only speakers (off-camera voices) — click to hide them"}
+          >
+            {facesOnly ? <ScanFace className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {facesOnly ? "Faces only" : "All speakers"}
           </Button>
         </div>
       )}

@@ -2253,9 +2253,16 @@ router.get("/people", (req, res) => {
   const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
   const q = String(req.query.q ?? "").trim().toLowerCase();
   const sort = String(req.query.sort ?? "appearances");
+  const facesOnly = String(req.query.faces_only ?? "") === "true";
   let filtered = q
     ? people.filter((p) => p.display_name.toLowerCase().includes(q))
     : [...people];
+  if (facesOnly) {
+    // Mock heuristic: speaker-label-only identities stand in for voice-only people.
+    filtered = filtered.filter(
+      (p) => p.thumbnail_url != null || !/^(SPEAKER_|VO\b|VO\d)/.test(p.display_name)
+    );
+  }
   if (sort === "name") {
     filtered.sort((a, b) => a.display_name.toLowerCase().localeCompare(b.display_name.toLowerCase()));
   }

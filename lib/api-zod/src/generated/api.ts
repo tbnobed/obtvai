@@ -861,7 +861,8 @@ export const ListPeopleQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(listPeopleQueryLimitMax).default(listPeopleQueryLimitDefault),
   "offset": zod.coerce.number().min(listPeopleQueryOffsetMin).default(listPeopleQueryOffsetDefault),
   "q": zod.coerce.string().optional().describe('Case-insensitive name search'),
-  "sort": zod.enum(['appearances', 'name']).default(listPeopleQuerySortDefault).describe('Sort order — most-seen first (default) or name A-Z')
+  "sort": zod.enum(['appearances', 'name']).default(listPeopleQuerySortDefault).describe('Sort order — most-seen first (default) or name A-Z'),
+  "faces_only": zod.coerce.boolean().optional().describe('Only include people with a detected face — hides voice-only speakers (e.g. off-camera crew picked up by diarization)')
 })
 
 export const ListPeopleResponse = zod.object({
