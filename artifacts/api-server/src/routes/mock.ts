@@ -2812,6 +2812,44 @@ router.get("/insights", (_req, res) => {
   });
 });
 
+router.get("/insights/keyword-heatmap", (req, res) => {
+  const monthsN = Math.min(36, Math.max(3, Number(req.query.months) || 12));
+  const limit = Math.min(50, Math.max(5, Number(req.query.limit) || 20));
+  const now = new Date();
+  const months: string[] = [];
+  for (let i = monthsN - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  // Mock assets are all ingested "recently", which would make a real
+  // aggregation collapse into one column — synthesize a deterministic
+  // per-month history per keyword so the preview shows the real UI.
+  const rawCounts = new Map<string, number>();
+  for (const a of assets) {
+    for (const t of new Set(assetTopics(a).map((x) => normalizeTopicKey(x)))) {
+      rawCounts.set(t, (rawCounts.get(t) ?? 0) + 1);
+    }
+  }
+  const hash = (s: string) => {
+    let h = 7;
+    for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return h;
+  };
+  const rows = groupTopics(rawCounts.entries())
+    .slice(0, limit)
+    .map((t) => {
+      const h = hash(t.key);
+      const counts = months.map((_, i) => {
+        const wave = Math.sin((i + (h % 7)) / (1.5 + (h % 3))) + 1;
+        return Math.max(0, Math.round(wave * (((h >> 3) % 3) + t.asset_count * 0.75)) - (h % 2));
+      });
+      counts[counts.length - 1] = t.asset_count; // current month reflects real mock data
+      return { key: t.key, label: t.topic, total: counts.reduce((s, n) => s + n, 0), counts };
+    })
+    .sort((a, b) => b.total - a.total);
+  res.json({ months, rows });
+});
+
 router.post("/insights/refresh", (_req, res) => {
   const running = jobs.find((j: any) => j.job_type === "insights" && (j.status === "pending" || j.status === "running"));
   if (running) { res.status(202).json(running); return; }

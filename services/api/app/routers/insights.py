@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from ..database import get_db
@@ -13,6 +15,8 @@ from ..models import (
 from ..schemas import (
     LibraryInsightsOut,
     LibraryInsightsStatsOut,
+    KeywordHeatmapOut,
+    KeywordHeatmapRowOut,
     InsightItemOut,
     InsightPersonRefOut,
     InsightTopicRefOut,
@@ -41,6 +45,59 @@ def _person_refs(raw) -> list[InsightPersonRefOut]:
                 )
             )
     return out
+
+
+@router.get("/keyword-heatmap", response_model=KeywordHeatmapOut)
+async def get_keyword_heatmap(
+    months: int = Query(12, ge=3, le=36),
+    limit: int = Query(20, ge=5, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Videos per keyword per month, bucketed by ingest date. Raw topic tags
+    are merged by normalized key so casing/underscore variants count as one
+    keyword — same convention as the /insights topic aggregates."""
+    # Month axis: oldest first, ending at the current month, always dense so
+    # the frontend can align counts index-for-index (empty months stay 0).
+    now = datetime.utcnow()
+    axis: list[str] = []
+    y, m = now.year, now.month
+    for _ in range(months):
+        axis.append(f"{y:04d}-{m:02d}")
+        m -= 1
+        if m == 0:
+            y, m = y - 1, 12
+    axis.reverse()
+    month_index = {ym: i for i, ym in enumerate(axis)}
+
+    raw_rows = (
+        await db.execute(
+            text("""
+                SELECT topic,
+                       to_char(date_trunc('month', created_at), 'YYYY-MM') AS ym,
+                       COUNT(DISTINCT id) AS n
+                FROM media_assets, jsonb_array_elements_text(topics) AS topic
+                WHERE topics IS NOT NULL
+                  AND created_at >= date_trunc('month', now()) - make_interval(months => :back)
+                GROUP BY topic, ym
+            """),
+            {"back": months - 1},
+        )
+    ).all()
+
+    counts_by_key: dict[str, list[int]] = {}
+    for topic, ym, n in raw_rows:
+        key = normalize_topic_key(str(topic))
+        idx = month_index.get(ym)
+        if not key or idx is None:
+            continue
+        counts_by_key.setdefault(key, [0] * len(axis))[idx] += int(n)
+
+    rows = [
+        KeywordHeatmapRowOut(key=key, label=topic_label(key), total=sum(counts), counts=counts)
+        for key, counts in counts_by_key.items()
+    ]
+    rows.sort(key=lambda r: r.total, reverse=True)
+    return KeywordHeatmapOut(months=axis, rows=rows[:limit])
 
 
 @router.get("", response_model=LibraryInsightsOut)

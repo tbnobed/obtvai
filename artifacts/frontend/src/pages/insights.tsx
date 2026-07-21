@@ -8,9 +8,11 @@ import {
   useGetTrends,
   getGetTrendsQueryKey,
   useRefreshTrends,
+  useGetKeywordHeatmap,
+  getGetKeywordHeatmapQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +35,7 @@ import {
   Youtube,
   Newspaper,
   ExternalLink,
+  Flame,
 } from "lucide-react";
 import { formatHours } from "@/lib/format";
 
@@ -45,6 +48,12 @@ const topicHref = (key: string, label: string) =>
 
 const formatViews = (n: number) =>
   new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+
+const monthLabel = (ym: string) => {
+  const [y, m] = ym.split("-");
+  const short = new Date(Number(y), Number(m) - 1, 1).toLocaleString("en", { month: "short" });
+  return m === "01" ? `${short} ${y.slice(2)}` : short;
+};
 
 export default function Insights() {
   const queryClient = useQueryClient();
@@ -59,6 +68,9 @@ export default function Insights() {
     query: { queryKey: getGetTrendsQueryKey() },
   });
   const refreshTrends = useRefreshTrends();
+  const { data: heatmap } = useGetKeywordHeatmap(undefined, {
+    query: { queryKey: getGetKeywordHeatmapQueryKey() },
+  });
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -201,6 +213,65 @@ export default function Insights() {
           </div>
         </div>
       )}
+
+      {heatmap?.rows?.length ? (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+            <Flame className="h-4 w-4 text-primary" />
+            Keyword Heatmap
+          </h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            Videos per keyword per month — spot topics running hot or going cold. Click a row to
+            open those videos in the library.
+          </p>
+          <div className="border border-border bg-card rounded-md p-4 overflow-x-auto">
+            <div
+              className="grid gap-[3px] min-w-[640px]"
+              style={{
+                gridTemplateColumns: `minmax(150px, max-content) repeat(${heatmap.months.length}, minmax(28px, 1fr))`,
+              }}
+            >
+              <div />
+              {heatmap.months.map((ym) => (
+                <div
+                  key={ym}
+                  className="text-[10px] text-muted-foreground text-center pb-1 whitespace-nowrap"
+                >
+                  {monthLabel(ym)}
+                </div>
+              ))}
+              {heatmap.rows.map((row) => {
+                const rowMax = Math.max(1, ...row.counts);
+                return (
+                  <Fragment key={row.key}>
+                    <Link href={topicHref(row.key, row.label)}>
+                      <div className="h-7 pr-3 flex items-center justify-end gap-1.5 text-xs cursor-pointer hover:text-primary">
+                        <span className="truncate max-w-[200px]">{row.label}</span>
+                        <span className="text-muted-foreground tabular-nums">{row.total}</span>
+                      </div>
+                    </Link>
+                    {row.counts.map((c, i) => (
+                      <Link key={heatmap.months[i]} href={topicHref(row.key, row.label)}>
+                        <div
+                          className="h-7 rounded-[3px] cursor-pointer transition-shadow hover:ring-1 hover:ring-primary bg-muted/30"
+                          style={
+                            c > 0
+                              ? {
+                                  backgroundColor: `hsl(var(--primary) / ${(0.15 + 0.85 * (c / rowMax)).toFixed(2)})`,
+                                }
+                              : undefined
+                          }
+                          title={`${row.label} — ${c} ${c === 1 ? "video" : "videos"} in ${new Date(Number(heatmap.months[i].slice(0, 4)), Number(heatmap.months[i].slice(5)) - 1, 1).toLocaleString("en", { month: "long", year: "numeric" })}`}
+                        />
+                      </Link>
+                    ))}
+                  </Fragment>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">

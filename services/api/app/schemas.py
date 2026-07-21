@@ -698,6 +698,18 @@ class TopTopicOut(BaseModel):
     asset_count: int
 
 
+class KeywordHeatmapRowOut(BaseModel):
+    key: str
+    label: str
+    total: int
+    counts: List[int]
+
+
+class KeywordHeatmapOut(BaseModel):
+    months: List[str]
+    rows: List[KeywordHeatmapRowOut]
+
+
 class LibraryInsightsStatsOut(BaseModel):
     total_assets: int
     total_duration_seconds: float

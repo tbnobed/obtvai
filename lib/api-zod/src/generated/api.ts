@@ -1975,6 +1975,35 @@ export const GetLibraryInsightsResponse = zod.object({
 
 
 /**
+ * @summary Keyword activity per month — which topics ran hot or went cold
+ */
+export const getKeywordHeatmapQueryMonthsDefault = 12;
+export const getKeywordHeatmapQueryMonthsMin = 3;
+export const getKeywordHeatmapQueryMonthsMax = 36;
+
+export const getKeywordHeatmapQueryLimitDefault = 20;
+export const getKeywordHeatmapQueryLimitMin = 5;
+export const getKeywordHeatmapQueryLimitMax = 50;
+
+
+
+export const GetKeywordHeatmapQueryParams = zod.object({
+  "months": zod.coerce.number().min(getKeywordHeatmapQueryMonthsMin).max(getKeywordHeatmapQueryMonthsMax).default(getKeywordHeatmapQueryMonthsDefault),
+  "limit": zod.coerce.number().min(getKeywordHeatmapQueryLimitMin).max(getKeywordHeatmapQueryLimitMax).default(getKeywordHeatmapQueryLimitDefault).describe('Maximum number of keyword rows returned')
+})
+
+export const GetKeywordHeatmapResponse = zod.object({
+  "months": zod.array(zod.string()).describe('Month buckets (YYYY-MM), oldest first'),
+  "rows": zod.array(zod.object({
+  "key": zod.string().describe('Normalized topic key for filtering'),
+  "label": zod.string().describe('Human-readable topic label'),
+  "total": zod.number().describe('Total assets touching this keyword inside the window'),
+  "counts": zod.array(zod.number()).describe('Asset counts aligned index-for-index with the months axis')
+})).describe('Keyword rows sorted by total, busiest first')
+})
+
+
+/**
  * @summary Queue a library-wide AI insights regeneration job
  */
 export const RefreshLibraryInsightsResponse = zod.object({

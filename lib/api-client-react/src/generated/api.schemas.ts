@@ -870,6 +870,24 @@ export interface TopTopic {
   asset_count: number;
 }
 
+export interface KeywordHeatmapRow {
+  /** Normalized topic key for filtering */
+  key: string;
+  /** Human-readable topic label */
+  label: string;
+  /** Total assets touching this keyword inside the window */
+  total: number;
+  /** Asset counts aligned index-for-index with the months axis */
+  counts: number[];
+}
+
+export interface KeywordHeatmap {
+  /** Month buckets (YYYY-MM), oldest first */
+  months: string[];
+  /** Keyword rows sorted by total, busiest first */
+  rows: KeywordHeatmapRow[];
+}
+
 export type LibraryInsightsStats = {
   total_assets: number;
   total_duration_seconds: number;
@@ -2002,6 +2020,20 @@ min_shared?: number;
 export type ListGraphicsGenerationsParams = {
 limit?: number;
 offset?: number;
+};
+
+export type GetKeywordHeatmapParams = {
+/**
+ * @minimum 3
+ * @maximum 36
+ */
+months?: number;
+/**
+ * Maximum number of keyword rows returned
+ * @minimum 5
+ * @maximum 50
+ */
+limit?: number;
 };
 
 export type ListRatingsParams = {

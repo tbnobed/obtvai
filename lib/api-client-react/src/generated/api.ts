@@ -35,6 +35,7 @@ import type {
   FaceCluster,
   GetCaptionsParams,
   GetCoAppearancesParams,
+  GetKeywordHeatmapParams,
   GetMediaFrameParams,
   GetMediaTranscriptParams,
   GetRatingsOverviewParams,
@@ -46,6 +47,7 @@ import type {
   JobCleanupRequest,
   JobCleanupResult,
   JobStats,
+  KeywordHeatmap,
   LibraryInsights,
   LibraryStats,
   ListClipListsParams,
@@ -4877,6 +4879,90 @@ export function useGetLibraryInsights<TData = Awaited<ReturnType<typeof getLibra
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetLibraryInsightsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetKeywordHeatmapUrl = (params?: GetKeywordHeatmapParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/insights/keyword-heatmap?${stringifiedParams}` : `/api/insights/keyword-heatmap`
+}
+
+/**
+ * @summary Keyword activity per month — which topics ran hot or went cold
+ */
+export const getKeywordHeatmap = async (params?: GetKeywordHeatmapParams, options?: RequestInit): Promise<KeywordHeatmap> => {
+
+  return customFetch<KeywordHeatmap>(getGetKeywordHeatmapUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetKeywordHeatmapQueryKey = (params?: GetKeywordHeatmapParams,) => {
+    return [
+    `/api/insights/keyword-heatmap`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetKeywordHeatmapQueryOptions = <TData = Awaited<ReturnType<typeof getKeywordHeatmap>>, TError = ErrorType<unknown>>(params?: GetKeywordHeatmapParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKeywordHeatmap>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetKeywordHeatmapQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getKeywordHeatmap>>> = ({ signal }) => getKeywordHeatmap(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getKeywordHeatmap>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetKeywordHeatmapQueryResult = NonNullable<Awaited<ReturnType<typeof getKeywordHeatmap>>>
+export type GetKeywordHeatmapQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Keyword activity per month — which topics ran hot or went cold
+ */
+
+export function useGetKeywordHeatmap<TData = Awaited<ReturnType<typeof getKeywordHeatmap>>, TError = ErrorType<unknown>>(
+ params?: GetKeywordHeatmapParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKeywordHeatmap>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetKeywordHeatmapQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

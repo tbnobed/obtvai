@@ -1502,6 +1502,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/LibraryInsights"
 
+  /insights/keyword-heatmap:
+    get:
+      operationId: getKeywordHeatmap
+      tags: [insights]
+      summary: Keyword activity per month — which topics ran hot or went cold
+      parameters:
+        - name: months
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 3
+            maximum: 36
+            default: 12
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of keyword rows returned
+          schema:
+            type: integer
+            minimum: 5
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeywordHeatmap"
+
   /insights/refresh:
     post:
       operationId: refreshLibraryInsights
@@ -3883,6 +3914,40 @@ components:
           description: Human-readable topic label
         asset_count:
           type: integer
+
+    KeywordHeatmapRow:
+      type: object
+      required: [key, label, total, counts]
+      properties:
+        key:
+          type: string
+          description: Normalized topic key for filtering
+        label:
+          type: string
+          description: Human-readable topic label
+        total:
+          type: integer
+          description: Total assets touching this keyword inside the window
+        counts:
+          type: array
+          items:
+            type: integer
+          description: Asset counts aligned index-for-index with the months axis
+
+    KeywordHeatmap:
+      type: object
+      required: [months, rows]
+      properties:
+        months:
+          type: array
+          items:
+            type: string
+          description: "Month buckets (YYYY-MM), oldest first"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeywordHeatmapRow"
+          description: Keyword rows sorted by total, busiest first
 
     LibraryInsights:
       type: object
