@@ -55,7 +55,7 @@ async def get_library_stats(db: AsyncSession = Depends(get_db)):
     status_counts = {row[0]: row[1] for row in status_q.all()}
 
     recent_q = await db.execute(
-        select(MediaAsset).order_by(desc(MediaAsset.created_at)).limit(5)
+        select(MediaAsset).order_by(desc(MediaAsset.created_at)).limit(10)
     )
     recent = recent_q.scalars().all()
 

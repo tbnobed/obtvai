@@ -443,7 +443,7 @@ router.get("/media/stats/summary", (_req, res) => {
       return acc;
     }, {}),
     storage_bytes: assets.reduce((s, a) => s + (a.file_size_bytes || 0), 0),
-    recent_activity: assets.slice(0, 5),
+    recent_activity: assets.slice(0, 10),
   });
 });
 
