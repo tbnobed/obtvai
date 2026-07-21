@@ -44,7 +44,15 @@ RUN pip install --no-cache-dir requests
 # chatterbox-tts pins older torch/transformers versions; install without deps
 # (torch 2.7.1+cu128 and transformers already present) plus its light deps.
 RUN pip install --no-cache-dir --no-deps chatterbox-tts==0.1.4 \
-    && pip install --no-cache-dir librosa==0.11.0 s3tokenizer resemble-perth conformer==0.3.2 diffusers==0.29.0 pykakasi
+    && pip install --no-cache-dir librosa==0.11.0 s3tokenizer resemble-perth conformer==0.3.2 diffusers==0.29.0 pykakasi \
+    # s3tokenizer drags in the plain CPU `onnxruntime` wheel, which shadows
+    # onnxruntime-gpu and silently drops InsightFace face detection (face
+    # clustering AND the lip-sync face pass) to CPU. Strip it and force the
+    # GPU wheel back so CUDAExecutionProvider survives.
+    && pip uninstall -y onnxruntime || true
+
+RUN pip install --no-cache-dir --force-reinstall --no-deps onnxruntime-gpu==1.22.0 \
+    && python -c "import onnxruntime as ort; assert 'CUDAExecutionProvider' in ort.get_available_providers(), ort.get_available_providers()"
 
 COPY . .
 
