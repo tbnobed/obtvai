@@ -23,6 +23,7 @@ def _to_out(s: StoryJob) -> StoryJobOut:
         title=s.title,
         narrative=s.narrative,
         clip_list_id=s.clip_list_id,
+        target_duration_seconds=s.target_duration_seconds,
         error_message=s.error_message,
         created_at=s.created_at,
         finished_at=s.finished_at,
@@ -55,6 +56,7 @@ async def create_story(body: StoryRequestIn, db: AsyncSession = Depends(get_db))
         prompt=(body.prompt or "").strip() or None,
         project_id=body.project_id,
         asset_ids=asset_ids,
+        target_duration_seconds=body.target_duration_seconds,
         status="pending",
     )
     db.add(story)

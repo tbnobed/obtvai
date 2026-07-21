@@ -471,6 +471,7 @@ export default function ProjectDetail() {
   const createStoryMutation = useCreateStory();
   const [storyAssets, setStoryAssets] = useState<string[]>([]);
   const [storyPrompt, setStoryPrompt] = useState("");
+  const [storyMinutes, setStoryMinutes] = useState("");
   // The project's media pool (chosen in Find) is the default story source —
   // pre-select it so the editor isn't asked to pick media twice. Once they
   // touch the selection, respect their choice.
@@ -481,13 +482,25 @@ export default function ProjectDetail() {
 
   const submitStory = () => {
     if (!storyAssets.length) return;
+    const mins = parseFloat(storyMinutes);
+    const targetSeconds = Number.isFinite(mins) && mins > 0
+      ? Math.min(Math.max(Math.round(mins * 60), 30), 14400)
+      : null;
     createStoryMutation.mutate(
-      { data: { asset_ids: storyAssets, prompt: storyPrompt.trim() || null, project_id: id } },
+      {
+        data: {
+          asset_ids: storyAssets,
+          prompt: storyPrompt.trim() || null,
+          project_id: id,
+          ...(targetSeconds ? { target_duration_seconds: targetSeconds } : {}),
+        },
+      },
       {
         onSuccess: () => {
           storyTouchedRef.current = false;
           setStoryAssets(mediaPool.length ? mediaPool : []);
           setStoryPrompt("");
+          setStoryMinutes("");
           invalidateAll();
         },
       },
@@ -1070,14 +1083,32 @@ export default function ProjectDetail() {
                   emptyText="The library is empty — add or upload footage first, then build a story from it here."
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="story-prompt">Editorial direction (optional)</Label>
-                <Input
-                  id="story-prompt"
-                  value={storyPrompt}
-                  onChange={(e) => setStoryPrompt(e.target.value)}
-                  placeholder='e.g. "focus on the community reaction"'
-                />
+              <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
+                <div className="space-y-2">
+                  <Label htmlFor="story-prompt">Editorial direction (optional)</Label>
+                  <Input
+                    id="story-prompt"
+                    value={storyPrompt}
+                    onChange={(e) => setStoryPrompt(e.target.value)}
+                    placeholder='e.g. "focus on the community reaction"'
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="story-minutes">Target length (min)</Label>
+                  <Input
+                    id="story-minutes"
+                    type="number"
+                    min={0.5}
+                    max={240}
+                    step={0.5}
+                    value={storyMinutes}
+                    onChange={(e) => setStoryMinutes(e.target.value)}
+                    placeholder="auto"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Short pieces get punchy bites; long productions get full segments.
+                  </p>
+                </div>
               </div>
               {createStoryMutation.isError && (
                 <p className="text-sm text-red-400">Could not start the story — try again.</p>

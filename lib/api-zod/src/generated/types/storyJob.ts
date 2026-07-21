@@ -26,6 +26,8 @@ export interface StoryJob {
      */
   clip_list_id?: string | null;
   /** @nullable */
+  target_duration_seconds?: number | null;
+  /** @nullable */
   error_message?: string | null;
   created_at: string;
   /** @nullable */

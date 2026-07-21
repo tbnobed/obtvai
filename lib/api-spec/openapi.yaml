@@ -5228,6 +5228,11 @@ components:
           description: Optional editorial direction for the storyline
         project_id:
           type: ["string", "null"]
+        target_duration_seconds:
+          type: ["number", "null"]
+          minimum: 30
+          maximum: 14400
+          description: Desired finished runtime — steers how long the mined clips are
 
     StoryJob:
       type: object
@@ -5255,6 +5260,8 @@ components:
         clip_list_id:
           type: ["string", "null"]
           description: Clip list with the ordered cross-asset clips
+        target_duration_seconds:
+          type: ["number", "null"]
         error_message:
           type: ["string", "null"]
         created_at:

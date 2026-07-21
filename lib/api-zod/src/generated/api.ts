@@ -3412,6 +3412,7 @@ export const ListStoriesResponseItem = zod.object({
   "title": zod.string().nullish(),
   "narrative": zod.string().nullish(),
   "clip_list_id": zod.string().nullish().describe('Clip list with the ordered cross-asset clips'),
+  "target_duration_seconds": zod.number().nullish(),
   "error_message": zod.string().nullish(),
   "created_at": zod.string(),
   "finished_at": zod.string().nullish()
@@ -3423,12 +3424,16 @@ export const ListStoriesResponse = zod.array(ListStoriesResponseItem)
  * @summary Build one storyline across several assets (LLM creative pass)
  */
 
+export const createStoryBodyTargetDurationSecondsMin = 30;
+export const createStoryBodyTargetDurationSecondsMax = 14400;
+
 
 
 export const CreateStoryBody = zod.object({
   "asset_ids": zod.array(zod.string()).min(1),
   "prompt": zod.string().nullish().describe('Optional editorial direction for the storyline'),
-  "project_id": zod.string().nullish()
+  "project_id": zod.string().nullish(),
+  "target_duration_seconds": zod.number().min(createStoryBodyTargetDurationSecondsMin).max(createStoryBodyTargetDurationSecondsMax).nullish().describe('Desired finished runtime — steers how long the mined clips are')
 })
 
 export const CreateStoryResponse = zod.object({
@@ -3441,6 +3446,7 @@ export const CreateStoryResponse = zod.object({
   "title": zod.string().nullish(),
   "narrative": zod.string().nullish(),
   "clip_list_id": zod.string().nullish().describe('Clip list with the ordered cross-asset clips'),
+  "target_duration_seconds": zod.number().nullish(),
   "error_message": zod.string().nullish(),
   "created_at": zod.string(),
   "finished_at": zod.string().nullish()
@@ -3464,6 +3470,7 @@ export const GetStoryResponse = zod.object({
   "title": zod.string().nullish(),
   "narrative": zod.string().nullish(),
   "clip_list_id": zod.string().nullish().describe('Clip list with the ordered cross-asset clips'),
+  "target_duration_seconds": zod.number().nullish(),
   "error_message": zod.string().nullish(),
   "created_at": zod.string(),
   "finished_at": zod.string().nullish()

@@ -16,4 +16,11 @@ export interface StoryRequestIn {
   prompt?: string | null;
   /** @nullable */
   project_id?: string | null;
+  /**
+     * Desired finished runtime — steers how long the mined clips are
+     * @minimum 30
+     * @maximum 14400
+     * @nullable
+     */
+  target_duration_seconds?: number | null;
 }

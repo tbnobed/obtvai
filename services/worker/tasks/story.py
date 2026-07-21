@@ -5,6 +5,7 @@ transcript, then asks the LLM to order them into a single storyline. The result
 is written as a clip list (cross-asset clips, story order) plus a narrative.
 """
 import json
+import math
 import uuid
 from datetime import datetime
 from app import celery_app
@@ -33,12 +34,39 @@ def build_story(self, story_id: str):
         from tasks.creative import _clamp
 
         row = db.execute(
-            text("SELECT asset_ids, prompt FROM story_jobs WHERE id = :sid"),
+            text("SELECT asset_ids, prompt, target_duration_seconds FROM story_jobs WHERE id = :sid"),
             {"sid": story_id},
         ).fetchone()
         if not row:
             return
         asset_ids, user_prompt = list(row[0] or []), (row[1] or "").strip()
+        target_duration = float(row[2]) if row[2] else None
+
+        # Target-runtime steering: the finished length decides what kind of
+        # clips to mine — short pieces want punchy bites, long productions
+        # want complete self-contained segments.
+        if target_duration is None:
+            clip_min, clip_max = 8, 45          # historical default
+            seq_lo, seq_hi = 4, 12
+        elif target_duration <= 120:
+            clip_min, clip_max = 5, 20
+            seq_lo, seq_hi = 3, 10
+        elif target_duration <= 600:
+            clip_min, clip_max = 10, 45
+            seq_lo, seq_hi = 4, 16
+        elif target_duration <= 1800:
+            clip_min, clip_max = 20, 90
+            seq_lo, seq_hi = 6, 24
+        else:
+            # Very long form: clip length and moment count both scale with the
+            # target so the accepted range (up to 4 h) is actually reachable.
+            clip_min = 30
+            clip_max = int(min(300.0, max(180.0, target_duration / 40.0)))
+            seq_lo, seq_hi = 8, 120
+        if target_duration:
+            mid_len = (clip_min + clip_max) / 2.0
+            needed = int(math.ceil(target_duration / mid_len)) + 2
+            seq_hi = max(seq_lo, min(seq_hi, needed))
 
         done = db.execute(
             text("SELECT status, clip_list_id FROM story_jobs WHERE id = :sid"),
@@ -89,10 +117,10 @@ def build_story(self, story_id: str):
             suggestions = (creative.get("clip_suggestions") or []) if isinstance(creative, dict) else []
 
             # Cached generic clip suggestions are only usable when the editor
-            # gave no direction — otherwise they steer every story toward the
-            # same recurring themes. With a direction, mine the transcript
-            # fresh, focused on what the editor asked for.
-            if suggestions and not user_prompt:
+            # gave no direction AND no runtime target — otherwise they steer
+            # every story toward the same recurring themes / clip lengths.
+            # With a direction or target, mine the transcript fresh.
+            if suggestions and not user_prompt and target_duration is None:
                 for c in suggestions[:8]:
                     if c.get("start") is None or c.get("end") is None:
                         continue
@@ -114,7 +142,14 @@ def build_story(self, story_id: str):
                     continue
                 if not duration:
                     duration = float(segs[-1][0]) + 30.0
-                chunks = _build_chunks(segs)[: (6 if user_prompt else 3)]
+                chunk_cap = 6 if user_prompt else 3
+                if target_duration and target_duration > 600:
+                    # Long production: cover more of each asset so there is
+                    # enough complete-segment material to reach the runtime.
+                    chunk_cap = max(chunk_cap, 8)
+                if target_duration and target_duration > 1800:
+                    chunk_cap = max(chunk_cap, 12)
+                chunks = _build_chunks(segs)[:chunk_cap]
                 mine_direction = (
                     f"The editor's direction for this story: {user_prompt}\n"
                     "Pick ONLY moments that directly serve that direction — quote or discuss it. "
@@ -133,7 +168,12 @@ def build_story(self, story_id: str):
                         f"{chunk_text}\n\n"
                         'Respond with ONLY JSON: {"clips": [{"start": "MM:SS", "end": "MM:SS", '
                         '"title": "short title", "why": "one sentence"}]}\n'
-                        "Rules: 1-3 strongest self-contained moments, each 8-45 seconds."
+                        f"Rules: 1-3 strongest self-contained moments, each {clip_min}-{clip_max} seconds."
+                        + (
+                            " The finished production is long-form — prefer complete "
+                            "thoughts and full exchanges over quick soundbites."
+                            if target_duration and target_duration > 600 else ""
+                        )
                     )
                     raw = _generate(tokenizer, model, prompt, max_new_tokens=700)
                     try:
@@ -144,10 +184,14 @@ def build_story(self, story_id: str):
                         if not isinstance(c, dict) or not c.get("title"):
                             continue
                         s = _clamp(_timecode_to_seconds(c.get("start", c_start)), c_start, c_end or duration)
-                        e = _clamp(_timecode_to_seconds(c.get("end", s + 20)), s, duration or s + 45)
+                        e = _clamp(_timecode_to_seconds(c.get("end", s + 20)), s, duration or s + float(clip_max))
                         e = min(e, duration) if duration else e
                         if e - s < 4.0:
-                            e = s + 8.0
+                            e = s + float(clip_min)
+                        if e - s > float(clip_max):
+                            e = s + float(clip_max)
+                        if duration:
+                            e = min(e, duration)
                         candidates.append({
                             "media_id": mid, "filename": fname,
                             "start": round(s, 1), "end": round(e, 1),
@@ -195,7 +239,14 @@ def build_story(self, story_id: str):
             '  "narrative": "3-6 sentences: the storyline this cut tells and why this order works",\n'
             '  "sequence": [{"key": "C1", "role": "why this moment sits here (opener, context, turn, payoff...)"}]\n'
             "}\n\n"
-            "Rules: choose 4-12 moments, order them for story (not source order), "
+            + (
+                f"The finished piece should run close to "
+                f"{int(target_duration // 60)} minute(s) "
+                f"({int(target_duration)} seconds) — pick enough moments to "
+                "reach that runtime; do not over-trim.\n"
+                if target_duration else ""
+            )
+            + f"Rules: choose {seq_lo}-{seq_hi} moments, order them for story (not source order), "
             "you may interleave moments from different videos, drop weak or redundant ones. "
             "Cut like a real editor: use the visuals notes to vary the picture — avoid "
             "back-to-back moments showing the same person in the same framing; alternate "
@@ -220,7 +271,7 @@ def build_story(self, story_id: str):
             pass
         if not ordered:
             # Fallback: chronological within each asset, assets in given order
-            ordered = sorted(candidates, key=lambda c: (asset_ids.index(c["media_id"]), c["start"]))[:12]
+            ordered = sorted(candidates, key=lambda c: (asset_ids.index(c["media_id"]), c["start"]))[:seq_hi]
         # Visual variety pass: break up back-to-back near-identical shots
         # (verified against the real SigLIP embeddings, not the LLM's guess).
         try:

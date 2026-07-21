@@ -453,6 +453,7 @@ class StoryRequestIn(BaseModel):
     asset_ids: List[str]
     prompt: Optional[str] = None
     project_id: Optional[str] = None
+    target_duration_seconds: Optional[float] = Field(default=None, ge=30, le=14400)
 
 
 class StoryJobOut(BaseModel):
@@ -465,6 +466,7 @@ class StoryJobOut(BaseModel):
     title: Optional[str] = None
     narrative: Optional[str] = None
     clip_list_id: Optional[str] = None
+    target_duration_seconds: Optional[float] = None
     error_message: Optional[str] = None
     created_at: datetime
     finished_at: Optional[datetime] = None
