@@ -48,6 +48,7 @@ class TranslateRequest(BaseModel):
 class DubRequest(BaseModel):
     target_language: str
     use_cloned_voices: bool = False
+    lip_sync: bool = False
 
 
 class MediaListResponse(BaseModel):

@@ -504,7 +504,7 @@ def _atempo(samples, sample_rate: int, factor: float, workdir: str):
 
 
 @celery_app.task(bind=True, name="tasks.dub.generate_dub", queue="gpu")
-def generate_dub(self, media_id: str, job_id: str, target_language: str, use_cloned_voices: bool = False):
+def generate_dub(self, media_id: str, job_id: str, target_language: str, use_cloned_voices: bool = False, lip_sync: bool = False):
     db = get_session()
     try:
         import numpy as np
@@ -613,6 +613,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
 
         cloned_count = 0
         chatterbox_count = 0
+        placed_spans: list = []
         with tempfile.TemporaryDirectory() as workdir:
             if use_xtts_stock:
                 speaker_genders = _speaker_genders(db, media_id, workdir)
@@ -686,6 +687,10 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 if offset < timeline.size:
                     timeline[offset:end] += clip[: end - offset]
                     place_cursor = end
+                    # Actual placed window (post-atempo, post-shift) — this is
+                    # what the lip-sync pass must follow, not the source
+                    # segment times.
+                    placed_spans.append((offset / sample_rate, end / sample_rate))
                 synthesized += 1
 
                 now = time.monotonic()
@@ -697,6 +702,12 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 raise RuntimeError("No segments could be synthesized")
 
             video_src = asset_row[2] or asset_row[1]
+            speech_wav = None
+            if lip_sync:
+                # Lip-sync must follow the dubbed SPEECH only — background
+                # music/ambience in the mel spectrogram poisons mouth shapes.
+                speech_wav = os.path.join(workdir, "dub_speech.wav")
+                _write_wav(speech_wav, timeline, sample_rate)
             keep_bg = os.getenv("DUB_KEEP_BACKGROUND", "1").lower() not in ("0", "false", "no")
             if keep_bg and video_src and os.path.exists(video_src):
                 try:
@@ -752,6 +763,39 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
             )
             if result.returncode != 0 or not os.path.exists(tmp_mp4):
                 raise RuntimeError(f"Dubbed video mux failed: {result.stderr[-300:]}")
+
+            # Optional lip-sync pass: rewrite mouth regions inside dubbed
+            # speech windows. Any failure falls back to the audio-only dub —
+            # a playable dub always ships.
+            if lip_sync and speech_wav and placed_spans:
+                try:
+                    append_log(db, job_id, "Lip-sync pass: loading Wav2Lip-GAN (first run downloads ~400 MB)")
+                    update_job(db, job_id, progress=97.0)
+                    from tasks import lipsync as _lipsync
+                    synced_mp4 = os.path.join(workdir, "dub_synced.mp4")
+                    last_ls = [time.monotonic()]
+
+                    def _ls_progress(frac):
+                        now = time.monotonic()
+                        if now - last_ls[0] >= 3:
+                            update_job(db, job_id, progress=round(97.0 + 2.5 * frac, 1))
+                            last_ls[0] = now
+
+                    stats = _lipsync.apply_lipsync(
+                        tmp_mp4, speech_wav, placed_spans, synced_mp4,
+                        progress=_ls_progress,
+                        log=lambda m: append_log(db, job_id, m),
+                    )
+                    tmp_mp4 = synced_mp4
+                    append_log(db, job_id, f"Lip sync applied to {stats['synced_frames']}/{stats['total_frames']} frames")
+                except Exception as e:
+                    import traceback
+                    tb_line = " / ".join(traceback.format_exc().strip().splitlines()[-3:])
+                    append_log(db, job_id, f"Lip sync failed ({e}) — keeping audio-only dub | {tb_line}")
+                    print(f"[dub] lip sync failed: {e}")
+            elif lip_sync:
+                append_log(db, job_id, "Lip sync requested but no dubbed speech spans — skipped")
+
             shutil.copyfile(tmp_mp4, os.path.join(DUBS_DIR, f"{media_id}_{target}.mp4"))
 
         db.execute(

@@ -1134,7 +1134,11 @@ router.post("/media/:id/dub", (req, res) => {
     status: "running",
     progress: 10,
     error_message: null as string | null,
-    logs: [`Target language: ${lang}`, `Loading TTS model: facebook/mms-tts-${lang}`],
+    logs: [
+      `Target language: ${lang}`,
+      `Loading TTS model: facebook/mms-tts-${lang}`,
+      ...(req.body?.lip_sync ? ["Lip sync enabled — Wav2Lip pass will run after audio render"] : []),
+    ],
     retry_count: 0,
     created_at: new Date().toISOString(),
     started_at: new Date().toISOString(),

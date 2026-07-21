@@ -313,9 +313,10 @@ export default function AssetDetail() {
   const dubBusy = dubMutation.isPending || Boolean(dubJob);
 
   const [dubClonedVoices, setDubClonedVoices] = useState(true);
+  const [dubLipSync, setDubLipSync] = useState(false);
   const startDub = (lang: string) => {
     if (!id) return;
-    dubMutation.mutate({ id, data: { target_language: lang, use_cloned_voices: dubClonedVoices } }, {
+    dubMutation.mutate({ id, data: { target_language: lang, use_cloned_voices: dubClonedVoices, lip_sync: dubLipSync } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
       }
@@ -1097,6 +1098,15 @@ export default function AssetDetail() {
                           Use cloned voices — speakers with a ready voice profile keep their own voice
                         </label>
                       )}
+                      {!dubBusy && (
+                        <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
+                          <Checkbox
+                            checked={dubLipSync}
+                            onCheckedChange={(v) => setDubLipSync(v === true)}
+                          />
+                          Lip sync (experimental) — re-render mouths to match the dub where the speaker's face is visible
+                        </label>
+                      )}
                     </>
                   ) : dubSupported ? (
                     <>
@@ -1126,6 +1136,14 @@ export default function AssetDetail() {
                           disabled={dubBusy}
                         />
                         Use cloned voices — speakers with a ready voice profile keep their own voice
+                      </label>
+                      <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
+                        <Checkbox
+                          checked={dubLipSync}
+                          onCheckedChange={(v) => setDubLipSync(v === true)}
+                          disabled={dubBusy}
+                        />
+                        Lip sync (experimental) — re-render mouths to match the dub where the speaker's face is visible
                       </label>
                       {dubMutation.isError && (
                         <p className="text-xs text-destructive mt-1.5">Failed to start dubbing. Check Pipeline Jobs.</p>

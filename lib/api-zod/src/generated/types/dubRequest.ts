@@ -11,4 +11,6 @@ export interface DubRequest {
   target_language: string;
   /** Speak each segment in the identified speaker's cloned voice when their voice profile is ready; falls back to the stock TTS voice otherwise */
   use_cloned_voices?: boolean;
+  /** Re-render mouth movement to match the dubbed audio (Wav2Lip) inside dubbed speech windows; frames without a confident frontal face are left untouched. Falls back to the audio-only dub on failure. */
+  lip_sync?: boolean;
 }

@@ -643,10 +643,12 @@ export const CreateDubParams = zod.object({
 })
 
 export const createDubBodyUseClonedVoicesDefault = false;
+export const createDubBodyLipSyncDefault = false;
 
 export const CreateDubBody = zod.object({
   "target_language": zod.string().describe('ISO code with MMS-TTS support: es | fr | de | pt | nl | ru | ko | ar | hi'),
-  "use_cloned_voices": zod.boolean().default(createDubBodyUseClonedVoicesDefault).describe('Speak each segment in the identified speaker\'s cloned voice when their voice profile is ready; falls back to the stock TTS voice otherwise')
+  "use_cloned_voices": zod.boolean().default(createDubBodyUseClonedVoicesDefault).describe('Speak each segment in the identified speaker\'s cloned voice when their voice profile is ready; falls back to the stock TTS voice otherwise'),
+  "lip_sync": zod.boolean().default(createDubBodyLipSyncDefault).describe('Re-render mouth movement to match the dubbed audio (Wav2Lip) inside dubbed speech windows; frames without a confident frontal face are left untouched. Falls back to the audio-only dub on failure.')
 })
 
 export const CreateDubResponse = zod.object({
