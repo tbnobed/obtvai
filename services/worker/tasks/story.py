@@ -88,7 +88,11 @@ def build_story(self, story_id: str):
             creative = a[4] or {}
             suggestions = (creative.get("clip_suggestions") or []) if isinstance(creative, dict) else []
 
-            if suggestions:
+            # Cached generic clip suggestions are only usable when the editor
+            # gave no direction — otherwise they steer every story toward the
+            # same recurring themes. With a direction, mine the transcript
+            # fresh, focused on what the editor asked for.
+            if suggestions and not user_prompt:
                 for c in suggestions[:8]:
                     if c.get("start") is None or c.get("end") is None:
                         continue
@@ -110,12 +114,19 @@ def build_story(self, story_id: str):
                     continue
                 if not duration:
                     duration = float(segs[-1][0]) + 30.0
-                chunks = _build_chunks(segs)[:3]
+                chunks = _build_chunks(segs)[: (6 if user_prompt else 3)]
+                mine_direction = (
+                    f"The editor's direction for this story: {user_prompt}\n"
+                    "Pick ONLY moments that directly serve that direction — quote or discuss it. "
+                    "If a segment has nothing relevant, return an empty clips list.\n\n"
+                    if user_prompt else ""
+                )
                 for chunk_text, c_start, c_end in chunks:
                     prompt = (
                         f"You are a creative video editor. {CREATIVE_PERSONA}\n"
                         "You are mining raw footage for a "
                         "multi-video story edit.\n\n"
+                        f"{mine_direction}"
                         f"Source file: {fname}\n"
                         f"Transcript segment ({_format_timecode(c_start)}–{_format_timecode(c_end)}):\n"
                         f"{chunk_text}\n\n"
@@ -155,7 +166,13 @@ def build_story(self, story_id: str):
             f"{c['title']} — {c['why']}"
             for c in candidates
         )[:9000]
-        direction = f"\nEditorial direction from the editor: {user_prompt}\n" if user_prompt else ""
+        direction = (
+            f"\nEditorial direction from the editor (TOP PRIORITY): {user_prompt}\n"
+            "Build the entire story around this direction. Prefer moments that serve it, "
+            "drop moments that don't, and make the title and narrative reflect it — "
+            "do not fall back to generic themes.\n"
+            if user_prompt else ""
+        )
         reduce_prompt = (
             f"You are a senior story editor. {CREATIVE_PERSONA}\n"
             "You are assembling ONE story from moments pulled "
