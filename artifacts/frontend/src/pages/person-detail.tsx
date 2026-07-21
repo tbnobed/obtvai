@@ -574,7 +574,59 @@ function formatTimecode(seconds: number | null | undefined) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function AppearanceMoments({ personId, mediaId }: { personId: string; mediaId: string }) {
+function MomentPlayerDialog({
+  mediaId,
+  filename,
+  startTime,
+  onClose,
+}: {
+  mediaId: string;
+  filename: string;
+  startTime: number | null;
+  onClose: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  return (
+    <Dialog open={startTime != null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-4xl p-4">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-medium flex items-center justify-between gap-3 pr-6">
+            <span className="truncate">{filename}</span>
+            <Link
+              href={`/library/${mediaId}${startTime != null ? `?t=${Math.floor(startTime)}` : ""}`}
+              className="text-xs text-primary hover:underline shrink-0 flex items-center gap-1"
+            >
+              <ExternalLink className="h-3 w-3" /> Open full player
+            </Link>
+          </DialogTitle>
+        </DialogHeader>
+        {startTime != null && (
+          <video
+            ref={videoRef}
+            src={`/api/media/${mediaId}/stream`}
+            controls
+            autoPlay
+            className="w-full max-h-[70vh] object-contain bg-black rounded"
+            onLoadedMetadata={() => {
+              if (videoRef.current) videoRef.current.currentTime = startTime;
+            }}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AppearanceMoments({
+  personId,
+  mediaId,
+  filename,
+}: {
+  personId: string;
+  mediaId: string;
+  filename: string;
+}) {
+  const [playAt, setPlayAt] = useState<number | null>(null);
   const { data, isLoading, isError } = useGetPersonAssetMoments(personId, mediaId, {
     query: { queryKey: getGetPersonAssetMomentsQueryKey(personId, mediaId) },
   });
@@ -609,14 +661,14 @@ function AppearanceMoments({ personId, mediaId }: { personId: string; mediaId: s
           </p>
           <div className="flex flex-wrap gap-1.5">
             {data.on_camera.map((r, i) => (
-              <Link key={i} href={`/library/${mediaId}?t=${Math.floor(r.start_time)}`}>
+              <button key={i} type="button" onClick={() => setPlayAt(r.start_time)}>
                 <Badge
                   variant="outline"
                   className="text-xs font-mono cursor-pointer hover:border-primary hover:text-primary transition-colors"
                 >
                   {formatTimecode(r.start_time)}–{formatTimecode(r.end_time)}
                 </Badge>
-              </Link>
+              </button>
             ))}
           </div>
         </div>
@@ -628,10 +680,11 @@ function AppearanceMoments({ personId, mediaId }: { personId: string; mediaId: s
           </p>
           <div className="space-y-0.5 max-h-80 overflow-y-auto pr-1">
             {data.speaking.map((s, i) => (
-              <Link
+              <button
                 key={i}
-                href={`/library/${mediaId}?t=${Math.floor(s.start_time)}`}
-                className="flex items-start gap-3 rounded px-2 py-1.5 hover:bg-muted/60 group"
+                type="button"
+                onClick={() => setPlayAt(s.start_time)}
+                className="w-full text-left flex items-start gap-3 rounded px-2 py-1.5 hover:bg-muted/60 group"
               >
                 <span className="text-xs font-mono text-primary shrink-0 mt-0.5">
                   {formatTimecode(s.start_time)}
@@ -639,11 +692,17 @@ function AppearanceMoments({ personId, mediaId }: { personId: string; mediaId: s
                 <span className="text-xs text-muted-foreground group-hover:text-foreground leading-relaxed min-w-0">
                   {s.text}
                 </span>
-              </Link>
+              </button>
             ))}
           </div>
         </div>
       ) : null}
+      <MomentPlayerDialog
+        mediaId={mediaId}
+        filename={filename}
+        startTime={playAt}
+        onClose={() => setPlayAt(null)}
+      />
     </div>
   );
 }
@@ -1400,7 +1459,7 @@ export default function PersonDetail() {
                   {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   {isOpen ? "Hide moments" : "Show every moment in this asset"}
                 </button>
-                {isOpen && <AppearanceMoments personId={id} mediaId={a.media_id} />}
+                {isOpen && <AppearanceMoments personId={id} mediaId={a.media_id} filename={a.filename} />}
               </div>
             );
           })}
