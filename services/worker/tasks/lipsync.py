@@ -221,6 +221,11 @@ def apply_lipsync(video_path: str, speech_wav: str, segments, out_path: str,
     model, device = _load_model()
     from tasks.face_detect import _load_face_app
     face_app = _load_face_app()
+    try:
+        det_providers = face_app.det_model.session.get_providers()
+    except Exception:
+        det_providers = ["unknown"]
+    _log(f"Lip sync engine: Wav2Lip on {device}, face detector providers: {', '.join(det_providers)}")
 
     mel = _melspectrogram(speech_wav)
     cap = cv2.VideoCapture(video_path)
@@ -244,9 +249,21 @@ def apply_lipsync(video_path: str, speech_wav: str, segments, out_path: str,
     def in_speech(t):
         return any(s - 0.05 <= t <= e + 0.05 for s, e in spans)
 
+    _log(f"Lip sync: {total_frames} frames @ {fps:.1f} fps, {len(spans)} speech spans")
+
     y1p, y2p, x1p, x2p = PADS
     synced = 0
     frame_idx = 0
+    # Face detection is the hot loop (CPU-bound when onnxruntime lacks the
+    # CUDA provider). Detect on a downscaled frame and only every Nth speech
+    # frame — faces don't move meaningfully in 3 frames at 25-60 fps; boxes
+    # are smoothed afterwards anyway.
+    detect_every = max(1, int(os.getenv("LIPSYNC_DETECT_EVERY", "3")))
+    det_scale = 1.0
+    if w > 960:
+        det_scale = 960.0 / w
+    last_box = None
+    since_detect = detect_every  # force detection on the first speech frame
     # Batches of (frame, box, mel_chunk); flushed at BATCH or when a
     # passthrough frame breaks the run (writer order must match input order).
     pend_frames, pend_boxes, pend_mels = [], [], []
@@ -299,13 +316,23 @@ def apply_lipsync(video_path: str, speech_wav: str, segments, out_path: str,
         if chunk is None:
             flush()
             writer.write(frame)
+            last_box = None
+            since_detect = detect_every
         else:
-            faces = face_app.get(frame)
-            box = None
-            if faces:
-                best = max(faces, key=lambda fc: (fc.bbox[2] - fc.bbox[0]) * (fc.bbox[3] - fc.bbox[1]))
-                if getattr(best, "det_score", 1.0) >= 0.55:
-                    box = tuple(int(v) for v in best.bbox)
+            since_detect += 1
+            if since_detect >= detect_every:
+                since_detect = 0
+                det_frame = frame if det_scale >= 1.0 else cv2.resize(
+                    frame, (int(w * det_scale), int(h * det_scale)))
+                faces = face_app.get(det_frame)
+                box = None
+                if faces:
+                    best = max(faces, key=lambda fc: (fc.bbox[2] - fc.bbox[0]) * (fc.bbox[3] - fc.bbox[1]))
+                    if getattr(best, "det_score", 1.0) >= 0.55:
+                        box = tuple(int(v / det_scale) for v in best.bbox)
+                last_box = box
+            else:
+                box = last_box
             pend_frames.append(frame)
             pend_boxes.append(box)
             pend_mels.append(chunk)

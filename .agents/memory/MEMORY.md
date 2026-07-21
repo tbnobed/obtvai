@@ -22,3 +22,4 @@
 - [External API error hygiene](external-api-error-hygiene.md) — httpx HTTPStatusError text embeds the full URL incl. api_key; sanitize before persisting errors; pending statuses need queued_at for stuck-state retry.
 - [queryClient.clear() orphans observers](react-query-clear-orphan.md) — never clear() with mounted observers; works in dev, silently freezes prod builds; removeQueries+setQueryData instead.
 - [Replit preview cookies](replit-preview-cookies.md) — preview iframe drops SameSite=Lax cookies (login 200 then me 401); dev/mock cookies need SameSite=None; Secure.
+- [onnxruntime CPU wheel shadows GPU](onnxruntime-gpu-shadowing.md) — never install onnxruntime and onnxruntime-gpu together; CPU wheel silently drops the CUDA provider (0% GPU, huge slowdowns).
