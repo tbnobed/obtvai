@@ -38,6 +38,7 @@ import type {
   SearchResult,
   RenderJob,
   ReelJob,
+  ReelClip,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,86 @@ const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
 
 function fmtTime(s: number) {
   return formatTC(s, 25, false);
+}
+
+const EDL_COLORS = [
+  "bg-sky-500/70", "bg-emerald-500/70", "bg-amber-500/70", "bg-fuchsia-500/70",
+  "bg-rose-500/70", "bg-indigo-500/70", "bg-teal-500/70", "bg-orange-500/70",
+];
+
+function ReelEdlTimeline({ clips, onSeek }: { clips: ReelClip[]; onSeek: (t: number) => void }) {
+  const events = useMemo(() => {
+    let rec = 0;
+    const mediaIds: string[] = [];
+    return clips.map((c, i) => {
+      if (!mediaIds.includes(c.media_id)) mediaIds.push(c.media_id);
+      const dur = Math.max(0, c.end_time - c.start_time);
+      const ev = {
+        n: i + 1,
+        clip: c,
+        dur,
+        recIn: rec,
+        recOut: rec + dur,
+        color: EDL_COLORS[mediaIds.indexOf(c.media_id) % EDL_COLORS.length],
+      };
+      rec += dur;
+      return ev;
+    });
+  }, [clips]);
+  const total = events.length ? events[events.length - 1].recOut : 0;
+  if (!events.length || total <= 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex h-8 w-full rounded overflow-hidden border border-border bg-black/40">
+        {events.map((ev) => (
+          <button
+            key={ev.n}
+            type="button"
+            onClick={() => onSeek(ev.recIn)}
+            className={`${ev.color} relative h-full border-r border-black/50 last:border-r-0 hover:brightness-125 transition-[filter] cursor-pointer`}
+            style={{ width: `${(ev.dur / total) * 100}%`, minWidth: 14 }}
+            title={`${ev.n}. ${ev.clip.filename}\nSRC ${fmtTime(ev.clip.start_time)}–${fmtTime(ev.clip.end_time)}\nREC ${fmtTime(ev.recIn)}–${fmtTime(ev.recOut)}`}
+          >
+            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-black/80 tabular-nums">
+              {ev.n}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="max-h-40 overflow-y-auto rounded border border-border">
+        <table className="w-full text-[11px] tabular-nums">
+          <thead className="sticky top-0 bg-muted/80 text-muted-foreground">
+            <tr className="[&>th]:px-2 [&>th]:py-1 [&>th]:text-left [&>th]:font-medium">
+              <th className="w-8">#</th>
+              <th>Source</th>
+              <th>Src In–Out</th>
+              <th>Rec In–Out</th>
+              <th className="text-right">Dur</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((ev) => (
+              <tr
+                key={ev.n}
+                className="border-t border-border/60 hover:bg-muted/40 cursor-pointer"
+                onClick={() => onSeek(ev.recIn)}
+              >
+                <td className="px-2 py-1">
+                  <span className={`inline-block h-2.5 w-2.5 rounded-sm mr-1 align-middle ${ev.color}`} />
+                  {ev.n}
+                </td>
+                <td className="px-2 py-1 truncate max-w-[160px]" title={ev.clip.snippet ?? undefined}>{ev.clip.filename}</td>
+                <td className="px-2 py-1">{fmtTime(ev.clip.start_time)}–{fmtTime(ev.clip.end_time)}</td>
+                <td className="px-2 py-1">{fmtTime(ev.recIn)}–{fmtTime(ev.recOut)}</td>
+                <td className="px-2 py-1 text-right">{fmtTime(ev.dur)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function JobStatusBadge({ status }: { status: string }) {
@@ -225,6 +306,7 @@ export default function ProjectDetail() {
   // list from stale cache and overwrite the previous add. Track the latest
   // known clips per list synchronously so consecutive adds accumulate.
   const pendingClipsRef = useRef<Record<string, ClipListUpdateClipsItem[]>>({});
+  const reelVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   // Multi-select of search / script-match results, keyed by row key.
   const [selectedResults, setSelectedResults] = useState<Record<string, SearchResult>>({});
 
@@ -1149,8 +1231,20 @@ export default function ProjectDetail() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {reel.status === "success" && reel.output_url ? (
-                      <video controls preload="metadata" src={reel.output_url}
-                        className={`w-full rounded bg-black ${reel.preset === "vertical" ? "max-h-[40vh]" : "aspect-video"}`} />
+                      <>
+                        <video controls preload="metadata" src={reel.output_url}
+                          ref={(el) => { reelVideoRefs.current[reel.id] = el; }}
+                          className={`w-full rounded bg-black ${reel.preset === "vertical" ? "max-h-[40vh]" : "aspect-video"}`} />
+                        {reel.clips?.length ? (
+                          <ReelEdlTimeline
+                            clips={reel.clips}
+                            onSeek={(t) => {
+                              const v = reelVideoRefs.current[reel.id];
+                              if (v) { v.currentTime = t; v.play().catch(() => {}); }
+                            }}
+                          />
+                        ) : null}
+                      </>
                     ) : reel.status === "error" ? (
                       <p className="text-sm text-red-400">{reel.error_message || "Reel failed."}</p>
                     ) : (
