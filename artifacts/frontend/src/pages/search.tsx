@@ -61,6 +61,31 @@ export default function SearchPage() {
 
   const resultRow = (r: SearchResult, key: string) => (
     <div key={key} className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm gap-3">
+      <button
+        type="button"
+        className="w-24 h-14 shrink-0 rounded overflow-hidden bg-black/40 flex items-center justify-center cursor-pointer"
+        title="Play this clip"
+        onClick={() =>
+          setPlayerClip({
+            media_id: r.media_id,
+            start_time: r.start_time,
+            end_time: r.end_time,
+            label: r.snippet || undefined,
+            filename: r.filename,
+          })
+        }
+      >
+        {r.thumbnail_url ? (
+          <img
+            src={`/api/thumbnails/${r.thumbnail_url}`}
+            alt=""
+            loading="lazy"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <Play className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{r.filename}</div>
         <div className="text-xs text-muted-foreground truncate">
@@ -94,6 +119,7 @@ export default function SearchPage() {
   );
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       <div>
         <h1 className="text-2xl font-semibold flex items-center gap-2">
@@ -174,6 +200,7 @@ export default function SearchPage() {
       )}
 
       <ClipPlayerDialog clip={playerClip} onClose={() => setPlayerClip(null)} />
+    </div>
     </div>
   );
 }
