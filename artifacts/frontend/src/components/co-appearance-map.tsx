@@ -286,6 +286,49 @@ export default function CoAppearanceMap() {
   const zoomedIn = k > fitK * 1.01;
   const showAllLabels = nodes.length <= 80 || k >= fitK * 1.8;
 
+  // When zoomed in, people connected to someone on screen shouldn't vanish
+  // off the edge — pull them to the border of the view (in the direction of
+  // their true position) so their connection lines stay visible.
+  const displayPos = useMemo(() => {
+    const map = new Map<string, { x: number; y: number; pulled: boolean }>();
+    const raw = new Map<string, { x: number; y: number }>();
+    const onScreen = new Set<string>();
+    for (const node of nodes) {
+      const w = worldPos(node.person_id);
+      if (!w) continue;
+      const x = w.x * k + tx;
+      const y = w.y * k + ty;
+      raw.set(node.person_id, { x, y });
+      const r = nodeRadius(node.asset_count, maxAssets);
+      if (x >= -r && x <= W + r && y >= -r && y <= H + r) onScreen.add(node.person_id);
+    }
+    const linkedToVisible = new Set<string>();
+    if (zoomedIn) {
+      for (const p of pairs) {
+        if (onScreen.has(p.person_a_id) && !onScreen.has(p.person_b_id)) linkedToVisible.add(p.person_b_id);
+        if (onScreen.has(p.person_b_id) && !onScreen.has(p.person_a_id)) linkedToVisible.add(p.person_a_id);
+      }
+    }
+    for (const node of nodes) {
+      const pos = raw.get(node.person_id);
+      if (!pos) continue;
+      if (onScreen.has(node.person_id) || !linkedToVisible.has(node.person_id)) {
+        map.set(node.person_id, { ...pos, pulled: false });
+      } else {
+        const r = nodeRadius(node.asset_count, maxAssets);
+        const m = r + 8;
+        map.set(node.person_id, {
+          x: Math.min(W - m, Math.max(m, pos.x)),
+          y: Math.min(H - m, Math.max(m, pos.y)),
+          pulled: true,
+        });
+      }
+    }
+    return map;
+    // worldPos depends on overrides + layout, both listed below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, pairs, k, tx, ty, zoomedIn, overrides, layout, maxAssets]);
+
   const controls = (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
       <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -392,9 +435,9 @@ export default function CoAppearanceMap() {
           onPointerCancel={onBgPointerUp}
         >
           {pairs.map((p, i) => {
-            const wa = worldPos(p.person_a_id);
-            const wb = worldPos(p.person_b_id);
-            if (!wa || !wb) return null;
+            const pa = displayPos.get(p.person_a_id);
+            const pb = displayPos.get(p.person_b_id);
+            if (!pa || !pb) return null;
             const strong = hoveredPair === i;
             const dimmed =
               (hoveredPair !== null && !strong) ||
@@ -402,8 +445,8 @@ export default function CoAppearanceMap() {
             return (
               <line
                 key={i}
-                x1={wa.x * k + tx} y1={wa.y * k + ty}
-                x2={wb.x * k + tx} y2={wb.y * k + ty}
+                x1={pa.x} y1={pa.y}
+                x2={pb.x} y2={pb.y}
                 stroke="currentColor"
                 className={strong ? "text-primary" : dimmed ? "text-border/40" : "text-border"}
                 strokeWidth={1.5 + (p.shared_assets / maxShared) * 6}
@@ -415,12 +458,11 @@ export default function CoAppearanceMap() {
             );
           })}
           {nodes.map((node) => {
-            const w = worldPos(node.person_id);
-            if (!w) return null;
-            const x = w.x * k + tx;
-            const y = w.y * k + ty;
+            const p = displayPos.get(node.person_id);
+            if (!p) return null;
+            const { x, y, pulled } = p;
             const r = nodeRadius(node.asset_count, maxAssets);
-            if (x < -r * 2 || x > W + r * 2 || y < -r * 2 || y > H + r * 2) return null;
+            if (!pulled && (x < -r * 2 || x > W + r * 2 || y < -r * 2 || y > H + r * 2)) return null;
             const inHoveredPair =
               hovered !== null && (hovered.person_a_id === node.person_id || hovered.person_b_id === node.person_id);
             const dimmed =
@@ -441,7 +483,7 @@ export default function CoAppearanceMap() {
             return (
               <g
                 key={node.person_id}
-                style={{ cursor: "grab", opacity: dimmed ? 0.3 : 1, transition: "opacity 120ms" }}
+                style={{ cursor: "grab", opacity: dimmed ? 0.3 : pulled ? 0.75 : 1, transition: "opacity 120ms" }}
                 onClick={() => {
                   if (didDragRef.current) return;
                   navigate(`/people/${node.person_id}`);
@@ -454,7 +496,12 @@ export default function CoAppearanceMap() {
                 onMouseLeave={() => setHoveredNode(null)}
               >
                 <title>{`${node.display_name} — ${node.asset_count} ${node.asset_count === 1 ? "video" : "videos"} · drag to move, click to open`}</title>
-                <circle cx={x} cy={y} r={r + 2} className="fill-card stroke-primary/60" strokeWidth={hoveredNode === node.person_id || inHoveredPair ? 2.5 : 1} />
+                <circle
+                  cx={x} cy={y} r={r + 2}
+                  className="fill-card stroke-primary/60"
+                  strokeWidth={hoveredNode === node.person_id || inHoveredPair ? 2.5 : 1}
+                  strokeDasharray={pulled ? "4 3" : undefined}
+                />
                 {node.thumbnail_url ? (
                   <>
                     <clipPath id={`clip-${node.person_id}`}>
