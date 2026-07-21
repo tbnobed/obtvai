@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useRetryFailedJobs, useCancelJob, useCleanupJobs, useReindexLibrary, useResumeStalledMedia } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Square, Trash2, DatabaseZap } from "lucide-react";
+import { Play, Square, Trash2, DatabaseZap, ChevronDown, ChevronRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Jobs() {
@@ -17,6 +17,13 @@ export default function Jobs() {
   const reindexMutation = useReindexLibrary();
   const resumeStalledMutation = useResumeStalledMedia();
   const [reindexMessage, setReindexMessage] = useState<string | null>(null);
+  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+  const toggleLogs = (id: string) =>
+    setExpandedLogs(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   const queryClient = useQueryClient();
 
   const handleReindex = () => {
@@ -240,6 +247,12 @@ export default function Jobs() {
                 </div>
 
                 <div className="flex gap-2">
+                  {(job.logs?.length ?? 0) > 0 && (
+                    <Button size="sm" variant="ghost" onClick={() => toggleLogs(job.id)}>
+                      {expandedLogs.has(job.id) ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
+                      Logs
+                    </Button>
+                  )}
                   {(job.status === 'success' || job.status === 'error' || job.status === 'cancelled') && (
                     <Button size="sm" variant="outline" onClick={() => handleRetry(job.id)} disabled={retryMutation.isPending}>
                       <Play className="h-4 w-4 mr-1" /> {job.status === 'success' ? 'Re-run' : 'Retry'}
@@ -256,6 +269,11 @@ export default function Jobs() {
                 <div className="mt-4 p-2 bg-destructive/10 text-destructive text-sm rounded font-mono">
                   {job.error_message}
                 </div>
+              )}
+              {expandedLogs.has(job.id) && (job.logs?.length ?? 0) > 0 && (
+                <pre className="mt-4 p-3 bg-secondary/50 text-xs rounded font-mono whitespace-pre-wrap max-h-80 overflow-y-auto">
+                  {job.logs!.join("\n")}
+                </pre>
               )}
             </div>
           ))}
