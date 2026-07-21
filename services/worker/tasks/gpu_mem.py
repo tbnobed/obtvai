@@ -40,6 +40,7 @@ _CACHES = [
     ("tasks.voice", "_xtts_cache", "clear"),
     ("tasks.dub", "_tts_cache", "clear"),
     ("tasks.dub", "_chatterbox_cache", "clear"),
+    ("tasks.dub", "_demucs_cache", "clear"),
 ]
 
 

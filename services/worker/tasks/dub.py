@@ -110,6 +110,102 @@ def _read_wav(path: str):
         return data, wf.getframerate()
 
 
+# Demucs source-separation model (bundled with torchaudio, no extra deps),
+# cached per pool child; released by the gpu_mem idle watchdog.
+_demucs_cache: dict = {}
+
+
+def _extract_background(video_src: str, duration: float, out_rate: int, workdir: str):
+    """Isolate the source's non-vocal audio (music/ambience) so dubs keep the
+    original background. Returns mono float32 samples at out_rate."""
+    import numpy as np
+    import torch
+    import torchaudio
+    from tasks.gpu_mem import load_with_oom_retry
+
+    src_wav = os.path.join(workdir, "bg_src.wav")
+    proc = subprocess.run(
+        ["ffmpeg", "-y", "-i", video_src, "-vn", "-ac", "2", "-ar", "44100",
+         "-t", str(duration + 1.0), src_wav],
+        capture_output=True, text=True, timeout=1800,
+    )
+    if proc.returncode != 0 or not os.path.exists(src_wav):
+        raise RuntimeError(f"audio extract failed: {proc.stderr[-300:]}")
+
+    bundle = torchaudio.pipelines.HDEMUCS_HIGH_MUSDB_PLUS
+    if "model" not in _demucs_cache:
+        def _load():
+            m = bundle.get_model()
+            if torch.cuda.is_available():
+                m = m.to("cuda")
+            return m.eval()
+        _demucs_cache["model"] = load_with_oom_retry("demucs-background", _load)
+    model = _demucs_cache["model"]
+    device = next(model.parameters()).device
+
+    info = torchaudio.info(src_wav)
+    rate = info.sample_rate
+    n = info.num_frames
+    if n <= 0:
+        raise RuntimeError("no audio frames in source")
+
+    # Global normalization stats via a cheap streaming pass — per-chunk stats
+    # would make the background level pump between chunks.
+    stat_chunk = rate * 60
+    total = 0
+    acc_sum = 0.0
+    acc_sq = 0.0
+    for pos in range(0, n, stat_chunk):
+        seg, _ = torchaudio.load(src_wav, frame_offset=pos, num_frames=stat_chunk)
+        total += seg.numel()
+        acc_sum += float(seg.sum())
+        acc_sq += float(seg.square().sum())
+    ref_mean = acc_sum / max(total, 1)
+    ref_std = max((acc_sq / max(total, 1) - ref_mean * ref_mean), 1e-10) ** 0.5
+
+    # Streaming chunked inference: each 20 s chunk (with 1 s overlap) is read
+    # from disk, separated, downmixed, resampled, and overlap-added into one
+    # mono buffer at the dub rate — the only full-length allocation, matching
+    # the existing speech timeline's footprint, so hour-long assets fit in RAM.
+    chunk = rate * 20
+    overlap = rate * 1
+    vocals_idx = bundle.sources.index("vocals")
+    out_len = int(n / rate * out_rate) + out_rate
+    result = np.zeros(out_len, dtype=np.float32)
+    pos = 0
+    with torch.no_grad():
+        while pos < n:
+            end = min(pos + chunk, n)
+            seg, _ = torchaudio.load(src_wav, frame_offset=pos, num_frames=end - pos)
+            if rate != bundle.sample_rate:
+                seg = torchaudio.functional.resample(seg, rate, bundle.sample_rate)
+            seg = (seg - ref_mean) / ref_std
+            sources = model(seg.unsqueeze(0).to(device))[0].cpu()  # (sources, ch, t)
+            bg = sources.sum(dim=0) - sources[vocals_idx]
+            bg = bg * ref_std + ref_mean
+            mono = bg.mean(dim=0)
+            if bundle.sample_rate != out_rate:
+                mono = torchaudio.functional.resample(mono, bundle.sample_rate, out_rate)
+            piece = mono.numpy().astype(np.float32)
+
+            # Complementary linear crossfades sum to exactly 1 in the overlap,
+            # so no weight buffer is needed: fade in unless this is the first
+            # chunk, fade out unless it is the last.
+            fade_len = int(overlap / rate * out_rate)
+            if pos > 0 and piece.size > fade_len > 0:
+                piece[:fade_len] *= np.linspace(0.0, 1.0, fade_len, dtype=np.float32)
+            if end < n and piece.size > fade_len > 0:
+                piece[-fade_len:] *= np.linspace(1.0, 0.0, fade_len, dtype=np.float32)
+
+            off = int(pos / rate * out_rate)
+            stop = min(off + piece.size, result.size)
+            result[off:stop] += piece[: stop - off]
+            if end >= n:
+                break
+            pos = end - overlap
+    return result
+
+
 def _resample(samples, from_rate: int, to_rate: int, workdir: str):
     if from_rate == to_rate:
         return samples
@@ -597,6 +693,20 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
 
             if synthesized == 0:
                 raise RuntimeError("No segments could be synthesized")
+
+            video_src = asset_row[2] or asset_row[1]
+            keep_bg = os.getenv("DUB_KEEP_BACKGROUND", "1").lower() not in ("0", "false", "no")
+            if keep_bg and video_src and os.path.exists(video_src):
+                try:
+                    append_log(db, job_id, "Separating original background audio (music/ambience) to keep under the dub")
+                    update_job(db, job_id, progress=90.0)
+                    bg = _extract_background(video_src, duration, sample_rate, workdir)
+                    gain = float(os.getenv("DUB_BG_GAIN", "0.9") or "0.9")
+                    n_mix = min(bg.size, timeline.size)
+                    timeline[:n_mix] += bg[:n_mix] * gain
+                    append_log(db, job_id, f"Background kept (gain {gain})")
+                except Exception as e:
+                    append_log(db, job_id, f"Background separation failed ({e}) — dubbing speech only")
 
             peak = float(np.max(np.abs(timeline)))
             if peak > 0.95:

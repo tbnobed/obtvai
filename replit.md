@@ -74,6 +74,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - The production stack requires a HuggingFace token for pyannote speaker diarization — see `.env.example`
 - Docker Compose GPU workers require NVIDIA Container Toolkit on the host
 - Voice cloning uses XTTS-v2 (coqui-tts); first run downloads ~2 GB model; `COQUI_TOS_AGREED=1` is set in docker-compose shared env; voice files live under `/artifacts/voices`
+- Dubs keep the original background audio via Demucs vocal separation (bundled in torchaudio's `HDEMUCS_HIGH_MUSDB_PLUS` pipeline — no extra pip deps; first run downloads ~300 MB); disable with `DUB_KEEP_BACKGROUND=0`, level via `DUB_BG_GAIN` (default 0.9); failure falls back to speech-only dub
 - Cloned-voice dubbing AND the Voice Generator (person page) prefer Chatterbox multilingual (`chatterbox-tts`, installed `--no-deps` to protect the torch pin); first run downloads ~3 GB; falls back to XTTS-v2 per-load and per-segment; force old engine with `DUB_ENGINE=xtts`
 - `BASE_PATH` env var must be set when running `pnpm build` manually (handled automatically by workflows)
 - After changing `EMBEDDINGS_MODEL` or `VISION_MODEL`, the search index must be rebuilt (Jobs page → "Rebuild Search Index" → `POST /search/reindex`); Qdrant collections auto-recreate on dim mismatch
