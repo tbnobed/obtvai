@@ -644,6 +644,25 @@ router.get("/media/:id/transcript", (req, res) => {
   res.json(segments);
 });
 
+router.patch("/media/:id/transcript/:segmentId", (req, res) => {
+  const seg = transcript.find((s) => s.media_id === req.params.id && String(s.id) === req.params.segmentId);
+  if (!seg) { res.status(404).json({ detail: "Segment not found" }); return; }
+  const text = String(req.body?.text ?? "").trim();
+  if (!text) { res.status(400).json({ detail: "Text cannot be empty" }); return; }
+  const lang = String(req.body?.lang ?? "").trim().toLowerCase() || null;
+  if (lang) {
+    if (!seg.translations?.[lang]) {
+      res.status(400).json({ detail: `No '${lang}' translation exists for this segment — run translation first` });
+      return;
+    }
+    seg.translations[lang] = text;
+  } else {
+    seg.text = text;
+  }
+  const { translations, ...rest } = seg;
+  res.json(lang ? { ...rest, text: translations![lang] } : rest);
+});
+
 router.get("/media/:id/faces", (req, res) => {
   res.json([]);
 });

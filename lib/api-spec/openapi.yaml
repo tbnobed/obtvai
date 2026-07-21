@@ -331,6 +331,38 @@ paths:
                 items:
                   $ref: "#/components/schemas/TranscriptSegment"
 
+  /media/{id}/transcript/{segmentId}:
+    patch:
+      operationId: updateTranscriptSegment
+      tags: [player]
+      summary: Edit a transcript segment's text (original or a translation)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: segmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranscriptSegmentUpdate"
+      responses:
+        "200":
+          description: Updated segment (text reflects the edited language)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptSegment"
+        "404":
+          description: Segment not found
+
   /media/{id}/captions:
     get:
       operationId: getCaptions
@@ -3185,6 +3217,16 @@ components:
           type: ["string", "null"]
         confidence:
           type: ["number", "null"]
+
+    TranscriptSegmentUpdate:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+        lang:
+          type: ["string", "null"]
+          description: ISO code of the translation to edit; null/omitted edits the original transcript text
 
     FaceCluster:
       type: object

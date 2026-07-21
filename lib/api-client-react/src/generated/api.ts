@@ -114,6 +114,7 @@ import type {
   TightenInput,
   TightenResult,
   TranscriptSegment,
+  TranscriptSegmentUpdate,
   TranslateRequest,
   Trends,
   UserCreate,
@@ -1160,6 +1161,80 @@ export function useGetMediaTranscript<TData = Awaited<ReturnType<typeof getMedia
 
 
 
+
+export const getUpdateTranscriptSegmentUrl = (id: string,
+    segmentId: string,) => {
+
+
+
+
+  return `/api/media/${id}/transcript/${segmentId}`
+}
+
+/**
+ * @summary Edit a transcript segment's text (original or a translation)
+ */
+export const updateTranscriptSegment = async (id: string,
+    segmentId: string,
+    transcriptSegmentUpdate: TranscriptSegmentUpdate, options?: RequestInit): Promise<TranscriptSegment> => {
+
+  return customFetch<TranscriptSegment>(getUpdateTranscriptSegmentUrl(id,segmentId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(transcriptSegmentUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateTranscriptSegmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTranscriptSegment>>, TError,{id: string;segmentId: string;data: BodyType<TranscriptSegmentUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTranscriptSegment>>, TError,{id: string;segmentId: string;data: BodyType<TranscriptSegmentUpdate>}, TContext> => {
+
+const mutationKey = ['updateTranscriptSegment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTranscriptSegment>>, {id: string;segmentId: string;data: BodyType<TranscriptSegmentUpdate>}> = (props) => {
+          const {id,segmentId,data} = props ?? {};
+
+          return  updateTranscriptSegment(id,segmentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTranscriptSegmentMutationResult = NonNullable<Awaited<ReturnType<typeof updateTranscriptSegment>>>
+    export type UpdateTranscriptSegmentMutationBody = BodyType<TranscriptSegmentUpdate>
+    export type UpdateTranscriptSegmentMutationError = ErrorType<void>
+
+    /**
+ * @summary Edit a transcript segment's text (original or a translation)
+ */
+export const useUpdateTranscriptSegment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTranscriptSegment>>, TError,{id: string;segmentId: string;data: BodyType<TranscriptSegmentUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTranscriptSegment>>,
+        TError,
+        {id: string;segmentId: string;data: BodyType<TranscriptSegmentUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateTranscriptSegmentMutationOptions(options));
+    }
 
 export const getGetCaptionsUrl = (id: string,
     params: GetCaptionsParams,) => {

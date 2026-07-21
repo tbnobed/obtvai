@@ -159,6 +159,7 @@ export * from './tightenResult';
 export * from './topPerson';
 export * from './topTopic';
 export * from './transcriptSegment';
+export * from './transcriptSegmentUpdate';
 export * from './translateRequest';
 export * from './trendHeadline';
 export * from './trendMatchedTopic';

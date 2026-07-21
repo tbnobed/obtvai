@@ -313,6 +313,15 @@ export interface TranscriptSegment {
   confidence?: number | null;
 }
 
+export interface TranscriptSegmentUpdate {
+  text: string;
+  /**
+     * ISO code of the translation to edit; null/omitted edits the original transcript text
+     * @nullable
+     */
+  lang?: string | null;
+}
+
 export type FaceClusterAppearancesItem = {
   start_time: number;
   end_time: number;

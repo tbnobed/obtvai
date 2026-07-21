@@ -10,7 +10,7 @@ from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, Processi
 from ..schemas import (
     MediaAssetOut, MediaListResponse, MediaIngestInput, MediaLinkImportInput,
     LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance,
-    ProcessingJobOut, TranslateRequest, DubRequest,
+    ProcessingJobOut, TranslateRequest, DubRequest, TranscriptSegmentUpdate,
     SocialCutsRequestIn, RenderJobOut,
     ClipExportResult, TightenInput, TightenCut, TightenResult,
     RoughCutInput, ReelJobOut, ResumeStalledOut,
@@ -543,6 +543,47 @@ async def get_media_transcript(id: str, lang: str | None = None, db: AsyncSessio
         if seg.speaker and seg.speaker in speaker_names:
             seg.speaker = speaker_names[seg.speaker]
         out.append(seg)
+    return out
+
+
+@router.patch("/{id}/transcript/{segment_id}", response_model=TranscriptSegmentOut)
+async def update_transcript_segment(
+    id: str, segment_id: str, body: TranscriptSegmentUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(TranscriptSegment).where(
+            TranscriptSegment.id == segment_id,
+            TranscriptSegment.media_id == id,
+        )
+    )
+    seg = result.scalar_one_or_none()
+    if not seg:
+        raise HTTPException(status_code=404, detail="Segment not found")
+
+    text_value = body.text.strip()
+    if not text_value:
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+
+    lang = (body.lang or "").strip().lower() or None
+    if lang:
+        translations = dict(seg.translations or {})
+        if lang not in translations:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No '{lang}' translation exists for this segment — run translation first",
+            )
+        translations[lang] = text_value
+        seg.translations = translations
+    else:
+        seg.text = text_value
+
+    await db.commit()
+    await db.refresh(seg)
+
+    out = TranscriptSegmentOut.model_validate(seg)
+    if lang:
+        out.text = seg.translations[lang]
     return out
 
 

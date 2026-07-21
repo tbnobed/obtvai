@@ -45,6 +45,11 @@ class TranslateRequest(BaseModel):
     target_language: str
 
 
+class TranscriptSegmentUpdate(BaseModel):
+    text: str
+    lang: Optional[str] = None
+
+
 class DubRequest(BaseModel):
     target_language: str
     use_cloned_voices: bool = False

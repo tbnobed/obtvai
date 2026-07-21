@@ -526,6 +526,30 @@ export const GetMediaTranscriptResponse = zod.array(GetMediaTranscriptResponseIt
 
 
 /**
+ * @summary Edit a transcript segment's text (original or a translation)
+ */
+export const UpdateTranscriptSegmentParams = zod.object({
+  "id": zod.coerce.string(),
+  "segmentId": zod.coerce.string()
+})
+
+export const UpdateTranscriptSegmentBody = zod.object({
+  "text": zod.string(),
+  "lang": zod.string().nullish().describe('ISO code of the translation to edit; null\/omitted edits the original transcript text')
+})
+
+export const UpdateTranscriptSegmentResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "text": zod.string(),
+  "speaker": zod.string().nullish(),
+  "confidence": zod.number().nullish()
+})
+
+
+/**
  * @summary Export the transcript as SRT or VTT captions
  */
 export const GetCaptionsParams = zod.object({

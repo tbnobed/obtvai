@@ -13,6 +13,7 @@ import {
   useCreateSocialCuts,
   useCreateTranslation,
   useCreateDub,
+  useUpdateTranscriptSegment,
   useListReels, getListReelsQueryKey,
   useListRenders, getListRendersQueryKey, useDeleteRender,
   useCreateReel,
@@ -35,7 +36,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search, Pencil, Check, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -314,6 +315,24 @@ export default function AssetDetail() {
 
   const [dubClonedVoices, setDubClonedVoices] = useState(true);
   const [dubLipSync, setDubLipSync] = useState(false);
+
+  // ── Inline transcript/translation editing ──────────────────────────────
+  const segmentUpdateMutation = useUpdateTranscriptSegment();
+  const [editingSegId, setEditingSegId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const saveSegmentEdit = (segmentId: string) => {
+    if (!id || !editText.trim()) return;
+    const lang = transcriptLang !== "original" && langAvailable ? transcriptLang : null;
+    segmentUpdateMutation.mutate(
+      { id, segmentId, data: { text: editText.trim(), lang } },
+      {
+        onSuccess: () => {
+          setEditingSegId(null);
+          queryClient.invalidateQueries({ queryKey: getGetMediaTranscriptQueryKey(id, transcriptParams) });
+        },
+      },
+    );
+  };
   const startDub = (lang: string) => {
     if (!id) return;
     dubMutation.mutate({ id, data: { target_language: lang, use_cloned_voices: dubClonedVoices, lip_sync: dubLipSync } }, {
@@ -1203,15 +1222,60 @@ export default function AssetDetail() {
                         <span className="text-xs font-medium text-primary">{segment.speaker || 'Unknown'}</span>
                         <span className="text-[10px] text-muted-foreground font-mono">{formatTimecode(segment.start_time)}</span>
                       </div>
-                      <p className="text-sm">{segment.text}</p>
-                      <Button
-                        size="sm" variant="secondary"
-                        className="absolute top-1 right-1 h-6 px-2 gap-1 text-[11px] opacity-0 group-hover:opacity-100"
-                        title="Add this segment to a clip list"
-                        onClick={(e) => { e.stopPropagation(); setClipListSegment(segment); }}
-                      >
-                        <ListPlus className="h-3 w-3" /> Clip
-                      </Button>
+                      {editingSegId === String(segment.id) ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="text-sm min-h-[60px]"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveSegmentEdit(String(segment.id));
+                              if (e.key === "Escape") setEditingSegId(null);
+                            }}
+                          />
+                          <div className="flex gap-1.5 mt-1.5">
+                            <Button
+                              size="sm" className="h-6 px-2 gap-1 text-[11px]"
+                              disabled={segmentUpdateMutation.isPending || !editText.trim()}
+                              onClick={() => saveSegmentEdit(String(segment.id))}
+                            >
+                              {segmentUpdateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Save
+                            </Button>
+                            <Button
+                              size="sm" variant="outline" className="h-6 px-2 gap-1 text-[11px]"
+                              onClick={() => setEditingSegId(null)}
+                            >
+                              <X className="h-3 w-3" /> Cancel
+                            </Button>
+                            {segmentUpdateMutation.isError && editingSegId === String(segment.id) && (
+                              <span className="text-[11px] text-destructive self-center">Save failed</span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm">{segment.text}</p>
+                      )}
+                      {editingSegId !== String(segment.id) && (
+                        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100">
+                          <Button
+                            size="sm" variant="secondary"
+                            className="h-6 px-2 gap-1 text-[11px]"
+                            title={transcriptLang !== "original" && langAvailable ? "Edit this translation" : "Edit this segment"}
+                            onClick={(e) => { e.stopPropagation(); setEditingSegId(String(segment.id)); setEditText(segment.text); }}
+                          >
+                            <Pencil className="h-3 w-3" /> Edit
+                          </Button>
+                          <Button
+                            size="sm" variant="secondary"
+                            className="h-6 px-2 gap-1 text-[11px]"
+                            title="Add this segment to a clip list"
+                            onClick={(e) => { e.stopPropagation(); setClipListSegment(segment); }}
+                          >
+                            <ListPlus className="h-3 w-3" /> Clip
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {!transcript?.length && (
