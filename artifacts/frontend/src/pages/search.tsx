@@ -59,11 +59,11 @@ export default function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchString]);
 
-  const resultRow = (r: SearchResult, key: string) => (
-    <div key={key} className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm gap-3">
+  const resultCard = (r: SearchResult, key: string) => (
+    <div key={key} className="bg-muted/50 rounded overflow-hidden text-sm flex flex-col">
       <button
         type="button"
-        className="w-24 h-14 shrink-0 rounded overflow-hidden bg-black/40 flex items-center justify-center cursor-pointer"
+        className="relative w-full aspect-video bg-black/40 flex items-center justify-center cursor-pointer group"
         title="Play this clip"
         onClick={() =>
           setPlayerClip({
@@ -83,44 +83,37 @@ export default function SearchPage() {
             className="w-full h-full object-cover"
           />
         ) : (
-          <Play className="h-4 w-4 text-muted-foreground" />
+          <Play className="h-6 w-6 text-muted-foreground" />
         )}
+        <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors">
+          <Play className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </span>
+        <span className="absolute bottom-1 right-1 text-[10px] px-1 py-0.5 rounded bg-black/70 text-white">
+          {formatTC(r.start_time, 25, false)}–{formatTC(r.end_time, 25, false)}
+        </span>
       </button>
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium">{r.filename}</div>
-        <div className="text-xs text-muted-foreground truncate">
-          {formatTC(r.start_time, 25, false)}–{formatTC(r.end_time, 25, false)} ·{" "}
-          {r.match_type === "visual" ? "Visual match" : "Transcript match"} · {(r.score * 100).toFixed(0)}%
-          {r.snippet ? ` · “${r.snippet}”` : ""}
+      <div className="p-2.5 flex-1 flex flex-col gap-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="truncate font-medium">{r.filename}</div>
+          <Button asChild size="icon" variant="ghost" className="h-6 w-6 shrink-0 -mt-0.5" title="Open the asset at this timecode">
+            <Link href={`/library/${r.media_id}?t=${Math.floor(r.start_time)}`}>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
         </div>
-      </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <Button
-          size="icon" variant="ghost" className="h-7 w-7" title="Play this clip"
-          onClick={() =>
-            setPlayerClip({
-              media_id: r.media_id,
-              start_time: r.start_time,
-              end_time: r.end_time,
-              label: r.snippet || undefined,
-              filename: r.filename,
-            })
-          }
-        >
-          <Play className="h-3.5 w-3.5" />
-        </Button>
-        <Button asChild size="icon" variant="ghost" className="h-7 w-7" title="Open the asset at this timecode">
-          <Link href={`/library/${r.media_id}?t=${Math.floor(r.start_time)}`}>
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        </Button>
+        <div className="text-xs text-muted-foreground">
+          {r.match_type === "visual" ? "Visual match" : "Transcript match"} · {(r.score * 100).toFixed(0)}%
+        </div>
+        {r.snippet && (
+          <div className="text-xs text-muted-foreground line-clamp-2">“{r.snippet}”</div>
+        )}
       </div>
     </div>
   );
 
   return (
     <div className="h-full overflow-y-auto">
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div>
         <h1 className="text-2xl font-semibold flex items-center gap-2">
           <Search className="h-6 w-6" /> Search
@@ -189,9 +182,11 @@ export default function SearchPage() {
               {searchMutation.data.results.length} result{searchMutation.data.results.length === 1 ? "" : "s"} for “{searchMutation.data.query}”
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent>
             {searchMutation.data.results.length ? (
-              searchMutation.data.results.map((r, i) => resultRow(r, `s-${i}`))
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {searchMutation.data.results.map((r, i) => resultCard(r, `s-${i}`))}
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">No matches. Try different wording — the search is semantic, not keyword-based.</p>
             )}
