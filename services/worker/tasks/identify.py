@@ -647,23 +647,62 @@ def identify_people(self, media_id: str, job_id: str):
         db.close()
 
 
-def _litterbox_upload(path: str) -> str:
-    """Upload a file to litterbox.catbox.moe (expires after 1 hour) and return
-    its public URL. Google Lens (SerpAPI) can only fetch images by URL, so the
-    face crop must be briefly reachable from the internet."""
+def _upload_temp_image(path: str) -> str:
+    """Upload a file to a short-lived public host and return its URL.
+    Google Lens (SerpAPI) can only fetch images by URL, so the face crop must
+    be briefly reachable from the internet. Tries several anonymous temp hosts
+    in order — any one of them being down (e.g. litterbox 500s) must not break
+    the search."""
     import httpx
-    with open(path, "rb") as fh:
+    import logging
+    logger = logging.getLogger(__name__)
+
+    def _litterbox(fh):
         resp = httpx.post(
             "https://litterbox.catbox.moe/resources/internals/api.php",
             data={"reqtype": "fileupload", "time": "1h"},
             files={"fileToUpload": (os.path.basename(path), fh, "image/jpeg")},
             timeout=60.0,
         )
-    resp.raise_for_status()
-    url = resp.text.strip()
-    if not url.startswith("http"):
-        raise RuntimeError(f"Unexpected upload response: {url[:200]}")
-    return url
+        resp.raise_for_status()
+        return resp.text.strip()
+
+    def _uguu(fh):
+        resp = httpx.post(
+            "https://uguu.se/upload",
+            files={"files[]": (os.path.basename(path), fh, "image/jpeg")},
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return str(((data.get("files") or [{}])[0]).get("url") or "").strip()
+
+    def _0x0(fh):
+        resp = httpx.post(
+            "https://0x0.st",
+            data={"expires": "1"},  # hours
+            files={"file": (os.path.basename(path), fh, "image/jpeg")},
+            headers={"User-Agent": "obtv-ai-face-search/1.0"},
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+        return resp.text.strip()
+
+    errors = []
+    for name, fn in (("litterbox", _litterbox), ("uguu", _uguu), ("0x0.st", _0x0)):
+        try:
+            with open(path, "rb") as fh:
+                url = fn(fh)
+            if url.startswith("http"):
+                return url
+            errors.append(f"{name}: unexpected response {url[:80]!r}")
+        except Exception as exc:
+            errors.append(f"{name}: {str(exc)[:120]}")
+            logger.warning("Temp image upload via %s failed: %s", name, exc)
+    raise RuntimeError(
+        "All temporary image hosts failed — try again in a few minutes. ("
+        + "; ".join(errors) + ")"
+    )
 
 
 @celery_app.task(name="tasks.identify.face_search", queue="cpu")
@@ -704,7 +743,7 @@ def face_search(person_id: str, job_id: str = ""):
             _store({"status": "error", "error": "Face thumbnail file not found"})
             return
 
-        image_url = _litterbox_upload(thumb)
+        image_url = _upload_temp_image(thumb)
         try:
             with httpx.Client(timeout=90.0) as client:
                 resp = client.get(
