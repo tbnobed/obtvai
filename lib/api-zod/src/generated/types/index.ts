@@ -122,6 +122,8 @@ export * from './ratingsOverviewTrendItem';
 export * from './ratingUpdate';
 export * from './reanalyzeResult';
 export * from './reelClip';
+export * from './reelFeedback';
+export * from './reelFeedbackRating';
 export * from './reelJob';
 export * from './reelRequest';
 export * from './reelRequestPace';

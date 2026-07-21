@@ -92,6 +92,7 @@ import type {
   RatingsListResponse,
   RatingsOverview,
   ReanalyzeResult,
+  ReelFeedback,
   ReelJob,
   ReelRequest,
   RenderJob,
@@ -8632,6 +8633,78 @@ export const useDeleteReel = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteReelMutationOptions(options));
+    }
+
+export const getRateReelUrl = (id: string,) => {
+
+
+
+
+  return `/api/reels/${id}/feedback`
+}
+
+/**
+ * @summary Rate a rendered reel (thumbs up/down) — liked reels become few-shot references for future curation
+ */
+export const rateReel = async (id: string,
+    reelFeedback: ReelFeedback, options?: RequestInit): Promise<ReelJob> => {
+
+  return customFetch<ReelJob>(getRateReelUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reelFeedback)
+  }
+);}
+
+
+
+
+
+export const getRateReelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rateReel>>, TError,{id: string;data: BodyType<ReelFeedback>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rateReel>>, TError,{id: string;data: BodyType<ReelFeedback>}, TContext> => {
+
+const mutationKey = ['rateReel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rateReel>>, {id: string;data: BodyType<ReelFeedback>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  rateReel(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RateReelMutationResult = NonNullable<Awaited<ReturnType<typeof rateReel>>>
+    export type RateReelMutationBody = BodyType<ReelFeedback>
+    export type RateReelMutationError = ErrorType<void>
+
+    /**
+ * @summary Rate a rendered reel (thumbs up/down) — liked reels become few-shot references for future curation
+ */
+export const useRateReel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rateReel>>, TError,{id: string;data: BodyType<ReelFeedback>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rateReel>>,
+        TError,
+        {id: string;data: BodyType<ReelFeedback>},
+        TContext
+      > => {
+      return useMutation(getRateReelMutationOptions(options));
     }
 
 export const getDownloadReelUrl = (id: string,) => {

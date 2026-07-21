@@ -2566,6 +2566,33 @@ paths:
         "404":
           description: Not found
 
+  /reels/{id}/feedback:
+    post:
+      operationId: rateReel
+      tags: [reels]
+      summary: Rate a rendered reel (thumbs up/down) — liked reels become few-shot references for future curation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReelFeedback"
+      responses:
+        "200":
+          description: Updated reel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelJob"
+        "404":
+          description: Not found
+
   /reels/{id}/download:
     get:
       operationId: downloadReel
@@ -5040,6 +5067,15 @@ components:
           default: normal
           description: "Cutting pace, enforced as a hard max clip length after curation: fast = 2-6 s clips, normal = up to 15 s, cinematic = up to 40 s. Overlong clips are split at scene boundaries or sentence gaps."
 
+    ReelFeedback:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          type: ["string", "null"]
+          enum: [up, down, null]
+          description: Thumbs up/down, or null to clear the rating
+
     ReelClip:
       type: object
       required: [media_id, filename, start_time, end_time]
@@ -5078,6 +5114,9 @@ components:
         pace:
           type: ["string", "null"]
           description: fast | normal | cinematic
+        rating:
+          type: ["string", "null"]
+          description: up | down when the user has rated the rendered reel
         preset:
           type: string
           description: original | vertical

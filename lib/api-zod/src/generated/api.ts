@@ -613,6 +613,7 @@ export const CreateRoughCutResponse = zod.object({
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "pace": zod.string().nullish().describe('fast | normal | cinematic'),
+  "rating": zod.string().nullish().describe('up | down when the user has rated the rendered reel'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
@@ -2925,6 +2926,7 @@ export const CreateClipListRoughCutResponse = zod.object({
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "pace": zod.string().nullish().describe('fast | normal | cinematic'),
+  "rating": zod.string().nullish().describe('up | down when the user has rated the rendered reel'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
@@ -3222,6 +3224,7 @@ export const ListReelsResponseItem = zod.object({
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "pace": zod.string().nullish().describe('fast | normal | cinematic'),
+  "rating": zod.string().nullish().describe('up | down when the user has rated the rendered reel'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
@@ -3277,6 +3280,7 @@ export const CreateReelResponse = zod.object({
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "pace": zod.string().nullish().describe('fast | normal | cinematic'),
+  "rating": zod.string().nullish().describe('up | down when the user has rated the rendered reel'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
@@ -3311,6 +3315,7 @@ export const GetReelResponse = zod.object({
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
   "pace": zod.string().nullish().describe('fast | normal | cinematic'),
+  "rating": zod.string().nullish().describe('up | down when the user has rated the rendered reel'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
@@ -3339,6 +3344,45 @@ export const DeleteReelParams = zod.object({
 })
 
 export const DeleteReelResponse = zod.void()
+
+
+/**
+ * @summary Rate a rendered reel (thumbs up/down) — liked reels become few-shot references for future curation
+ */
+export const RateReelParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RateReelBody = zod.object({
+  "rating": zod.union([zod.literal('up'),zod.literal('down'),zod.literal(null)]).nullable().describe('Thumbs up\/down, or null to clear the rating')
+})
+
+export const RateReelResponse = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
+  "project_id": zod.string().nullish(),
+  "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
+  "pace": zod.string().nullish().describe('fast | normal | cinematic'),
+  "rating": zod.string().nullish().describe('up | down when the user has rated the rendered reel'),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
+})),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
 
 
 /**

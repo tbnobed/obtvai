@@ -1678,6 +1678,7 @@ type MockReel = {
   id: string; prompt: string; media_id: string | null; project_id: string | null;
   target_duration_seconds: number | null;
   pace: string;
+  rating: string | null;
   preset: string; burn_captions: boolean; unreviewed: boolean;
   clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null; thumbnail_url: string | null }[];
   status: string; progress: number;
@@ -1812,6 +1813,7 @@ router.post("/reels", (req, res) => {
     project_id: (req.body.project_id as string | null) || null,
     target_duration_seconds: targetDuration,
     pace,
+    rating: null,
     preset,
     burn_captions: burn,
     unreviewed: false,
@@ -1833,6 +1835,20 @@ router.get("/reels/:id", (req, res) => {
   const r = reels.find((x) => x.id === req.params.id);
   if (!r) { res.status(404).json({ detail: "Reel not found" }); return; }
   tickReel(r);
+  res.json(reelOut(r));
+});
+
+router.post("/reels/:id/feedback", (req, res) => {
+  const r = reels.find((x) => x.id === req.params.id);
+  if (!r) { res.status(404).json({ detail: "Reel not found" }); return; }
+  tickReel(r);
+  if (r.status !== "success") { res.status(409).json({ detail: "Only finished reels can be rated" }); return; }
+  const rating = req.body?.rating;
+  if (rating !== "up" && rating !== "down" && rating !== null) {
+    res.status(400).json({ detail: "rating must be up, down, or null" });
+    return;
+  }
+  r.rating = rating;
   res.json(reelOut(r));
 });
 
@@ -1950,7 +1966,7 @@ function makeMockReel(prompt: string, mediaId: string | null, preset: string, bu
   touchProject(projectId);
   const reel: MockReel = {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-    prompt, media_id: mediaId, project_id: projectId, target_duration_seconds: null, pace: "normal", preset, burn_captions: burn, unreviewed, clips,
+    prompt, media_id: mediaId, project_id: projectId, target_duration_seconds: null, pace: "normal", rating: null, preset, burn_captions: burn, unreviewed, clips,
     status: "pending", progress: 0, output_url: null, error_message: null,
     created_at: new Date().toISOString(), finished_at: null, _startedAt: Date.now(),
   };

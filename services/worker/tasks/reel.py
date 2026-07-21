@@ -176,6 +176,51 @@ def _enforce_pace(db, clips: list[dict], pace: str | None) -> list[dict]:
     return out
 
 
+def _reference_examples(db, limit: int = 3) -> str:
+    """Few-shot feedback loop: summarize recently thumbs-up'd reels (and what
+    the editor rejected) so the LLM learns the house style from real ratings.
+    No fine-tuning — liked examples are simply shown as references."""
+    from sqlalchemy import text
+    rows = db.execute(
+        text("""
+            SELECT prompt, clips, candidate_clips, rating FROM reel_jobs
+            WHERE rating IN ('up', 'down') AND status = 'success'
+            ORDER BY (rating = 'up') DESC, created_at DESC
+            LIMIT :n
+        """),
+        {"n": limit * 2},
+    ).fetchall()
+    ups, downs = [], []
+    for r_prompt, r_clips, r_cands, r_rating in rows:
+        clips_ = json.loads(r_clips) if isinstance(r_clips, str) else (r_clips or [])
+        cands_ = json.loads(r_cands) if isinstance(r_cands, str) else (r_cands or [])
+        if not clips_:
+            continue
+        lens = [float(c["end_time"]) - float(c["start_time"]) for c in clips_]
+        snippets = "; ".join(
+            f'"{(c.get("snippet") or "")[:90]}"' for c in clips_[:3] if c.get("snippet")
+        )
+        line = (
+            f'- Brief: "{r_prompt[:120]}" — kept {len(clips_)}'
+            + (f" of {len(cands_)} candidates" if cands_ else " clips")
+            + f", clip lengths {min(lens):.0f}-{max(lens):.0f}s"
+            + (f". Sample kept moments: {snippets}" if snippets else "")
+        )
+        (ups if r_rating == "up" else downs).append(line)
+    parts = []
+    if ups:
+        parts.append(
+            "Reference cuts the editor RATED UP — match this selection style:\n"
+            + "\n".join(ups[:limit])
+        )
+    if downs:
+        parts.append(
+            "Cuts the editor RATED DOWN — avoid whatever made these weak:\n"
+            + "\n".join(downs[:limit])
+        )
+    return "\n".join(parts)
+
+
 def _curate_clips(
     db, prompt: str, candidates: list[dict],
     target_duration: float | None = None,
@@ -234,11 +279,19 @@ def _curate_clips(
     if target_duration:
         max_clip = max(_CURATE_MAX_CLIP, min(300.0, target_duration / max(len(candidates), 1) * 1.5))
 
+    # Feedback loop: show recently rated reels as few-shot references.
+    references = ""
+    try:
+        references = _reference_examples(db)
+    except Exception:
+        pass
+
     tokenizer, model = _load_llm()
     llm_prompt = (
         f"You are a senior video editor cutting a highlight reel. {CREATIVE_PERSONA}\n"
         f"{EDITOR_RULES}\n"
-        f'Editorial brief: "{prompt}"\n\n'
+        + (f"{references}\n\n" if references else "")
+        + f'Editorial brief: "{prompt}"\n\n'
         "Below are candidate moments found by search, each with surrounding "
         "transcript context and timecodes.\n\n"
         + "\n\n".join(blocks)

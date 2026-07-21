@@ -27,6 +27,11 @@ export interface ReelJob {
      * @nullable
      */
   pace?: string | null;
+  /**
+     * up | down when the user has rated the rendered reel
+     * @nullable
+     */
+  rating?: string | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;

@@ -44,6 +44,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import AssetChat from "@/components/asset-chat";
+import { ReelRatingButtons } from "@/components/reel-rating";
 
 const PLATFORM_META: Record<string, { label: string; Icon: typeof Youtube; color: string }> = {
   youtube: { label: "YouTube", Icon: Youtube, color: "text-red-500" },
@@ -2099,6 +2100,7 @@ function AssetReelSection({ mediaId }: { mediaId: string }) {
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <ReelRatingButtons reel={r} onRated={invalidate} />
                   {r.status === "success" && (
                     <Button size="sm" variant="outline" asChild>
                       <a href={`/api/reels/${r.id}/download`} download>

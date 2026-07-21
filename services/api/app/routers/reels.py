@@ -16,7 +16,7 @@ from sqlalchemy import select, desc
 from ..database import get_db
 from .projects import touch_project
 from ..models import ReelJob, MediaAsset, TranscriptSegment, Scene
-from ..schemas import ReelRequestIn, ReelJobOut, ReelClipOut
+from ..schemas import ReelRequestIn, ReelJobOut, ReelClipOut, ReelFeedbackIn
 from ..worker_client import enqueue_reel
 
 router = APIRouter(prefix="/reels", tags=["reels"])
@@ -43,6 +43,7 @@ def _to_out(r: ReelJob) -> ReelJobOut:
         project_id=r.project_id,
         target_duration_seconds=r.target_duration_seconds,
         pace=r.pace,
+        rating=r.rating,
         preset=r.preset,
         burn_captions=r.burn_captions,
         unreviewed=bool(r.unreviewed),
@@ -291,6 +292,9 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         preset=body.preset,
         burn_captions=body.burn_captions,
         clips=clips,
+        # Snapshot the pre-curation candidates so we can tell what the LLM
+        # kept vs re-cut when this reel is rated and used as a reference.
+        candidate_clips=clips,
         status="pending",
         progress=0.0,
         created_at=datetime.utcnow(),
@@ -318,6 +322,20 @@ async def get_reel(id: str, db: AsyncSession = Depends(get_db)):
     if not r:
         raise HTTPException(status_code=404, detail="Reel not found")
     await _backfill_thumbnails(r, db)
+    return _to_out(r)
+
+
+@router.post("/{id}/feedback", response_model=ReelJobOut)
+async def rate_reel(id: str, body: ReelFeedbackIn, db: AsyncSession = Depends(get_db)):
+    r = (await db.execute(select(ReelJob).where(ReelJob.id == id))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reel not found")
+    if r.status != "success":
+        raise HTTPException(status_code=409, detail="Only finished reels can be rated")
+    r.rating = body.rating
+    db.add(r)
+    await db.commit()
+    await db.refresh(r)
     return _to_out(r)
 
 

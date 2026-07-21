@@ -280,6 +280,8 @@ class ReelJob(Base):
     project_id: Mapped[str | None] = mapped_column(String, nullable=True)
     target_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     pace: Mapped[str | None] = mapped_column(String, nullable=True, default="normal")
+    rating: Mapped[str | None] = mapped_column(String, nullable=True)
+    candidate_clips: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     preset: Mapped[str] = mapped_column(String, default="original")
     burn_captions: Mapped[bool] = mapped_column(Boolean, default=False)
     unreviewed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

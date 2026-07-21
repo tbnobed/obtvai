@@ -41,6 +41,7 @@ import type {
   ReelClip,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ReelRatingButtons } from "@/components/reel-rating";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1231,6 +1232,7 @@ export default function ProjectDetail() {
                     <div className="flex items-center gap-1 shrink-0">
                       <UnreviewedBadge show={reel.unreviewed} />
                       <JobStatusBadge status={reel.status} />
+                      <ReelRatingButtons reel={reel} onRated={invalidateAll} />
                       <Button
                         size="icon"
                         variant="ghost"

@@ -1682,6 +1682,26 @@ export interface ReelRequest {
   pace?: ReelRequestPace;
 }
 
+/**
+ * Thumbs up/down, or null to clear the rating
+ * @nullable
+ */
+export type ReelFeedbackRating = typeof ReelFeedbackRating[keyof typeof ReelFeedbackRating] | null;
+
+
+export const ReelFeedbackRating = {
+  up: 'up',
+  down: 'down',
+} as const;
+
+export interface ReelFeedback {
+  /**
+     * Thumbs up/down, or null to clear the rating
+     * @nullable
+     */
+  rating: ReelFeedbackRating;
+}
+
 export interface ReelClip {
   media_id: string;
   filename: string;
@@ -1719,6 +1739,11 @@ export interface ReelJob {
      * @nullable
      */
   pace?: string | null;
+  /**
+     * up | down when the user has rated the rendered reel
+     * @nullable
+     */
+  rating?: string | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;

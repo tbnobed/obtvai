@@ -242,6 +242,10 @@ class ReelRequestIn(BaseModel):
     pace: Literal["fast", "normal", "cinematic"] = "normal"
 
 
+class ReelFeedbackIn(BaseModel):
+    rating: Optional[Literal["up", "down"]] = None
+
+
 class ReelClipOut(BaseModel):
     media_id: str
     filename: str
@@ -258,6 +262,7 @@ class ReelJobOut(BaseModel):
     project_id: Optional[str] = None
     target_duration_seconds: Optional[float] = None
     pace: Optional[str] = None
+    rating: Optional[str] = None
     preset: str
     burn_captions: bool
     unreviewed: Optional[bool] = None
