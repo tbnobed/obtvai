@@ -128,6 +128,36 @@ export default function AssetDetail() {
   const transcriptParams = langAvailable ? { lang: transcriptLang } : undefined;
   const { data: transcript } = useGetMediaTranscript(id!, transcriptParams, { query: { enabled: !!id, queryKey: getGetMediaTranscriptQueryKey(id!, transcriptParams) } });
 
+  // ── Transcript follows playback ────────────────────────────────────────
+  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+  const activeSegmentRef = useRef<HTMLDivElement | null>(null);
+  const transcriptUserScrollRef = useRef(0);
+  const handleTimeUpdate = () => {
+    const t = videoRef.current?.currentTime ?? 0;
+    if (!transcript?.length) return;
+    let active: TranscriptSegment | null = null;
+    for (const seg of transcript) {
+      if (seg.start_time <= t) active = seg;
+      else break;
+    }
+    const nextId = active ? String(active.id) : null;
+    setActiveSegmentId(prev => (prev === nextId ? prev : nextId));
+  };
+  useEffect(() => {
+    if (!activeSegmentId) return;
+    // Don't fight the user: pause auto-follow for a few seconds after they scroll.
+    if (Date.now() - transcriptUserScrollRef.current < 4000) return;
+    const el = activeSegmentRef.current;
+    const viewport = el?.closest('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+    if (el && viewport) {
+      const elRect = el.getBoundingClientRect();
+      const vpRect = viewport.getBoundingClientRect();
+      const top = viewport.scrollTop + (elRect.top - vpRect.top) - vpRect.height / 2 + elRect.height / 2;
+      viewport.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    }
+  }, [activeSegmentId]);
+  const markTranscriptUserScroll = () => { transcriptUserScrollRef.current = Date.now(); };
+
   // ── Markers / selects ──────────────────────────────────────────────────
   const { data: markers } = useListMarkers(id!, { query: { enabled: !!id, queryKey: getListMarkersQueryKey(id!) } });
   const createMarkerMutation = useCreateMarker();
@@ -386,6 +416,7 @@ export default function AssetDetail() {
                   : `/api/media/${id}/stream`} 
                 controls 
                 className="w-full max-h-[60vh] object-contain bg-black"
+                onTimeUpdate={handleTimeUpdate}
               />
             ) : (
               undefined
@@ -1141,12 +1172,13 @@ export default function AssetDetail() {
                   )}
                 </div>
               ) : (
-              <ScrollArea className="flex-1 p-4">
+              <ScrollArea className="flex-1 p-4" onWheel={markTranscriptUserScroll} onTouchMove={markTranscriptUserScroll}>
                 <div className="space-y-4">
                   {transcript?.map(segment => (
                     <div 
                       key={segment.id} 
-                      className="group cursor-pointer hover:bg-muted p-2 -mx-2 rounded transition-colors relative"
+                      ref={el => { if (String(segment.id) === activeSegmentId) activeSegmentRef.current = el; }}
+                      className={`group cursor-pointer hover:bg-muted p-2 -mx-2 rounded transition-colors relative ${String(segment.id) === activeSegmentId ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}
                       onClick={() => seekTo(segment.start_time)}
                     >
                       <div className="flex gap-2 items-baseline mb-1">
