@@ -221,11 +221,68 @@ def _reference_examples(db, limit: int = 3) -> str:
     return "\n".join(parts)
 
 
+_CURATE_BATCH = 24  # candidates per LLM pass — fits the prompt context budget
+
+
 def _curate_clips(
     db, prompt: str, candidates: list[dict],
     target_duration: float | None = None,
+    progress_cb=None,
 ) -> list[dict] | None:
-    """Story-editor pass over the API's semantic-search candidates.
+    """Story-editor pass over ALL candidates, however many there are.
+
+    Small reels go through a single LLM pass. Long-form builds (show run
+    times — hundreds of candidates) are curated in chunks of _CURATE_BATCH so
+    every candidate gets editorial review instead of only the first prompt-full;
+    chunk order is preserved (candidates arrive grouped by asset, chronological)
+    and each chunk keeps its share of the runtime target. A chunk whose LLM
+    pass fails keeps its raw candidates rather than losing material.
+    """
+    if len(candidates) <= _CURATE_BATCH:
+        return _curate_batch(db, prompt, candidates, target_duration)
+
+    chunks = [
+        candidates[i:i + _CURATE_BATCH]
+        for i in range(0, len(candidates), _CURATE_BATCH)
+    ]
+    out: list[dict] = []
+    any_curated = False
+    for bi, chunk in enumerate(chunks):
+        chunk_target = (
+            target_duration * (len(chunk) / len(candidates))
+            if target_duration else None
+        )
+        try:
+            refined = _curate_batch(
+                db, prompt, chunk, chunk_target,
+                segment=(bi + 1, len(chunks)),
+            )
+        except Exception:
+            import traceback
+            print(
+                f"Reel curation batch {bi + 1}/{len(chunks)} failed, "
+                f"keeping raw candidates for it:\n{traceback.format_exc()}"
+            )
+            refined = None
+        if refined:
+            any_curated = True
+            out.extend(refined)
+        else:
+            out.extend(chunk)
+        if progress_cb:
+            try:
+                progress_cb((bi + 1) / len(chunks))
+            except Exception:
+                pass
+    return out if any_curated else None
+
+
+def _curate_batch(
+    db, prompt: str, candidates: list[dict],
+    target_duration: float | None = None,
+    segment: tuple[int, int] | None = None,
+) -> list[dict] | None:
+    """Single LLM story-editor pass over one batch of candidates.
 
     Shows the LLM each candidate with surrounding transcript context and asks
     it to trim to complete thoughts, cut weak moments, and order for narrative
@@ -240,7 +297,13 @@ def _curate_clips(
 
     blocks = []
     windows = []  # (media_id, filename, ctx_start, ctx_end)
-    for i, c in enumerate(candidates):
+    included: list[dict] = []  # candidates shown to the LLM, parallel to windows
+    leftover: list[dict] = []  # candidates the prompt could not fit / had no transcript
+    total_chars = 0
+    for c in candidates:
+        if total_chars > 14000:
+            leftover.append(c)
+            continue
         mid = c["media_id"]
         ctx_s = max(0.0, float(c["start_time"]) - _CONTEXT_PAD)
         ctx_e = float(c["end_time"]) + _CONTEXT_PAD
@@ -253,6 +316,7 @@ def _curate_clips(
             {"mid": mid, "s": ctx_s, "e": ctx_e},
         ).fetchall()
         if not rows:
+            leftover.append(c)
             continue
         lines = "\n".join(
             f"  [{_format_timecode(float(r[0]))}-{_format_timecode(float(r[1]))}] {r[2]}"
@@ -262,14 +326,14 @@ def _curate_clips(
             clip_visual_profile(db, mid, float(c["start_time"]), float(c["end_time"]))
         )
         blocks.append(
-            f"CANDIDATE {i} — file: {c['filename']} "
+            f"CANDIDATE {len(windows)} — file: {c['filename']} "
             f"(flagged moment {_format_timecode(float(c['start_time']))}-"
             f"{_format_timecode(float(c['end_time']))}):\n"
             f"  VISUALS: {visual}\n{lines}"
         )
         windows.append((mid, c["filename"], float(rows[0][0]), float(rows[-1][1])))
-        if len("\n\n".join(blocks)) > 14000:
-            break
+        included.append(c)
+        total_chars += len(blocks[-1]) + 2
 
     if not blocks:
         return None
@@ -291,6 +355,12 @@ def _curate_clips(
         f"You are a senior video editor cutting a highlight reel. {CREATIVE_PERSONA}\n"
         f"{EDITOR_RULES}\n"
         + (f"{references}\n\n" if references else "")
+        + (
+            f"You are editing SEGMENT {segment[0]} of {segment[1]} of a longer "
+            "program — curate this segment on its own merits; the segments are "
+            "assembled in order afterwards.\n"
+            if segment else ""
+        )
         + f'Editorial brief: "{prompt}"\n\n'
         "Below are candidate moments found by search, each with surrounding "
         "transcript context and timecodes.\n\n"
@@ -299,16 +369,24 @@ def _curate_clips(
         "and end timecodes FROM THE CONTEXT SHOWN so the clip contains one complete, "
         "self-contained thought — never start or end mid-sentence. Prefer emotionally "
         "strong, quotable moments; drop candidates that are filler or redundant. "
-        "Order the clips so the reel builds like a story: a hook first, then "
-        "development, then the strongest emotional beat near the end. The opening "
-        "clip must start ON its hook — trim any run-up so the first 2 seconds land.\n"
-        "Use the VISUALS line to vary the picture — avoid "
+        + (
+            "Keep the clips in a natural flow within this segment.\n"
+            if segment and segment[0] > 1 else
+            "Order the clips so the reel builds like a story: a hook first, then "
+            "development, then the strongest emotional beat near the end. The opening "
+            "clip must start ON its hook — trim any run-up so the first 2 seconds land.\n"
+        )
+        + "Use the VISUALS line to vary the picture — avoid "
         "placing two clips with the same person in the same framing back-to-back; "
         "alternate faces, files, and shot energy so the reel never feels static. "
         "When two candidates say the same thing, keep the more visually dynamic one.\n"
         + (
-            f"The finished piece should run close to {int(target_duration // 60)} minutes "
-            "— keep enough material to reach that length; do not over-trim.\n"
+            (
+                f"This segment should run close to {int(round(target_duration))} seconds "
+                if target_duration < 120 else
+                f"The finished piece should run close to {int(target_duration // 60)} minutes "
+            )
+            + "— keep enough material to reach that length; do not over-trim.\n"
             if target_duration else ""
         )
         + "\n"
@@ -333,8 +411,8 @@ def _curate_clips(
         if idx < 0 or idx >= len(windows):
             continue
         mid, filename, ctx_s, ctx_e = windows[idx]
-        s = _timecode_to_seconds(item.get("start", candidates[idx]["start_time"]))
-        e = _timecode_to_seconds(item.get("end", candidates[idx]["end_time"]))
+        s = _timecode_to_seconds(item.get("start", included[idx]["start_time"]))
+        e = _timecode_to_seconds(item.get("end", included[idx]["end_time"]))
         s = max(ctx_s, min(float(s), ctx_e))
         e = max(s, min(float(e), ctx_e))
         if e - s < _CURATE_MIN_CLIP:
@@ -358,11 +436,11 @@ def _curate_clips(
             "start_time": round(float(s), 2),
             "end_time": round(float(e), 2),
             "snippet": snippet,
-            "thumbnail_url": candidates[idx].get("thumbnail_url"),
+            "thumbnail_url": included[idx].get("thumbnail_url"),
         })
 
     # Sanity: require a meaningful selection, otherwise keep raw candidates
-    if len(refined) < min(3, len(candidates)):
+    if len(refined) < min(3, len(included)):
         return None
 
     # ── Visual variety pass ──────────────────────────────────────────────
@@ -381,10 +459,14 @@ def _curate_clips(
     if target_duration:
         # Don't let curation gut a long-form build far below the runtime goal
         # when the raw candidates had the material to reach it.
-        raw_total = sum(float(c["end_time"]) - float(c["start_time"]) for c in candidates)
+        raw_total = sum(float(c["end_time"]) - float(c["start_time"]) for c in included)
         refined_total = sum(c["end_time"] - c["start_time"] for c in refined)
         if refined_total < 0.6 * min(target_duration, raw_total):
             return None
+    # Conservation: candidates the prompt couldn't fit (or that had no
+    # transcript) are carried through raw — never silently dropped.
+    if leftover:
+        refined = refined + list(leftover)
     return refined
 
 
@@ -415,7 +497,12 @@ def build_reel(self, reel_id: str):
         # complete thoughts, drops weak moments, and orders for a real arc.
         if reel_prompt and (reel_prompt or "").strip():
             try:
-                curated = _curate_clips(db, reel_prompt.strip(), clips, target_duration)
+                curated = _curate_clips(
+                    db, reel_prompt.strip(), clips, target_duration,
+                    progress_cb=lambda frac: _update_reel(
+                        db, reel_id, progress=round(min(9.0, 1.0 + frac * 8.0), 1)
+                    ),
+                )
                 if curated:
                     clips = curated
                     _update_reel(db, reel_id, clips=json.dumps(clips))

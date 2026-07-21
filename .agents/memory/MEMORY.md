@@ -18,6 +18,7 @@
 - [XTTS cloning quality](xtts-cloning-quality.md) — stock inference defaults beat hand-tuned sampling; 1-2 long clean reference wavs beat many mixed ones.
 - [Demucs background separation](demucs-background.md) — torchaudio bundles HDemucs (no pip dep, protects torch pin); long assets need streaming chunked separation with complementary crossfades.
 - [Driving ComfyUI over REST](comfyui-driving.md) — history entry = done signal; SaveImage+ffmpeg beats video-save nodes; gate on /object_info; cancel-race + poll-tolerance guards.
+- [LLM prompt-budget conservation](llm-prompt-budget-conservation.md) — capped prompt assembly must chunk or carry unseen items through raw; never break-and-drop the tail.
 - [GPU VRAM co-residency](gpu-vram-coresidency.md) — idle model caches starve ComfyUI; every singleton model needs idle-release; OOM-retry outside except block or the traceback pins the tensors.
 - [External API error hygiene](external-api-error-hygiene.md) — httpx HTTPStatusError text embeds the full URL incl. api_key; sanitize before persisting errors; pending statuses need queued_at for stuck-state retry.
 - [queryClient.clear() orphans observers](react-query-clear-orphan.md) — never clear() with mounted observers; works in dev, silently freezes prod builds; removeQueries+setQueryData instead.
