@@ -5034,6 +5034,11 @@ components:
           minimum: 1
           maximum: 500
           description: Clip cap when no target duration is given
+        pace:
+          type: string
+          enum: [fast, normal, cinematic]
+          default: normal
+          description: "Cutting pace, enforced as a hard max clip length after curation: fast = 2-6 s clips, normal = up to 15 s, cinematic = up to 40 s. Overlong clips are split at scene boundaries or sentence gaps."
 
     ReelClip:
       type: object
@@ -5070,6 +5075,9 @@ components:
         target_duration_seconds:
           type: ["number", "null"]
           description: Requested run time in seconds, when one was given
+        pace:
+          type: ["string", "null"]
+          description: fast | normal | cinematic
         preset:
           type: string
           description: original | vertical

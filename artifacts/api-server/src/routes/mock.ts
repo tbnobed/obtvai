@@ -1677,6 +1677,7 @@ router.post("/media/:id/social/cuts", (req, res) => {
 type MockReel = {
   id: string; prompt: string; media_id: string | null; project_id: string | null;
   target_duration_seconds: number | null;
+  pace: string;
   preset: string; burn_captions: boolean; unreviewed: boolean;
   clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null; thumbnail_url: string | null }[];
   status: string; progress: number;
@@ -1729,6 +1730,9 @@ router.post("/reels", (req, res) => {
   if (prompt.length < 3) { res.status(400).json({ detail: "Prompt is too short" }); return; }
   const preset = req.body.preset || "original";
   const burn = !!req.body.burn_captions;
+  const pace: string = ["fast", "normal", "cinematic"].includes(req.body.pace) ? req.body.pace : "normal";
+  // Pace is a hard max clip length (mirrors worker enforcement).
+  const paceMax = pace === "fast" ? 6 : pace === "cinematic" ? 40 : 15;
   const targetDuration: number | null =
     typeof req.body.target_duration_seconds === "number" && req.body.target_duration_seconds >= 30
       ? Math.min(req.body.target_duration_seconds, 14400)
@@ -1777,8 +1781,11 @@ router.post("/reels", (req, res) => {
     return;
   }
 
-  // Longer targets allow longer individual clips (up to 5 min each).
-  const maxClipLen = targetDuration ? Math.min(300, Math.max(30, targetDuration / Math.max(picked.length, 1))) : 30;
+  // Longer targets allow longer individual clips — but pace is a hard ceiling.
+  const maxClipLen = Math.min(
+    paceMax,
+    targetDuration ? Math.min(300, Math.max(30, targetDuration / Math.max(picked.length, 1))) : 30,
+  );
   const clips = picked
     .map((seg) => {
       const asset = assets.find((a) => a.id === seg.media_id);
@@ -1804,6 +1811,7 @@ router.post("/reels", (req, res) => {
     media_id: mediaId,
     project_id: (req.body.project_id as string | null) || null,
     target_duration_seconds: targetDuration,
+    pace,
     preset,
     burn_captions: burn,
     unreviewed: false,
@@ -1942,7 +1950,7 @@ function makeMockReel(prompt: string, mediaId: string | null, preset: string, bu
   touchProject(projectId);
   const reel: MockReel = {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-    prompt, media_id: mediaId, project_id: projectId, target_duration_seconds: null, preset, burn_captions: burn, unreviewed, clips,
+    prompt, media_id: mediaId, project_id: projectId, target_duration_seconds: null, pace: "normal", preset, burn_captions: burn, unreviewed, clips,
     status: "pending", progress: 0, output_url: null, error_message: null,
     created_at: new Date().toISOString(), finished_at: null, _startedAt: Date.now(),
   };

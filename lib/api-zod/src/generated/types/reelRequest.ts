@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ReelRequestPace } from './reelRequestPace';
 import type { ReelRequestPreset } from './reelRequestPreset';
 
 export interface ReelRequest {
@@ -40,4 +41,6 @@ export interface ReelRequest {
      * @maximum 500
      */
   max_clips?: number;
+  /** Cutting pace, enforced as a hard max clip length after curation: fast = 2-6 s clips, normal = up to 15 s, cinematic = up to 40 s. Overlong clips are split at scene boundaries or sentence gaps. */
+  pace?: ReelRequestPace;
 }

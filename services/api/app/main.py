@@ -39,6 +39,7 @@ _COLUMN_MIGRATIONS = [
     ("projects", "status", "TEXT NOT NULL DEFAULT 'active'"),
     ("projects", "media_ids", "JSONB"),
     ("reel_jobs", "target_duration_seconds", "DOUBLE PRECISION"),
+    ("reel_jobs", "pace", "TEXT"),
     ("people", "voice_preset", "TEXT"),
     ("voice_generations", "preset", "TEXT"),
     ("people", "voice_settings", "JSONB"),

@@ -499,6 +499,7 @@ export default function ProjectDetail() {
   const [reelPrompt, setReelPrompt] = useState("");
   const [reelPreset, setReelPreset] = useState<"original" | "vertical">("vertical");
   const [reelMinutes, setReelMinutes] = useState("");
+  const [reelPace, setReelPace] = useState<"fast" | "normal" | "cinematic">("normal");
 
   const submitReel = () => {
     if (reelPrompt.trim().length < 3) return;
@@ -511,6 +512,7 @@ export default function ProjectDetail() {
         data: {
           prompt: reelPrompt.trim(),
           preset: reelPreset,
+          pace: reelPace,
           project_id: id,
           ...(targetSeconds ? { target_duration_seconds: targetSeconds } : {}),
           ...(mediaPool.length ? { media_ids: mediaPool } : {}),
@@ -1156,6 +1158,16 @@ export default function ProjectDetail() {
                   title="Target run time in minutes (blank = short highlight reel, up to 240 for feature length)"
                   className="w-24 shrink-0"
                 />
+                <Select value={reelPace} onValueChange={(v) => setReelPace(v as typeof reelPace)}>
+                  <SelectTrigger className="w-32 shrink-0" title="Cutting pace — hard max clip length">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fast">Fast (2–6 s)</SelectItem>
+                    <SelectItem value="normal">Normal (≤15 s)</SelectItem>
+                    <SelectItem value="cinematic">Cinematic (≤40 s)</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button variant={reelPreset === "original" ? "default" : "outline"} size="icon"
                   onClick={() => setReelPreset("original")} title="Original framing">
                   <Monitor className="h-4 w-4" />

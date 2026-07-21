@@ -22,6 +22,11 @@ export interface ReelJob {
      * @nullable
      */
   target_duration_seconds?: number | null;
+  /**
+     * fast | normal | cinematic
+     * @nullable
+     */
+  pace?: string | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;

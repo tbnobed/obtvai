@@ -239,6 +239,7 @@ class ReelRequestIn(BaseModel):
     preset: Literal["original", "vertical"] = "original"
     burn_captions: bool = False
     max_clips: int = Field(default=6, ge=1, le=500)
+    pace: Literal["fast", "normal", "cinematic"] = "normal"
 
 
 class ReelClipOut(BaseModel):
@@ -256,6 +257,7 @@ class ReelJobOut(BaseModel):
     media_id: Optional[str] = None
     project_id: Optional[str] = None
     target_duration_seconds: Optional[float] = None
+    pace: Optional[str] = None
     preset: str
     burn_captions: bool
     unreviewed: Optional[bool] = None

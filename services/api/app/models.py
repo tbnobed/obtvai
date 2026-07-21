@@ -279,6 +279,7 @@ class ReelJob(Base):
     media_id: Mapped[str | None] = mapped_column(String, nullable=True)
     project_id: Mapped[str | None] = mapped_column(String, nullable=True)
     target_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pace: Mapped[str | None] = mapped_column(String, nullable=True, default="normal")
     preset: Mapped[str] = mapped_column(String, default="original")
     burn_captions: Mapped[bool] = mapped_column(Boolean, default=False)
     unreviewed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

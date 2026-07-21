@@ -612,6 +612,7 @@ export const CreateRoughCutResponse = zod.object({
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
+  "pace": zod.string().nullish().describe('fast | normal | cinematic'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
@@ -2923,6 +2924,7 @@ export const CreateClipListRoughCutResponse = zod.object({
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
+  "pace": zod.string().nullish().describe('fast | normal | cinematic'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
@@ -3219,6 +3221,7 @@ export const ListReelsResponseItem = zod.object({
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
+  "pace": zod.string().nullish().describe('fast | normal | cinematic'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
@@ -3253,7 +3256,7 @@ export const createReelBodyBurnCaptionsDefault = false;
 export const createReelBodyMaxClipsDefault = 6;
 export const createReelBodyMaxClipsMax = 500;
 
-
+export const createReelBodyPaceDefault = `normal`;
 
 export const CreateReelBody = zod.object({
   "prompt": zod.string().min(createReelBodyPromptMin).describe('What to highlight, e.g. \"the fact about faith\"'),
@@ -3263,7 +3266,8 @@ export const CreateReelBody = zod.object({
   "target_duration_seconds": zod.number().min(createReelBodyTargetDurationSecondsMin).max(createReelBodyTargetDurationSecondsMax).nullish().describe('Desired run time in seconds; the builder selects enough material to reach it (up to 4 hours)'),
   "preset": zod.enum(['original', 'vertical']).default(createReelBodyPresetDefault),
   "burn_captions": zod.boolean().default(createReelBodyBurnCaptionsDefault),
-  "max_clips": zod.number().min(1).max(createReelBodyMaxClipsMax).default(createReelBodyMaxClipsDefault).describe('Clip cap when no target duration is given')
+  "max_clips": zod.number().min(1).max(createReelBodyMaxClipsMax).default(createReelBodyMaxClipsDefault).describe('Clip cap when no target duration is given'),
+  "pace": zod.enum(['fast', 'normal', 'cinematic']).default(createReelBodyPaceDefault).describe('Cutting pace, enforced as a hard max clip length after curation: fast = 2-6 s clips, normal = up to 15 s, cinematic = up to 40 s. Overlong clips are split at scene boundaries or sentence gaps.')
 })
 
 export const CreateReelResponse = zod.object({
@@ -3272,6 +3276,7 @@ export const CreateReelResponse = zod.object({
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
+  "pace": zod.string().nullish().describe('fast | normal | cinematic'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
@@ -3305,6 +3310,7 @@ export const GetReelResponse = zod.object({
   "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
   "project_id": zod.string().nullish(),
   "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
+  "pace": zod.string().nullish().describe('fast | normal | cinematic'),
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),

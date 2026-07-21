@@ -1633,6 +1633,18 @@ export const ReelRequestPreset = {
   vertical: 'vertical',
 } as const;
 
+/**
+ * Cutting pace, enforced as a hard max clip length after curation: fast = 2-6 s clips, normal = up to 15 s, cinematic = up to 40 s. Overlong clips are split at scene boundaries or sentence gaps.
+ */
+export type ReelRequestPace = typeof ReelRequestPace[keyof typeof ReelRequestPace];
+
+
+export const ReelRequestPace = {
+  fast: 'fast',
+  normal: 'normal',
+  cinematic: 'cinematic',
+} as const;
+
 export interface ReelRequest {
   /**
      * What to highlight, e.g. "the fact about faith"
@@ -1666,6 +1678,8 @@ export interface ReelRequest {
      * @maximum 500
      */
   max_clips?: number;
+  /** Cutting pace, enforced as a hard max clip length after curation: fast = 2-6 s clips, normal = up to 15 s, cinematic = up to 40 s. Overlong clips are split at scene boundaries or sentence gaps. */
+  pace?: ReelRequestPace;
 }
 
 export interface ReelClip {
@@ -1700,6 +1714,11 @@ export interface ReelJob {
      * @nullable
      */
   target_duration_seconds?: number | null;
+  /**
+     * fast | normal | cinematic
+     * @nullable
+     */
+  pace?: string | null;
   /** original | vertical */
   preset: string;
   burn_captions: boolean;

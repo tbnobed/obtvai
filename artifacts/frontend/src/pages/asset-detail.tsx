@@ -1957,6 +1957,7 @@ function AssetReelSection({ mediaId }: { mediaId: string }) {
   const [preset, setPreset] = useState<"original" | "vertical">("original");
   const [burnCaptions, setBurnCaptions] = useState(false);
   const [maxClips, setMaxClips] = useState(6);
+  const [pace, setPace] = useState<"fast" | "normal" | "cinematic">("normal");
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListReelsQueryKey(listParams) });
@@ -1971,6 +1972,7 @@ function AssetReelSection({ mediaId }: { mediaId: string }) {
           preset,
           burn_captions: burnCaptions,
           max_clips: maxClips,
+          pace,
         },
       },
       {
@@ -2021,6 +2023,17 @@ function AssetReelSection({ mediaId }: { mediaId: string }) {
                 {[3, 4, 6, 8, 10, 12].map((n) => (
                   <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Pace</Label>
+            <Select value={pace} onValueChange={(v) => setPace(v as typeof pace)}>
+              <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fast">Fast (2–6 s cuts)</SelectItem>
+                <SelectItem value="normal">Normal (≤15 s)</SelectItem>
+                <SelectItem value="cinematic">Cinematic (≤40 s)</SelectItem>
               </SelectContent>
             </Select>
           </div>

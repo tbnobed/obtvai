@@ -48,6 +48,133 @@ _CURATE_MIN_CLIP = 4.0
 _CURATE_MAX_CLIP = 45.0
 _CONTEXT_PAD = 25.0
 
+# Pace = hard cutting constraint, enforced in code after the LLM pass.
+# (min_len, max_len) per clip in seconds. The LLM suggests; the assembler
+# splits anything over max_len at scene boundaries or sentence gaps.
+_PACE_LIMITS = {
+    "fast": (2.0, 6.0),
+    "normal": (2.0, 15.0),
+    "cinematic": (3.0, 40.0),
+}
+
+
+def _cut_points(db, media_id: str, start: float, end: float) -> list[tuple[float, int]]:
+    """Candidate split points inside (start, end), each with a priority:
+    0 = scene boundary (best — a real picture cut), 1 = sentence gap
+    (transcript segment boundary — cuts between spoken thoughts)."""
+    from sqlalchemy import text
+    points: list[tuple[float, int]] = []
+    rows = db.execute(
+        text("""
+            SELECT start_time FROM scenes
+            WHERE media_id = :mid AND start_time > :s AND start_time < :e
+            ORDER BY start_time
+        """),
+        {"mid": media_id, "s": start + 0.25, "e": end - 0.25},
+    ).fetchall()
+    points.extend((float(r[0]), 0) for r in rows)
+    rows = db.execute(
+        text("""
+            SELECT end_time FROM transcript_segments
+            WHERE media_id = :mid AND end_time > :s AND end_time < :e
+            ORDER BY end_time
+        """),
+        {"mid": media_id, "s": start + 0.25, "e": end - 0.25},
+    ).fetchall()
+    points.extend((float(r[0]), 1) for r in rows)
+    points.sort()
+    return points
+
+
+def _split_clip(db, clip: dict, min_len: float, max_len: float) -> list[dict]:
+    """Split one overlong clip into pace-compliant pieces. Prefers scene
+    boundaries, then sentence gaps; hard-cuts at max_len only as a last
+    resort. Pieces shorter than min_len are merged backward."""
+    start = float(clip["start_time"])
+    end = float(clip["end_time"])
+    if end - start <= max_len:
+        return [clip]
+
+    points = _cut_points(db, clip["media_id"], start, end)
+    pieces: list[tuple[float, float]] = []
+    cur = start
+    while end - cur > max_len:
+        window = [(t, prio) for t, prio in points if cur + min_len <= t <= cur + max_len]
+        if window:
+            # Best cut in the window: scene boundary beats sentence gap;
+            # among equals take the latest (longest compliant piece).
+            cut = max(window, key=lambda p: (-p[1], p[0]))[0]
+        else:
+            cut = cur + max_len  # no natural cut — enforce anyway
+        pieces.append((cur, cut))
+        cur = cut
+    pieces.append((cur, end))
+
+    # A too-short tail: merge into the previous piece when the merge still
+    # fits the hard cap, else rebalance the last two pieces evenly (both stay
+    # within max_len and above min_len whenever the combined span allows it).
+    if len(pieces) > 1 and pieces[-1][1] - pieces[-1][0] < min_len:
+        prev_s, _prev_e = pieces[-2]
+        _tail_s, tail_e = pieces[-1]
+        span = tail_e - prev_s
+        pieces.pop()
+        if span <= max_len:
+            pieces[-1] = (prev_s, tail_e)
+        elif span >= 2 * min_len:
+            mid = prev_s + span / 2
+            pieces[-1] = (prev_s, mid)
+            pieces.append((mid, tail_e))
+        # else: span > max_len but can't make two >= min_len pieces — drop the
+        # sliver below (hard cap wins over keeping every last second).
+
+    out = []
+    for s, e in pieces:
+        if e - s < min_len:
+            continue
+        piece = dict(clip)
+        piece["start_time"] = round(s, 2)
+        piece["end_time"] = round(e, 2)
+        out.append(piece)
+    if not out:
+        # Degenerate case: keep the strongest max_len window instead of ever
+        # emitting an overlong clip — the cap is a hard constraint.
+        piece = dict(clip)
+        piece["start_time"] = round(start, 2)
+        piece["end_time"] = round(start + max_len, 2)
+        out.append(piece)
+    return out
+
+
+def _enforce_pace(db, clips: list[dict], pace: str | None) -> list[dict]:
+    """Hard pacing constraint applied AFTER curation: no clip may exceed the
+    pace's max length. Order is preserved; split pieces stay adjacent."""
+    limits = _PACE_LIMITS.get(pace or "normal")
+    if not limits:
+        limits = _PACE_LIMITS["normal"]
+    min_len, max_len = limits
+    out: list[dict] = []
+    for c in clips:
+        try:
+            out.extend(_split_clip(db, c, min_len, max_len))
+        except Exception:
+            # Cut-point lookup failed — the cap is still hard: split evenly
+            # into equal pieces no longer than max_len.
+            s, e = float(c["start_time"]), float(c["end_time"])
+            span = e - s
+            if span <= max_len:
+                out.append(c)
+                continue
+            import math
+            n = math.ceil(span / max_len)
+            step = span / n
+            for i in range(n):
+                piece = dict(c)
+                piece["start_time"] = round(s + i * step, 2)
+                piece["end_time"] = round(min(e, s + (i + 1) * step), 2)
+                if piece["end_time"] - piece["start_time"] >= min_len:
+                    out.append(piece)
+    return out
+
 
 def _curate_clips(
     db, prompt: str, candidates: list[dict],
@@ -214,12 +341,12 @@ def build_reel(self, reel_id: str):
     try:
         from sqlalchemy import text
         row = db.execute(
-            text("SELECT clips, preset, burn_captions, prompt, target_duration_seconds FROM reel_jobs WHERE id = :rid"),
+            text("SELECT clips, preset, burn_captions, prompt, target_duration_seconds, pace FROM reel_jobs WHERE id = :rid"),
             {"rid": reel_id},
         ).fetchone()
         if not row:
             raise RuntimeError(f"Reel job {reel_id} not found")
-        clips, preset, burn_captions, reel_prompt, target_duration = row
+        clips, preset, burn_captions, reel_prompt, target_duration, pace = row
         target_duration = float(target_duration) if target_duration else None
         if isinstance(clips, str):
             clips = json.loads(clips)
@@ -242,6 +369,14 @@ def build_reel(self, reel_id: str):
             except Exception:
                 import traceback
                 print(f"Reel curation failed, using raw candidates:\n{traceback.format_exc()}")
+
+        # ── Pace enforcement: hard constraint, not a vibe ────────────────────
+        # The LLM suggests; the assembler enforces. Anything longer than the
+        # pace's max clip length is split at scene boundaries or sentence gaps.
+        paced = _enforce_pace(db, clips, pace)
+        if paced != clips:
+            clips = paced
+            _update_reel(db, reel_id, clips=json.dumps(clips))
         _update_reel(db, reel_id, progress=10.0)
 
         vertical = preset == "vertical"

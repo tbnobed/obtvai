@@ -124,6 +124,7 @@ export * from './reanalyzeResult';
 export * from './reelClip';
 export * from './reelJob';
 export * from './reelRequest';
+export * from './reelRequestPace';
 export * from './reelRequestPreset';
 export * from './renderJob';
 export * from './renderJobPublishStats';
