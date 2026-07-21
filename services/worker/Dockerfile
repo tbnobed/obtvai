@@ -52,7 +52,9 @@ RUN pip install --no-cache-dir --no-deps chatterbox-tts==0.1.4 \
     && pip uninstall -y onnxruntime || true
 
 RUN pip install --no-cache-dir --force-reinstall --no-deps onnxruntime-gpu==1.22.0 \
-    && python -c "import onnxruntime as ort; assert 'CUDAExecutionProvider' in ort.get_available_providers(), ort.get_available_providers()"
+    # verify with the interpreter pip installs into (python3 = 3.10; the bare
+    # `python` symlink is 3.11 and has no site-packages from pip)
+    && python3 -c "import onnxruntime as ort; assert 'CUDAExecutionProvider' in ort.get_available_providers(), ort.get_available_providers()"
 
 COPY . .
 
