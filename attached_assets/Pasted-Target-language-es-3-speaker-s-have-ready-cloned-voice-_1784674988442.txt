@@ -1,0 +1,123 @@
+Target language: es
+3 speaker(s) have ready cloned-voice profiles
+No cloned voice — Sheila (SPEAKER_01): no voice samples
+No cloned voice — Sheila (SPEAKER_00): no voice samples
+No cloned voice — SPEAKER_03 (SPEAKER_03): no voice samples
+Loading Chatterbox multilingual (cloned voices)
+Loading XTTS-v2
+Synthesizing 1105 segments (es)
+Gender-matched stock voices — SPEAKER_00: female, SPEAKER_01: female, SPEAKER_02: female, SPEAKER_04: female, SPEAKER_05: female
+Separating original background audio (music/ambience) to keep under the dub
+Background kept (gain 0.9)
+Encoding dubbed track to M4A
+Muxing dubbed video
+Lip-sync pass: loading Wav2Lip-GAN (first run downloads ~400 MB)
+Lip sync engine: Wav2Lip on cuda, face detector providers: CPUExecutionProvider
+Lip sync: 74694 frames @ 30.0 fps, 960 speech spans
+Lip sync: 200/74694 frames
+Lip sync: 400/74694 frames
+Lip sync: 500/74694 frames
+Lip sync: 700/74694 frames
+Lip sync: 900/74694 frames
+Lip sync: 1100/74694 frames
+Lip sync: 1300/74694 frames
+Lip sync: 1500/74694 frames
+Lip sync: 1700/74694 frames
+Lip sync: 1900/74694 frames
+Lip sync: 2100/74694 frames
+Lip sync: 2300/74694 frames
+Lip sync: 2500/74694 frames
+Lip sync: 2700/74694 frames
+Lip sync: 2900/74694 frames
+Lip sync: 3100/74694 frames
+Lip sync: 3300/74694 frames
+Lip sync: 3500/74694 frames
+Lip sync: 3700/74694 frames
+Lip sync: 3900/74694 frames
+Lip sync: 4100/74694 frames
+Lip sync: 4300/74694 frames
+Lip sync: 4500/74694 frames
+Lip sync: 4700/74694 frames
+Lip sync: 4900/74694 frames
+Lip sync: 5100/74694 frames
+Lip sync: 5300/74694 frames
+Lip sync: 5500/74694 frames
+Lip sync: 5700/74694 frames
+Lip sync: 5900/74694 frames
+Lip sync: 6100/74694 frames
+Lip sync: 6300/74694 frames
+Lip sync: 6500/74694 frames
+Lip sync: 6700/74694 frames
+Lip sync: 6900/74694 frames
+Lip sync: 7100/74694 frames
+Lip sync: 7300/74694 frames
+Lip sync: 7500/74694 frames
+Lip sync: 7700/74694 frames
+Lip sync: 7900/74694 frames
+Lip sync: 8100/74694 frames
+Lip sync: 8300/74694 frames
+Lip sync: 8500/74694 frames
+Lip sync: 8700/74694 frames
+Lip sync: 8900/74694 frames
+Lip sync: 9100/74694 frames
+Lip sync: 9300/74694 frames
+Lip sync: 9500/74694 frames
+3 speaker(s) have ready cloned-voice profiles
+No cloned voice — Sheila (SPEAKER_01): no voice samples
+No cloned voice — Sheila (SPEAKER_00): no voice samples
+No cloned voice — SPEAKER_03 (SPEAKER_03): no voice samples
+Loading Chatterbox multilingual (cloned voices)
+Loading XTTS-v2
+Lip sync: 9700/74694 frames
+Lip sync: 9900/74694 frames
+Synthesizing 1105 segments (es)
+Gender-matched stock voices — SPEAKER_00: female, SPEAKER_01: female, SPEAKER_02: female, SPEAKER_04: female, SPEAKER_05: female
+Lip sync: 10100/74694 frames
+Lip sync: 10200/74694 frames
+Lip sync: 10400/74694 frames
+Lip sync: 10500/74694 frames
+Lip sync: 10700/74694 frames
+Lip sync: 10800/74694 frames
+Lip sync: 10900/74694 frames
+Lip sync: 11100/74694 frames
+Lip sync: 11200/74694 frames
+Lip sync: 11300/74694 frames
+Lip sync: 11500/74694 frames
+Lip sync: 11700/74694 frames
+Lip sync: 11900/74694 frames
+Lip sync: 12100/74694 frames
+Lip sync: 12300/74694 frames
+Lip sync: 12500/74694 frames
+Lip sync: 12700/74694 frames
+Lip sync: 12900/74694 frames
+Lip sync: 13100/74694 frames
+Lip sync: 13300/74694 frames
+Lip sync: 13500/74694 frames
+Lip sync: 13600/74694 frames
+Lip sync: 13700/74694 frames
+Lip sync: 13800/74694 frames
+Lip sync: 13900/74694 frames
+Lip sync: 14100/74694 frames
+Lip sync: 14200/74694 frames
+Lip sync: 14400/74694 frames
+Lip sync: 14600/74694 frames
+Lip sync: 14800/74694 frames
+Lip sync: 15000/74694 frames
+Lip sync: 15200/74694 frames
+Lip sync: 15400/74694 frames
+Lip sync: 15600/74694 frames
+Lip sync: 15800/74694 frames
+Lip sync: 16000/74694 frames
+Lip sync: 16200/74694 frames
+Lip sync: 16400/74694 frames
+Lip sync: 16600/74694 frames
+Lip sync: 16800/74694 frames
+Lip sync: 17000/74694 frames
+3 speaker(s) have ready cloned-voice profiles
+No cloned voice — Sheila (SPEAKER_01): no voice samples
+No cloned voice — Sheila (SPEAKER_00): no voice samples
+No cloned voice — SPEAKER_03 (SPEAKER_03): no voice samples
+Loading Chatterbox multilingual (cloned voices)
+Loading XTTS-v2
+Synthesizing 1105 segments (es)
+Gender-matched stock voices — SPEAKER_00: female, SPEAKER_01: female, SPEAKER_02: female, SPEAKER_04: female, SPEAKER_05: female

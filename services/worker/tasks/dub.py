@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import time
 import wave
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app import celery_app
 from db import get_session
@@ -517,10 +517,32 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 f"Dubbing not supported for '{target}'. Supported: {', '.join(supported)}"
             )
 
-        update_job(db, job_id, status="running", started_at=datetime.utcnow(),
-                   celery_task_id=self.request.id, progress=0.0)
-
         from sqlalchemy import text
+
+        # Atomic claim: with acks_late + Redis, this task can be re-delivered
+        # while a previous delivery is still running (visibility timeout). If
+        # the job row is already 'running' with a fresh heartbeat, another
+        # worker owns it — bail out instead of synthesizing the dub twice.
+        # A stale heartbeat (>30 min, e.g. after a worker crash) is reclaimable
+        # so redelivery can recover the job instead of stranding it.
+        now = datetime.utcnow()
+        claimed = db.execute(
+            text("""
+                UPDATE processing_jobs
+                SET status = 'running', started_at = :now,
+                    celery_task_id = :tid, progress = 0.0, heartbeat_at = :now
+                WHERE id = :jid AND (
+                    status IN ('pending', 'queued')
+                    OR (status = 'running'
+                        AND COALESCE(heartbeat_at, started_at, created_at) < :stale)
+                )
+            """),
+            {"now": now, "tid": self.request.id, "jid": job_id,
+             "stale": now - timedelta(minutes=30)},
+        )
+        db.commit()
+        if claimed.rowcount == 0:
+            return {"skipped": "duplicate delivery — job already running"}
         asset_row = db.execute(
             text("SELECT duration_seconds, original_path, proxy_path FROM media_assets WHERE id = :mid"),
             {"mid": media_id},

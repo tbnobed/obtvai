@@ -25,6 +25,9 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    # Must match services/worker/celeryconfig.py — Redis re-delivers unacked
+    # tasks after this timeout; long GPU jobs need far more than the 1 h default.
+    broker_transport_options={"visibility_timeout": 86400},
     task_routes={
         "tasks.ingest.*": {"queue": "ingest"},
         "tasks.transcribe.*": {"queue": "gpu"},

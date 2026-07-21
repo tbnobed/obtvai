@@ -8,6 +8,10 @@ accept_content = ["json"]
 task_track_started = True
 task_acks_late = True
 worker_prefetch_multiplier = 1
+# With acks_late + Redis, an unacked task is re-delivered after the visibility
+# timeout (default 1 h). Long GPU jobs (dub + lip sync) run for many hours and
+# were being restarted mid-run every hour. 24 h covers the longest jobs.
+broker_transport_options = {"visibility_timeout": 86400}
 broker_connection_retry_on_startup = True
 
 # Periodic tasks (worker-cpu runs with -B / embedded beat).

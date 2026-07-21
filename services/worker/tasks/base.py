@@ -24,6 +24,7 @@ def _get_job_and_asset(db: Session, job_id: str):
 
 def update_job(db: Session, job_id: str, **kwargs):
     from sqlalchemy import text
+    kwargs.setdefault("heartbeat_at", datetime.utcnow())
     set_parts = ", ".join(f"{k} = :{k}" for k in kwargs)
     db.execute(text(f"UPDATE processing_jobs SET {set_parts} WHERE id = :jid"), {**kwargs, "jid": job_id})
     db.commit()
@@ -35,10 +36,10 @@ def append_log(db: Session, job_id: str, message: str):
     db.execute(
         text("""
             UPDATE processing_jobs
-            SET logs = logs || CAST(:msg AS jsonb)
+            SET logs = logs || CAST(:msg AS jsonb), heartbeat_at = :now
             WHERE id = :jid
         """),
-        {"msg": json.dumps([message]), "jid": job_id},
+        {"msg": json.dumps([message]), "now": datetime.utcnow(), "jid": job_id},
     )
     db.commit()
 
