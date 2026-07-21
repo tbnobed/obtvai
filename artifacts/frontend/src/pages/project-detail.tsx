@@ -388,6 +388,13 @@ export default function ProjectDetail() {
   const createStoryMutation = useCreateStory();
   const [storyAssets, setStoryAssets] = useState<string[]>([]);
   const [storyPrompt, setStoryPrompt] = useState("");
+  // The project's media pool (chosen in Find) is the default story source —
+  // pre-select it so the editor isn't asked to pick media twice. Once they
+  // touch the selection, respect their choice.
+  const storyTouchedRef = useRef(false);
+  useEffect(() => {
+    if (!storyTouchedRef.current && mediaPool.length) setStoryAssets(mediaPool);
+  }, [mediaPool]);
 
   const submitStory = () => {
     if (!storyAssets.length) return;
@@ -395,7 +402,8 @@ export default function ProjectDetail() {
       { data: { asset_ids: storyAssets, prompt: storyPrompt.trim() || null, project_id: id } },
       {
         onSuccess: () => {
-          setStoryAssets([]);
+          storyTouchedRef.current = false;
+          setStoryAssets(mediaPool.length ? mediaPool : []);
           setStoryPrompt("");
           invalidateAll();
         },
@@ -951,14 +959,25 @@ export default function ProjectDetail() {
             <CardContent className="space-y-4">
               <div>
                 <Label className="mb-2 block">Source assets</Label>
+                {mediaPool.length > 0 && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Your project media (from Find) is pre-selected — narrow it down here if you only want some of it in the story.
+                  </p>
+                )}
                 <MediaPickerGrid
                   selected={storyAssets}
-                  onToggle={(assetId, checked) => setStoryAssets((s) =>
-                    checked ? [...s, assetId] : s.filter((x) => x !== assetId))}
-                  onToggleMany={(assetIds, checked) => setStoryAssets((s) =>
-                    checked
-                      ? [...s, ...assetIds.filter((x) => !s.includes(x))]
-                      : s.filter((x) => !assetIds.includes(x)))}
+                  onToggle={(assetId, checked) => {
+                    storyTouchedRef.current = true;
+                    setStoryAssets((s) =>
+                      checked ? [...s, assetId] : s.filter((x) => x !== assetId));
+                  }}
+                  onToggleMany={(assetIds, checked) => {
+                    storyTouchedRef.current = true;
+                    setStoryAssets((s) =>
+                      checked
+                        ? [...s, ...assetIds.filter((x) => !s.includes(x))]
+                        : s.filter((x) => !assetIds.includes(x)));
+                  }}
                   restrictTo={mediaPool.length ? mediaPool : undefined}
                   requireReady
                   gridClass="sm:grid-cols-2"
