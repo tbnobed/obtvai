@@ -39,6 +39,16 @@ def _load_face_app():
     global _face_app
     if _face_app is None:
         import torch
+        import onnxruntime as ort
+        # Load cuDNN/cuBLAS from the pip nvidia-* wheels BEFORE any session is
+        # created — they live in site-packages, not on the loader path, and
+        # without this the CUDA provider silently fails and detection runs on
+        # CPU (10-20x slower).
+        if torch.cuda.is_available() and hasattr(ort, "preload_dlls"):
+            try:
+                ort.preload_dlls()
+            except Exception as e:
+                print(f"[face] ort.preload_dlls failed: {e}")
         from insightface.app import FaceAnalysis
         providers = (
             ["CUDAExecutionProvider", "CPUExecutionProvider"]
