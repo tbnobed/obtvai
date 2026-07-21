@@ -313,7 +313,7 @@ def apply_lipsync(video_path: str, speech_wav: str, segments, out_path: str,
                 flush()
         frame_idx += 1
         if progress and total_frames and frame_idx % 100 == 0:
-            progress(frame_idx / total_frames)
+            progress(frame_idx / total_frames, frame_idx, total_frames)
     flush()
     cap.release()
     writer.release()

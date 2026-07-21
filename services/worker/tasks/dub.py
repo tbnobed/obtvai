@@ -774,12 +774,18 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                     from tasks import lipsync as _lipsync
                     synced_mp4 = os.path.join(workdir, "dub_synced.mp4")
                     last_ls = [time.monotonic()]
+                    last_ls_log = [time.monotonic()]
 
-                    def _ls_progress(frac):
+                    def _ls_progress(frac, done=0, total_f=0):
                         now = time.monotonic()
                         if now - last_ls[0] >= 3:
                             update_job(db, job_id, progress=round(97.0 + 2.5 * frac, 1))
                             last_ls[0] = now
+                        # Heartbeat in the job log so "running vs stuck" is
+                        # visible from the Jobs page, not just nvidia-smi.
+                        if now - last_ls_log[0] >= 30 and total_f:
+                            append_log(db, job_id, f"Lip sync: {done}/{total_f} frames")
+                            last_ls_log[0] = now
 
                     stats = _lipsync.apply_lipsync(
                         tmp_mp4, speech_wav, placed_spans, synced_mp4,
