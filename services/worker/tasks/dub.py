@@ -169,7 +169,9 @@ def _extract_background(video_src: str, duration: float, out_rate: int, workdir:
     # the existing speech timeline's footprint, so hour-long assets fit in RAM.
     chunk = rate * 20
     overlap = rate * 1
-    vocals_idx = bundle.sources.index("vocals")
+    # Source order lives on the model, not the bundle ("drums, bass, other, vocals").
+    source_names = list(getattr(model, "sources", ["drums", "bass", "other", "vocals"]))
+    vocals_idx = source_names.index("vocals")
     out_len = int(n / rate * out_rate) + out_rate
     result = np.zeros(out_len, dtype=np.float32)
     pos = 0
