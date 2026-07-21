@@ -130,11 +130,17 @@ def _load_xtts():
         kwargs["weights_only"] = False
         return original_load(*args, **kwargs)
 
-    torch.load = _patched_load
-    try:
+    from tasks.gpu_mem import load_with_oom_retry
+
+    def _load():
         tts = TTS(XTTS_MODEL)
         if torch.cuda.is_available():
             tts = tts.to("cuda")
+        return tts
+
+    torch.load = _patched_load
+    try:
+        tts = load_with_oom_retry(XTTS_MODEL, _load)
     finally:
         torch.load = original_load
     _xtts_cache["tts"] = tts

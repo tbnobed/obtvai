@@ -36,7 +36,11 @@ def embed_scenes(self, media_id: str, job_id: str):
         append_log(db, job_id, f"Loading vision model {VISION_MODEL} on {device}...")
         # AutoModel handles both CLIP and SigLIP/SigLIP-2 checkpoints; both
         # expose get_image_features / get_text_features in a shared space.
-        model = AutoModel.from_pretrained(VISION_MODEL).to(device).eval()
+        from tasks.gpu_mem import load_with_oom_retry
+        model = load_with_oom_retry(
+            VISION_MODEL,
+            lambda: AutoModel.from_pretrained(VISION_MODEL).to(device).eval(),
+        )
         processor = AutoProcessor.from_pretrained(VISION_MODEL)
 
         from tasks.qdrant_util import get_qdrant, qdrant_retry

@@ -26,7 +26,11 @@ def transcribe_audio(self, media_id: str, job_id: str):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         compute = "float16" if device == "cuda" else "int8"
 
-        model = WhisperModel(WHISPER_MODEL, device=device, compute_type=compute)
+        from tasks.gpu_mem import load_with_oom_retry
+        model = load_with_oom_retry(
+            WHISPER_MODEL,
+            lambda: WhisperModel(WHISPER_MODEL, device=device, compute_type=compute),
+        )
         append_log(db, job_id, f"Transcribing with {device}...")
 
         segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=True)

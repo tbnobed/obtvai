@@ -6,6 +6,7 @@ celery_app = Celery(
     broker=REDIS_URL,
     backend=REDIS_URL,
     include=[
+        "tasks.gpu_mem",
         "tasks.ingest",
         "tasks.proxy",
         "tasks.audio",

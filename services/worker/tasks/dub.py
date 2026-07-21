@@ -47,11 +47,17 @@ def _load_tts(lang3: str):
     # id directly can spawn a safetensors-conversion subprocess, which Celery's
     # daemonized prefork workers cannot do.
     local_dir = snapshot_download(f"facebook/mms-tts-{lang3}")
-    tokenizer = AutoTokenizer.from_pretrained(local_dir)
-    model = VitsModel.from_pretrained(local_dir)
-    if torch.cuda.is_available():
-        model = model.to("cuda")
-    model.eval()
+    from tasks.gpu_mem import load_with_oom_retry
+
+    def _load():
+        tokenizer = AutoTokenizer.from_pretrained(local_dir)
+        model = VitsModel.from_pretrained(local_dir)
+        if torch.cuda.is_available():
+            model = model.to("cuda")
+        model.eval()
+        return tokenizer, model
+
+    tokenizer, model = load_with_oom_retry(f"mms-tts-{lang3}", _load)
     _tts_cache.clear()  # keep at most one language resident
     _tts_cache[lang3] = (tokenizer, model, int(model.config.sampling_rate))
     return _tts_cache[lang3]
@@ -147,7 +153,10 @@ def _load_chatterbox():
     import torch
     from chatterbox.mtl_tts import ChatterboxMultilingualTTS
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = ChatterboxMultilingualTTS.from_pretrained(device=device)
+    from tasks.gpu_mem import load_with_oom_retry
+    model = load_with_oom_retry(
+        "chatterbox", lambda: ChatterboxMultilingualTTS.from_pretrained(device=device)
+    )
     # transformers>=4.48 defaults attention to sdpa, but Chatterbox's
     # generation requests output_attentions (alignment stream analyzer),
     # which sdpa rejects: "The `output_attentions` attribute is not

@@ -1,5 +1,8 @@
 import asyncio
+import gc
+import os
 import threading
+import time
 from ..config import settings
 
 _model = None
@@ -8,9 +11,57 @@ _clip_model = None
 _clip_processor = None
 _clip_tokenizer = None
 
+# Drop the embedding models from VRAM after this long without a search, so
+# ComfyUI and the GPU workers (which share the card) get the memory back.
+# Longer default than the LLM's GPU_IDLE_RELEASE_SECONDS because search is
+# latency-sensitive and these reload in ~10-20 s. 0 disables.
+_IDLE_SECONDS = int(os.getenv("EMBED_IDLE_RELEASE_SECONDS", "1800") or "0")
+_last_used = time.monotonic()
+_watchdog_started = False
+
+
+def _release_models():
+    global _model, _clip_model, _clip_processor, _clip_tokenizer
+    with _model_lock:
+        released = _model is not None or _clip_model is not None
+        _model = None
+        _clip_model = None
+        _clip_processor = None
+        _clip_tokenizer = None
+    if not released:
+        return
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+    print(f"Embedding models released from VRAM after {_IDLE_SECONDS}s idle")
+
+
+def _idle_watchdog():
+    while True:
+        time.sleep(60)
+        if (time.monotonic() - _last_used) >= _IDLE_SECONDS:
+            _release_models()
+
+
+def _touch():
+    global _last_used, _watchdog_started
+    _last_used = time.monotonic()
+    if _IDLE_SECONDS > 0:
+        with _model_lock:
+            if not _watchdog_started:
+                _watchdog_started = True
+                threading.Thread(
+                    target=_idle_watchdog, daemon=True, name="embed-idle-release"
+                ).start()
+
 
 def _load_model():
     global _model
+    _touch()
     if _model is None:
         with _model_lock:
             if _model is None:
@@ -25,6 +76,7 @@ def _is_siglip() -> bool:
 
 def _load_clip():
     global _clip_model, _clip_processor, _clip_tokenizer
+    _touch()
     if _clip_model is None:
         import torch
         from transformers import AutoModel, AutoProcessor, AutoTokenizer

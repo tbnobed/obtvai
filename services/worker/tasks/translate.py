@@ -52,18 +52,23 @@ def _load_translator():
         # subprocess for legacy .bin checkpoints, which daemonic workers can't do
         # ("daemonic processes are not allowed to have children").
         local_dir = snapshot_download(TRANSLATE_MODEL)
-        if _is_madlad():
-            tokenizer = AutoTokenizer.from_pretrained(local_dir)
-        else:
-            tokenizer = AutoTokenizer.from_pretrained(local_dir, src_lang="eng_Latn")
-        model = AutoModelForSeq2SeqLM.from_pretrained(
-            local_dir,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        )
-        if torch.cuda.is_available():
-            model = model.to("cuda")
-        model.eval()
-        _translator = (tokenizer, model)
+        from tasks.gpu_mem import load_with_oom_retry
+
+        def _load():
+            if _is_madlad():
+                tokenizer = AutoTokenizer.from_pretrained(local_dir)
+            else:
+                tokenizer = AutoTokenizer.from_pretrained(local_dir, src_lang="eng_Latn")
+            model = AutoModelForSeq2SeqLM.from_pretrained(
+                local_dir,
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            )
+            if torch.cuda.is_available():
+                model = model.to("cuda")
+            model.eval()
+            return (tokenizer, model)
+
+        _translator = load_with_oom_retry(TRANSLATE_MODEL, _load)
     return _translator
 
 

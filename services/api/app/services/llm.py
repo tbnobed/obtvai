@@ -8,17 +8,61 @@ chat template). dtype is chosen per device: half precision only on GPU —
 fp16 weights on CPU produce "mat1 and mat2 must have the same dtype" errors.
 """
 import asyncio
+import gc
 import os
 import threading
+import time
 
 LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen3-8B")
 
+# Drop the model from VRAM after this many seconds without a request, so
+# ComfyUI and the GPU workers (which share the card) get the memory back
+# between Q&A sessions. 0 disables. Reload takes ~30-60 s from local cache.
+_IDLE_SECONDS = int(os.getenv("GPU_IDLE_RELEASE_SECONDS", "300") or "0")
+
 _llm = None  # (tokenizer, model)
 _llm_lock = threading.Lock()
+_active = 0  # in-flight generations (guarded by _llm_lock)
+_last_used = time.monotonic()
+_watchdog_started = False
+
+
+def _free_cuda():
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+
+def _idle_watchdog():
+    global _llm
+    while True:
+        time.sleep(30)
+        with _llm_lock:
+            release = (
+                _llm is not None
+                and _active == 0
+                and (time.monotonic() - _last_used) >= _IDLE_SECONDS
+            )
+            if release:
+                _llm = None
+        if release:
+            _free_cuda()
+            print(f"LLM released from VRAM after {_IDLE_SECONDS}s idle")
 
 
 def _load_pipeline():
-    global _llm
+    global _llm, _watchdog_started
+    if _IDLE_SECONDS > 0:
+        with _llm_lock:
+            if not _watchdog_started:
+                _watchdog_started = True
+                threading.Thread(
+                    target=_idle_watchdog, daemon=True, name="llm-idle-release"
+                ).start()
     if _llm is None:
         with _llm_lock:
             if _llm is None:
@@ -61,6 +105,25 @@ _DEFAULT_SYSTEM = (
 
 
 def _generate(
+    prompt: str,
+    max_new_tokens: int = 512,
+    history: list[dict] | None = None,
+    system: str | None = None,
+) -> str:
+    global _active, _last_used
+    with _llm_lock:
+        _active += 1
+    try:
+        return _generate_inner(
+            prompt, max_new_tokens=max_new_tokens, history=history, system=system
+        )
+    finally:
+        with _llm_lock:
+            _active -= 1
+            _last_used = time.monotonic()
+
+
+def _generate_inner(
     prompt: str,
     max_new_tokens: int = 512,
     history: list[dict] | None = None,

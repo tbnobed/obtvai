@@ -37,6 +37,14 @@ x-python-env: &python-env
   TRANSLATE_MODEL: "${TRANSLATE_MODEL:-google/madlad400-3b-mt}"
   DIARIZATION_MODEL: "${DIARIZATION_MODEL:-pyannote/speaker-diarization-community-1}"
   HF_TOKEN: "${HF_TOKEN:-}"
+  # Reduce CUDA fragmentation; workers share their GPU with ComfyUI
+  PYTORCH_CUDA_ALLOC_CONF: "${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+  # Workers drop cached models (LLM/translator/TTS) after this many idle
+  # seconds so ComfyUI gets the VRAM back between processing batches. 0 = off.
+  GPU_IDLE_RELEASE_SECONDS: "${GPU_IDLE_RELEASE_SECONDS:-300}"
+  # API search embedding models (bge-m3 + SigLIP) get a longer window since
+  # search is latency-sensitive; they reload in ~10-20 s. 0 = off.
+  EMBED_IDLE_RELEASE_SECONDS: "${EMBED_IDLE_RELEASE_SECONDS:-1800}"
 
 # ─── Volume definitions ───────────────────────────────────────────────────────
 volumes:

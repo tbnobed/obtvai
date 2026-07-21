@@ -30,13 +30,18 @@ def _load_llm():
     if _llm is None:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
-        tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL)
-        model = AutoModelForCausalLM.from_pretrained(
-            LLM_MODEL,
-            torch_dtype=torch.float16,
-            device_map="auto",
-        )
-        _llm = (tokenizer, model)
+        from tasks.gpu_mem import load_with_oom_retry
+
+        def _load():
+            tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL)
+            model = AutoModelForCausalLM.from_pretrained(
+                LLM_MODEL,
+                torch_dtype=torch.float16,
+                device_map="auto",
+            )
+            return (tokenizer, model)
+
+        _llm = load_with_oom_retry(LLM_MODEL, _load)
     return _llm
 
 

@@ -37,18 +37,23 @@ def run_diarization(self, media_id: str, job_id: str):
             kwargs["weights_only"] = False
             return _orig_torch_load(*args, **kwargs)
 
-        torch.load = _legacy_load
-        try:
+        from tasks.gpu_mem import load_with_oom_retry
+
+        def _load():
             try:
                 # pyannote.audio >= 4.0
-                pipeline = Pipeline.from_pretrained(
+                return Pipeline.from_pretrained(
                     DIARIZATION_MODEL, token=os.getenv("HF_TOKEN", "") or None,
                 )
             except TypeError:
                 # pyannote.audio 3.x
-                pipeline = Pipeline.from_pretrained(
+                return Pipeline.from_pretrained(
                     DIARIZATION_MODEL, use_auth_token=os.getenv("HF_TOKEN", ""),
                 )
+
+        torch.load = _legacy_load
+        try:
+            pipeline = load_with_oom_retry(DIARIZATION_MODEL, _load)
         finally:
             torch.load = _orig_torch_load
         if pipeline is None:
