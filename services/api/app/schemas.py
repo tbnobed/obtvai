@@ -1,6 +1,7 @@
+import os
 from datetime import datetime
 from typing import Optional, List, Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class HealthStatus(BaseModel):
@@ -13,6 +14,8 @@ class MediaAssetOut(BaseModel):
     id: str
     filename: str
     original_path: Optional[str] = None
+    source_path: Optional[str] = None
+    curator_id: Optional[str] = None
     proxy_path: Optional[str] = None
     thumbnail_url: Optional[str] = None
     duration_seconds: Optional[float] = None
@@ -40,6 +43,16 @@ class MediaAssetOut(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def _derive_curator_id(self):
+        # Curator-DIRECT ingests: the ingested file is the WebProxy itself
+        # (<id>_video.mp4) and its parent folder name IS the Curator clip id.
+        if self.curator_id is None and self.original_path:
+            base = os.path.basename(self.original_path)
+            if base.lower().endswith("_video.mp4"):
+                self.curator_id = os.path.basename(os.path.dirname(self.original_path))
+        return self
 
 
 class TranslateRequest(BaseModel):

@@ -3281,6 +3281,12 @@ components:
           type: string
         original_path:
           type: ["string", "null"]
+        source_path:
+          type: ["string", "null"]
+          description: Hi-res original path (e.g. from Curator sidecar metadata); NLE exports prefer this over original_path
+        curator_id:
+          type: ["string", "null"]
+          description: IPV Curator clip id (proxy folder name) for Curator-ingested assets
         proxy_path:
           type: ["string", "null"]
         thumbnail_url:

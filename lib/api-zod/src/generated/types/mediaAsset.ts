@@ -15,6 +15,16 @@ export interface MediaAsset {
   filename: string;
   /** @nullable */
   original_path?: string | null;
+  /**
+     * Hi-res original path (e.g. from Curator sidecar metadata); NLE exports prefer this over original_path
+     * @nullable
+     */
+  source_path?: string | null;
+  /**
+     * IPV Curator clip id (proxy folder name) for Curator-ingested assets
+     * @nullable
+     */
+  curator_id?: string | null;
   /** @nullable */
   proxy_path?: string | null;
   /** @nullable */

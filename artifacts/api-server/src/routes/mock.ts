@@ -18,7 +18,9 @@ const assets = [
   {
     id: "asset-001",
     filename: "interview_sarah_chen.mp4",
-    original_path: "/media/interview_sarah_chen.mp4",
+    original_path: "/curator/HD-P260401-101500/HD-P260401-101500_video.mp4",
+    source_path: "/mnt/mediaserver/masters/HD-P260401.mxf" as string | undefined,
+    curator_id: "HD-P260401-101500" as string | undefined,
     proxy_path: "/artifacts/proxies/asset-001.mp4",
     thumbnail_url: null,
     duration_seconds: 1842,
@@ -229,6 +231,8 @@ for (let i = assets.length; i < 75; i++) {
     id: `asset-mock-${i}`,
     filename: `BT_2026${String(100 + i)}_PGM_EP${1500 + i}-proxy.mp4`,
     original_path: `/media2/BT/BT_2026${String(100 + i)}_PGM_EP${1500 + i}-proxy.mp4`,
+    source_path: undefined,
+    curator_id: undefined,
     created_at: new Date(Date.now() - 3600000 * (i + 10)).toISOString(),
   });
 }

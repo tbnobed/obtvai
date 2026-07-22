@@ -474,7 +474,7 @@ export default function AssetDetail() {
                 Remove from Library
               </Button>
             </div>
-            <div className="flex gap-4 items-center text-sm text-muted-foreground mb-6 flex-wrap">
+            <div className={`flex gap-4 items-center text-sm text-muted-foreground ${asset.curator_id ? "mb-2" : "mb-6"} flex-wrap`}>
               <span>{asset.codec}</span>
               <span>{asset.width}x{asset.height}</span>
               <span>{asset.fps} fps</span>
@@ -485,6 +485,19 @@ export default function AssetDetail() {
                 </Badge>
               ))}
             </div>
+            {asset.curator_id && (
+              <div className="flex gap-x-4 gap-y-1 items-center text-sm mb-6 flex-wrap">
+                <Badge variant="outline" className="gap-1 text-sky-400 border-sky-400/40">Curator</Badge>
+                <span className="text-muted-foreground">
+                  ID: <span className="font-mono text-foreground">{asset.curator_id}</span>
+                </span>
+                {asset.source_path && (
+                  <span className="text-muted-foreground" title="Hi-res source path — NLE exports relink to this file">
+                    Source: <span className="font-mono text-foreground break-all">{asset.source_path}</span>
+                  </span>
+                )}
+              </div>
+            )}
 
             <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
               <DialogContent>
