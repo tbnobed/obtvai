@@ -226,11 +226,18 @@ export default function ProjectDetail() {
   const updateMutation = useUpdateProject();
 
   const listParams = { project_id: id };
+  // Poll while anything is still in flight so progress updates without a manual refresh.
+  const pollWhileActive = (q: { state: { data?: unknown } }) => {
+    const items = Array.isArray(q.state.data) ? (q.state.data as { status?: string }[]) : [];
+    return items.some((x) => x.status === "pending" || x.status === "queued" || x.status === "running")
+      ? 3000
+      : false;
+  };
   const { data: clipLists } = useListClipLists(listParams, {
-    query: { queryKey: getListClipListsQueryKey(listParams) },
+    query: { queryKey: getListClipListsQueryKey(listParams), refetchInterval: pollWhileActive },
   });
   const { data: stories } = useListStories(listParams, {
-    query: { queryKey: getListStoriesQueryKey(listParams) },
+    query: { queryKey: getListStoriesQueryKey(listParams), refetchInterval: pollWhileActive },
   });
   const { data: reels } = useListReels(listParams, {
     query: { queryKey: getListReelsQueryKey(listParams), refetchInterval: 5000 },
