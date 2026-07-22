@@ -37,6 +37,8 @@ import {
   Users,
   Eye,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
   CheckCircle2,
   XCircle,
   Lightbulb,
@@ -90,10 +92,43 @@ function Delta({ now, before }: { now?: number | null; before?: number | null })
   );
 }
 
+type PostSortKey = "views" | "likes" | "comments" | "published_at";
+
 function ChannelDetail({ channel }: { channel: SocialChannelOverview }) {
   const { data: history } = useGetSocialChannelHistory(channel.id, { days: 90 });
-  const { data: posts } = useListSocialChannelPosts(channel.id, { limit: 12 });
+  const { data: posts } = useListSocialChannelPosts(channel.id, { limit: 50 });
   const meta = PLATFORM_META[channel.platform] ?? PLATFORM_META.youtube;
+  const [sortKey, setSortKey] = useState<PostSortKey>("published_at");
+  const [sortDesc, setSortDesc] = useState(true);
+
+  const toggleSort = (key: PostSortKey) => {
+    if (key === sortKey) setSortDesc((d) => !d);
+    else { setSortKey(key); setSortDesc(true); }
+  };
+
+  const sortedPosts = [...(posts ?? [])].sort((a, b) => {
+    const va = sortKey === "published_at"
+      ? (a.published_at ? new Date(a.published_at).getTime() : -Infinity)
+      : (a[sortKey] ?? -Infinity);
+    const vb = sortKey === "published_at"
+      ? (b.published_at ? new Date(b.published_at).getTime() : -Infinity)
+      : (b[sortKey] ?? -Infinity);
+    return sortDesc ? (vb as number) - (va as number) : (va as number) - (vb as number);
+  });
+
+  const SortHeader = ({ label, k, className }: { label: string; k: PostSortKey; className?: string }) => (
+    <th className={`font-medium px-3 py-2 ${className ?? ""}`}>
+      <button
+        type="button"
+        onClick={() => toggleSort(k)}
+        className={`inline-flex items-center gap-1 hover:text-foreground ${sortKey === k ? "text-foreground" : ""}`}
+        data-testid={`sort-posts-${k}`}
+      >
+        {label}
+        {sortKey === k && (sortDesc ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />)}
+      </button>
+    </th>
+  );
 
   const chartData = (history ?? []).map((s) => ({
     date: new Date(s.fetched_at).toLocaleDateString("en", { month: "short", day: "numeric" }),
@@ -137,14 +172,14 @@ function ChannelDetail({ channel }: { channel: SocialChannelOverview }) {
               <thead className="bg-muted/40 text-muted-foreground">
                 <tr>
                   <th className="text-left font-medium px-3 py-2">Post</th>
-                  <th className="text-right font-medium px-3 py-2 w-20">Views</th>
-                  <th className="text-right font-medium px-3 py-2 w-20">Likes</th>
-                  <th className="text-right font-medium px-3 py-2 w-24">Comments</th>
-                  <th className="text-right font-medium px-3 py-2 w-24">Published</th>
+                  <SortHeader label="Views" k="views" className="text-right w-20" />
+                  <SortHeader label="Likes" k="likes" className="text-right w-20" />
+                  <SortHeader label="Comments" k="comments" className="text-right w-24" />
+                  <SortHeader label="Published" k="published_at" className="text-right w-24" />
                 </tr>
               </thead>
               <tbody>
-                {posts.map((p) => (
+                {sortedPosts.map((p) => (
                   <tr key={p.id} className="border-t border-border hover:bg-muted/20">
                     <td className="px-3 py-2 max-w-0">
                       <div className="flex items-center gap-3 min-w-0">
