@@ -1,0 +1,41 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs --tail=40 watcher
+watcher-1  | 2026-07-22 19:22:59,790 INFO Ingest queued: 7a3b12f3-cd9d-4ecf-80ae-bb4987dfe923
+watcher-1  | 2026-07-22 19:22:59,790 INFO Ingesting: /media2/BT/BT_20260407_PLEX_PGM_EP1544_CONVO 4-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,843 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,844 INFO Ingest queued: f586b1a0-0549-4a05-987d-f774de1ddf64
+watcher-1  | 2026-07-22 19:22:59,844 INFO Ingesting: /media2/BT/BT_20260407_PLEX_PGM_EP1542_CONVO 2-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,865 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,865 INFO Ingest queued: 3ad7bba6-9cdf-40bb-b1a8-81b30ae7ba4d
+watcher-1  | 2026-07-22 19:22:59,865 INFO Ingesting: /media2/BT/BT_20231114_STUD_PGM_2-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,878 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,879 INFO Ingest queued: 5b4c502f-6c22-4c16-a676-65e100c279f6
+watcher-1  | 2026-07-22 19:22:59,879 INFO Ingesting: /media2/BT/BT_20231114_STUD_PGM_5-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,886 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,886 INFO Ingest queued: f46794e1-7ae7-4a6f-8043-f4a48f2beb33
+watcher-1  | 2026-07-22 19:22:59,886 INFO Ingesting: /media2/BT/BT_20260407_PLEX_PGM_EP1545_CONVO 5-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,892 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,892 INFO Ingest queued: 332955fa-be07-4b9a-835e-735e56c02d98
+watcher-1  | 2026-07-22 19:22:59,892 INFO Ingesting: /media2/BT/BT_20260407_PLEX_PGM_EP1543_CONVO 3-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,897 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,897 INFO Ingest queued: ed9c77f1-4472-41c9-89c4-2fa975408e5b
+watcher-1  | 2026-07-22 19:22:59,897 INFO Ingesting: /media2/BT/BT_20250624_TUS_STUD_PGM-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,901 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,902 INFO Ingest queued: ae8232fb-7521-415b-8166-224cff427254
+watcher-1  | 2026-07-22 19:22:59,902 INFO Ingesting: /media2/BT/BT_20260407_PLEX_PGM_EP1541_CONVO 1-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,906 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,906 INFO Ingest queued: 12c977df-bd8e-4b86-bfc4-6d8001b7f6f2
+watcher-1  | 2026-07-22 19:22:59,906 INFO Ingesting: /media2/BT/BT_20231114_STUD_PGM-CLN-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,910 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,910 INFO Ingest queued: 637e7f59-1fc6-41ff-9e9a-efd6515a07a6
+watcher-1  | 2026-07-22 19:22:59,910 INFO Ingesting: /media2/BT/BT_20250624_TUS_STUD_PGM_5-proxy.mp4
+watcher-1  | 2026-07-22 19:22:59,915 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,915 INFO Ingest queued: f743a370-5e69-42fd-b22d-475458e643f5
+watcher-1  | 2026-07-22 19:22:59,915 INFO Ingesting: /curator/HD-P260708-174814/HD-P260708-174814_video.mp4
+watcher-1  | 2026-07-22 19:22:59,948 INFO HTTP Request: POST http://api:8000/api/media "HTTP/1.1 202 Accepted"
+watcher-1  | 2026-07-22 19:22:59,949 INFO Ingest queued: 41cc4264-eb40-4f49-9f0c-c9c3337cf241
+watcher-1  | 2026-07-22 19:50:01,685 INFO Watching: /media (poll every 30s)
+watcher-1  | 2026-07-22 19:50:01,685 INFO Watching: /media2 (poll every 30s)
+watcher-1  | 2026-07-22 19:50:01,685 INFO Watching: /curator (poll every 30s)
+watcher-1  | 2026-07-22 19:50:02,065 INFO Initial scan of /media: 0 video file(s) queued
+watcher-1  | 2026-07-22 19:50:02,401 INFO Initial scan of /media2: 98 video file(s) queued
+watcher-1  | 2026-07-22 19:50:02,406 INFO Initial scan of /curator: 1 video file(s) queued

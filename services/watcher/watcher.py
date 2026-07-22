@@ -49,14 +49,11 @@ def _should_ingest(path: str, dir_files: list[str] | None = None) -> bool:
     return os.path.basename(path).lower().endswith("_video.mp4")
 
 
-def _file_stable(path: str) -> bool:
+def _size(path: str) -> int | None:
     try:
-        size1 = os.path.getsize(path)
-        time.sleep(STABLE_SECONDS)
-        size2 = os.path.getsize(path)
-        return size1 == size2 and size2 > 0
+        return os.path.getsize(path)
     except OSError:
-        return False
+        return None
 
 
 def _ingest(path: str):
@@ -80,13 +77,13 @@ class VideoHandler(FileSystemEventHandler):
             return
         if _should_ingest(event.src_path):
             log.info(f"New file detected: {event.src_path}")
-            pending[event.src_path] = {"detected_at": time.time()}
+            pending[event.src_path] = {"detected_at": time.time(), "size": _size(event.src_path)}
 
     def on_modified(self, event):
         if event.is_directory:
             return
         if event.src_path not in pending and _should_ingest(event.src_path):
-            pending[event.src_path] = {"detected_at": time.time()}
+            pending[event.src_path] = {"detected_at": time.time(), "size": _size(event.src_path)}
 
 
 def _initial_scan():
@@ -99,7 +96,7 @@ def _initial_scan():
             for fn in filenames:
                 path = os.path.join(dirpath, fn)
                 if path not in pending and _should_ingest(path, filenames):
-                    pending[path] = {"detected_at": time.time()}
+                    pending[path] = {"detected_at": time.time(), "size": _size(path)}
                     count += 1
         log.info(f"Initial scan of {root}: {count} video file(s) queued")
 
@@ -130,11 +127,20 @@ def main():
             to_process = []
             for path, info in list(pending.items()):
                 age = now - info["detected_at"]
-                if age >= STABLE_SECONDS:
-                    if os.path.exists(path) and _file_stable(path):
-                        to_process.append(path)
-                    else:
-                        del pending[path]
+                if age < STABLE_SECONDS:
+                    continue
+                # Stability = size unchanged across the STABLE_SECONDS window,
+                # compared against the size recorded at detection time — no
+                # per-file sleep, so a 100-file startup rescan clears in one
+                # pass instead of 5 s x N serially.
+                size = _size(path)
+                if size is None:
+                    del pending[path]
+                elif size > 0 and size == info.get("size"):
+                    to_process.append(path)
+                else:
+                    info["size"] = size
+                    info["detected_at"] = now
 
             for path in to_process:
                 del pending[path]
