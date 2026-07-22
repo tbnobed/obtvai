@@ -199,6 +199,37 @@ export default function Library() {
     const ids = dragIds(assetId);
     e.dataTransfer.setData(ASSET_DRAG_TYPE, JSON.stringify(ids));
     e.dataTransfer.effectAllowed = "move";
+    if (ids.length > 1) {
+      // Custom drag preview: badge showing how many files are being moved.
+      const ghost = document.createElement("div");
+      ghost.textContent = `${ids.length} files`;
+      ghost.style.cssText =
+        "position:fixed;top:-100px;left:-100px;padding:6px 12px;border-radius:6px;" +
+        "background:hsl(217 91% 60%);color:white;font-size:13px;font-weight:600;" +
+        "box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;";
+      document.body.appendChild(ghost);
+      e.dataTransfer.setDragImage(ghost, 20, 15);
+      setTimeout(() => ghost.remove(), 0);
+    }
+  };
+
+  // Shift-click selects the range between the last clicked asset and this one;
+  // ctrl/cmd-click toggles a single asset.
+  const lastClickedRef = useRef<string | null>(null);
+  const handleSelectClick = (e: React.MouseEvent, assetId: string) => {
+    const items = data?.items ?? [];
+    if (e.shiftKey && lastClickedRef.current && lastClickedRef.current !== assetId) {
+      const a = items.findIndex(x => x.id === lastClickedRef.current);
+      const b = items.findIndex(x => x.id === assetId);
+      if (a !== -1 && b !== -1) {
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        const range = items.slice(lo, hi + 1).map(x => x.id);
+        setSelected(prev => new Set([...Array.from(prev), ...range]));
+        return;
+      }
+    }
+    toggleSelected(assetId);
+    lastClickedRef.current = assetId;
   };
 
   const readDraggedIds = (e: React.DragEvent): string[] => {
@@ -949,7 +980,7 @@ export default function Library() {
                     onClick={(e) => {
                       if (e.ctrlKey || e.metaKey || e.shiftKey) {
                         e.preventDefault();
-                        toggleSelected(asset.id);
+                        handleSelectClick(e, asset.id);
                         return;
                       }
                       navigate(`/library/${asset.id}`);
@@ -966,7 +997,7 @@ export default function Library() {
                       )}
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); toggleSelected(asset.id); }}
+                        onClick={(e) => { e.stopPropagation(); handleSelectClick(e, asset.id); }}
                         className={`absolute top-2 left-2 h-5 w-5 rounded border flex items-center justify-center transition-opacity ${selected.has(asset.id) ? "bg-primary border-primary text-primary-foreground opacity-100" : "bg-background/80 border-border opacity-0 group-hover:opacity-100"}`}
                         title={selected.has(asset.id) ? "Deselect" : "Select"}
                       >
@@ -1015,7 +1046,7 @@ export default function Library() {
                     onClick={(e) => {
                       if (e.ctrlKey || e.metaKey || e.shiftKey) {
                         e.preventDefault();
-                        toggleSelected(asset.id);
+                        handleSelectClick(e, asset.id);
                         return;
                       }
                       navigate(`/library/${asset.id}`);
