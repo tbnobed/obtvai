@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, date
-from sqlalchemy import String, Integer, Float, Boolean, Text, DateTime, Date, ForeignKey, JSON, BigInteger, Index
+from sqlalchemy import String, Integer, Float, Boolean, Text, DateTime, Date, ForeignKey, JSON, BigInteger, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY, JSONB
 from .database import Base
@@ -387,6 +387,64 @@ class TrendTopic(Base):
     score: Mapped[float | None] = mapped_column(Float, nullable=True)  # youtube: views; web: recent result count
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # url/channel/views/haystack or headlines
     fetched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class SocialProgram(Base):
+    """A show/program grouping its social channels (Praise, Better Together, ...)."""
+    __tablename__ = "social_programs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class SocialChannel(Base):
+    """One platform account attached to a program (YouTube/Instagram/Facebook/TikTok)."""
+    __tablename__ = "social_channels"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    program_id: Mapped[str] = mapped_column(String, ForeignKey("social_programs.id", ondelete="CASCADE"), nullable=False)
+    platform: Mapped[str] = mapped_column(String, nullable=False)  # youtube | instagram | facebook | tiktok
+    handle: Mapped[str] = mapped_column(String, nullable=False)
+    url: Mapped[str | None] = mapped_column(String, nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String, nullable=True)  # resolved on first successful sync
+    display_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class SocialChannelSnapshot(Base):
+    """Point-in-time channel-level metrics; one row per channel per sync."""
+    __tablename__ = "social_channel_snapshots"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    channel_id: Mapped[str] = mapped_column(String, ForeignKey("social_channels.id", ondelete="CASCADE"), nullable=False, index=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    followers: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_views: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    posts_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class SocialPost(Base):
+    """Per-post/video performance; upserted by (channel_id, external_id) each sync."""
+    __tablename__ = "social_posts"
+    __table_args__ = (UniqueConstraint("channel_id", "external_id", name="uq_social_posts_channel_ext"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    channel_id: Mapped[str] = mapped_column(String, ForeignKey("social_channels.id", ondelete="CASCADE"), nullable=False, index=True)
+    platform: Mapped[str] = mapped_column(String, nullable=False)
+    external_id: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
+    url: Mapped[str | None] = mapped_column(String, nullable=True)
+    thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    views: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    likes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    comments: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    shares: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class ClipList(Base):

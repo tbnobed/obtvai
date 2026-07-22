@@ -19,6 +19,7 @@ import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
 import Graphics from "@/pages/graphics";
 import Ratings from "@/pages/ratings";
+import Socials from "@/pages/socials";
 import SearchPage from "@/pages/search";
 import Login from "@/pages/login";
 import UsersPage from "@/pages/users";
@@ -66,6 +67,7 @@ function Router() {
         <Route path="/graphics" component={Graphics} />
         <Route path="/insights" component={Insights} />
         <Route path="/ratings" component={Ratings} />
+        <Route path="/socials" component={Socials} />
         <Route path="/jobs" component={Jobs} />
         <Route path="/ai" component={AIQA} />
         <Route path="/search" component={SearchPage} />

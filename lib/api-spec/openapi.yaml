@@ -1756,6 +1756,211 @@ paths:
         "409":
           description: A trends job is already running
 
+  # ── Socials ───────────────────────────────────────────────────────────────
+  /socials:
+    get:
+      operationId: getSocialsOverview
+      tags: [socials]
+      summary: All programs with their channels, latest metrics, and week-ago comparison snapshots
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialsOverview"
+
+  /socials/programs:
+    post:
+      operationId: createSocialProgram
+      tags: [socials]
+      summary: Create a program (show) to group social channels under
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SocialProgramInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialProgram"
+
+  /socials/programs/{id}:
+    patch:
+      operationId: updateSocialProgram
+      tags: [socials]
+      summary: Rename a program
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SocialProgramInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialProgram"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSocialProgram
+      tags: [socials]
+      summary: Delete a program and all of its channels and collected metrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /socials/channels:
+    post:
+      operationId: createSocialChannel
+      tags: [socials]
+      summary: Add a social channel to a program
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SocialChannelInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialChannel"
+        "404":
+          description: Program not found
+
+  /socials/channels/{id}:
+    patch:
+      operationId: updateSocialChannel
+      tags: [socials]
+      summary: Update a channel's handle or URL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SocialChannelUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialChannel"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSocialChannel
+      tags: [socials]
+      summary: Remove a channel and its collected metrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /socials/channels/{id}/history:
+    get:
+      operationId: getSocialChannelHistory
+      tags: [socials]
+      summary: Follower/view snapshots over time for one channel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 90
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SocialSnapshot"
+        "404":
+          description: Not found
+
+  /socials/channels/{id}/posts:
+    get:
+      operationId: listSocialChannelPosts
+      tags: [socials]
+      summary: Recent posts/videos with per-post performance for one channel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 25
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SocialPost"
+        "404":
+          description: Not found
+
+  /socials/refresh:
+    post:
+      operationId: refreshSocials
+      tags: [socials]
+      summary: Queue a metrics pull for all channels (YouTube, Instagram, Facebook, TikTok)
+      responses:
+        "202":
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+        "409":
+          description: A socials sync job is already running
+
   # ── Ratings ───────────────────────────────────────────────────────────────
   /ratings:
     get:
@@ -4359,6 +4564,176 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TrendHeadline"
+
+    SocialProgramInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    SocialProgram:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+
+    SocialChannelInput:
+      type: object
+      required: [program_id, platform, handle]
+      properties:
+        program_id:
+          type: string
+        platform:
+          type: string
+          enum: [youtube, instagram, facebook, tiktok]
+        handle:
+          type: string
+          minLength: 1
+          description: "Channel handle or page name, e.g. @praisetv or praisetv"
+        url:
+          type: ["string", "null"]
+          description: Public profile/channel URL (optional; shown as a link)
+
+    SocialChannelUpdate:
+      type: object
+      properties:
+        handle:
+          type: string
+          minLength: 1
+        url:
+          type: ["string", "null"]
+
+    SocialChannel:
+      type: object
+      required: [id, program_id, platform, handle, created_at]
+      properties:
+        id:
+          type: string
+        program_id:
+          type: string
+        platform:
+          type: string
+          enum: [youtube, instagram, facebook, tiktok]
+        handle:
+          type: string
+        url:
+          type: ["string", "null"]
+        external_id:
+          type: ["string", "null"]
+          description: Platform-side id resolved on first successful sync
+        display_name:
+          type: ["string", "null"]
+        avatar_url:
+          type: ["string", "null"]
+        last_sync_at:
+          type: ["string", "null"]
+        last_error:
+          type: ["string", "null"]
+          description: "Why the last sync failed for this channel (e.g. missing API credentials)"
+        created_at:
+          type: string
+
+    SocialSnapshot:
+      type: object
+      required: [fetched_at]
+      properties:
+        fetched_at:
+          type: string
+        followers:
+          type: ["integer", "null"]
+          description: Followers / subscribers / page likes
+        total_views:
+          type: ["integer", "null"]
+          description: Lifetime channel views where the platform exposes it
+        posts_count:
+          type: ["integer", "null"]
+
+    SocialPost:
+      type: object
+      required: [id, channel_id, platform, external_id, fetched_at]
+      properties:
+        id:
+          type: string
+        channel_id:
+          type: string
+        platform:
+          type: string
+        external_id:
+          type: string
+        title:
+          type: ["string", "null"]
+        url:
+          type: ["string", "null"]
+        thumbnail_url:
+          type: ["string", "null"]
+        published_at:
+          type: ["string", "null"]
+        views:
+          type: ["integer", "null"]
+        likes:
+          type: ["integer", "null"]
+        comments:
+          type: ["integer", "null"]
+        shares:
+          type: ["integer", "null"]
+        fetched_at:
+          type: string
+
+    SocialChannelOverview:
+      allOf:
+        - $ref: "#/components/schemas/SocialChannel"
+        - type: object
+          properties:
+            latest:
+              oneOf:
+                - $ref: "#/components/schemas/SocialSnapshot"
+                - type: "null"
+              description: Most recent metrics snapshot
+            week_ago:
+              oneOf:
+                - $ref: "#/components/schemas/SocialSnapshot"
+                - type: "null"
+              description: Closest snapshot from ~7 days ago, for growth deltas
+
+    SocialProgramOverview:
+      type: object
+      required: [id, name, created_at, channels]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/SocialChannelOverview"
+
+    SocialsOverview:
+      type: object
+      required: [programs, youtube_configured, meta_configured, tiktok_configured]
+      properties:
+        programs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SocialProgramOverview"
+        last_synced_at:
+          type: ["string", "null"]
+        youtube_configured:
+          type: boolean
+        meta_configured:
+          type: boolean
+          description: Meta Graph API token present (Instagram + Facebook)
+        tiktok_configured:
+          type: boolean
 
     Trends:
       type: object

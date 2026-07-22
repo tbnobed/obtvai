@@ -3213,6 +3213,214 @@ router.post("/trends/refresh", (_req, res) => {
   res.status(202).json(job);
 });
 
+// ── Socials: programs, channels, metrics ─────────────────────────────────────
+const PLATFORMS = ["youtube", "instagram", "facebook", "tiktok"] as const;
+
+let socialPrograms: any[] = [
+  { id: "sp-1", name: "Praise", created_at: "2026-05-02T10:00:00Z" },
+  { id: "sp-2", name: "Better Together", created_at: "2026-05-02T10:05:00Z" },
+];
+
+let socialChannels: any[] = [];
+const socialSnapshots: Record<string, any[]> = {};
+const socialPosts: Record<string, any[]> = {};
+let socialsLastSynced: string | null = new Date(Date.now() - 2 * 3600e3).toISOString();
+
+const seedChannel = (id: string, program_id: string, platform: string, handle: string, base: number) => {
+  socialChannels.push({
+    id, program_id, platform, handle,
+    url: platform === "youtube" ? `https://youtube.com/${handle}` : `https://${platform}.com/${handle.replace(/^@/, "")}`,
+    external_id: `${platform}-ext-${id}`,
+    display_name: handle.replace(/^@/, "").replace(/tv$/, " TV"),
+    avatar_url: null,
+    last_sync_at: socialsLastSynced,
+    last_error: platform === "tiktok" ? "TikTok API credentials not configured" : null,
+    created_at: "2026-05-02T10:10:00Z",
+  });
+  // 90 days of snapshots, gently growing.
+  const snaps: any[] = [];
+  for (let d = 90; d >= 0; d -= 3) {
+    const t = new Date(Date.now() - d * 86400e3);
+    const growth = 1 + (90 - d) * 0.004;
+    snaps.push({
+      fetched_at: t.toISOString(),
+      followers: Math.round(base * growth),
+      total_views: platform === "youtube" || platform === "tiktok" ? Math.round(base * 140 * growth) : null,
+      posts_count: Math.round(base / 300 + (90 - d) / 4),
+    });
+  }
+  socialSnapshots[id] = snaps;
+  socialPosts[id] = Array.from({ length: 12 }, (_, i) => {
+    const pub = new Date(Date.now() - (i * 4 + 1) * 86400e3);
+    const v = Math.round(base * (0.15 + Math.random() * 0.5));
+    return {
+      id: `post-${id}-${i}`,
+      channel_id: id,
+      platform,
+      external_id: `${platform}-post-${i}`,
+      title: ["Sunday highlights", "Behind the scenes", "Full episode", "Guest interview", "Top moments"][i % 5] + ` #${12 - i}`,
+      url: `https://${platform}.com/watch/${id}-${i}`,
+      thumbnail_url: null,
+      published_at: pub.toISOString(),
+      views: v,
+      likes: Math.round(v * 0.06),
+      comments: Math.round(v * 0.008),
+      shares: platform === "facebook" || platform === "tiktok" ? Math.round(v * 0.01) : null,
+      fetched_at: socialsLastSynced,
+    };
+  });
+};
+
+seedChannel("sc-1", "sp-1", "youtube", "@praisetv", 48200);
+seedChannel("sc-2", "sp-1", "instagram", "@praisetv", 21500);
+seedChannel("sc-3", "sp-1", "facebook", "PraiseTV", 66200);
+seedChannel("sc-4", "sp-1", "tiktok", "@praisetv", 9800);
+seedChannel("sc-5", "sp-2", "youtube", "@bettertogethershow", 15400);
+seedChannel("sc-6", "sp-2", "instagram", "@bettertogethershow", 12100);
+
+const channelOverview = (c: any) => {
+  const snaps = socialSnapshots[c.id] ?? [];
+  const latest = snaps[snaps.length - 1] ?? null;
+  const weekAgoTs = Date.now() - 7 * 86400e3;
+  const week_ago = snaps.length
+    ? snaps.reduce((best: any, s: any) =>
+        Math.abs(new Date(s.fetched_at).getTime() - weekAgoTs) <
+        Math.abs(new Date(best.fetched_at).getTime() - weekAgoTs) ? s : best)
+    : null;
+  return { ...c, latest, week_ago };
+};
+
+router.get("/socials", (_req, res) => {
+  res.json({
+    programs: socialPrograms.map((p) => ({
+      ...p,
+      channels: socialChannels.filter((c) => c.program_id === p.id).map(channelOverview),
+    })),
+    last_synced_at: socialsLastSynced,
+    youtube_configured: true,
+    meta_configured: true,
+    tiktok_configured: false,
+  });
+});
+
+router.post("/socials/programs", (req, res) => {
+  const name = String(req.body?.name ?? "").trim();
+  if (!name) { res.status(400).json({ detail: "name is required" }); return; }
+  const p = { id: `sp-${Date.now()}`, name, created_at: new Date().toISOString() };
+  socialPrograms.push(p);
+  res.status(201).json(p);
+});
+
+router.patch("/socials/programs/:id", (req, res) => {
+  const p = socialPrograms.find((x) => x.id === req.params.id);
+  if (!p) { res.status(404).json({ detail: "Program not found" }); return; }
+  const name = String(req.body?.name ?? "").trim();
+  if (name) p.name = name;
+  res.json(p);
+});
+
+router.delete("/socials/programs/:id", (req, res) => {
+  socialPrograms = socialPrograms.filter((x) => x.id !== req.params.id);
+  const gone = socialChannels.filter((c) => c.program_id === req.params.id).map((c) => c.id);
+  socialChannels = socialChannels.filter((c) => c.program_id !== req.params.id);
+  gone.forEach((id) => { delete socialSnapshots[id]; delete socialPosts[id]; });
+  res.status(204).send();
+});
+
+router.post("/socials/channels", (req, res) => {
+  const { program_id, platform, handle, url } = req.body ?? {};
+  if (!socialPrograms.some((p) => p.id === program_id)) {
+    res.status(404).json({ detail: "Program not found" }); return;
+  }
+  if (!PLATFORMS.includes(platform)) { res.status(400).json({ detail: "Invalid platform" }); return; }
+  if (!String(handle ?? "").trim()) { res.status(400).json({ detail: "handle is required" }); return; }
+  const c = {
+    id: `sc-${Date.now()}`, program_id, platform, handle: String(handle).trim(),
+    url: url ?? null, external_id: null, display_name: null, avatar_url: null,
+    last_sync_at: null, last_error: null, created_at: new Date().toISOString(),
+  };
+  socialChannels.push(c);
+  socialSnapshots[c.id] = [];
+  socialPosts[c.id] = [];
+  res.status(201).json(c);
+});
+
+router.patch("/socials/channels/:id", (req, res) => {
+  const c = socialChannels.find((x) => x.id === req.params.id);
+  if (!c) { res.status(404).json({ detail: "Channel not found" }); return; }
+  if (typeof req.body?.handle === "string" && req.body.handle.trim()) c.handle = req.body.handle.trim();
+  if ("url" in (req.body ?? {})) c.url = req.body.url ?? null;
+  res.json(c);
+});
+
+router.delete("/socials/channels/:id", (req, res) => {
+  socialChannels = socialChannels.filter((x) => x.id !== req.params.id);
+  delete socialSnapshots[req.params.id];
+  delete socialPosts[req.params.id];
+  res.status(204).send();
+});
+
+router.get("/socials/channels/:id/history", (req, res) => {
+  const snaps = socialSnapshots[req.params.id];
+  if (!snaps) { res.status(404).json({ detail: "Channel not found" }); return; }
+  const days = Math.max(1, parseInt(String(req.query.days ?? "90"), 10) || 90);
+  const cutoff = Date.now() - days * 86400e3;
+  res.json(snaps.filter((s) => new Date(s.fetched_at).getTime() >= cutoff));
+});
+
+router.get("/socials/channels/:id/posts", (req, res) => {
+  const posts = socialPosts[req.params.id];
+  if (!posts) { res.status(404).json({ detail: "Channel not found" }); return; }
+  const limit = Math.max(1, parseInt(String(req.query.limit ?? "25"), 10) || 25);
+  res.json(posts.slice(0, limit));
+});
+
+router.post("/socials/refresh", (_req, res) => {
+  const running = jobs.find(
+    (j: any) => j.job_type === "social_sync" && (j.status === "pending" || j.status === "running"),
+  );
+  if (running) { res.status(202).json(running); return; }
+  const job: any = {
+    id: `job-socials-${Date.now()}`,
+    media_id: null,
+    filename: null,
+    job_type: "social_sync",
+    status: "running",
+    progress: 5,
+    error_message: null,
+    logs: ["Syncing YouTube channels..."],
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    finished_at: null,
+  };
+  jobs.unshift(job as any);
+  const timer = setInterval(() => {
+    job.progress = Math.min(100, (job.progress ?? 0) + 25);
+    if (job.progress >= 50 && job.logs.length < 2) job.logs.push("Syncing Instagram & Facebook pages...");
+    if (job.progress >= 100) {
+      job.status = "success";
+      job.finished_at = new Date().toISOString();
+      job.logs.push(`Synced ${socialChannels.length} channels`);
+      socialsLastSynced = new Date().toISOString();
+      const now = socialsLastSynced;
+      for (const c of socialChannels) {
+        c.last_sync_at = now;
+        const snaps = socialSnapshots[c.id] ?? (socialSnapshots[c.id] = []);
+        const prev = snaps[snaps.length - 1];
+        snaps.push({
+          fetched_at: now,
+          followers: prev?.followers != null ? Math.round(prev.followers * 1.002) : 1200,
+          total_views: prev?.total_views != null ? Math.round(prev.total_views * 1.004) : null,
+          posts_count: prev?.posts_count ?? 4,
+        });
+      }
+      clearInterval(timer);
+    }
+  }, 1000);
+  res.status(202).json(job);
+});
+
 // ---------------------------------------------------------------------------
 // Graphics generator (ComfyUI-backed in production; simulated here)
 

@@ -11,6 +11,7 @@ import {
   Wand2,
   Search,
   BarChart3,
+  Share2,
   UserCog,
   LogOut,
   KeyRound,
@@ -126,6 +127,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/graphics", label: "Graphics", icon: Wand2 },
     { href: "/insights", label: "Insights", icon: Sparkles },
     { href: "/ratings", label: "Ratings", icon: BarChart3 },
+    { href: "/socials", label: "Socials", icon: Share2 },
     { href: "/jobs", label: "Processing Pipeline", icon: Activity },
     ...(isAdmin ? [{ href: "/users", label: "Users", icon: UserCog }] : []),
   ];

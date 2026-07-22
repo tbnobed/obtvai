@@ -52,6 +52,7 @@ async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: d
         "identify": ("gpu", "tasks.identify.identify_people"),
         "insights": ("gpu", "tasks.insights.generate_insights"),
         "trends": ("cpu", "tasks.trends.fetch_trends"),
+        "social_sync": ("cpu", "tasks.social_sync.sync_social_channels"),
     }
     queue, task_name = task_map.get(job_type, ("cpu", f"tasks.{job_type}.run"))
     payload = {"media_id": media_id, "job_id": job_id}

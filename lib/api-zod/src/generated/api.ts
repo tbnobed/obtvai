@@ -2282,6 +2282,236 @@ export const RefreshTrendsResponse = zod.object({
 
 
 /**
+ * @summary All programs with their channels, latest metrics, and week-ago comparison snapshots
+ */
+export const GetSocialsOverviewResponse = zod.object({
+  "programs": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "created_at": zod.string(),
+  "channels": zod.array(zod.object({
+  "id": zod.string(),
+  "program_id": zod.string(),
+  "platform": zod.enum(['youtube', 'instagram', 'facebook', 'tiktok']),
+  "handle": zod.string(),
+  "url": zod.string().nullish(),
+  "external_id": zod.string().nullish().describe('Platform-side id resolved on first successful sync'),
+  "display_name": zod.string().nullish(),
+  "avatar_url": zod.string().nullish(),
+  "last_sync_at": zod.string().nullish(),
+  "last_error": zod.string().nullish().describe('Why the last sync failed for this channel (e.g. missing API credentials)'),
+  "created_at": zod.string()
+}).and(zod.object({
+  "latest": zod.union([zod.object({
+  "fetched_at": zod.string(),
+  "followers": zod.number().nullish().describe('Followers \/ subscribers \/ page likes'),
+  "total_views": zod.number().nullish().describe('Lifetime channel views where the platform exposes it'),
+  "posts_count": zod.number().nullish()
+}),zod.null()]).optional().describe('Most recent metrics snapshot'),
+  "week_ago": zod.union([zod.object({
+  "fetched_at": zod.string(),
+  "followers": zod.number().nullish().describe('Followers \/ subscribers \/ page likes'),
+  "total_views": zod.number().nullish().describe('Lifetime channel views where the platform exposes it'),
+  "posts_count": zod.number().nullish()
+}),zod.null()]).optional().describe('Closest snapshot from ~7 days ago, for growth deltas')
+})))
+})),
+  "last_synced_at": zod.string().nullish(),
+  "youtube_configured": zod.boolean(),
+  "meta_configured": zod.boolean().describe('Meta Graph API token present (Instagram + Facebook)'),
+  "tiktok_configured": zod.boolean()
+})
+
+
+/**
+ * @summary Create a program (show) to group social channels under
+ */
+
+
+
+export const CreateSocialProgramBody = zod.object({
+  "name": zod.string().min(1)
+})
+
+export const CreateSocialProgramResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Rename a program
+ */
+export const UpdateSocialProgramParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpdateSocialProgramBody = zod.object({
+  "name": zod.string().min(1)
+})
+
+export const UpdateSocialProgramResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Delete a program and all of its channels and collected metrics
+ */
+export const DeleteSocialProgramParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteSocialProgramResponse = zod.void()
+
+
+/**
+ * @summary Add a social channel to a program
+ */
+
+
+
+export const CreateSocialChannelBody = zod.object({
+  "program_id": zod.string(),
+  "platform": zod.enum(['youtube', 'instagram', 'facebook', 'tiktok']),
+  "handle": zod.string().min(1).describe('Channel handle or page name, e.g. @praisetv or praisetv'),
+  "url": zod.string().nullish().describe('Public profile\/channel URL (optional; shown as a link)')
+})
+
+export const CreateSocialChannelResponse = zod.object({
+  "id": zod.string(),
+  "program_id": zod.string(),
+  "platform": zod.enum(['youtube', 'instagram', 'facebook', 'tiktok']),
+  "handle": zod.string(),
+  "url": zod.string().nullish(),
+  "external_id": zod.string().nullish().describe('Platform-side id resolved on first successful sync'),
+  "display_name": zod.string().nullish(),
+  "avatar_url": zod.string().nullish(),
+  "last_sync_at": zod.string().nullish(),
+  "last_error": zod.string().nullish().describe('Why the last sync failed for this channel (e.g. missing API credentials)'),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Update a channel's handle or URL
+ */
+export const UpdateSocialChannelParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpdateSocialChannelBody = zod.object({
+  "handle": zod.string().min(1).optional(),
+  "url": zod.string().nullish()
+})
+
+export const UpdateSocialChannelResponse = zod.object({
+  "id": zod.string(),
+  "program_id": zod.string(),
+  "platform": zod.enum(['youtube', 'instagram', 'facebook', 'tiktok']),
+  "handle": zod.string(),
+  "url": zod.string().nullish(),
+  "external_id": zod.string().nullish().describe('Platform-side id resolved on first successful sync'),
+  "display_name": zod.string().nullish(),
+  "avatar_url": zod.string().nullish(),
+  "last_sync_at": zod.string().nullish(),
+  "last_error": zod.string().nullish().describe('Why the last sync failed for this channel (e.g. missing API credentials)'),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Remove a channel and its collected metrics
+ */
+export const DeleteSocialChannelParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteSocialChannelResponse = zod.void()
+
+
+/**
+ * @summary Follower/view snapshots over time for one channel
+ */
+export const GetSocialChannelHistoryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const getSocialChannelHistoryQueryDaysDefault = 90;
+
+export const GetSocialChannelHistoryQueryParams = zod.object({
+  "days": zod.coerce.number().default(getSocialChannelHistoryQueryDaysDefault)
+})
+
+export const GetSocialChannelHistoryResponseItem = zod.object({
+  "fetched_at": zod.string(),
+  "followers": zod.number().nullish().describe('Followers \/ subscribers \/ page likes'),
+  "total_views": zod.number().nullish().describe('Lifetime channel views where the platform exposes it'),
+  "posts_count": zod.number().nullish()
+})
+export const GetSocialChannelHistoryResponse = zod.array(GetSocialChannelHistoryResponseItem)
+
+
+/**
+ * @summary Recent posts/videos with per-post performance for one channel
+ */
+export const ListSocialChannelPostsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const listSocialChannelPostsQueryLimitDefault = 25;
+
+export const ListSocialChannelPostsQueryParams = zod.object({
+  "limit": zod.coerce.number().default(listSocialChannelPostsQueryLimitDefault)
+})
+
+export const ListSocialChannelPostsResponseItem = zod.object({
+  "id": zod.string(),
+  "channel_id": zod.string(),
+  "platform": zod.string(),
+  "external_id": zod.string(),
+  "title": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "published_at": zod.string().nullish(),
+  "views": zod.number().nullish(),
+  "likes": zod.number().nullish(),
+  "comments": zod.number().nullish(),
+  "shares": zod.number().nullish(),
+  "fetched_at": zod.string()
+})
+export const ListSocialChannelPostsResponse = zod.array(ListSocialChannelPostsResponseItem)
+
+
+/**
+ * @summary Queue a metrics pull for all channels (YouTube, Instagram, Facebook, TikTok)
+ */
+export const RefreshSocialsResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
+  "filename": zod.string().nullish(),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
+  "status": zod.string().describe('pending | running | success | error | cancelled'),
+  "progress": zod.number().nullish().describe('0-100'),
+  "error_message": zod.string().nullish(),
+  "logs": zod.array(zod.string()).optional(),
+  "retry_count": zod.number().optional(),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
  * @summary List audience ratings records
  */
 export const ListRatingsQueryParams = zod.object({

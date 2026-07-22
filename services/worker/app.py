@@ -31,6 +31,7 @@ celery_app = Celery(
         "tasks.story",
         "tasks.publish",
         "tasks.social_stats",
+        "tasks.social_sync",
         "tasks.graphics",
         "tasks.trends",
     ],

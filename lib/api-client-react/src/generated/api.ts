@@ -39,6 +39,7 @@ import type {
   GetMediaFrameParams,
   GetMediaTranscriptParams,
   GetRatingsOverviewParams,
+  GetSocialChannelHistoryParams,
   GraphicsGenerateInput,
   GraphicsGeneration,
   GraphicsGenerationListResponse,
@@ -58,6 +59,7 @@ import type {
   ListRatingsParams,
   ListReelsParams,
   ListRendersParams,
+  ListSocialChannelPostsParams,
   ListStoriesParams,
   LoginInput,
   Marker,
@@ -114,7 +116,15 @@ import type {
   SearchQuery,
   SearchResponse,
   SessionUser,
+  SocialChannel,
+  SocialChannelInput,
+  SocialChannelUpdate,
   SocialCutsRequest,
+  SocialPost,
+  SocialProgram,
+  SocialProgramInput,
+  SocialSnapshot,
+  SocialsOverview,
   StoryJob,
   StoryRequestIn,
   TightenInput,
@@ -5784,6 +5794,760 @@ export const useRefreshTrends = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRefreshTrendsMutationOptions(options));
+    }
+
+export const getGetSocialsOverviewUrl = () => {
+
+
+
+
+  return `/api/socials`
+}
+
+/**
+ * @summary All programs with their channels, latest metrics, and week-ago comparison snapshots
+ */
+export const getSocialsOverview = async ( options?: RequestInit): Promise<SocialsOverview> => {
+
+  return customFetch<SocialsOverview>(getGetSocialsOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSocialsOverviewQueryKey = () => {
+    return [
+    `/api/socials`
+    ] as const;
+    }
+
+
+export const getGetSocialsOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getSocialsOverview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSocialsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSocialsOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSocialsOverview>>> = ({ signal }) => getSocialsOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSocialsOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSocialsOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getSocialsOverview>>>
+export type GetSocialsOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary All programs with their channels, latest metrics, and week-ago comparison snapshots
+ */
+
+export function useGetSocialsOverview<TData = Awaited<ReturnType<typeof getSocialsOverview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSocialsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSocialsOverviewQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSocialProgramUrl = () => {
+
+
+
+
+  return `/api/socials/programs`
+}
+
+/**
+ * @summary Create a program (show) to group social channels under
+ */
+export const createSocialProgram = async (socialProgramInput: SocialProgramInput, options?: RequestInit): Promise<SocialProgram> => {
+
+  return customFetch<SocialProgram>(getCreateSocialProgramUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(socialProgramInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSocialProgramMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSocialProgram>>, TError,{data: BodyType<SocialProgramInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSocialProgram>>, TError,{data: BodyType<SocialProgramInput>}, TContext> => {
+
+const mutationKey = ['createSocialProgram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSocialProgram>>, {data: BodyType<SocialProgramInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSocialProgram(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSocialProgramMutationResult = NonNullable<Awaited<ReturnType<typeof createSocialProgram>>>
+    export type CreateSocialProgramMutationBody = BodyType<SocialProgramInput>
+    export type CreateSocialProgramMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a program (show) to group social channels under
+ */
+export const useCreateSocialProgram = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSocialProgram>>, TError,{data: BodyType<SocialProgramInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSocialProgram>>,
+        TError,
+        {data: BodyType<SocialProgramInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSocialProgramMutationOptions(options));
+    }
+
+export const getUpdateSocialProgramUrl = (id: string,) => {
+
+
+
+
+  return `/api/socials/programs/${id}`
+}
+
+/**
+ * @summary Rename a program
+ */
+export const updateSocialProgram = async (id: string,
+    socialProgramInput: SocialProgramInput, options?: RequestInit): Promise<SocialProgram> => {
+
+  return customFetch<SocialProgram>(getUpdateSocialProgramUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(socialProgramInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateSocialProgramMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSocialProgram>>, TError,{id: string;data: BodyType<SocialProgramInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSocialProgram>>, TError,{id: string;data: BodyType<SocialProgramInput>}, TContext> => {
+
+const mutationKey = ['updateSocialProgram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSocialProgram>>, {id: string;data: BodyType<SocialProgramInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSocialProgram(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSocialProgramMutationResult = NonNullable<Awaited<ReturnType<typeof updateSocialProgram>>>
+    export type UpdateSocialProgramMutationBody = BodyType<SocialProgramInput>
+    export type UpdateSocialProgramMutationError = ErrorType<void>
+
+    /**
+ * @summary Rename a program
+ */
+export const useUpdateSocialProgram = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSocialProgram>>, TError,{id: string;data: BodyType<SocialProgramInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSocialProgram>>,
+        TError,
+        {id: string;data: BodyType<SocialProgramInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateSocialProgramMutationOptions(options));
+    }
+
+export const getDeleteSocialProgramUrl = (id: string,) => {
+
+
+
+
+  return `/api/socials/programs/${id}`
+}
+
+/**
+ * @summary Delete a program and all of its channels and collected metrics
+ */
+export const deleteSocialProgram = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteSocialProgramUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSocialProgramMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSocialProgram>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSocialProgram>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteSocialProgram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSocialProgram>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteSocialProgram(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSocialProgramMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSocialProgram>>>
+
+    export type DeleteSocialProgramMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a program and all of its channels and collected metrics
+ */
+export const useDeleteSocialProgram = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSocialProgram>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSocialProgram>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteSocialProgramMutationOptions(options));
+    }
+
+export const getCreateSocialChannelUrl = () => {
+
+
+
+
+  return `/api/socials/channels`
+}
+
+/**
+ * @summary Add a social channel to a program
+ */
+export const createSocialChannel = async (socialChannelInput: SocialChannelInput, options?: RequestInit): Promise<SocialChannel> => {
+
+  return customFetch<SocialChannel>(getCreateSocialChannelUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(socialChannelInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSocialChannelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSocialChannel>>, TError,{data: BodyType<SocialChannelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSocialChannel>>, TError,{data: BodyType<SocialChannelInput>}, TContext> => {
+
+const mutationKey = ['createSocialChannel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSocialChannel>>, {data: BodyType<SocialChannelInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSocialChannel(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSocialChannelMutationResult = NonNullable<Awaited<ReturnType<typeof createSocialChannel>>>
+    export type CreateSocialChannelMutationBody = BodyType<SocialChannelInput>
+    export type CreateSocialChannelMutationError = ErrorType<void>
+
+    /**
+ * @summary Add a social channel to a program
+ */
+export const useCreateSocialChannel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSocialChannel>>, TError,{data: BodyType<SocialChannelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSocialChannel>>,
+        TError,
+        {data: BodyType<SocialChannelInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSocialChannelMutationOptions(options));
+    }
+
+export const getUpdateSocialChannelUrl = (id: string,) => {
+
+
+
+
+  return `/api/socials/channels/${id}`
+}
+
+/**
+ * @summary Update a channel's handle or URL
+ */
+export const updateSocialChannel = async (id: string,
+    socialChannelUpdate: SocialChannelUpdate, options?: RequestInit): Promise<SocialChannel> => {
+
+  return customFetch<SocialChannel>(getUpdateSocialChannelUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(socialChannelUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSocialChannelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSocialChannel>>, TError,{id: string;data: BodyType<SocialChannelUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSocialChannel>>, TError,{id: string;data: BodyType<SocialChannelUpdate>}, TContext> => {
+
+const mutationKey = ['updateSocialChannel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSocialChannel>>, {id: string;data: BodyType<SocialChannelUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSocialChannel(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSocialChannelMutationResult = NonNullable<Awaited<ReturnType<typeof updateSocialChannel>>>
+    export type UpdateSocialChannelMutationBody = BodyType<SocialChannelUpdate>
+    export type UpdateSocialChannelMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a channel's handle or URL
+ */
+export const useUpdateSocialChannel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSocialChannel>>, TError,{id: string;data: BodyType<SocialChannelUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSocialChannel>>,
+        TError,
+        {id: string;data: BodyType<SocialChannelUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSocialChannelMutationOptions(options));
+    }
+
+export const getDeleteSocialChannelUrl = (id: string,) => {
+
+
+
+
+  return `/api/socials/channels/${id}`
+}
+
+/**
+ * @summary Remove a channel and its collected metrics
+ */
+export const deleteSocialChannel = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteSocialChannelUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSocialChannelMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSocialChannel>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSocialChannel>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteSocialChannel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSocialChannel>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteSocialChannel(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSocialChannelMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSocialChannel>>>
+
+    export type DeleteSocialChannelMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a channel and its collected metrics
+ */
+export const useDeleteSocialChannel = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSocialChannel>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSocialChannel>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteSocialChannelMutationOptions(options));
+    }
+
+export const getGetSocialChannelHistoryUrl = (id: string,
+    params?: GetSocialChannelHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/socials/channels/${id}/history?${stringifiedParams}` : `/api/socials/channels/${id}/history`
+}
+
+/**
+ * @summary Follower/view snapshots over time for one channel
+ */
+export const getSocialChannelHistory = async (id: string,
+    params?: GetSocialChannelHistoryParams, options?: RequestInit): Promise<SocialSnapshot[]> => {
+
+  return customFetch<SocialSnapshot[]>(getGetSocialChannelHistoryUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSocialChannelHistoryQueryKey = (id: string,
+    params?: GetSocialChannelHistoryParams,) => {
+    return [
+    `/api/socials/channels/${id}/history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSocialChannelHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getSocialChannelHistory>>, TError = ErrorType<void>>(id: string,
+    params?: GetSocialChannelHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSocialChannelHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSocialChannelHistoryQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSocialChannelHistory>>> = ({ signal }) => getSocialChannelHistory(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSocialChannelHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSocialChannelHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getSocialChannelHistory>>>
+export type GetSocialChannelHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Follower/view snapshots over time for one channel
+ */
+
+export function useGetSocialChannelHistory<TData = Awaited<ReturnType<typeof getSocialChannelHistory>>, TError = ErrorType<void>>(
+ id: string,
+    params?: GetSocialChannelHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSocialChannelHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSocialChannelHistoryQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListSocialChannelPostsUrl = (id: string,
+    params?: ListSocialChannelPostsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/socials/channels/${id}/posts?${stringifiedParams}` : `/api/socials/channels/${id}/posts`
+}
+
+/**
+ * @summary Recent posts/videos with per-post performance for one channel
+ */
+export const listSocialChannelPosts = async (id: string,
+    params?: ListSocialChannelPostsParams, options?: RequestInit): Promise<SocialPost[]> => {
+
+  return customFetch<SocialPost[]>(getListSocialChannelPostsUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSocialChannelPostsQueryKey = (id: string,
+    params?: ListSocialChannelPostsParams,) => {
+    return [
+    `/api/socials/channels/${id}/posts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListSocialChannelPostsQueryOptions = <TData = Awaited<ReturnType<typeof listSocialChannelPosts>>, TError = ErrorType<void>>(id: string,
+    params?: ListSocialChannelPostsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSocialChannelPosts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSocialChannelPostsQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSocialChannelPosts>>> = ({ signal }) => listSocialChannelPosts(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSocialChannelPosts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSocialChannelPostsQueryResult = NonNullable<Awaited<ReturnType<typeof listSocialChannelPosts>>>
+export type ListSocialChannelPostsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Recent posts/videos with per-post performance for one channel
+ */
+
+export function useListSocialChannelPosts<TData = Awaited<ReturnType<typeof listSocialChannelPosts>>, TError = ErrorType<void>>(
+ id: string,
+    params?: ListSocialChannelPostsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSocialChannelPosts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSocialChannelPostsQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRefreshSocialsUrl = () => {
+
+
+
+
+  return `/api/socials/refresh`
+}
+
+/**
+ * @summary Queue a metrics pull for all channels (YouTube, Instagram, Facebook, TikTok)
+ */
+export const refreshSocials = async ( options?: RequestInit): Promise<ProcessingJob> => {
+
+  return customFetch<ProcessingJob>(getRefreshSocialsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRefreshSocialsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshSocials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshSocials>>, TError,void, TContext> => {
+
+const mutationKey = ['refreshSocials'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshSocials>>, void> = () => {
+
+
+          return  refreshSocials(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshSocialsMutationResult = NonNullable<Awaited<ReturnType<typeof refreshSocials>>>
+
+    export type RefreshSocialsMutationError = ErrorType<void>
+
+    /**
+ * @summary Queue a metrics pull for all channels (YouTube, Instagram, Facebook, TikTok)
+ */
+export const useRefreshSocials = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshSocials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshSocials>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRefreshSocialsMutationOptions(options));
     }
 
 export const getListRatingsUrl = (params?: ListRatingsParams,) => {

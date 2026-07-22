@@ -1032,6 +1032,149 @@ export interface WebTrend {
   headlines: TrendHeadline[];
 }
 
+export interface SocialProgramInput {
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface SocialProgram {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export type SocialChannelInputPlatform = typeof SocialChannelInputPlatform[keyof typeof SocialChannelInputPlatform];
+
+
+export const SocialChannelInputPlatform = {
+  youtube: 'youtube',
+  instagram: 'instagram',
+  facebook: 'facebook',
+  tiktok: 'tiktok',
+} as const;
+
+export interface SocialChannelInput {
+  program_id: string;
+  platform: SocialChannelInputPlatform;
+  /**
+     * Channel handle or page name, e.g. @praisetv or praisetv
+     * @minLength 1
+     */
+  handle: string;
+  /**
+     * Public profile/channel URL (optional; shown as a link)
+     * @nullable
+     */
+  url?: string | null;
+}
+
+export interface SocialChannelUpdate {
+  /** @minLength 1 */
+  handle?: string;
+  /** @nullable */
+  url?: string | null;
+}
+
+export type SocialChannelPlatform = typeof SocialChannelPlatform[keyof typeof SocialChannelPlatform];
+
+
+export const SocialChannelPlatform = {
+  youtube: 'youtube',
+  instagram: 'instagram',
+  facebook: 'facebook',
+  tiktok: 'tiktok',
+} as const;
+
+export interface SocialChannel {
+  id: string;
+  program_id: string;
+  platform: SocialChannelPlatform;
+  handle: string;
+  /** @nullable */
+  url?: string | null;
+  /**
+     * Platform-side id resolved on first successful sync
+     * @nullable
+     */
+  external_id?: string | null;
+  /** @nullable */
+  display_name?: string | null;
+  /** @nullable */
+  avatar_url?: string | null;
+  /** @nullable */
+  last_sync_at?: string | null;
+  /**
+     * Why the last sync failed for this channel (e.g. missing API credentials)
+     * @nullable
+     */
+  last_error?: string | null;
+  created_at: string;
+}
+
+export interface SocialSnapshot {
+  fetched_at: string;
+  /**
+     * Followers / subscribers / page likes
+     * @nullable
+     */
+  followers?: number | null;
+  /**
+     * Lifetime channel views where the platform exposes it
+     * @nullable
+     */
+  total_views?: number | null;
+  /** @nullable */
+  posts_count?: number | null;
+}
+
+export interface SocialPost {
+  id: string;
+  channel_id: string;
+  platform: string;
+  external_id: string;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  url?: string | null;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  /** @nullable */
+  published_at?: string | null;
+  /** @nullable */
+  views?: number | null;
+  /** @nullable */
+  likes?: number | null;
+  /** @nullable */
+  comments?: number | null;
+  /** @nullable */
+  shares?: number | null;
+  fetched_at: string;
+}
+
+export type SocialChannelOverview = SocialChannel & ({
+  /** Most recent metrics snapshot */
+  latest?: SocialSnapshot | null;
+  /** Closest snapshot from ~7 days ago, for growth deltas */
+  week_ago?: SocialSnapshot | null;
+});
+
+export interface SocialProgramOverview {
+  id: string;
+  name: string;
+  created_at: string;
+  channels: SocialChannelOverview[];
+}
+
+export interface SocialsOverview {
+  programs: SocialProgramOverview[];
+  /** @nullable */
+  last_synced_at?: string | null;
+  youtube_configured: boolean;
+  /** Meta Graph API token present (Instagram + Facebook) */
+  meta_configured: boolean;
+  tiktok_configured: boolean;
+}
+
 export interface Trends {
   /**
      * When trend data was last fetched (null if never)
@@ -2168,6 +2311,14 @@ months?: number;
  * @minimum 5
  * @maximum 50
  */
+limit?: number;
+};
+
+export type GetSocialChannelHistoryParams = {
+days?: number;
+};
+
+export type ListSocialChannelPostsParams = {
 limit?: number;
 };
 

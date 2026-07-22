@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends, ratings, folders, auth as auth_router, users as users_router
+from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends, ratings, folders, socials, auth as auth_router, users as users_router
 from .auth import auth_middleware
 
 
@@ -122,6 +122,15 @@ async def _run_startup_migrations():
             CREATE UNIQUE INDEX IF NOT EXISTS uq_processing_jobs_active_trends
             ON processing_jobs (job_type)
             WHERE job_type = 'trends' AND status IN ('pending', 'running')
+            """
+        ))
+
+        # Same singleton guarantee for library-wide social sync jobs.
+        await conn.execute(text(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_processing_jobs_active_social_sync
+            ON processing_jobs (job_type)
+            WHERE job_type = 'social_sync' AND status IN ('pending', 'running')
             """
         ))
 
@@ -303,6 +312,7 @@ app.include_router(projects.router, prefix="/api")
 app.include_router(voice.router, prefix="/api")
 app.include_router(graphics.router, prefix="/api")
 app.include_router(trends.router, prefix="/api")
+app.include_router(socials.router, prefix="/api")
 app.include_router(ratings.router, prefix="/api")
 
 

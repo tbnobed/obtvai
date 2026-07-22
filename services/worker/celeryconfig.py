@@ -26,4 +26,9 @@ beat_schedule = {
         "schedule": 10800.0,  # every 3 h; 1 YouTube quota unit + ~25 SearXNG queries
         "options": {"queue": "cpu"},
     },
+    "sync-social-channels": {
+        "task": "tasks.social_sync.sync_social_channels",
+        "schedule": 21600.0,  # every 6 h; ~4 YouTube quota units + a few Graph calls per channel
+        "options": {"queue": "cpu"},
+    },
 }

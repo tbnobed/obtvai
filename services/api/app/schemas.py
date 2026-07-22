@@ -821,6 +821,87 @@ class TrendsOut(BaseModel):
     web: List[WebTrendOut] = []
 
 
+# ── Socials ──────────────────────────────────────────────────────────────────
+
+class SocialProgramIn(BaseModel):
+    name: str = Field(min_length=1)
+
+
+class SocialProgramOut(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+
+
+class SocialChannelIn(BaseModel):
+    program_id: str
+    platform: Literal["youtube", "instagram", "facebook", "tiktok"]
+    handle: str = Field(min_length=1)
+    url: Optional[str] = None
+
+
+class SocialChannelUpdateIn(BaseModel):
+    handle: Optional[str] = Field(default=None, min_length=1)
+    url: Optional[str] = None
+
+
+class SocialChannelOut(BaseModel):
+    id: str
+    program_id: str
+    platform: str
+    handle: str
+    url: Optional[str] = None
+    external_id: Optional[str] = None
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    last_sync_at: Optional[datetime] = None
+    last_error: Optional[str] = None
+    created_at: datetime
+
+
+class SocialSnapshotOut(BaseModel):
+    fetched_at: datetime
+    followers: Optional[int] = None
+    total_views: Optional[int] = None
+    posts_count: Optional[int] = None
+
+
+class SocialPostOut(BaseModel):
+    id: str
+    channel_id: str
+    platform: str
+    external_id: str
+    title: Optional[str] = None
+    url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    published_at: Optional[datetime] = None
+    views: Optional[int] = None
+    likes: Optional[int] = None
+    comments: Optional[int] = None
+    shares: Optional[int] = None
+    fetched_at: datetime
+
+
+class SocialChannelOverviewOut(SocialChannelOut):
+    latest: Optional[SocialSnapshotOut] = None
+    week_ago: Optional[SocialSnapshotOut] = None
+
+
+class SocialProgramOverviewOut(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+    channels: List[SocialChannelOverviewOut] = []
+
+
+class SocialsOverviewOut(BaseModel):
+    programs: List[SocialProgramOverviewOut] = []
+    last_synced_at: Optional[datetime] = None
+    youtube_configured: bool
+    meta_configured: bool
+    tiktok_configured: bool
+
+
 # ── Projects ──────────────────────────────────────────────────────────────────
 
 class ProjectCounts(BaseModel):
