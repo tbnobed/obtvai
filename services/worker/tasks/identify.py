@@ -612,7 +612,13 @@ def identify_people(self, media_id: str, job_id: str):
             update_job(db, job_id, progress=60.0)
             append_log(db, job_id, f"Generating AI profiles for {len(touched)} people...")
             tok, mdl = _ensure_llm()
-            for pid in touched:
+            for i, pid in enumerate(touched, 1):
+                name_row = db.execute(
+                    text("SELECT display_name FROM people WHERE id = :pid"), {"pid": pid}
+                ).fetchone()
+                db.commit()
+                append_log(db, job_id, f"Profile {i}/{len(touched)}: {name_row[0] if name_row else pid}")
+                update_job(db, job_id, progress=60.0 + 38.0 * i / len(touched))
                 # Retry once on deadlock/lock-timeout: transient collisions
                 # with API startup migrations or concurrent identify runs.
                 for attempt in (1, 2):
