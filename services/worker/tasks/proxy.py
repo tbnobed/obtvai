@@ -91,16 +91,19 @@ def create_proxy(self, media_id: str, job_id: str):
         if external:
             if os.path.islink(proxy_path) or os.path.exists(proxy_path):
                 os.remove(proxy_path)
-            # Curator renders video and audio as separate files — a symlink to
-            # the video-only _video.mp4 would play silent. Mux the sidecar
-            # audio in (video stream-copied, audio re-encoded to AAC).
+            # Always materialize a LOCAL file in PROXIES_DIR — never a symlink
+            # into /curator. Streaming straight off the (SMB) share is far too
+            # slow for playback, and Curator WebProxies are fragmented MP4s
+            # that browsers buffer terribly. A stream-copy remux fixes both
+            # (no re-encode). Curator also renders audio as separate
+            # _audioN.mp4 sidecars, which get muxed in here (audio → AAC).
             from tasks.curator import has_audio_stream, find_curator_audio
             sidecars = [] if has_audio_stream(external) else find_curator_audio(external)
+            mux = ["ffmpeg", "-y", "-i", external]
+            for p in sidecars:
+                mux += ["-i", p]
             if sidecars:
                 append_log(db, job_id, f"Reusing Curator proxy + muxing sidecar audio: {external}")
-                mux = ["ffmpeg", "-y", "-i", external]
-                for p in sidecars:
-                    mux += ["-i", p]
                 mux += ["-map", "0:v:0"]
                 if len(sidecars) > 1:
                     amix_in = "".join(f"[{i}:a:0]" for i in range(1, len(sidecars) + 1))
@@ -108,21 +111,20 @@ def create_proxy(self, media_id: str, job_id: str):
                             "-map", "[aout]"]
                 else:
                     mux += ["-map", "1:a:0"]
-                mux += ["-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                        "-movflags", "+faststart", proxy_path]
-                r = subprocess.run(mux, capture_output=True, text=True, timeout=1800)
-                if r.returncode == 0:
-                    rc, tail = 0, ""
-                else:
-                    append_log(db, job_id, f"Sidecar audio mux failed (exit {r.returncode}), "
-                               f"falling back to full encode: {(r.stderr or '')[-200:]}")
-                    if os.path.exists(proxy_path):
-                        os.remove(proxy_path)
-                    external = None
+                mux += ["-c:v", "copy", "-c:a", "aac", "-b:a", "192k"]
             else:
-                append_log(db, job_id, f"Reusing existing Curator proxy: {external}")
-                os.symlink(external, proxy_path)
+                append_log(db, job_id, f"Reusing Curator proxy (local remux): {external}")
+                mux += ["-c", "copy"]
+            mux += ["-movflags", "+faststart", proxy_path]
+            r = subprocess.run(mux, capture_output=True, text=True, timeout=1800)
+            if r.returncode == 0:
                 rc, tail = 0, ""
+            else:
+                append_log(db, job_id, f"Curator proxy remux failed (exit {r.returncode}), "
+                           f"falling back to full encode: {(r.stderr or '')[-200:]}")
+                if os.path.exists(proxy_path):
+                    os.remove(proxy_path)
+                external = None
 
         for label, codec_args in ([] if external else _ENCODERS):
             cmd = [
