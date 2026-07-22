@@ -258,7 +258,7 @@ export default function Socials() {
   if (overview && !overview.tiktok_configured) configWarnings.push("TikTok (TIKTOK_ACCESS_TOKEN)");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="flex-1 p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
