@@ -35,6 +35,20 @@ def _is_video(path: str) -> bool:
     return os.path.splitext(path)[1].lower() in VIDEO_EXTENSIONS
 
 
+CURATOR_ROOT = os.getenv("CURATOR_PROXY_ROOT", "/curator").rstrip("/")
+
+
+def _should_ingest(path: str, dir_files: list[str] | None = None) -> bool:
+    """Under the Curator proxy root, only the *_video.mp4 per proxy folder is
+    media — audioN.mp4 renditions and thumbnails must not become library
+    assets. Outside /curator, every video ingests exactly as before."""
+    if not _is_video(path):
+        return False
+    if not path.startswith(CURATOR_ROOT + "/"):
+        return True
+    return os.path.basename(path).lower().endswith("_video.mp4")
+
+
 def _file_stable(path: str) -> bool:
     try:
         size1 = os.path.getsize(path)
@@ -64,14 +78,14 @@ class VideoHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory:
             return
-        if _is_video(event.src_path):
+        if _should_ingest(event.src_path):
             log.info(f"New file detected: {event.src_path}")
             pending[event.src_path] = {"detected_at": time.time()}
 
     def on_modified(self, event):
         if event.is_directory:
             return
-        if _is_video(event.src_path) and event.src_path not in pending:
+        if event.src_path not in pending and _should_ingest(event.src_path):
             pending[event.src_path] = {"detected_at": time.time()}
 
 
@@ -84,7 +98,7 @@ def _initial_scan():
         for dirpath, _dirnames, filenames in os.walk(root):
             for fn in filenames:
                 path = os.path.join(dirpath, fn)
-                if _is_video(path) and path not in pending:
+                if path not in pending and _should_ingest(path, filenames):
                     pending[path] = {"detected_at": time.time()}
                     count += 1
         log.info(f"Initial scan of {root}: {count} video file(s) queued")

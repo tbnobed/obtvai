@@ -62,6 +62,7 @@ _COLUMN_MIGRATIONS = [
     ("person_appearances", "merged_from", "JSONB"),
     ("people", "face_search", "JSONB"),
     ("media_assets", "recorded_at", "TIMESTAMP"),
+    ("media_assets", "source_path", "TEXT"),
 ]
 
 

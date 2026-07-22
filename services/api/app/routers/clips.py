@@ -316,9 +316,12 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
     paths: dict[str, str] = {}
     if media_ids:
         rows = await db.execute(
-            select(MediaAsset.id, MediaAsset.original_path).where(MediaAsset.id.in_(media_ids))
+            select(MediaAsset.id, MediaAsset.original_path, MediaAsset.source_path)
+            .where(MediaAsset.id.in_(media_ids))
         )
-        paths = {mid: p for mid, p in rows.all() if p}
+        # source_path (hi-res original from Curator sidecar metadata) wins over
+        # original_path — for Curator-direct ingests original_path IS the proxy.
+        paths = {mid: (sp or op) for mid, op, sp in rows.all() if (sp or op)}
 
     if fmt == "fcpxml":
         content = _fcpxml(cl_out.name, cl_out.clips, paths)

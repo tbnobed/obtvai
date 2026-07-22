@@ -191,6 +191,7 @@ services:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
+      - "${CURATOR_PROXY_PATH:-./curator_proxies}:/curator:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
     command: celery -A app worker --queues=gpu --concurrency=1 --loglevel=info
@@ -220,6 +221,7 @@ services:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads:ro"
+      - "${CURATOR_PROXY_PATH:-./curator_proxies}:/curator:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
     command: celery -A app worker --queues=gpu --concurrency=1 --loglevel=info --hostname=worker-gpu-2@%h
@@ -292,10 +294,14 @@ services:
     environment:
       <<: *python-env
       API_URL: "http://api:8000/api"
-      MEDIA_ROOTS: "/media:/media2"
+      # Opt-in Curator-direct ingest: set CURATOR_DIRECT_INGEST=1 in .env to
+      # also watch /curator — only the *_video.mp4 per proxy folder is
+      # ingested (see watcher._should_ingest). Unset = previous behavior.
+      MEDIA_ROOTS: "/media:/media2${CURATOR_DIRECT_INGEST:+:/curator}"
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
+      - "${CURATOR_PROXY_PATH:-./curator_proxies}:/curator:ro"
     depends_on:
       api:
         condition: service_healthy

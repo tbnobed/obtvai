@@ -28,6 +28,18 @@ def run_ingest_pipeline(self, media_id: str, job_id: str = None):
         src_path = row[0]
         append_log(db, job_id, f"Starting ingest for: {src_path}")
 
+        # Direct Curator-proxy ingest: the file IS a Curator web proxy.
+        # Pull the hi-res original path from the sidecar metadata XML so
+        # NLE exports can relink to the real source.
+        from tasks.curator import is_curator_video, find_sidecar_source_path
+        if is_curator_video(src_path):
+            hires = find_sidecar_source_path(src_path)
+            if hires:
+                update_asset(db, media_id, source_path=hires)
+                append_log(db, job_id, f"Curator proxy ingest — hi-res source from sidecar: {hires}")
+            else:
+                append_log(db, job_id, "Curator proxy ingest — no hi-res path found in sidecar XML")
+
         # Extract metadata with ffprobe
         append_log(db, job_id, "Extracting metadata with ffprobe...")
         metadata = _ffprobe(src_path)

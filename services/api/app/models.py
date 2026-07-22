@@ -16,6 +16,9 @@ class MediaAsset(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     filename: Mapped[str] = mapped_column(String, nullable=False)
     original_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Hi-res original as the facility knows it (from Curator sidecar metadata)
+    # when the ingested file is itself a Curator web proxy. Used by NLE exports.
+    source_path: Mapped[str | None] = mapped_column(String, nullable=True)
     proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)

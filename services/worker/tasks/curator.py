@@ -86,8 +86,88 @@ def _browser_playable(path: str) -> bool:
     return all(a.get("codec_name") == "aac" for a in audio)
 
 
+_VIDEO_EXTS = (".mxf", ".mov", ".mp4", ".mkv", ".avi", ".ts", ".m2ts", ".wmv", ".flv", ".webm")
+
+
+def is_curator_video(path: str) -> bool:
+    """True when the ingested file IS a Curator web proxy itself."""
+    return os.path.basename(path).lower().endswith("_video.mp4")
+
+
+def find_sidecar_source_path(video_path: str) -> str | None:
+    """Best-effort: pull the hi-res original path out of Curator's sidecar
+    metadata XMLs (…_metadata_complete.xml / …_index.xml) that sit next to
+    the proxy. Schema-agnostic: scans every element text/attribute for a
+    path-like string ending in a video extension that isn't the proxy itself.
+    """
+    import xml.etree.ElementTree as ET
+
+    folder = os.path.dirname(video_path)
+    try:
+        xmls = sorted(
+            f for f in os.listdir(folder) if f.lower().endswith(".xml")
+        )
+    except OSError:
+        return None
+    # Small metadata files first — the big index.xml is the last resort
+    xmls.sort(key=lambda f: os.path.getsize(os.path.join(folder, f)))
+
+    # Curator folder name = <source stem>-HHMMSS; the hi-res path should
+    # contain that stem. Used to rank ambiguous candidates.
+    folder_stem = re.sub(r"-\d{6}$", "", os.path.basename(folder))
+    stem_key = _norm(folder_stem)
+
+    def _clean(value: str) -> str | None:
+        v = (value or "").strip()
+        if v.lower().startswith("file://"):
+            from urllib.parse import unquote, urlparse
+            parsed = urlparse(v)
+            v = unquote(parsed.path or "")
+            if parsed.netloc:  # file://server/share/... → UNC
+                v = f"\\\\{parsed.netloc}{v.replace('/', chr(92))}"
+        if len(v) < 5 or len(v) > 1000:
+            return None
+        low = v.lower()
+        if low.startswith(("http://", "https://")):
+            return None
+        if not low.endswith(_VIDEO_EXTS):
+            return None
+        if "_video.mp4" in low or re.search(r"_audio\d*\.", low):
+            return None  # the proxy files themselves
+        if ("/" not in v) and ("\\" not in v):
+            return None  # bare filename, not a path
+        return v
+
+    candidates: list[str] = []
+    for name in xmls:
+        try:
+            tree = ET.parse(os.path.join(folder, name))
+        except (ET.ParseError, OSError):
+            continue
+        for el in tree.iter():
+            for value in [el.text or "", *el.attrib.values()]:
+                v = _clean(value)
+                if v and v not in candidates:
+                    candidates.append(v)
+        if candidates:
+            break  # smallest sidecar with candidates wins
+
+    if not candidates:
+        return None
+    # Prefer a path whose basename matches the proxy folder's source stem.
+    for cand in candidates:
+        base = os.path.splitext(os.path.basename(cand.replace("\\", "/")))[0]
+        if _norm(base) == stem_key or stem_key in _norm(base):
+            return cand
+    return candidates[0]
+
+
 def find_curator_proxy(src_path: str) -> str | None:
     """Return the path to a matching, browser-playable Curator proxy, or None."""
+    # If the ingested source IS a Curator proxy (direct-ingest mode), use it as
+    # its own proxy — zero re-encoding.
+    if is_curator_video(src_path) and os.path.exists(src_path) and _browser_playable(src_path):
+        return src_path
     index = _load_index()
     if not index:
         return None
@@ -126,3 +206,7 @@ if __name__ == "__main__":
             print(f"MATCH BUT NOT PLAYABLE (needs H.264+AAC)  {arg}  ->  {cand}")
         else:
             print(f"MATCH  {arg}  ->  {cand}")
+        hires_src = cand or (arg if is_curator_video(arg) else None)
+        if hires_src:
+            hires = find_sidecar_source_path(hires_src)
+            print(f"  SIDECAR HI-RES: {hires or 'not found in sidecar XML'}")
