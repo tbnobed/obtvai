@@ -2513,6 +2513,18 @@ export const RefreshSocialsResponse = zod.object({
 
 
 /**
+ * @summary AI analysis of what is and isn't working across social channels (local LLM over current metrics)
+ */
+export const GenerateSocialsInsightsResponse = zod.object({
+  "generated_at": zod.string(),
+  "working": zod.array(zod.string()).describe('What\'s performing well'),
+  "not_working": zod.array(zod.string()).describe('What\'s underperforming'),
+  "recommendations": zod.array(zod.string()),
+  "model_used": zod.boolean().describe('false when the LLM was unavailable and heuristic analysis was returned instead')
+})
+
+
+/**
  * @summary List audience ratings records
  */
 export const ListRatingsQueryParams = zod.object({

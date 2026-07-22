@@ -1961,6 +1961,21 @@ paths:
         "409":
           description: A socials sync job is already running
 
+  /socials/insights:
+    post:
+      operationId: generateSocialsInsights
+      tags: [socials]
+      summary: AI analysis of what is and isn't working across social channels (local LLM over current metrics)
+      responses:
+        "200":
+          description: Generated insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialsInsights"
+        "404":
+          description: No social channel data to analyze yet
+
   # ── Ratings ───────────────────────────────────────────────────────────────
   /ratings:
     get:
@@ -4737,6 +4752,30 @@ components:
           description: Meta Graph API token present (Instagram + Facebook)
         tiktok_configured:
           type: boolean
+
+    SocialsInsights:
+      type: object
+      required: [generated_at, working, not_working, recommendations, model_used]
+      properties:
+        generated_at:
+          type: string
+        working:
+          type: array
+          items:
+            type: string
+          description: What's performing well
+        not_working:
+          type: array
+          items:
+            type: string
+          description: What's underperforming
+        recommendations:
+          type: array
+          items:
+            type: string
+        model_used:
+          type: boolean
+          description: false when the LLM was unavailable and heuristic analysis was returned instead
 
     Trends:
       type: object

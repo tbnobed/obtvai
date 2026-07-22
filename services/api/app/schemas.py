@@ -903,6 +903,14 @@ class SocialsOverviewOut(BaseModel):
     tiktok_configured: bool
 
 
+class SocialsInsightsOut(BaseModel):
+    generated_at: datetime
+    working: List[str] = []
+    not_working: List[str] = []
+    recommendations: List[str] = []
+    model_used: bool
+
+
 # ── Projects ──────────────────────────────────────────────────────────────────
 
 class ProjectCounts(BaseModel):

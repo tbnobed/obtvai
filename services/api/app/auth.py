@@ -35,6 +35,7 @@ VIEWER_POST_ALLOWLIST = {
     "/api/search",
     "/api/search/script-match",
     "/api/ai/ask",
+    "/api/socials/insights",
     "/api/auth/logout",
     "/api/auth/password",
 }

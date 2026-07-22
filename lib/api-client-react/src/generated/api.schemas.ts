@@ -1180,6 +1180,17 @@ export interface SocialsOverview {
   tiktok_configured: boolean;
 }
 
+export interface SocialsInsights {
+  generated_at: string;
+  /** What's performing well */
+  working: string[];
+  /** What's underperforming */
+  not_working: string[];
+  recommendations: string[];
+  /** false when the LLM was unavailable and heuristic analysis was returned instead */
+  model_used: boolean;
+}
+
 export interface Trends {
   /**
      * When trend data was last fetched (null if never)

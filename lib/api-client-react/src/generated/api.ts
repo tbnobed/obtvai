@@ -124,6 +124,7 @@ import type {
   SocialProgram,
   SocialProgramInput,
   SocialSnapshot,
+  SocialsInsights,
   SocialsOverview,
   StoryJob,
   StoryRequestIn,
@@ -6548,6 +6549,77 @@ export const useRefreshSocials = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRefreshSocialsMutationOptions(options));
+    }
+
+export const getGenerateSocialsInsightsUrl = () => {
+
+
+
+
+  return `/api/socials/insights`
+}
+
+/**
+ * @summary AI analysis of what is and isn't working across social channels (local LLM over current metrics)
+ */
+export const generateSocialsInsights = async ( options?: RequestInit): Promise<SocialsInsights> => {
+
+  return customFetch<SocialsInsights>(getGenerateSocialsInsightsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getGenerateSocialsInsightsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateSocialsInsights>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateSocialsInsights>>, TError,void, TContext> => {
+
+const mutationKey = ['generateSocialsInsights'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateSocialsInsights>>, void> = () => {
+
+
+          return  generateSocialsInsights(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateSocialsInsightsMutationResult = NonNullable<Awaited<ReturnType<typeof generateSocialsInsights>>>
+
+    export type GenerateSocialsInsightsMutationError = ErrorType<void>
+
+    /**
+ * @summary AI analysis of what is and isn't working across social channels (local LLM over current metrics)
+ */
+export const useGenerateSocialsInsights = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateSocialsInsights>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateSocialsInsights>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getGenerateSocialsInsightsMutationOptions(options));
     }
 
 export const getListRatingsUrl = (params?: ListRatingsParams,) => {

@@ -12,6 +12,7 @@ import {
   useUpdateSocialChannel,
   useDeleteSocialChannel,
   useRefreshSocials,
+  useGenerateSocialsInsights,
   useListJobs,
   getListJobsQueryKey,
   type SocialChannelOverview,
@@ -35,6 +36,10 @@ import {
   AlertTriangle,
   Users,
   Eye,
+  Sparkles,
+  CheckCircle2,
+  XCircle,
+  Lightbulb,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -235,6 +240,12 @@ export default function Socials() {
   });
   const deleteChannel = useDeleteSocialChannel({ mutation: { onSuccess: invalidate } });
 
+  const insights = useGenerateSocialsInsights({
+    mutation: {
+      onError: () => toast({ title: "Could not generate insights", variant: "destructive" }),
+    },
+  });
+
   const [programDialog, setProgramDialog] = useState<{ id?: string; name: string } | null>(null);
   const [channelDialog, setChannelDialog] = useState<{
     id?: string; program_id: string; platform: SocialChannelInputPlatform; handle: string; url: string;
@@ -247,7 +258,7 @@ export default function Socials() {
   if (overview && !overview.tiktok_configured) configWarnings.push("TikTok (TIKTOK_ACCESS_TOKEN)");
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
@@ -261,6 +272,15 @@ export default function Socials() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => insights.mutate()}
+            disabled={insights.isPending}
+            data-testid="button-ai-insights"
+          >
+            <Sparkles className={`w-4 h-4 mr-2 text-primary ${insights.isPending ? "animate-pulse" : ""}`} />
+            {insights.isPending ? "Analyzing…" : "AI Insights"}
+          </Button>
           {canEdit && (
             <Button variant="outline" onClick={() => setProgramDialog({ name: "" })} data-testid="button-add-program">
               <Plus className="w-4 h-4 mr-2" /> Program
@@ -284,6 +304,63 @@ export default function Socials() {
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>Not configured: {configWarnings.join(", ")} — those channels won't sync until the credentials are set on the server.</span>
         </div>
+      )}
+
+      {insights.data && (
+        <section className="border border-border rounded-lg bg-card">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <h2 className="font-medium flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" /> AI insights
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {insights.data.model_used ? "AI analysis" : "Metrics analysis (AI model unavailable)"} · {new Date(insights.data.generated_at).toLocaleTimeString()}
+            </span>
+          </div>
+          <div className="p-4 grid gap-6 md:grid-cols-3">
+            <div>
+              <h3 className="text-sm font-medium mb-2 flex items-center gap-2 text-emerald-400">
+                <CheckCircle2 className="w-4 h-4" /> What's working
+              </h3>
+              {insights.data.working.length ? (
+                <ul className="space-y-2 text-sm text-foreground/90">
+                  {insights.data.working.map((s, i) => (
+                    <li key={i} className="flex gap-2"><span className="text-emerald-400/60 shrink-0">•</span><span>{s}</span></li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nothing stands out yet.</p>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-medium mb-2 flex items-center gap-2 text-red-400">
+                <XCircle className="w-4 h-4" /> What's not working
+              </h3>
+              {insights.data.not_working.length ? (
+                <ul className="space-y-2 text-sm text-foreground/90">
+                  {insights.data.not_working.map((s, i) => (
+                    <li key={i} className="flex gap-2"><span className="text-red-400/60 shrink-0">•</span><span>{s}</span></li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No problems detected.</p>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-medium mb-2 flex items-center gap-2 text-amber-300">
+                <Lightbulb className="w-4 h-4" /> Recommendations
+              </h3>
+              {insights.data.recommendations.length ? (
+                <ul className="space-y-2 text-sm text-foreground/90">
+                  {insights.data.recommendations.map((s, i) => (
+                    <li key={i} className="flex gap-2"><span className="text-amber-300/60 shrink-0">•</span><span>{s}</span></li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No recommendations right now.</p>
+              )}
+            </div>
+          </div>
+        </section>
       )}
 
       {isLoading ? (

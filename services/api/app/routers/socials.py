@@ -31,6 +31,7 @@ from ..schemas import (
     SocialSnapshotOut,
     SocialPostOut,
     SocialsOverviewOut,
+    SocialsInsightsOut,
     ProcessingJobOut,
 )
 
@@ -286,3 +287,176 @@ async def refresh_socials(db: AsyncSession = Depends(get_db)):
 
     await enqueue_job("social_sync", None, job.id)
     return ProcessingJobOut.model_validate(job)
+
+
+# ── AI insights ───────────────────────────────────────────────────────────────
+
+def _pct(now: int | None, before: int | None) -> float | None:
+    if now is None or not before:
+        return None
+    return (now - before) / before * 100
+
+
+async def _collect_metrics_summary(db: AsyncSession) -> tuple[str, dict] | None:
+    """Compact per-channel metrics digest for the LLM, plus raw stats for the
+    heuristic fallback."""
+    programs = (
+        await db.execute(select(SocialProgram).order_by(SocialProgram.created_at))
+    ).scalars().all()
+    channels = (
+        await db.execute(select(SocialChannel).order_by(SocialChannel.created_at))
+    ).scalars().all()
+    if not channels:
+        return None
+
+    prog_name = {p.id: p.name for p in programs}
+    week_ago_ts = datetime.utcnow() - timedelta(days=7)
+    lines: list[str] = []
+    stats: dict = {"channels": []}
+
+    for c in channels:
+        snaps = (
+            await db.execute(
+                select(SocialChannelSnapshot)
+                .where(SocialChannelSnapshot.channel_id == c.id)
+                .order_by(SocialChannelSnapshot.fetched_at)
+            )
+        ).scalars().all()
+        latest = snaps[-1] if snaps else None
+        week = None
+        for s in snaps:
+            if s.fetched_at <= week_ago_ts:
+                week = s
+        growth = _pct(latest.followers if latest else None,
+                      week.followers if week else None)
+
+        posts = (
+            await db.execute(
+                select(SocialPost)
+                .where(SocialPost.channel_id == c.id)
+                .order_by(SocialPost.published_at.desc().nulls_last())
+                .limit(12)
+            )
+        ).scalars().all()
+        viewed = [p for p in posts if p.views is not None]
+        avg_views = sum(p.views for p in viewed) / len(viewed) if viewed else None
+        top = max(viewed, key=lambda p: p.views) if viewed else None
+        bottom = min(viewed, key=lambda p: p.views) if viewed else None
+        eng = None
+        if viewed:
+            pairs = [(p.likes or 0) + (p.comments or 0) for p in viewed]
+            total_v = sum(p.views for p in viewed)
+            eng = sum(pairs) / total_v * 100 if total_v else None
+
+        name = f"{prog_name.get(c.program_id, '?')} / {c.platform} {c.handle}"
+        parts = [f"{name}:"]
+        if latest:
+            parts.append(f"{latest.followers or 0} followers")
+        if growth is not None:
+            parts.append(f"{growth:+.1f}% followers this week")
+        if avg_views is not None:
+            parts.append(f"avg {avg_views:.0f} views/post (last {len(viewed)})")
+        if eng is not None:
+            parts.append(f"{eng:.1f}% engagement (likes+comments per view)")
+        if top is not None:
+            parts.append(f'best post "{(top.title or top.external_id)[:70]}" {top.views} views')
+        if bottom is not None and bottom is not top:
+            parts.append(f'weakest post "{(bottom.title or bottom.external_id)[:70]}" {bottom.views} views')
+        if c.last_error:
+            parts.append(f"SYNC ERROR: {c.last_error[:120]}")
+        lines.append(" ".join(parts))
+        stats["channels"].append({
+            "name": name, "growth": growth, "avg_views": avg_views,
+            "engagement": eng, "top": top, "bottom": bottom, "error": c.last_error,
+        })
+
+    return "\n".join(lines), stats
+
+
+def _heuristic_insights(stats: dict) -> tuple[list[str], list[str], list[str]]:
+    """Deterministic analysis used when the LLM is unavailable."""
+    working: list[str] = []
+    not_working: list[str] = []
+    recs: list[str] = []
+    chans = stats["channels"]
+    for ch in chans:
+        if ch["growth"] is not None and ch["growth"] >= 1.0:
+            working.append(f"{ch['name']} is growing {ch['growth']:+.1f}% in followers this week.")
+        elif ch["growth"] is not None and ch["growth"] < 0:
+            not_working.append(f"{ch['name']} lost followers this week ({ch['growth']:+.1f}%).")
+        if ch["engagement"] is not None and ch["engagement"] >= 6:
+            working.append(f"{ch['name']} has strong engagement ({ch['engagement']:.1f}% likes+comments per view).")
+        elif ch["engagement"] is not None and ch["engagement"] < 2:
+            not_working.append(f"{ch['name']} engagement is low ({ch['engagement']:.1f}%) — views aren't converting to interactions.")
+        if ch["top"] is not None and ch["bottom"] is not None and ch["bottom"].views:
+            ratio = (ch["top"].views or 0) / ch["bottom"].views
+            if ratio >= 3:
+                working.append(f'"{(ch["top"].title or "")[:70]}" is a breakout on {ch["name"]} ({ch["top"].views} views, {ratio:.0f}x the weakest post).')
+                recs.append(f'Make more content like "{(ch["top"].title or "")[:70]}" — it clearly outperforms on {ch["name"]}.')
+        if ch["error"]:
+            not_working.append(f"{ch['name']} is not syncing: {ch['error'][:120]}")
+            recs.append(f"Fix the sync credentials for {ch['name']} so its metrics stay current.")
+    if not recs and chans:
+        recs.append("Keep the posting cadence steady and compare next week's deltas to spot trends.")
+    return working[:6], not_working[:6], recs[:5]
+
+
+def _parse_insight_lines(text: str) -> tuple[list[str], list[str], list[str]]:
+    working: list[str] = []
+    not_working: list[str] = []
+    recs: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip().lstrip("-• ").strip()
+        upper = line.upper()
+        if upper.startswith("WORKING:"):
+            working.append(line[len("WORKING:"):].strip())
+        elif upper.startswith("NOT WORKING:"):
+            not_working.append(line[len("NOT WORKING:"):].strip())
+        elif upper.startswith("RECOMMEND:"):
+            recs.append(line[len("RECOMMEND:"):].strip())
+    return working[:6], not_working[:6], recs[:5]
+
+
+@router.post("/insights", response_model=SocialsInsightsOut)
+async def generate_socials_insights(db: AsyncSession = Depends(get_db)):
+    collected = await _collect_metrics_summary(db)
+    if collected is None:
+        raise HTTPException(status_code=404, detail="No social channels to analyze yet")
+    summary, stats = collected
+
+    prompt = (
+        "You are a social media analyst for a TV broadcaster. Below are current "
+        "metrics for the station's social channels, grouped by program "
+        "(one line per channel):\n\n"
+        f"{summary}\n\n"
+        "Analyze what is working and what is not. Compare platforms and programs, "
+        "call out breakout posts and weak content formats by name, and flag any "
+        "sync errors as problems. Base every point strictly on the numbers above — "
+        "do not invent data.\n\n"
+        "Answer ONLY with lines in exactly this format (3-6 of each):\n"
+        "WORKING: <one specific observation>\n"
+        "NOT WORKING: <one specific observation>\n"
+        "RECOMMEND: <one specific, actionable suggestion>"
+    )
+
+    model_used = False
+    working: list[str] = []
+    not_working: list[str] = []
+    recs: list[str] = []
+    try:
+        from ..services.llm import generate_response
+        answer = await generate_response(prompt, max_new_tokens=1200)
+        working, not_working, recs = _parse_insight_lines(answer)
+        model_used = bool(working or not_working or recs)
+    except Exception:
+        pass
+    if not model_used:
+        working, not_working, recs = _heuristic_insights(stats)
+
+    return SocialsInsightsOut(
+        generated_at=datetime.utcnow(),
+        working=working,
+        not_working=not_working,
+        recommendations=recs,
+        model_used=model_used,
+    )

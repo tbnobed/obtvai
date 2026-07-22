@@ -76,7 +76,7 @@ function userOut(u: MockUser) {
 
 const PUBLIC_PATHS = new Set(["/auth/login", "/healthz"]);
 
-const VIEWER_POST_ALLOWLIST = new Set(["/search", "/search/script-match", "/ai/ask", "/auth/logout", "/auth/password"]);
+const VIEWER_POST_ALLOWLIST = new Set(["/search", "/search/script-match", "/ai/ask", "/socials/insights", "/auth/logout", "/auth/password"]);
 
 function viewerMayPost(path: string): boolean {
   if (VIEWER_POST_ALLOWLIST.has(path)) return true;

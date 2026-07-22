@@ -3426,6 +3426,53 @@ router.post("/socials/refresh", (_req, res) => {
   res.status(202).json(job);
 });
 
+// AI insights — production runs the local LLM over live metrics; here we
+// compute the same style of analysis heuristically from the mock data.
+router.post("/socials/insights", (_req, res) => {
+  if (!socialChannels.length) { res.status(404).json({ detail: "No social channels to analyze yet" }); return; }
+  const working: string[] = [];
+  const notWorking: string[] = [];
+  const recs: string[] = [];
+  for (const c of socialChannels) {
+    const prog = socialPrograms.find((p) => p.id === c.program_id)?.name ?? "?";
+    const name = `${prog} / ${c.platform} ${c.handle}`;
+    const snaps = socialSnapshots[c.id] ?? [];
+    const latest = snaps[snaps.length - 1];
+    const weekAgoTs = Date.now() - 7 * 86400e3;
+    const week = snaps.filter((s) => new Date(s.fetched_at).getTime() <= weekAgoTs).pop();
+    if (latest?.followers != null && week?.followers) {
+      const pct = ((latest.followers - week.followers) / week.followers) * 100;
+      if (pct >= 1) working.push(`${name} is growing ${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% in followers this week.`);
+      else if (pct < 0) notWorking.push(`${name} lost followers this week (${pct.toFixed(1)}%).`);
+    }
+    const posts = (socialPosts[c.id] ?? []).filter((p) => p.views != null);
+    if (posts.length) {
+      const top = posts.reduce((a, b) => (b.views > a.views ? b : a));
+      const bottom = posts.reduce((a, b) => (b.views < a.views ? b : a));
+      const totalV = posts.reduce((s, p) => s + p.views, 0);
+      const eng = (posts.reduce((s, p) => s + (p.likes ?? 0) + (p.comments ?? 0), 0) / totalV) * 100;
+      if (eng >= 6) working.push(`${name} has strong engagement (${eng.toFixed(1)}% likes+comments per view).`);
+      else if (eng < 2) notWorking.push(`${name} engagement is low (${eng.toFixed(1)}%) — views aren't converting to interactions.`);
+      if (bottom.views && top.views / bottom.views >= 3) {
+        working.push(`"${top.title}" is a breakout on ${name} (${top.views.toLocaleString()} views, ${Math.round(top.views / bottom.views)}x the weakest post).`);
+        recs.push(`Make more content like "${top.title}" — it clearly outperforms on ${name}.`);
+      }
+    }
+    if (c.last_error) {
+      notWorking.push(`${name} is not syncing: ${c.last_error}`);
+      recs.push(`Fix the sync credentials for ${name} so its metrics stay current.`);
+    }
+  }
+  if (!recs.length) recs.push("Keep the posting cadence steady and compare next week's deltas to spot trends.");
+  res.json({
+    generated_at: new Date().toISOString(),
+    working: working.slice(0, 6),
+    not_working: notWorking.slice(0, 6),
+    recommendations: recs.slice(0, 5),
+    model_used: false,
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Graphics generator (ComfyUI-backed in production; simulated here)
 

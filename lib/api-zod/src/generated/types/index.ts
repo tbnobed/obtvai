@@ -168,6 +168,7 @@ export * from './socialProgram';
 export * from './socialProgramInput';
 export * from './socialProgramOverview';
 export * from './socialScore';
+export * from './socialsInsights';
 export * from './socialSnapshot';
 export * from './socialsOverview';
 export * from './speakingMoment';
