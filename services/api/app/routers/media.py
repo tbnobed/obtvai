@@ -712,6 +712,25 @@ async def get_asset_people(id: str, db: AsyncSession = Depends(get_db)):
     return out
 
 
+@router.get("/{id}/download")
+async def download_media(id: str, db: AsyncSession = Depends(get_db)):
+    from fastapi.responses import FileResponse
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+    src = asset.original_path if asset.original_path and os.path.exists(asset.original_path) else None
+    if not src and asset.proxy_path and os.path.exists(asset.proxy_path):
+        src = asset.proxy_path
+    if not src:
+        raise HTTPException(status_code=404, detail="No source file available")
+    return FileResponse(
+        src,
+        media_type="application/octet-stream",
+        filename=asset.filename or os.path.basename(src),
+    )
+
+
 @router.get("/{id}/stream")
 async def stream_media(id: str, db: AsyncSession = Depends(get_db)):
     from fastapi.responses import FileResponse

@@ -717,6 +717,16 @@ router.get("/media/:id", (req, res) => {
   res.json({ ...asset, folder_id: assetFolder[asset.id] ?? null });
 });
 
+router.get("/media/:id/download", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ error: "Not found" }); return; }
+  // No real media files in the mock preview — send a placeholder so the
+  // browser download flow can still be exercised end to end.
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Disposition", `attachment; filename="${asset.filename.replace(/"/g, "")}"`);
+  res.send(`Mock preview placeholder for ${asset.filename} — real downloads serve the source file in production.\n`);
+});
+
 router.delete("/media/:id", (req, res) => {
   const idx = assets.findIndex((a) => a.id === req.params.id);
   if (idx === -1) { res.status(404).json({ error: "Not found" }); return; }

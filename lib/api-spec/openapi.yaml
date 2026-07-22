@@ -196,6 +196,28 @@ paths:
         "204":
           description: Deleted
 
+  /media/{id}/download:
+    get:
+      operationId: downloadMedia
+      tags: [media]
+      summary: Download the source file for a media asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The media file as an attachment
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found
+
   /media/{id}/scenes:
     get:
       operationId: getMediaScenes

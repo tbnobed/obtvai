@@ -691,6 +691,83 @@ export const useDeleteMedia = <TError = ErrorType<unknown>,
       return useMutation(getDeleteMediaMutationOptions(options));
     }
 
+export const getDownloadMediaUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/download`
+}
+
+/**
+ * @summary Download the source file for a media asset
+ */
+export const downloadMedia = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadMediaUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadMediaQueryKey = (id: string,) => {
+    return [
+    `/api/media/${id}/download`
+    ] as const;
+    }
+
+
+export const getDownloadMediaQueryOptions = <TData = Awaited<ReturnType<typeof downloadMedia>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadMedia>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadMediaQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadMedia>>> = ({ signal }) => downloadMedia(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadMedia>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadMediaQueryResult = NonNullable<Awaited<ReturnType<typeof downloadMedia>>>
+export type DownloadMediaQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download the source file for a media asset
+ */
+
+export function useDownloadMedia<TData = Awaited<ReturnType<typeof downloadMedia>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadMedia>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadMediaQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetMediaScenesUrl = (id: string,) => {
 
 

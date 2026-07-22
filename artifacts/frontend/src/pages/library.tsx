@@ -3,6 +3,7 @@ import {
   useListMedia, getListMediaQueryKey, useIngestMedia, useImportMediaFromLink,
   useListFolders, getListFoldersQueryKey, useCreateFolder, useUpdateFolder, useDeleteFolder,
   useMoveMedia, useListProjects, getListProjectsQueryKey, useUpdateProject, getGetProjectQueryKey,
+  useDeleteMedia,
 } from "@workspace/api-client-react";
 import type { MediaAsset, MediaFolder } from "@workspace/api-client-react";
 import { Link, useLocation, useSearch } from "wouter";
@@ -14,7 +15,7 @@ import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
   ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent,
 } from "@/components/ui/context-menu";
-import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox } from "lucide-react";
+import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -119,6 +120,7 @@ export default function Library() {
   const deleteFolder = useDeleteFolder();
   const moveMedia = useMoveMedia();
   const updateProject = useUpdateProject();
+  const deleteMedia = useDeleteMedia();
 
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -355,6 +357,43 @@ export default function Library() {
   const flatTree = (parentId: string | null = null, depth = 0): { f: MediaFolder; depth: number }[] =>
     childrenOf(parentId).flatMap(f => [{ f, depth }, ...flatTree(f.id, depth + 1)]);
 
+  const [deleteTarget, setDeleteTarget] = useState<string[] | null>(null);
+
+  // Sequential anchor clicks with a small gap — browsers block a burst of
+  // programmatic downloads fired in the same tick.
+  const downloadAssets = (ids: string[]) => {
+    ids.forEach((id, i) => {
+      setTimeout(() => {
+        const a = document.createElement("a");
+        a.href = `/api/media/${id}/download`;
+        a.download = "";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }, i * 400);
+    });
+    if (ids.length > 1) toast({ description: `Downloading ${ids.length} files...` });
+  };
+
+  const confirmDelete = async () => {
+    const ids = deleteTarget ?? [];
+    setDeleteTarget(null);
+    let deleted = 0;
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        await deleteMedia.mutateAsync({ id });
+        deleted += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    invalidateLibrary();
+    setSelected(new Set());
+    if (failed) toast({ variant: "destructive", description: `Deleted ${deleted}, failed ${failed}` });
+    else toast({ description: `Deleted ${deleted} file${deleted === 1 ? "" : "s"}` });
+  };
+
   const addToProject = (assetId: string, projectId: string) => {
     const ids = selected.has(assetId) ? Array.from(selected) : [assetId];
     const project = (projects ?? []).find(p => p.id === projectId);
@@ -419,6 +458,18 @@ export default function Library() {
             ))}
           </ContextMenuSubContent>
         </ContextMenuSub>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={() => downloadAssets(dragIds(asset.id))}>
+          <Download className="h-4 w-4 mr-2" />
+          Download{count > 1 ? ` (${count})` : ""}
+        </ContextMenuItem>
+        <ContextMenuItem
+          className="text-destructive focus:text-destructive"
+          onSelect={() => setDeleteTarget(dragIds(asset.id))}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete{count > 1 ? ` (${count})` : ""}
+        </ContextMenuItem>
       </ContextMenuContent>
     );
   };
@@ -826,6 +877,23 @@ export default function Library() {
               {updateFolder.isPending ? "Renaming..." : "Rename"}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {deleteTarget?.length === 1 ? "this file" : `${deleteTarget?.length ?? 0} files`}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This removes the {deleteTarget?.length === 1 ? "file" : "files"} from the library along with transcripts, scenes, and search index entries. Uploaded files are deleted from disk; watched-folder source files are never touched.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleteMedia.isPending}>
+              {deleteMedia.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -415,6 +415,16 @@ export const DeleteMediaResponse = zod.void()
 
 
 /**
+ * @summary Download the source file for a media asset
+ */
+export const DownloadMediaParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DownloadMediaResponse = zod.unknown()
+
+
+/**
  * @summary Get detected scenes for a media asset
  */
 export const GetMediaScenesParams = zod.object({
