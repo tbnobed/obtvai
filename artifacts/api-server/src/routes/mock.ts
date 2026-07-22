@@ -3260,7 +3260,7 @@ const seedChannel = (id: string, program_id: string, platform: string, handle: s
       external_id: `${platform}-post-${i}`,
       title: ["Sunday highlights", "Behind the scenes", "Full episode", "Guest interview", "Top moments"][i % 5] + ` #${12 - i}`,
       url: `https://${platform}.com/watch/${id}-${i}`,
-      thumbnail_url: null,
+      thumbnail_url: `https://picsum.photos/seed/${id}-${i}/320/180`,
       published_at: pub.toISOString(),
       views: v,
       likes: Math.round(v * 0.06),
@@ -3287,7 +3287,12 @@ const channelOverview = (c: any) => {
         Math.abs(new Date(s.fetched_at).getTime() - weekAgoTs) <
         Math.abs(new Date(best.fetched_at).getTime() - weekAgoTs) ? s : best)
     : null;
-  return { ...c, latest, week_ago };
+  const posts = socialPosts[c.id] ?? [];
+  const latest_post_thumbnail =
+    [...posts]
+      .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""))
+      .find((p) => p.thumbnail_url)?.thumbnail_url ?? null;
+  return { ...c, latest, week_ago, latest_post_thumbnail };
 };
 
 router.get("/socials", (_req, res) => {

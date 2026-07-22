@@ -4701,6 +4701,9 @@ components:
                 - $ref: "#/components/schemas/SocialSnapshot"
                 - type: "null"
               description: Closest snapshot from ~7 days ago, for growth deltas
+            latest_post_thumbnail:
+              type: ["string", "null"]
+              description: Thumbnail URL of the most recent post that has one — card cover preview
 
     SocialProgramOverview:
       type: object

@@ -13,4 +13,9 @@ export type SocialChannelOverview = SocialChannel & ({
   latest?: SocialSnapshot | null;
   /** Closest snapshot from ~7 days ago, for growth deltas */
   week_ago?: SocialSnapshot | null;
+  /**
+     * Thumbnail URL of the most recent post that has one — card cover preview
+     * @nullable
+     */
+  latest_post_thumbnail?: string | null;
 });

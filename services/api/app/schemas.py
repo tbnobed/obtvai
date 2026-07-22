@@ -885,6 +885,7 @@ class SocialPostOut(BaseModel):
 class SocialChannelOverviewOut(SocialChannelOut):
     latest: Optional[SocialSnapshotOut] = None
     week_ago: Optional[SocialSnapshotOut] = None
+    latest_post_thumbnail: Optional[str] = None
 
 
 class SocialProgramOverviewOut(BaseModel):

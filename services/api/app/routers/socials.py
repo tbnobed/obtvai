@@ -74,6 +74,22 @@ async def get_socials_overview(db: AsyncSession = Depends(get_db)):
             if s.fetched_at <= week_ago_ts:
                 week_by_channel[s.channel_id] = s
 
+    thumb_by_channel: dict[str, str] = {}
+    if channels:
+        posts = (
+            await db.execute(
+                select(SocialPost.channel_id, SocialPost.thumbnail_url)
+                .where(
+                    SocialPost.channel_id.in_([c.id for c in channels]),
+                    SocialPost.thumbnail_url.is_not(None),
+                )
+                .order_by(SocialPost.published_at)
+            )
+        ).all()
+        # Ordered scan — the last write per channel is the most recent post.
+        for channel_id, thumbnail_url in posts:
+            thumb_by_channel[channel_id] = thumbnail_url
+
     def channel_overview(c: SocialChannel) -> SocialChannelOverviewOut:
         return SocialChannelOverviewOut(
             id=c.id,
@@ -89,6 +105,7 @@ async def get_socials_overview(db: AsyncSession = Depends(get_db)):
             created_at=c.created_at,
             latest=_snap_out(latest_by_channel.get(c.id)),
             week_ago=_snap_out(week_by_channel.get(c.id)),
+            latest_post_thumbnail=thumb_by_channel.get(c.id),
         )
 
     last_synced = max(

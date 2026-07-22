@@ -2313,7 +2313,8 @@ export const GetSocialsOverviewResponse = zod.object({
   "followers": zod.number().nullish().describe('Followers \/ subscribers \/ page likes'),
   "total_views": zod.number().nullish().describe('Lifetime channel views where the platform exposes it'),
   "posts_count": zod.number().nullish()
-}),zod.null()]).optional().describe('Closest snapshot from ~7 days ago, for growth deltas')
+}),zod.null()]).optional().describe('Closest snapshot from ~7 days ago, for growth deltas'),
+  "latest_post_thumbnail": zod.string().nullish().describe('Thumbnail URL of the most recent post that has one — card cover preview')
 })))
 })),
   "last_synced_at": zod.string().nullish(),

@@ -142,7 +142,20 @@ function ChannelDetail({ channel }: { channel: SocialChannelOverview }) {
                 {posts.map((p) => (
                   <tr key={p.id} className="border-t border-border hover:bg-muted/20">
                     <td className="px-3 py-2 max-w-0">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {p.thumbnail_url ? (
+                          <img
+                            src={p.thumbnail_url}
+                            alt=""
+                            loading="lazy"
+                            className="w-16 h-9 rounded object-cover bg-muted shrink-0"
+                            onError={(e) => { (e.target as HTMLImageElement).style.visibility = "hidden"; }}
+                          />
+                        ) : (
+                          <div className="w-16 h-9 rounded bg-muted/60 flex items-center justify-center shrink-0">
+                            <meta.icon className={`w-4 h-4 opacity-50 ${meta.color}`} />
+                          </div>
+                        )}
                         <span className="truncate">{p.title ?? p.external_id}</span>
                         {p.url && (
                           <a href={p.url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground shrink-0" data-testid={`link-post-${p.id}`}>
@@ -316,82 +329,109 @@ export default function Socials() {
             {!program.channels.length ? (
               <p className="text-sm text-muted-foreground px-4 py-6">No channels yet.</p>
             ) : (
-              <div className="divide-y divide-border">
-                {program.channels.map((c) => {
-                  const meta = PLATFORM_META[c.platform] ?? PLATFORM_META.youtube;
-                  const Icon = meta.icon;
-                  const open = expanded === c.id;
-                  return (
-                    <div key={c.id}>
+              <>
+                <div className="p-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {program.channels.map((c) => {
+                    const meta = PLATFORM_META[c.platform] ?? PLATFORM_META.youtube;
+                    const Icon = meta.icon;
+                    const open = expanded === c.id;
+                    return (
                       <button
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/20"
+                        key={c.id}
+                        className={`text-left border rounded-lg overflow-hidden bg-background/40 hover:bg-muted/20 transition-colors ${open ? "border-primary" : "border-border"}`}
                         onClick={() => setExpanded(open ? null : c.id)}
                         data-testid={`row-channel-${c.id}`}
                       >
-                        <Icon className={`w-5 h-5 shrink-0 ${meta.color}`} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium truncate">{c.display_name ?? c.handle}</span>
+                        <div className="relative aspect-video bg-muted/40">
+                          {c.latest_post_thumbnail ? (
+                            <img
+                              src={c.latest_post_thumbnail}
+                              alt=""
+                              loading="lazy"
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            />
+                          ) : null}
+                          <div className={`absolute inset-0 flex items-center justify-center ${c.latest_post_thumbnail ? "bg-gradient-to-t from-black/70 via-black/10 to-transparent" : ""}`}>
+                            {!c.latest_post_thumbnail && <Icon className={`w-8 h-8 opacity-40 ${meta.color}`} />}
+                          </div>
+                          <Badge variant="outline" className="absolute top-2 right-2 text-xs bg-background/70 backdrop-blur-sm">
+                            {meta.label}
+                          </Badge>
+                          <div className="absolute bottom-2 left-3 right-3 flex items-center gap-2">
+                            <Icon className={`w-4 h-4 shrink-0 ${meta.color} drop-shadow`} />
+                            <span className="font-medium text-sm text-white drop-shadow truncate">{c.display_name ?? c.handle}</span>
+                          </div>
+                        </div>
+                        <div className="p-3 space-y-2">
+                          <div className="flex items-center gap-2 min-w-0">
                             <span className="text-xs text-muted-foreground truncate">{c.handle}</span>
                             {c.url && (
-                              <a href={c.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-foreground">
+                              <a href={c.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-foreground shrink-0">
                                 <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                             )}
                           </div>
+                          <div className="flex items-center gap-5">
+                            <div>
+                              <div className="text-sm font-medium tabular-nums flex items-center gap-1">
+                                <Users className="w-3.5 h-3.5 text-muted-foreground" /> {fmt(c.latest?.followers)}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground">followers</div>
+                            </div>
+                            {c.latest?.total_views != null && (
+                              <div>
+                                <div className="text-sm font-medium tabular-nums flex items-center gap-1">
+                                  <Eye className="w-3.5 h-3.5 text-muted-foreground" /> {fmt(c.latest.total_views)}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">total views</div>
+                              </div>
+                            )}
+                          </div>
                           {c.last_error ? (
                             <span className="text-xs text-amber-400/90 inline-flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" /> {c.last_error}
+                              <AlertTriangle className="w-3 h-3 shrink-0" /> <span className="truncate">{c.last_error}</span>
                             </span>
                           ) : (
                             <Delta now={c.latest?.followers} before={c.week_ago?.followers} />
                           )}
                         </div>
-                        <div className="flex items-center gap-6 shrink-0">
-                          <div className="text-right">
-                            <div className="text-sm font-medium tabular-nums flex items-center gap-1 justify-end">
-                              <Users className="w-3.5 h-3.5 text-muted-foreground" /> {fmt(c.latest?.followers)}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground">followers</div>
-                          </div>
-                          {c.latest?.total_views != null && (
-                            <div className="text-right">
-                              <div className="text-sm font-medium tabular-nums flex items-center gap-1 justify-end">
-                                <Eye className="w-3.5 h-3.5 text-muted-foreground" /> {fmt(c.latest.total_views)}
-                              </div>
-                              <div className="text-[11px] text-muted-foreground">total views</div>
-                            </div>
-                          )}
-                          <Badge variant="outline" className="text-xs">{meta.label}</Badge>
-                        </div>
                       </button>
-                      {open && (
-                        <div className="px-4 pb-4">
-                          {canEdit && (
-                            <div className="flex justify-end gap-1 mb-2">
-                              <Button size="sm" variant="ghost" onClick={() => setChannelDialog({ id: c.id, program_id: c.program_id, platform: c.platform as SocialChannelInputPlatform, handle: c.handle, url: c.url ?? "" })} data-testid={`button-edit-channel-${c.id}`}>
-                                <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
-                              </Button>
-                              <Button
-                                size="sm" variant="ghost"
-                                onClick={() => {
-                                  if (confirm(`Remove ${meta.label} channel "${c.handle}"? Its collected metrics are removed too.`)) {
-                                    deleteChannel.mutate({ id: c.id });
-                                  }
-                                }}
-                                data-testid={`button-delete-channel-${c.id}`}
-                              >
-                                <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
-                              </Button>
-                            </div>
-                          )}
-                          <ChannelDetail channel={c} />
-                        </div>
-                      )}
+                    );
+                  })}
+                </div>
+                {program.channels.filter((c) => expanded === c.id).map((c) => {
+                  const meta = PLATFORM_META[c.platform] ?? PLATFORM_META.youtube;
+                  return (
+                    <div key={c.id} className="border-t border-border px-4 py-4">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-sm font-medium flex items-center gap-2">
+                          <meta.icon className={`w-4 h-4 ${meta.color}`} /> {c.display_name ?? c.handle}
+                        </span>
+                        {canEdit && (
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => setChannelDialog({ id: c.id, program_id: c.program_id, platform: c.platform as SocialChannelInputPlatform, handle: c.handle, url: c.url ?? "" })} data-testid={`button-edit-channel-${c.id}`}>
+                              <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
+                            </Button>
+                            <Button
+                              size="sm" variant="ghost"
+                              onClick={() => {
+                                if (confirm(`Remove ${meta.label} channel "${c.handle}"? Its collected metrics are removed too.`)) {
+                                  deleteChannel.mutate({ id: c.id });
+                                }
+                              }}
+                              data-testid={`button-delete-channel-${c.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <ChannelDetail channel={c} />
                     </div>
                   );
                 })}
-              </div>
+              </>
             )}
           </section>
         ))
