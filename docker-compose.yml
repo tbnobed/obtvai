@@ -48,6 +48,11 @@ x-python-env: &python-env
   # IPV Curator proxy reuse: mount point inside containers + index cache TTL
   CURATOR_PROXY_ROOT: "/curator"
   CURATOR_INDEX_TTL: "${CURATOR_INDEX_TTL:-900}"
+  # Curator sidecars carry no hi-res path; reconstruct it for NLE exports as
+  # <CURATOR_SOURCE_ROOT><folder stem><CURATOR_SOURCE_EXT> (stem = proxy
+  # folder name minus -HHMMSS). E.g. \\tustopd.trinity.local\ipv\Media
+  CURATOR_SOURCE_ROOT: "${CURATOR_SOURCE_ROOT:-}"
+  CURATOR_SOURCE_EXT: "${CURATOR_SOURCE_EXT:-.mxf}"
   # Path translation for NLE exports (EDL/FCPXML/OTIO), e.g.
   # EXPORT_PATH_MAP=/media=V:\Media;/media2=\\nas\media2
   EXPORT_PATH_MAP: "${EXPORT_PATH_MAP:-}"

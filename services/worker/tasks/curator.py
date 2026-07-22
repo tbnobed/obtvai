@@ -152,14 +152,25 @@ def find_sidecar_source_path(video_path: str) -> str | None:
         if candidates:
             break  # smallest sidecar with candidates wins
 
-    if not candidates:
-        return None
-    # Prefer a path whose basename matches the proxy folder's source stem.
-    for cand in candidates:
-        base = os.path.splitext(os.path.basename(cand.replace("\\", "/")))[0]
-        if _norm(base) == stem_key or stem_key in _norm(base):
-            return cand
-    return candidates[0]
+    if candidates:
+        # Prefer a path whose basename matches the proxy folder's source stem.
+        for cand in candidates:
+            base = os.path.splitext(os.path.basename(cand.replace("\\", "/")))[0]
+            if _norm(base) == stem_key or stem_key in _norm(base):
+                return cand
+        return candidates[0]
+
+    # Curator's on-disk sidecars usually carry NO hi-res path (it lives in
+    # Curator's DB). Fallback: reconstruct from the proxy folder name, which
+    # IS the source basename: <CURATOR_SOURCE_ROOT><stem><CURATOR_SOURCE_EXT>.
+    src_root = os.getenv("CURATOR_SOURCE_ROOT", "").strip()
+    if src_root and folder_stem:
+        ext = os.getenv("CURATOR_SOURCE_EXT", ".mxf").strip() or ".mxf"
+        if not ext.startswith("."):
+            ext = "." + ext
+        sep = "\\" if ("\\" in src_root or re.match(r"^[A-Za-z]:", src_root)) else "/"
+        return src_root.rstrip("/\\") + sep + folder_stem + ext
+    return None
 
 
 def find_curator_proxy(src_path: str) -> str | None:
