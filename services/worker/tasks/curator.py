@@ -122,6 +122,54 @@ def find_curator_audio(video_path: str) -> list[str]:
     return [os.path.join(d, n) for n in auds]
 
 
+def find_curator_vtt(video_path: str) -> str | None:
+    """Curator's own STT subtitle render next to a _video.mp4 (used only as a
+    transcription fallback when Whisper fails). _thumbnail.vtt is the player
+    sprite index, not subtitles."""
+    d = os.path.dirname(video_path)
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return None
+    subs = sorted(n for n in names if n.lower().endswith("_subtitle.vtt"))
+    if not subs:
+        subs = sorted(n for n in names
+                      if n.lower().endswith(".vtt") and "thumbnail" not in n.lower())
+    return os.path.join(d, subs[0]) if subs else None
+
+
+_VTT_TS = re.compile(r"(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{3})")
+
+
+def _vtt_seconds(m: re.Match) -> float:
+    h = int(m.group(1) or 0)
+    return h * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + int(m.group(4)) / 1000.0
+
+
+def parse_vtt(path: str) -> list[tuple[float, float, str]]:
+    """Parse a WebVTT file into (start_s, end_s, text) cues. Tolerant of cue
+    ids, NOTE/STYLE blocks, and <v>/<c> inline tags."""
+    try:
+        with open(path, encoding="utf-8-sig", errors="replace") as f:
+            content = f.read()
+    except OSError:
+        return []
+    cues: list[tuple[float, float, str]] = []
+    for block in re.split(r"\n\s*\n", content):
+        lines = [ln.strip() for ln in block.strip().splitlines()]
+        ti = next((i for i, ln in enumerate(lines) if "-->" in ln), None)
+        if ti is None:
+            continue
+        stamps = list(_VTT_TS.finditer(lines[ti]))
+        if len(stamps) < 2:
+            continue
+        start, end = _vtt_seconds(stamps[0]), _vtt_seconds(stamps[1])
+        txt = re.sub(r"<[^>]+>", "", " ".join(lines[ti + 1:])).strip()
+        if txt and end > start:
+            cues.append((start, end, txt))
+    return cues
+
+
 def find_sidecar_source_path(video_path: str) -> str | None:
     """Best-effort: pull the hi-res original path out of Curator's sidecar
     metadata XMLs (…_metadata_complete.xml / …_index.xml) that sit next to
