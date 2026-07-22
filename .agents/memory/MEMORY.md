@@ -24,3 +24,4 @@
 - [queryClient.clear() orphans observers](react-query-clear-orphan.md) — never clear() with mounted observers; works in dev, silently freezes prod builds; removeQueries+setQueryData instead.
 - [Replit preview cookies](replit-preview-cookies.md) — preview iframe drops SameSite=Lax cookies (login 200 then me 401); dev/mock cookies need SameSite=None; Secure.
 - [onnxruntime CPU wheel shadows GPU](onnxruntime-gpu-shadowing.md) — never install onnxruntime and onnxruntime-gpu together; CPU wheel silently drops the CUDA provider (0% GPU, huge slowdowns).
+- [Phantom running jobs](phantom-running-jobs.md) — worker rebuilds kill in-flight tasks leaving jobs stuck "running"; reaper needs inspect-miss x2 + stale heartbeat, never single-signal.

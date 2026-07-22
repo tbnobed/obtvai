@@ -1,0 +1,78 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker run --rm --pid=container:$(docker compose ps -q worker-gpu-2) --cap-add SYS_PTRACE python:3.11-slim sh -c 'pip install -q py-spy && for
+p in $(ls /proc | grep -E "^[0-9]+$"); do grep -qa celery /proc/$p/cmdline 2>/dev/null && echo "=== PID $p ===" && py-spy dump --pid $p; done'
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+
+[notice] A new release of pip is available: 24.0 -> 26.1.2
+[notice] To update, run: pip install --upgrade pip
+=== PID 1 ===
+Process 1: /usr/bin/python3 /usr/local/bin/celery -A app worker --queues=gpu --concurrency=1 --loglevel=info --hostname=worker-gpu-2@%h
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 0x73D01F028000 (active): "MainThread"
+    poll (kombu/utils/eventio.py:83)
+    create_loop (kombu/asynchronous/hub.py:317)
+    asynloop (celery/worker/loops.py:97)
+    start (celery/worker/consumer/consumer.py:746)
+    start (celery/bootsteps.py:116)
+    start (celery/worker/consumer/consumer.py:341)
+    start (celery/bootsteps.py:365)
+    start (celery/bootsteps.py:116)
+    start (celery/worker/worker.py:202)
+    worker (celery/bin/worker.py:357)
+    caller (celery/bin/base.py:135)
+    new_func (click/decorators.py:34)
+    invoke (click/core.py:906)
+    invoke (click/core.py:1353)
+    invoke (click/core.py:1970)
+    main (click/core.py:1490)
+    __call__ (click/core.py:1569)
+    main (celery/bin/celery.py:236)
+    main (celery/__main__.py:15)
+    <module> (celery:8)
+=== PID 301 ===
+Error: Failed to find python version from target process
+=== PID 70 ===
+Process 70: /usr/bin/python3 /usr/local/bin/celery -A app worker --queues=gpu --concurrency=1 --loglevel=info --hostname=worker-gpu-2@%h
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 0x73D01F028000 (active): "MainThread"
+    _recv (billiard/connection.py:419)
+    _recv_bytes (billiard/connection.py:453)
+    recv_bytes (billiard/connection.py:240)
+    get_payload (billiard/queues.py:355)
+    _recv (billiard/pool.py:445)
+    receive (billiard/pool.py:473)
+    workloop (billiard/pool.py:351)
+    __call__ (billiard/pool.py:292)
+    run (billiard/process.py:110)
+    _bootstrap (billiard/process.py:323)
+    _launch (billiard/popen_fork.py:77)
+    __init__ (billiard/popen_fork.py:22)
+    _Popen (billiard/context.py:331)
+    start (billiard/process.py:120)
+    _create_worker_process (billiard/pool.py:1158)
+    _create_worker_process (celery/concurrency/asynpool.py:482)
+    __init__ (billiard/pool.py:1046)
+    __init__ (celery/concurrency/asynpool.py:464)
+    on_start (celery/concurrency/prefork.py:109)
+    start (celery/concurrency/base.py:130)
+    start (celery/bootsteps.py:365)
+    start (celery/bootsteps.py:116)
+    start (celery/worker/worker.py:202)
+    worker (celery/bin/worker.py:357)
+    caller (celery/bin/base.py:135)
+    new_func (click/decorators.py:34)
+    invoke (click/core.py:906)
+    invoke (click/core.py:1353)
+    invoke (click/core.py:1970)
+    main (click/core.py:1490)
+    __call__ (click/core.py:1569)
+    main (celery/bin/celery.py:236)
+    main (celery/__main__.py:15)
+    <module> (celery:8)
+Thread 0x73CC4E3FF640 (idle): "tqdm_monitor"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    run (tqdm/_monitor.py:69)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)

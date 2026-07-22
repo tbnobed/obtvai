@@ -275,6 +275,89 @@ async def lifespan(app: FastAPI):
 
     backfill_task = asyncio.create_task(_backfill_recorded_at())
 
+    # Reap phantom "running" jobs: if a worker container is rebuilt/restarted
+    # mid-task, the task process dies without updating its ProcessingJob row,
+    # which then shows "running" forever. Periodically cross-check running
+    # jobs against the Celery cluster's actual active/reserved task ids and
+    # fail the ones no worker knows about.
+    async def _reap_stale_jobs_loop():
+        from sqlalchemy import text as sql_text
+        from .database import AsyncSessionLocal
+        from .worker_client import _celery
+
+        def _live_task_ids() -> set[str] | None:
+            insp = _celery.control.inspect(timeout=5.0)
+            ids: set[str] = set()
+            saw_worker = False
+            for getter in (insp.active, insp.reserved, insp.scheduled):
+                try:
+                    d = getter()
+                except Exception:
+                    return None
+                if not d:
+                    continue
+                saw_worker = True
+                for tasks in d.values():
+                    for t in tasks or []:
+                        tid = t.get("id") or (t.get("request") or {}).get("id")
+                        if tid:
+                            ids.add(str(tid))
+            return ids if saw_worker else None
+
+        # A job is only reaped after BOTH: (a) its task id was absent from
+        # inspect for 2 consecutive cycles (a single missed broadcast reply
+        # from one busy worker is normal and must not kill its live jobs) and
+        # (b) its heartbeat_at is >10 minutes stale (every update_job /
+        # append_log from the worker bumps it). A falsely reaped job could be
+        # retried into duplicate execution, so err on the side of leaving it.
+        missing_counts: dict[tuple[str, str], int] = {}
+        await asyncio.sleep(60)
+        while True:
+            try:
+                live = await asyncio.to_thread(_live_task_ids)
+                # No worker replied — broker down or all workers restarting.
+                # Don't guess; try again next cycle.
+                if live is not None:
+                    async with AsyncSessionLocal() as db:
+                        rows = (await db.execute(sql_text(
+                            "SELECT id, celery_task_id FROM processing_jobs "
+                            "WHERE status = 'running' AND celery_task_id IS NOT NULL "
+                            "AND started_at < (now() AT TIME ZONE 'utc') - interval '3 minutes' "
+                            "AND (heartbeat_at IS NULL OR heartbeat_at < (now() AT TIME ZONE 'utc') - interval '10 minutes')"
+                        ))).all()
+                        current_keys = set()
+                        reaped = 0
+                        for job_id, task_id in rows:
+                            key = (job_id, task_id)
+                            current_keys.add(key)
+                            if task_id in live:
+                                missing_counts.pop(key, None)
+                                continue
+                            misses = missing_counts.get(key, 0) + 1
+                            missing_counts[key] = misses
+                            if misses < 2:
+                                continue
+                            res = await db.execute(sql_text(
+                                "UPDATE processing_jobs SET status = 'error', "
+                                "error_message = 'Worker restarted while this job was running — re-run it', "
+                                "finished_at = (now() AT TIME ZONE 'utc') "
+                                "WHERE id = :id AND status = 'running' AND celery_task_id = :tid"
+                            ), {"id": job_id, "tid": task_id})
+                            reaped += res.rowcount or 0
+                            missing_counts.pop(key, None)
+                        # Drop counters for jobs that finished or resumed.
+                        for key in list(missing_counts):
+                            if key not in current_keys:
+                                del missing_counts[key]
+                        if reaped:
+                            await db.commit()
+                            print(f"[{_ts()}] Stale-job reaper: failed {reaped} phantom running job(s) lost to a worker restart")
+            except Exception as e:
+                print(f"[{_ts()}] Stale-job reaper error: {e}")
+            await asyncio.sleep(120)
+
+    reaper_task = asyncio.create_task(_reap_stale_jobs_loop())
+
     yield
 
 
