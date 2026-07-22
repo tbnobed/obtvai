@@ -96,3 +96,33 @@ def find_curator_proxy(src_path: str) -> str | None:
     if cand and os.path.exists(cand) and _browser_playable(cand):
         return cand
     return None
+
+
+if __name__ == "__main__":
+    # Dry-run tester: python tasks/curator.py [source-file ...]
+    # With no args: builds the index and prints its size + a few sample keys.
+    # With source paths: shows the match (or why there is none) per file.
+    import sys
+
+    if not os.path.isdir(CURATOR_PROXY_ROOT):
+        print(f"NOT MOUNTED: {CURATOR_PROXY_ROOT} is not a directory — "
+              f"set CURATOR_PROXY_PATH in .env and recreate the container")
+        sys.exit(1)
+
+    print(f"Scanning {CURATOR_PROXY_ROOT} ...")
+    t0 = time.time()
+    idx = _build_index(CURATOR_PROXY_ROOT)
+    print(f"Indexed {len(idx)} proxies in {time.time() - t0:.1f}s")
+    for k in list(idx)[:10]:
+        print(f"  {k}  ->  {idx[k]}")
+
+    for arg in sys.argv[1:]:
+        stem = os.path.splitext(os.path.basename(arg))[0]
+        key = _norm(stem)
+        cand = idx.get(key)
+        if not cand:
+            print(f"NO MATCH  {arg}  (key: {key})")
+        elif not _browser_playable(cand):
+            print(f"MATCH BUT NOT PLAYABLE (needs H.264+AAC)  {arg}  ->  {cand}")
+        else:
+            print(f"MATCH  {arg}  ->  {cand}")
