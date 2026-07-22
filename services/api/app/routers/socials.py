@@ -346,7 +346,7 @@ async def _collect_metrics_summary(db: AsyncSession) -> tuple[str, dict] | None:
                 select(SocialPost)
                 .where(SocialPost.channel_id == c.id)
                 .order_by(SocialPost.published_at.desc().nulls_last())
-                .limit(12)
+                .limit(20)
             )
         ).scalars().all()
         viewed = [p for p in posts if p.views is not None]
@@ -369,18 +369,27 @@ async def _collect_metrics_summary(db: AsyncSession) -> tuple[str, dict] | None:
             parts.append(f"avg {avg_views:.0f} views/post (last {len(viewed)})")
         if eng is not None:
             parts.append(f"{eng:.1f}% engagement (likes+comments per view)")
-        if top is not None:
-            parts.append(f'best post "{(top.title or top.external_id)[:70]}" {top.views} views')
-        if bottom is not None and bottom is not top:
-            parts.append(f'weakest post "{(bottom.title or bottom.external_id)[:70]}" {bottom.views} views')
         has_data = latest is not None or bool(viewed)
         if not has_data:
             # Nothing fetched yet (e.g. first sync pending or failing) —
             # no basis for content analysis.
             continue
+
+        now = datetime.utcnow()
+        dated = [p for p in posts if p.published_at is not None]
+        recent_14d = [p for p in dated if (now - p.published_at).days <= 14]
+        if dated:
+            newest_age = (now - max(p.published_at for p in dated)).days
+            parts.append(f"{len(recent_14d)} posts in last 14 days, newest {newest_age}d ago")
         if c.last_error:
             parts.append(f"SYNC ERROR: {c.last_error[:120]}")
         lines.append(" ".join(parts))
+        for p in viewed[:15]:
+            age = f"{(now - p.published_at).days}d ago" if p.published_at else "undated"
+            lines.append(
+                f'  - {p.views}v {p.likes or 0}l {p.comments or 0}c {age}: '
+                f'"{(p.title or p.external_id)[:90]}"'
+            )
         stats["channels"].append({
             "name": name, "growth": growth, "avg_views": avg_views,
             "engagement": eng, "top": top, "bottom": bottom, "error": c.last_error,
@@ -443,18 +452,28 @@ async def generate_socials_insights(db: AsyncSession = Depends(get_db)):
     summary, stats = collected
 
     prompt = (
-        "You are a social media analyst for a TV broadcaster. Below are current "
-        "metrics for the station's social channels, grouped by program "
-        "(one line per channel):\n\n"
+        "You are a senior social media strategist for a TV broadcaster. Below are "
+        "metrics for the station's social channels, grouped by program. Each channel "
+        "line is followed by its recent posts (views v, likes l, comments c, age):\n\n"
         f"{summary}\n\n"
-        "Analyze what is working and what is not. Compare platforms and programs, "
-        "call out breakout posts and weak content formats by name, and flag any "
-        "sync errors as problems. Base every point strictly on the numbers above — "
-        "do not invent data.\n\n"
+        "Find NON-OBVIOUS patterns a producer could act on. Specifically look for:\n"
+        "- content themes/formats/guests that recur in the titles of high performers "
+        "vs low performers (e.g. interviews vs full episodes vs highlight clips)\n"
+        "- the same content performing differently across platforms, and why\n"
+        "- engagement quality vs raw reach (a post with fewer views but far more "
+        "likes/comments per view matters)\n"
+        "- posting cadence problems (gaps, too infrequent, stale channels)\n"
+        "- follower growth vs content output mismatches\n\n"
+        "Rules: every line MUST cite concrete numbers AND draw a conclusion — never "
+        "just restate a stat. Never mention a stat without saying what to do about "
+        "it or why it happened. Compare at least two things in each observation. "
+        "Base everything strictly on the data above — do not invent data. "
+        "Recommendations must be concrete enough to act on this week (what to post, "
+        "where, how often).\n\n"
         "Answer ONLY with lines in exactly this format (3-6 of each):\n"
-        "WORKING: <one specific observation>\n"
-        "NOT WORKING: <one specific observation>\n"
-        "RECOMMEND: <one specific, actionable suggestion>"
+        "WORKING: <one specific pattern-level observation with numbers>\n"
+        "NOT WORKING: <one specific pattern-level observation with numbers>\n"
+        "RECOMMEND: <one concrete action for this week>"
     )
 
     model_used = False
