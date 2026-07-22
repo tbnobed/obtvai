@@ -31,6 +31,11 @@ export interface MediaAsset {
   codec?: string | null;
   /** @nullable */
   file_size_bytes?: number | null;
+  /**
+     * Folder this asset is filed under; null = library root
+     * @nullable
+     */
+  folder_id?: string | null;
   /** pending | processing | ready | error */
   status: string;
   /**

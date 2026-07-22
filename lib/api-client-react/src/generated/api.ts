@@ -63,9 +63,14 @@ import type {
   Marker,
   MarkerInput,
   MediaAsset,
+  MediaFolder,
+  MediaFolderInput,
+  MediaFolderUpdate,
   MediaIngestInput,
   MediaLinkImportInput,
   MediaListResponse,
+  MediaMoveInput,
+  MediaMoveResult,
   MediaUploadInput,
   PasswordChangeInput,
   PeoplePage,
@@ -2204,6 +2209,368 @@ export const useResumeStalledMedia = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getResumeStalledMediaMutationOptions(options));
+    }
+
+export const getMoveMediaUrl = () => {
+
+
+
+
+  return `/api/media/move`
+}
+
+/**
+ * @summary Move media assets into a folder (or back to the library root)
+ */
+export const moveMedia = async (mediaMoveInput: MediaMoveInput, options?: RequestInit): Promise<MediaMoveResult> => {
+
+  return customFetch<MediaMoveResult>(getMoveMediaUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mediaMoveInput)
+  }
+);}
+
+
+
+
+
+export const getMoveMediaMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveMedia>>, TError,{data: BodyType<MediaMoveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof moveMedia>>, TError,{data: BodyType<MediaMoveInput>}, TContext> => {
+
+const mutationKey = ['moveMedia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof moveMedia>>, {data: BodyType<MediaMoveInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  moveMedia(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MoveMediaMutationResult = NonNullable<Awaited<ReturnType<typeof moveMedia>>>
+    export type MoveMediaMutationBody = BodyType<MediaMoveInput>
+    export type MoveMediaMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Move media assets into a folder (or back to the library root)
+ */
+export const useMoveMedia = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveMedia>>, TError,{data: BodyType<MediaMoveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof moveMedia>>,
+        TError,
+        {data: BodyType<MediaMoveInput>},
+        TContext
+      > => {
+      return useMutation(getMoveMediaMutationOptions(options));
+    }
+
+export const getListFoldersUrl = () => {
+
+
+
+
+  return `/api/folders`
+}
+
+/**
+ * @summary List media folders with asset counts
+ */
+export const listFolders = async ( options?: RequestInit): Promise<MediaFolder[]> => {
+
+  return customFetch<MediaFolder[]>(getListFoldersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFoldersQueryKey = () => {
+    return [
+    `/api/folders`
+    ] as const;
+    }
+
+
+export const getListFoldersQueryOptions = <TData = Awaited<ReturnType<typeof listFolders>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFolders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFoldersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFolders>>> = ({ signal }) => listFolders({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFolders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFoldersQueryResult = NonNullable<Awaited<ReturnType<typeof listFolders>>>
+export type ListFoldersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List media folders with asset counts
+ */
+
+export function useListFolders<TData = Awaited<ReturnType<typeof listFolders>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFolders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFoldersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateFolderUrl = () => {
+
+
+
+
+  return `/api/folders`
+}
+
+/**
+ * @summary Create a media folder
+ */
+export const createFolder = async (mediaFolderInput: MediaFolderInput, options?: RequestInit): Promise<MediaFolder> => {
+
+  return customFetch<MediaFolder>(getCreateFolderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mediaFolderInput)
+  }
+);}
+
+
+
+
+
+export const getCreateFolderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFolder>>, TError,{data: BodyType<MediaFolderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFolder>>, TError,{data: BodyType<MediaFolderInput>}, TContext> => {
+
+const mutationKey = ['createFolder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFolder>>, {data: BodyType<MediaFolderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createFolder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFolderMutationResult = NonNullable<Awaited<ReturnType<typeof createFolder>>>
+    export type CreateFolderMutationBody = BodyType<MediaFolderInput>
+    export type CreateFolderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a media folder
+ */
+export const useCreateFolder = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFolder>>, TError,{data: BodyType<MediaFolderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createFolder>>,
+        TError,
+        {data: BodyType<MediaFolderInput>},
+        TContext
+      > => {
+      return useMutation(getCreateFolderMutationOptions(options));
+    }
+
+export const getUpdateFolderUrl = (id: string,) => {
+
+
+
+
+  return `/api/folders/${id}`
+}
+
+/**
+ * @summary Rename a media folder or move it under another folder
+ */
+export const updateFolder = async (id: string,
+    mediaFolderUpdate: MediaFolderUpdate, options?: RequestInit): Promise<MediaFolder> => {
+
+  return customFetch<MediaFolder>(getUpdateFolderUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mediaFolderUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateFolderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFolder>>, TError,{id: string;data: BodyType<MediaFolderUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateFolder>>, TError,{id: string;data: BodyType<MediaFolderUpdate>}, TContext> => {
+
+const mutationKey = ['updateFolder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateFolder>>, {id: string;data: BodyType<MediaFolderUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateFolder(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateFolderMutationResult = NonNullable<Awaited<ReturnType<typeof updateFolder>>>
+    export type UpdateFolderMutationBody = BodyType<MediaFolderUpdate>
+    export type UpdateFolderMutationError = ErrorType<void>
+
+    /**
+ * @summary Rename a media folder or move it under another folder
+ */
+export const useUpdateFolder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFolder>>, TError,{id: string;data: BodyType<MediaFolderUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateFolder>>,
+        TError,
+        {id: string;data: BodyType<MediaFolderUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateFolderMutationOptions(options));
+    }
+
+export const getDeleteFolderUrl = (id: string,) => {
+
+
+
+
+  return `/api/folders/${id}`
+}
+
+/**
+ * @summary Delete a media folder (its assets and subfolders move up to the deleted folder's parent)
+ */
+export const deleteFolder = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteFolderUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteFolderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFolder>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteFolder>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteFolder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteFolder>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteFolder(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteFolderMutationResult = NonNullable<Awaited<ReturnType<typeof deleteFolder>>>
+
+    export type DeleteFolderMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a media folder (its assets and subfolders move up to the deleted folder's parent)
+ */
+export const useDeleteFolder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFolder>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteFolder>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteFolderMutationOptions(options));
     }
 
 export const getGetLibraryStatsUrl = () => {

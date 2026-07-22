@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends, ratings, auth as auth_router, users as users_router
+from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends, ratings, folders, auth as auth_router, users as users_router
 from .auth import auth_middleware
 
 
@@ -38,6 +38,8 @@ _COLUMN_MIGRATIONS = [
     ("story_jobs", "project_id", "TEXT"),
     ("story_jobs", "target_duration_seconds", "DOUBLE PRECISION"),
     ("processing_jobs", "heartbeat_at", "TIMESTAMP"),
+    ("media_assets", "folder_id", "TEXT"),
+    ("media_folders", "parent_id", "TEXT"),
     ("projects", "status", "TEXT NOT NULL DEFAULT 'active'"),
     ("projects", "media_ids", "JSONB"),
     ("reel_jobs", "target_duration_seconds", "DOUBLE PRECISION"),
@@ -287,6 +289,7 @@ app.middleware("http")(auth_middleware)
 app.include_router(auth_router.router, prefix="/api")
 app.include_router(users_router.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
+app.include_router(folders.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")

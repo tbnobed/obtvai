@@ -21,6 +21,7 @@ class MediaAssetOut(BaseModel):
     fps: Optional[float] = None
     codec: Optional[str] = None
     file_size_bytes: Optional[int] = None
+    folder_id: Optional[str] = None
     status: str
     processing_stage: Optional[str] = None
     processing_progress: Optional[float] = None
@@ -59,6 +60,35 @@ class DubRequest(BaseModel):
 class MediaListResponse(BaseModel):
     items: List[MediaAssetOut]
     total: int
+
+
+class MediaFolderOut(BaseModel):
+    id: str
+    name: str
+    parent_id: Optional[str] = None
+    asset_count: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class MediaFolderInput(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    parent_id: Optional[str] = None
+
+
+class MediaFolderUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    parent_id: Optional[str] = None
+
+
+class MediaMoveInput(BaseModel):
+    media_ids: List[str] = Field(min_length=1)
+    folder_id: Optional[str] = None
+
+
+class MediaMoveResult(BaseModel):
+    moved: int
 
 
 class MediaIngestInput(BaseModel):

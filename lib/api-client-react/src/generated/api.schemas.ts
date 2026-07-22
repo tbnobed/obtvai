@@ -142,6 +142,11 @@ export interface MediaAsset {
   codec?: string | null;
   /** @nullable */
   file_size_bytes?: number | null;
+  /**
+     * Folder this asset is filed under; null = library root
+     * @nullable
+     */
+  folder_id?: string | null;
   /** pending | processing | ready | error */
   status: string;
   /**
@@ -250,6 +255,58 @@ export interface MarkerInput {
   end_time?: number | null;
   kind?: MarkerInputKind;
   note?: string;
+}
+
+export interface MediaFolder {
+  id: string;
+  name: string;
+  /**
+     * Parent folder id; null = top level
+     * @nullable
+     */
+  parent_id?: string | null;
+  asset_count: number;
+  created_at: string;
+}
+
+export interface MediaFolderInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /**
+     * Parent folder id; null = top level
+     * @nullable
+     */
+  parent_id?: string | null;
+}
+
+export interface MediaFolderUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name?: string;
+  /**
+     * New parent folder id; null moves the folder to the top level
+     * @nullable
+     */
+  parent_id?: string | null;
+}
+
+export interface MediaMoveInput {
+  /** @minItems 1 */
+  media_ids: string[];
+  /**
+     * Target folder id, or null to move back to the library root
+     * @nullable
+     */
+  folder_id?: string | null;
+}
+
+export interface MediaMoveResult {
+  moved: number;
 }
 
 export interface MediaListResponse {
@@ -2001,6 +2058,10 @@ person?: string;
  * Only assets tagged with this topic (normalized key match)
  */
 topic?: string;
+/**
+ * Only assets in this folder (folder id, or "root" for unfiled assets)
+ */
+folder?: string;
 sort?: ListMediaSort;
 limit?: number;
 offset?: number;

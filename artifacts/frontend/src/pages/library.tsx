@@ -1,13 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import { useListMedia, getListMediaQueryKey, useIngestMedia, useImportMediaFromLink } from "@workspace/api-client-react";
+import {
+  useListMedia, getListMediaQueryKey, useIngestMedia, useImportMediaFromLink,
+  useListFolders, getListFoldersQueryKey, useCreateFolder, useUpdateFolder, useDeleteFolder,
+  useMoveMedia, useListProjects, getListProjectsQueryKey, useUpdateProject, getGetProjectQueryKey,
+} from "@workspace/api-client-react";
+import type { MediaAsset, MediaFolder } from "@workspace/api-client-react";
 import { Link, useLocation, useSearch } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, User, Tag, X, Link2 } from "lucide-react";
+import {
+  ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
+  ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent,
+} from "@/components/ui/context-menu";
+import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+
+const ASSET_DRAG_TYPE = "application/x-obtv-asset-ids";
+const FOLDER_DRAG_TYPE = "application/x-obtv-folder-id";
 
 // fetch() cannot report upload progress — use XHR so large uploads show a
 // real progress bar instead of an indefinite "uploading..." state.
@@ -51,6 +64,9 @@ export default function Library() {
     return (localStorage.getItem("library-view") as "grid" | "list") || "grid";
   });
   const [page, setPage] = useState(0);
+  // "" = all media, "root" = unfiled only, otherwise a folder id.
+  const [folderFilter, setFolderFilter] = useState<string>("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Debounce typing so we don't refetch on every keystroke.
   useEffect(() => {
@@ -74,6 +90,7 @@ export default function Library() {
     sort: (sort as any) || undefined,
     person: personFilter || undefined,
     topic: topicFilter || undefined,
+    folder: folderFilter || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   };
@@ -92,6 +109,320 @@ export default function Library() {
     s == null ? "—" : `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`;
   
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // ── Folders / selection / projects ─────────────────────────────────────
+  const { data: folders } = useListFolders();
+  const { data: projects } = useListProjects();
+  const createFolder = useCreateFolder();
+  const updateFolder = useUpdateFolder();
+  const deleteFolder = useDeleteFolder();
+  const moveMedia = useMoveMedia();
+  const updateProject = useUpdateProject();
+
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderParent, setNewFolderParent] = useState<{ id: string; name: string } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("library-folders-expanded") || "[]"));
+    } catch {
+      return new Set();
+    }
+  });
+
+  const toggleExpanded = (id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem("library-folders-expanded", JSON.stringify(Array.from(next)));
+      return next;
+    });
+  };
+
+  // Folder tree helpers — folders are flat rows with parent_id; build a tree.
+  const childrenOf = (parentId: string | null) =>
+    (folders ?? [])
+      .filter(f => (f.parent_id ?? null) === parentId)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
+  const isDescendantOf = (candidateId: string, ancestorId: string): boolean => {
+    let cur: string | null | undefined = candidateId;
+    const seen = new Set<string>();
+    while (cur) {
+      if (cur === ancestorId) return true;
+      if (seen.has(cur)) return false;
+      seen.add(cur);
+      cur = (folders ?? []).find(f => f.id === cur)?.parent_id ?? null;
+    }
+    return false;
+  };
+
+  // Total asset count for a folder including everything nested under it.
+  // Visited set guards against runaway recursion if legacy data ever holds a cycle.
+  const deepCount = (folderId: string, visited: Set<string> = new Set()): number => {
+    if (visited.has(folderId)) return 0;
+    visited.add(folderId);
+    return (
+      ((folders ?? []).find(f => f.id === folderId)?.asset_count ?? 0) +
+      childrenOf(folderId).reduce((sum, c) => sum + deepCount(c.id, visited), 0)
+    );
+  };
+
+  const invalidateLibrary = () => {
+    queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListFoldersQueryKey() });
+  };
+
+  useEffect(() => { setSelected(new Set()); }, [folderFilter, page, statusFilter, search]);
+
+  const toggleSelected = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Drag payload: if the dragged asset is part of the selection, move the
+  // whole selection; otherwise just the dragged asset.
+  const dragIds = (assetId: string) =>
+    selected.has(assetId) ? Array.from(selected) : [assetId];
+
+  const handleAssetDragStart = (e: React.DragEvent, assetId: string) => {
+    const ids = dragIds(assetId);
+    e.dataTransfer.setData(ASSET_DRAG_TYPE, JSON.stringify(ids));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const readDraggedIds = (e: React.DragEvent): string[] => {
+    try {
+      const raw = e.dataTransfer.getData(ASSET_DRAG_TYPE);
+      const ids = raw ? JSON.parse(raw) : [];
+      return Array.isArray(ids) ? ids.map(String) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const doMove = (ids: string[], folderId: string | null, folderName: string) => {
+    if (!ids.length) return;
+    moveMedia.mutate({ data: { media_ids: ids, folder_id: folderId } }, {
+      onSuccess: (res) => {
+        invalidateLibrary();
+        setSelected(new Set());
+        toast({ description: `Moved ${res.moved} file${res.moved === 1 ? "" : "s"} to ${folderName}` });
+      },
+      onError: () => toast({ variant: "destructive", description: "Move failed" }),
+    });
+  };
+
+  const handleFolderDrop = (e: React.DragEvent, folderId: string | null, folderName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTarget(null);
+    // A folder is being dragged — reparent it instead of moving assets.
+    const draggedFolder = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
+    if (draggedFolder) {
+      if (draggedFolder === folderId) return;
+      if (folderId && isDescendantOf(folderId, draggedFolder)) {
+        toast({ variant: "destructive", description: "Can't move a folder into its own subfolder" });
+        return;
+      }
+      updateFolder.mutate({ id: draggedFolder, data: { parent_id: folderId } }, {
+        onSuccess: () => {
+          if (folderId) setExpanded(prev => new Set(prev).add(folderId));
+          queryClient.invalidateQueries({ queryKey: getListFoldersQueryKey() });
+        },
+        onError: () => toast({ variant: "destructive", description: "Move failed" }),
+      });
+      return;
+    }
+    doMove(readDraggedIds(e), folderId, folderName);
+  };
+
+  const handleCreateFolder = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newFolderName.trim();
+    if (!name) return;
+    createFolder.mutate({ data: { name, parent_id: newFolderParent?.id ?? null } }, {
+      onSuccess: () => {
+        if (newFolderParent) setExpanded(prev => new Set(prev).add(newFolderParent.id));
+        setNewFolderOpen(false);
+        setNewFolderName("");
+        setNewFolderParent(null);
+        queryClient.invalidateQueries({ queryKey: getListFoldersQueryKey() });
+      },
+      onError: () => toast({ variant: "destructive", description: "Could not create folder" }),
+    });
+  };
+
+  const handleRenameFolder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renameTarget) return;
+    const name = renameTarget.name.trim();
+    if (!name) return;
+    updateFolder.mutate({ id: renameTarget.id, data: { name } }, {
+      onSuccess: () => {
+        setRenameTarget(null);
+        queryClient.invalidateQueries({ queryKey: getListFoldersQueryKey() });
+      },
+      onError: () => toast({ variant: "destructive", description: "Rename failed" }),
+    });
+  };
+
+  const handleDeleteFolder = (id: string) => {
+    deleteFolder.mutate({ id }, {
+      onSuccess: () => {
+        if (folderFilter === id) setFolderFilter("");
+        invalidateLibrary();
+      },
+      onError: () => toast({ variant: "destructive", description: "Delete failed" }),
+    });
+  };
+
+  // ── Folder tree (file-browser sidebar) ─────────────────────────────────
+  const folderDragProps = (folderId: string | null, folderName: string, key: string) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (e.dataTransfer.types.includes(ASSET_DRAG_TYPE) || e.dataTransfer.types.includes(FOLDER_DRAG_TYPE)) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropTarget(key);
+      }
+    },
+    onDragLeave: () => setDropTarget(prev => (prev === key ? null : prev)),
+    onDrop: (e: React.DragEvent) => handleFolderDrop(e, folderId, folderName),
+  });
+
+  const renderFolderNode = (f: MediaFolder, depth: number): React.ReactElement => {
+    const kids = childrenOf(f.id);
+    const isOpen = expanded.has(f.id);
+    const active = folderFilter === f.id;
+    const count = deepCount(f.id);
+    return (
+      <div key={f.id}>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(FOLDER_DRAG_TYPE, f.id);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              onClick={() => { setFolderFilter(f.id); setPage(0); }}
+              style={{ paddingLeft: `${depth * 14 + 6}px` }}
+              className={`group/node flex items-center gap-1 h-7 pr-2 rounded-md text-sm cursor-pointer select-none transition-colors ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"} ${dropTarget === f.id ? "ring-1 ring-primary bg-primary/10" : ""}`}
+              {...folderDragProps(f.id, f.name, f.id)}
+            >
+              <button
+                type="button"
+                className={`h-4 w-4 shrink-0 flex items-center justify-center rounded hover:bg-muted ${kids.length ? "" : "invisible"}`}
+                onClick={(e) => { e.stopPropagation(); toggleExpanded(f.id); }}
+              >
+                {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+              {active || isOpen ? <FolderOpen className="h-4 w-4 shrink-0 text-primary/80" /> : <Folder className="h-4 w-4 shrink-0" />}
+              <span className="truncate flex-1">{f.name}</span>
+              {count > 0 && <span className="text-[11px] text-muted-foreground tabular-nums">{count}</span>}
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem onSelect={() => { setNewFolderParent({ id: f.id, name: f.name }); setNewFolderOpen(true); }}>
+              <FolderPlus className="h-4 w-4 mr-2" />
+              New subfolder
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => setRenameTarget({ id: f.id, name: f.name })}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Rename
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem className="text-destructive focus:text-destructive" onSelect={() => handleDeleteFolder(f.id)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete folder
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+        {isOpen && kids.map(k => renderFolderNode(k, depth + 1))}
+      </div>
+    );
+  };
+
+  // Flattened tree for the "Move to folder" context submenu.
+  const flatTree = (parentId: string | null = null, depth = 0): { f: MediaFolder; depth: number }[] =>
+    childrenOf(parentId).flatMap(f => [{ f, depth }, ...flatTree(f.id, depth + 1)]);
+
+  const addToProject = (assetId: string, projectId: string) => {
+    const ids = selected.has(assetId) ? Array.from(selected) : [assetId];
+    const project = (projects ?? []).find(p => p.id === projectId);
+    if (!project) return;
+    const merged = Array.from(new Set([...(project.media_ids ?? []), ...ids]));
+    updateProject.mutate({ id: projectId, data: { name: project.name, media_ids: merged } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
+        setSelected(new Set());
+        toast({ description: `Added ${ids.length} file${ids.length === 1 ? "" : "s"} to ${project.name}` });
+      },
+      onError: () => toast({ variant: "destructive", description: "Could not add to project" }),
+    });
+  };
+
+  // Shared right-click menu content for an asset (grid card or list row).
+  const assetMenu = (asset: MediaAsset) => {
+    const count = selected.has(asset.id) ? selected.size : 1;
+    return (
+      <ContextMenuContent className="w-56">
+        <ContextMenuItem onSelect={() => navigate(`/library/${asset.id}`)}>
+          Open
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => toggleSelected(asset.id)}>
+          <CheckSquare className="h-4 w-4 mr-2" />
+          {selected.has(asset.id) ? "Deselect" : "Select"}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>
+            <Clapperboard className="h-4 w-4 mr-2" />
+            Add to project{count > 1 ? ` (${count})` : ""}
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-56 max-h-72 overflow-y-auto">
+            {(projects ?? []).filter(p => p.status !== "archived").length ? (
+              (projects ?? []).filter(p => p.status !== "archived").map(p => (
+                <ContextMenuItem key={p.id} onSelect={() => addToProject(asset.id, p.id)}>
+                  {p.name}
+                </ContextMenuItem>
+              ))
+            ) : (
+              <ContextMenuItem disabled>No projects yet</ContextMenuItem>
+            )}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>
+            <FolderInput className="h-4 w-4 mr-2" />
+            Move to folder{count > 1 ? ` (${count})` : ""}
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-56 max-h-72 overflow-y-auto">
+            <ContextMenuItem onSelect={() => doMove(dragIds(asset.id), null, "the library root")}>
+              Library root
+            </ContextMenuItem>
+            {flatTree().map(({ f, depth }) => (
+              <ContextMenuItem key={f.id} onSelect={() => doMove(dragIds(asset.id), f.id, f.name)}>
+                <span style={{ width: `${depth * 12}px` }} className="shrink-0" />
+                <Folder className="h-4 w-4 mr-2" />
+                <span className="truncate">{f.name}</span>
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+      </ContextMenuContent>
+    );
+  };
+
   const ingest = useIngestMedia();
   const [ingestPath, setIngestPath] = useState("");
   const [ingestTitle, setIngestTitle] = useState("");
@@ -208,7 +539,56 @@ export default function Library() {
   };
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto flex flex-col">
+    <div className="flex-1 flex overflow-hidden">
+      {/* ── Folder browser sidebar ── */}
+      <aside className="w-60 shrink-0 border-r border-border flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-3 h-12 border-b border-border shrink-0">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Folders</span>
+          <button
+            type="button"
+            onClick={() => { setNewFolderParent(null); setNewFolderOpen(true); }}
+            className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+            title="New folder"
+          >
+            <FolderPlus className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          <div
+            onClick={() => { setFolderFilter(""); setPage(0); }}
+            className={`flex items-center gap-1.5 h-7 px-1.5 rounded-md text-sm cursor-pointer select-none transition-colors ${folderFilter === "" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"} ${dropTarget === "all" ? "ring-1 ring-primary bg-primary/10" : ""}`}
+            {...folderDragProps(null, "the library root", "all")}
+          >
+            <LibraryIcon className="h-4 w-4 shrink-0" />
+            <span className="flex-1">All Media</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{folderFilter === "" ? total : ""}</span>
+          </div>
+          <div
+            onClick={() => { setFolderFilter("root"); setPage(0); }}
+            className={`flex items-center gap-1.5 h-7 px-1.5 rounded-md text-sm cursor-pointer select-none transition-colors ${folderFilter === "root" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"} ${dropTarget === "root" ? "ring-1 ring-primary bg-primary/10" : ""}`}
+            {...folderDragProps(null, "the library root", "root")}
+          >
+            <Inbox className="h-4 w-4 shrink-0" />
+            <span className="flex-1">Unfiled</span>
+          </div>
+          <div className="pt-2 mt-1 border-t border-border/60">
+            {childrenOf(null).map(f => renderFolderNode(f, 0))}
+            {!childrenOf(null).length && (
+              <p className="text-xs text-muted-foreground px-1.5 py-2">No folders yet — create one, then drag files onto it.</p>
+            )}
+          </div>
+        </div>
+        {selected.size > 0 && (
+          <div className="border-t border-border p-2 flex items-center justify-between shrink-0">
+            <span className="text-xs text-muted-foreground">{selected.size} selected</span>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setSelected(new Set())}>
+              Clear
+            </Button>
+          </div>
+        )}
+      </aside>
+
+      <div className="flex-1 p-8 overflow-y-auto flex flex-col min-w-0">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Media Library</h1>
         <div className="flex gap-3 items-center flex-wrap justify-end">
@@ -409,6 +789,46 @@ export default function Library() {
         </div>
       </div>
 
+      <Dialog open={newFolderOpen} onOpenChange={(open) => { setNewFolderOpen(open); if (!open) { setNewFolderName(""); setNewFolderParent(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{newFolderParent ? `New subfolder in ${newFolderParent.name}` : "New Folder"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateFolder} className="space-y-4 pt-4">
+            <Input
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              placeholder="Folder name"
+              autoFocus
+              maxLength={120}
+            />
+            <Button type="submit" className="w-full" disabled={!newFolderName.trim() || createFolder.isPending}>
+              {createFolder.isPending ? "Creating..." : "Create Folder"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!renameTarget} onOpenChange={(open) => { if (!open) setRenameTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Folder</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleRenameFolder} className="space-y-4 pt-4">
+            <Input
+              value={renameTarget?.name ?? ""}
+              onChange={e => setRenameTarget(t => (t ? { ...t, name: e.target.value } : t))}
+              placeholder="Folder name"
+              autoFocus
+              maxLength={120}
+            />
+            <Button type="submit" className="w-full" disabled={!renameTarget?.name.trim() || updateFolder.isPending}>
+              {updateFolder.isPending ? "Renaming..." : "Rename"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {(personFilter || topicFilter) && (
         <div className="flex items-center gap-2 mb-6 -mt-4 flex-wrap">
           <span className="text-xs text-muted-foreground">Showing footage for:</span>
@@ -453,30 +873,53 @@ export default function Library() {
         view === "grid" ? (
           <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {data.items.map(asset => (
-              <Link key={asset.id} href={`/library/${asset.id}`}>
-                <div className="group border border-border bg-card rounded-md overflow-hidden cursor-pointer hover:border-primary transition-colors flex flex-col h-full">
-                  <div className="aspect-video bg-muted relative">
-                    {asset.thumbnail_url ? (
-                      <img src={`/api/thumbnails/${asset.thumbnail_url}`} alt={asset.filename} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Film className="h-8 w-8 text-muted-foreground/50" />
+              <ContextMenu key={asset.id}>
+                <ContextMenuTrigger asChild>
+                  <div
+                    draggable
+                    onDragStart={(e) => handleAssetDragStart(e, asset.id)}
+                    onClick={(e) => {
+                      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                        e.preventDefault();
+                        toggleSelected(asset.id);
+                        return;
+                      }
+                      navigate(`/library/${asset.id}`);
+                    }}
+                    className={`group border bg-card rounded-md overflow-hidden cursor-pointer transition-colors flex flex-col h-full ${selected.has(asset.id) ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary"}`}
+                  >
+                    <div className="aspect-video bg-muted relative">
+                      {asset.thumbnail_url ? (
+                        <img src={`/api/thumbnails/${asset.thumbnail_url}`} alt={asset.filename} className="w-full h-full object-cover" draggable={false} />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Film className="h-8 w-8 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleSelected(asset.id); }}
+                        className={`absolute top-2 left-2 h-5 w-5 rounded border flex items-center justify-center transition-opacity ${selected.has(asset.id) ? "bg-primary border-primary text-primary-foreground opacity-100" : "bg-background/80 border-border opacity-0 group-hover:opacity-100"}`}
+                        title={selected.has(asset.id) ? "Deselect" : "Select"}
+                      >
+                        {selected.has(asset.id) && <CheckSquare className="h-3.5 w-3.5" />}
+                      </button>
+                      <div className="absolute bottom-2 right-2">
+                        <Badge variant={asset.status === 'ready' ? 'default' : asset.status === 'error' ? 'destructive' : 'secondary'} className="text-xs">
+                          {asset.status}
+                        </Badge>
                       </div>
-                    )}
-                    <div className="absolute bottom-2 right-2">
-                      <Badge variant={asset.status === 'ready' ? 'default' : asset.status === 'error' ? 'destructive' : 'secondary'} className="text-xs">
-                        {asset.status}
-                      </Badge>
+                    </div>
+                    <div className="p-3 flex-1">
+                      <p className="text-sm font-medium truncate" title={asset.filename}>{asset.filename}</p>
+                      {asset.duration_seconds ? (
+                        <p className="text-xs text-muted-foreground mt-1">{formatDuration(asset.duration_seconds)}</p>
+                      ) : null}
                     </div>
                   </div>
-                  <div className="p-3 flex-1">
-                    <p className="text-sm font-medium truncate" title={asset.filename}>{asset.filename}</p>
-                    {asset.duration_seconds ? (
-                      <p className="text-xs text-muted-foreground mt-1">{formatDuration(asset.duration_seconds)}</p>
-                    ) : null}
-                  </div>
-                </div>
-              </Link>
+                </ContextMenuTrigger>
+                {assetMenu(asset)}
+              </ContextMenu>
             ))}
           </div>
         ) : (
@@ -495,10 +938,20 @@ export default function Library() {
               </thead>
               <tbody>
                 {data.items.map(asset => (
+                  <ContextMenu key={asset.id}>
+                    <ContextMenuTrigger asChild>
                   <tr
-                    key={asset.id}
-                    className="border-b border-border last:border-b-0 hover:bg-muted/30 cursor-pointer"
-                    onClick={() => navigate(`/library/${asset.id}`)}
+                    draggable
+                    onDragStart={(e) => handleAssetDragStart(e, asset.id)}
+                    className={`border-b border-border last:border-b-0 cursor-pointer ${selected.has(asset.id) ? "bg-primary/10" : "hover:bg-muted/30"}`}
+                    onClick={(e) => {
+                      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                        e.preventDefault();
+                        toggleSelected(asset.id);
+                        return;
+                      }
+                      navigate(`/library/${asset.id}`);
+                    }}
                   >
                     <td className="px-3 py-1.5">
                       <Link href={`/library/${asset.id}`}>
@@ -526,6 +979,9 @@ export default function Library() {
                       </Badge>
                     </td>
                   </tr>
+                    </ContextMenuTrigger>
+                    {assetMenu(asset)}
+                  </ContextMenu>
                 ))}
               </tbody>
             </table>
@@ -554,6 +1010,7 @@ export default function Library() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

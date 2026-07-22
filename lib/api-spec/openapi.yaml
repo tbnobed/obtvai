@@ -77,6 +77,11 @@ paths:
           description: Only assets tagged with this topic (normalized key match)
           schema:
             type: string
+        - name: folder
+          in: query
+          description: Only assets in this folder (folder id, or "root" for unfiled assets)
+          schema:
+            type: string
         - name: sort
           in: query
           schema:
@@ -678,6 +683,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResumeStalledResult"
+
+  /media/move:
+    post:
+      operationId: moveMedia
+      tags: [media]
+      summary: Move media assets into a folder (or back to the library root)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaMoveInput"
+      responses:
+        "200":
+          description: Move result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaMoveResult"
+
+  /folders:
+    get:
+      operationId: listFolders
+      tags: [media]
+      summary: List media folders with asset counts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaFolder"
+    post:
+      operationId: createFolder
+      tags: [media]
+      summary: Create a media folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaFolderInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaFolder"
+
+  /folders/{id}:
+    patch:
+      operationId: updateFolder
+      tags: [media]
+      summary: Rename a media folder or move it under another folder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaFolderUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaFolder"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteFolder
+      tags: [media]
+      summary: Delete a media folder (its assets and subfolders move up to the deleted folder's parent)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
 
   /media/stats/summary:
     get:
@@ -2957,6 +3055,9 @@ components:
           type: ["string", "null"]
         file_size_bytes:
           type: ["integer", "null"]
+        folder_id:
+          type: ["string", "null"]
+          description: Folder this asset is filed under; null = library root
         status:
           type: string
           description: "pending | processing | ready | error"
@@ -3141,6 +3242,65 @@ components:
           description: "pacing | structure | cuts | broll | delivery | best_take"
         note:
           type: string
+
+    MediaFolder:
+      type: object
+      required: [id, name, asset_count, created_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        parent_id:
+          type: ["string", "null"]
+          description: Parent folder id; null = top level
+        asset_count:
+          type: integer
+        created_at:
+          type: string
+
+    MediaFolderInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        parent_id:
+          type: ["string", "null"]
+          description: Parent folder id; null = top level
+
+    MediaFolderUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        parent_id:
+          type: ["string", "null"]
+          description: New parent folder id; null moves the folder to the top level
+
+    MediaMoveInput:
+      type: object
+      required: [media_ids]
+      properties:
+        media_ids:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        folder_id:
+          type: ["string", "null"]
+          description: Target folder id, or null to move back to the library root
+
+    MediaMoveResult:
+      type: object
+      required: [moved]
+      properties:
+        moved:
+          type: integer
 
     MediaListResponse:
       type: object

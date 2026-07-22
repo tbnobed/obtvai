@@ -21,6 +21,10 @@ person?: string;
  * Only assets tagged with this topic (normalized key match)
  */
 topic?: string;
+/**
+ * Only assets in this folder (folder id, or "root" for unfiled assets)
+ */
+folder?: string;
 sort?: ListMediaSort;
 limit?: number;
 offset?: number;

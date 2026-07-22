@@ -39,6 +39,9 @@ class MediaAsset(Base):
     creative: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     key_moments: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Virtual library folder (media_folders.id); null = library root. No FK so
+    # startup-migration column-add stays trivial; folder deletion nulls it out.
+    folder_id: Mapped[str | None] = mapped_column(String, nullable=True)
     # Source file's modification time — the content's real-world date. Ingest
     # date (created_at) is meaningless for trends on a bulk-ingested archive.
     recorded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -49,6 +52,16 @@ class MediaAsset(Base):
     transcript_segments: Mapped[list["TranscriptSegment"]] = relationship("TranscriptSegment", back_populates="asset", cascade="all, delete-orphan")
     face_clusters: Mapped[list["FaceCluster"]] = relationship("FaceCluster", back_populates="asset", cascade="all, delete-orphan")
     jobs: Mapped[list["ProcessingJob"]] = relationship("ProcessingJob", back_populates="asset", cascade="all, delete-orphan")
+
+
+class MediaFolder(Base):
+    """Virtual folders for organizing the media library (nestable via parent_id)."""
+    __tablename__ = "media_folders"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    parent_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Marker(Base):

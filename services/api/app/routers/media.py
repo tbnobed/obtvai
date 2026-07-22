@@ -15,6 +15,7 @@ from ..schemas import (
     ClipExportResult, TightenInput, TightenCut, TightenResult,
     RoughCutInput, ReelJobOut, ResumeStalledOut,
     MarkerOut, MarkerInput,
+    MediaMoveInput, MediaMoveResult,
     AssetPersonOut, SpeakingMomentOut, OnCameraRangeOut,
 )
 from ..models import ClipList, Clip, ReelJob
@@ -67,6 +68,24 @@ async def get_library_stats(db: AsyncSession = Depends(get_db)):
         storage_bytes=storage_bytes,
         recent_activity=[MediaAssetOut.model_validate(a) for a in recent],
     )
+
+
+@router.post("/move", response_model=MediaMoveResult)
+async def move_media(payload: MediaMoveInput, db: AsyncSession = Depends(get_db)):
+    from ..models import MediaFolder
+    from sqlalchemy import update as sa_update
+
+    if payload.folder_id:
+        f = await db.execute(select(MediaFolder).where(MediaFolder.id == payload.folder_id))
+        if not f.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Folder not found")
+    result = await db.execute(
+        sa_update(MediaAsset)
+        .where(MediaAsset.id.in_(payload.media_ids))
+        .values(folder_id=payload.folder_id)
+    )
+    await db.commit()
+    return MediaMoveResult(moved=result.rowcount or 0)
 
 
 @router.post("/resume-stalled", response_model=ResumeStalledOut, status_code=202)
@@ -239,6 +258,7 @@ async def list_media(
     sort: Optional[str] = Query(None),
     person: Optional[str] = Query(None),
     topic: Optional[str] = Query(None),
+    folder: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -256,6 +276,10 @@ async def list_media(
     q = select(MediaAsset).order_by(sort_map.get(sort or "", desc(MediaAsset.created_at)))
     if status:
         q = q.where(MediaAsset.status == status)
+    if folder == "root":
+        q = q.where(MediaAsset.folder_id.is_(None))
+    elif folder:
+        q = q.where(MediaAsset.folder_id == folder)
     if person:
         q = q.where(
             MediaAsset.id.in_(

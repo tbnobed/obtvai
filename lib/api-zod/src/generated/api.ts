@@ -24,6 +24,7 @@ export const ListMediaQueryParams = zod.object({
   "search": zod.coerce.string().optional().describe('Case-insensitive match on filename, title, or source path'),
   "person": zod.coerce.string().optional().describe('Only assets a given person (by id) appears in'),
   "topic": zod.coerce.string().optional().describe('Only assets tagged with this topic (normalized key match)'),
+  "folder": zod.coerce.string().optional().describe('Only assets in this folder (folder id, or \"root\" for unfiled assets)'),
   "sort": zod.enum(['created_desc', 'created_asc', 'name_asc', 'name_desc', 'duration_desc', 'duration_asc', 'size_desc', 'size_asc']).optional(),
   "limit": zod.coerce.number().optional(),
   "offset": zod.coerce.number().optional()
@@ -42,6 +43,7 @@ export const ListMediaResponse = zod.object({
   "fps": zod.number().nullish(),
   "codec": zod.string().nullish(),
   "file_size_bytes": zod.number().nullish(),
+  "folder_id": zod.string().nullish().describe('Folder this asset is filed under; null = library root'),
   "status": zod.string().describe('pending | processing | ready | error'),
   "processing_stage": zod.string().nullish().describe('Current processing stage name'),
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
@@ -119,6 +121,7 @@ export const IngestMediaResponse = zod.object({
   "fps": zod.number().nullish(),
   "codec": zod.string().nullish(),
   "file_size_bytes": zod.number().nullish(),
+  "folder_id": zod.string().nullish().describe('Folder this asset is filed under; null = library root'),
   "status": zod.string().describe('pending | processing | ready | error'),
   "processing_stage": zod.string().nullish().describe('Current processing stage name'),
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
@@ -194,6 +197,7 @@ export const UploadMediaResponse = zod.object({
   "fps": zod.number().nullish(),
   "codec": zod.string().nullish(),
   "file_size_bytes": zod.number().nullish(),
+  "folder_id": zod.string().nullish().describe('Folder this asset is filed under; null = library root'),
   "status": zod.string().describe('pending | processing | ready | error'),
   "processing_stage": zod.string().nullish().describe('Current processing stage name'),
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
@@ -269,6 +273,7 @@ export const ImportMediaFromLinkResponse = zod.object({
   "fps": zod.number().nullish(),
   "codec": zod.string().nullish(),
   "file_size_bytes": zod.number().nullish(),
+  "folder_id": zod.string().nullish().describe('Folder this asset is filed under; null = library root'),
   "status": zod.string().describe('pending | processing | ready | error'),
   "processing_stage": zod.string().nullish().describe('Current processing stage name'),
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
@@ -343,6 +348,7 @@ export const GetMediaResponse = zod.object({
   "fps": zod.number().nullish(),
   "codec": zod.string().nullish(),
   "file_size_bytes": zod.number().nullish(),
+  "folder_id": zod.string().nullish().describe('Folder this asset is filed under; null = library root'),
   "status": zod.string().describe('pending | processing | ready | error'),
   "processing_stage": zod.string().nullish().describe('Current processing stage name'),
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
@@ -873,6 +879,91 @@ export const ResumeStalledMediaResponse = zod.object({
 
 
 /**
+ * @summary Move media assets into a folder (or back to the library root)
+ */
+
+
+
+export const MoveMediaBody = zod.object({
+  "media_ids": zod.array(zod.string()).min(1),
+  "folder_id": zod.string().nullish().describe('Target folder id, or null to move back to the library root')
+})
+
+export const MoveMediaResponse = zod.object({
+  "moved": zod.number()
+})
+
+
+/**
+ * @summary List media folders with asset counts
+ */
+export const ListFoldersResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "parent_id": zod.string().nullish().describe('Parent folder id; null = top level'),
+  "asset_count": zod.number(),
+  "created_at": zod.string()
+})
+export const ListFoldersResponse = zod.array(ListFoldersResponseItem)
+
+
+/**
+ * @summary Create a media folder
+ */
+export const createFolderBodyNameMax = 120;
+
+
+
+export const CreateFolderBody = zod.object({
+  "name": zod.string().min(1).max(createFolderBodyNameMax),
+  "parent_id": zod.string().nullish().describe('Parent folder id; null = top level')
+})
+
+export const CreateFolderResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "parent_id": zod.string().nullish().describe('Parent folder id; null = top level'),
+  "asset_count": zod.number(),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Rename a media folder or move it under another folder
+ */
+export const UpdateFolderParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateFolderBodyNameMax = 120;
+
+
+
+export const UpdateFolderBody = zod.object({
+  "name": zod.string().min(1).max(updateFolderBodyNameMax).optional(),
+  "parent_id": zod.string().nullish().describe('New parent folder id; null moves the folder to the top level')
+})
+
+export const UpdateFolderResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "parent_id": zod.string().nullish().describe('Parent folder id; null = top level'),
+  "asset_count": zod.number(),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Delete a media folder (its assets and subfolders move up to the deleted folder's parent)
+ */
+export const DeleteFolderParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteFolderResponse = zod.void()
+
+
+/**
  * @summary Library-wide stats (counts, totals, status breakdown)
  */
 export const GetLibraryStatsResponse = zod.object({
@@ -893,6 +984,7 @@ export const GetLibraryStatsResponse = zod.object({
   "fps": zod.number().nullish(),
   "codec": zod.string().nullish(),
   "file_size_bytes": zod.number().nullish(),
+  "folder_id": zod.string().nullish().describe('Folder this asset is filed under; null = library root'),
   "status": zod.string().describe('pending | processing | ready | error'),
   "processing_stage": zod.string().nullish().describe('Current processing stage name'),
   "processing_progress": zod.number().nullish().describe('0-100 percent'),
@@ -1844,6 +1936,7 @@ export const AddGraphicsToLibraryResponse = zod.object({
   "fps": zod.number().nullish(),
   "codec": zod.string().nullish(),
   "file_size_bytes": zod.number().nullish(),
+  "folder_id": zod.string().nullish().describe('Folder this asset is filed under; null = library root'),
   "status": zod.string().describe('pending | processing | ready | error'),
   "processing_stage": zod.string().nullish().describe('Current processing stage name'),
   "processing_progress": zod.number().nullish().describe('0-100 percent'),

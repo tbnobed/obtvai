@@ -447,10 +447,133 @@ router.get("/media/stats/summary", (_req, res) => {
   });
 });
 
+type MockFolder = { id: string; name: string; parent_id: string | null; created_at: string };
+const folders: MockFolder[] = [
+  { id: "folder-001", name: "Interviews", parent_id: null, created_at: new Date(Date.now() - 5 * 86400000).toISOString() },
+  { id: "folder-002", name: "B-Roll", parent_id: null, created_at: new Date(Date.now() - 2 * 86400000).toISOString() },
+  { id: "folder-003", name: "City Council", parent_id: "folder-001", created_at: new Date(Date.now() - 86400000).toISOString() },
+];
+const assetFolder: Record<string, string> = { "asset-001": "folder-001" };
+
+function folderOut(f: MockFolder) {
+  return {
+    ...f,
+    asset_count: assets.filter((a) => assetFolder[a.id] === f.id).length,
+  };
+}
+
+function isDescendant(candidate: string, ancestor: string): boolean {
+  let cur: string | null = candidate;
+  const seen = new Set<string>();
+  while (cur) {
+    if (cur === ancestor) return true;
+    if (seen.has(cur)) return false;
+    seen.add(cur);
+    cur = folders.find((f) => f.id === cur)?.parent_id ?? null;
+  }
+  return false;
+}
+
+router.get("/folders", (_req, res) => {
+  res.json(folders.map(folderOut));
+});
+
+router.post("/folders", (req, res) => {
+  const name = String(req.body?.name ?? "").trim();
+  if (!name) {
+    res.status(400).json({ error: "Folder name is required" });
+    return;
+  }
+  const parentId = req.body?.parent_id == null ? null : String(req.body.parent_id);
+  if (parentId && !folders.some((f) => f.id === parentId)) {
+    res.status(404).json({ error: "Parent folder not found" });
+    return;
+  }
+  const f: MockFolder = { id: `folder-${Date.now()}`, name: name.slice(0, 120), parent_id: parentId, created_at: new Date().toISOString() };
+  folders.push(f);
+  res.status(201).json(folderOut(f));
+});
+
+router.patch("/folders/:id", (req, res) => {
+  const f = folders.find((x) => x.id === req.params.id);
+  if (!f) {
+    res.status(404).json({ error: "Folder not found" });
+    return;
+  }
+  if (req.body?.name !== undefined) {
+    const name = String(req.body.name ?? "").trim();
+    if (!name) {
+      res.status(400).json({ error: "Folder name is required" });
+      return;
+    }
+    f.name = name.slice(0, 120);
+  }
+  if ("parent_id" in (req.body ?? {})) {
+    const parentId = req.body.parent_id == null ? null : String(req.body.parent_id);
+    if (parentId) {
+      if (!folders.some((x) => x.id === parentId)) {
+        res.status(404).json({ error: "Parent folder not found" });
+        return;
+      }
+      if (parentId === f.id || isDescendant(parentId, f.id)) {
+        res.status(400).json({ error: "Cannot move a folder into itself or its own subfolder" });
+        return;
+      }
+    }
+    f.parent_id = parentId;
+  }
+  res.json(folderOut(f));
+});
+
+router.delete("/folders/:id", (req, res) => {
+  const idx = folders.findIndex((x) => x.id === req.params.id);
+  if (idx === -1) {
+    res.status(404).json({ error: "Folder not found" });
+    return;
+  }
+  const fid = folders[idx].id;
+  const parentId = folders[idx].parent_id;
+  for (const [aid, target] of Object.entries(assetFolder)) {
+    if (target === fid) {
+      if (parentId) assetFolder[aid] = parentId;
+      else delete assetFolder[aid];
+    }
+  }
+  for (const child of folders) {
+    if (child.parent_id === fid) child.parent_id = parentId;
+  }
+  folders.splice(idx, 1);
+  res.status(204).end();
+});
+
+router.post("/media/move", (req, res) => {
+  const mediaIds: string[] = Array.isArray(req.body?.media_ids) ? req.body.media_ids.map(String) : [];
+  const folderId = req.body?.folder_id == null ? null : String(req.body.folder_id);
+  if (!mediaIds.length) {
+    res.status(400).json({ error: "media_ids is required" });
+    return;
+  }
+  if (folderId && !folders.some((f) => f.id === folderId)) {
+    res.status(404).json({ error: "Folder not found" });
+    return;
+  }
+  let moved = 0;
+  for (const id of mediaIds) {
+    if (!assets.some((a) => a.id === id)) continue;
+    if (folderId) assetFolder[id] = folderId;
+    else delete assetFolder[id];
+    moved += 1;
+  }
+  res.json({ moved });
+});
+
 router.get("/media", (req, res) => {
   let items = [...assets];
   const status = String(req.query.status ?? "");
   if (status) items = items.filter((a) => a.status === status);
+  const folder = String(req.query.folder ?? "");
+  if (folder === "root") items = items.filter((a) => !assetFolder[a.id]);
+  else if (folder) items = items.filter((a) => assetFolder[a.id] === folder);
   const person = String(req.query.person ?? "");
   if (person) {
     const ids = new Set((personAppearances[person] ?? []).map((x) => x.media_id));
@@ -486,7 +609,10 @@ router.get("/media", (req, res) => {
   const total = items.length;
   const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "50"), 10) || 50, 1), 200);
   const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
-  res.json({ items: items.slice(offset, offset + limit), total });
+  res.json({
+    items: items.slice(offset, offset + limit).map((a) => ({ ...a, folder_id: assetFolder[a.id] ?? null })),
+    total,
+  });
 });
 
 router.post("/media", (req, res) => {
@@ -588,7 +714,7 @@ router.post("/media/import-link", (req, res) => {
 router.get("/media/:id", (req, res) => {
   const asset = assets.find((a) => a.id === req.params.id);
   if (!asset) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(asset);
+  res.json({ ...asset, folder_id: assetFolder[asset.id] ?? null });
 });
 
 router.delete("/media/:id", (req, res) => {
