@@ -19,13 +19,51 @@ from ..schemas import (
 _FPS = 25
 
 
+def _path_map() -> list[tuple[str, str]]:
+    """Parse EXPORT_PATH_MAP, e.g. '/media=V:\\Media;/media2=\\\\nas\\media2'.
+
+    Translates server-side mount paths into the paths edit workstations see,
+    so Premiere/Resolve relink straight to the hi-res originals.
+    """
+    import os as _os
+    pairs = []
+    for part in _os.getenv("EXPORT_PATH_MAP", "").split(";"):
+        if "=" in part:
+            src, dst = part.split("=", 1)
+            if src.strip():
+                pairs.append((src.strip(), dst.strip()))
+    pairs.sort(key=lambda p: -len(p[0]))
+    return pairs
+
+
+def _translate(path: str) -> str:
+    for src, dst in _path_map():
+        # Boundary-safe prefix match: /media must not remap /media_archive
+        if path == src or (path.startswith(src) and path[len(src)] in ("/", "\\")):
+            mapped = dst + path[len(src):]
+            if "\\" in dst:
+                mapped = mapped.replace("/", "\\")
+            return mapped
+    return path
+
+
+def _file_url(path: str) -> str:
+    p = path.replace("\\", "/")
+    if p.startswith("//"):
+        return "file:" + p            # UNC \\nas\share -> file://nas/share
+    if p.startswith("/"):
+        return "file://" + p          # POSIX /mnt/media/x -> file:///mnt/...
+    return "file:///" + p             # V:/Media/x -> file:///V:/Media/x
+
+
 def _rational(seconds: float) -> str:
     """FCPXML rational time at 25fps, e.g. 253/25s."""
     return f"{int(round(seconds * _FPS))}/{_FPS}s"
 
 
-def _fcpxml(name: str, clips) -> str:
+def _fcpxml(name: str, clips, paths: dict[str, str] | None = None) -> str:
     from xml.sax.saxutils import escape, quoteattr
+    paths = paths or {}
     assets = {}
     for c in clips:
         if c.media_id not in assets:
@@ -35,9 +73,10 @@ def _fcpxml(name: str, clips) -> str:
     for i, (mid, fname) in enumerate(assets.items(), 2):
         rid = f"r{i}"
         asset_ids[mid] = rid
+        src_path = _translate(paths.get(mid) or fname)
         resources.append(
             f'    <asset id={quoteattr(rid)} name={quoteattr(fname)} start="0s" hasVideo="1" hasAudio="1" format="r1">\n'
-            f'      <media-rep kind="original-media" src={quoteattr("file:///" + fname)}/>\n'
+            f'      <media-rep kind="original-media" src={quoteattr(_file_url(src_path))}/>\n'
             f'    </asset>'
         )
     offset = 0.0
@@ -65,7 +104,8 @@ def _fcpxml(name: str, clips) -> str:
     )
 
 
-def _otio(name: str, clips) -> str:
+def _otio(name: str, clips, paths: dict[str, str] | None = None) -> str:
+    paths = paths or {}
     def rt(seconds: float) -> dict:
         return {
             "OTIO_SCHEMA": "RationalTime.1",
@@ -86,7 +126,7 @@ def _otio(name: str, clips) -> str:
             "media_references": {
                 "DEFAULT_MEDIA": {
                     "OTIO_SCHEMA": "ExternalReference.1",
-                    "target_url": c.filename or c.media_id,
+                    "target_url": _translate(paths.get(c.media_id) or c.filename or c.media_id),
                 }
             },
             "active_media_reference_key": "DEFAULT_MEDIA",
@@ -271,12 +311,21 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
     if fmt not in ("edl", "csv", "json", "fcpxml", "otio"):
         raise HTTPException(status_code=400, detail="Format must be edl, csv, json, fcpxml, or otio")
 
+    # Map media_id -> original hi-res path so exports relink to source media
+    media_ids = {c.media_id for c in cl_out.clips}
+    paths: dict[str, str] = {}
+    if media_ids:
+        rows = await db.execute(
+            select(MediaAsset.id, MediaAsset.original_path).where(MediaAsset.id.in_(media_ids))
+        )
+        paths = {mid: p for mid, p in rows.all() if p}
+
     if fmt == "fcpxml":
-        content = _fcpxml(cl_out.name, cl_out.clips)
+        content = _fcpxml(cl_out.name, cl_out.clips, paths)
         filename = f"{cl_out.name.replace(' ', '_')}.fcpxml"
 
     elif fmt == "otio":
-        content = _otio(cl_out.name, cl_out.clips)
+        content = _otio(cl_out.name, cl_out.clips, paths)
         filename = f"{cl_out.name.replace(' ', '_')}.otio"
 
     elif fmt == "json":
@@ -306,6 +355,8 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
                 return f"{h:02d}:{m:02d}:{s:02d}:{f:02d}"
             lines.append(f"{i:03d}  AX       V     C        {tc(c.start_time)} {tc(c.end_time)} {tc(c.start_time)} {tc(c.end_time)}")
             lines.append(f"* FROM CLIP NAME: {c.filename}")
+            if paths.get(c.media_id):
+                lines.append(f"* SOURCE FILE: {_translate(paths[c.media_id])}")
             if c.label:
                 lines.append(f"* COMMENT: {c.label}")
             lines.append("")

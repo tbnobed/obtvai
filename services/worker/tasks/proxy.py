@@ -77,8 +77,25 @@ def create_proxy(self, media_id: str, job_id: str):
         def report(pct: float):
             update_job(db, job_id, progress=pct)
 
+        # Reuse an existing IPV Curator WebProxy render when one matches this
+        # source — no re-encode, no duplicate media. The proxy path stays a
+        # symlink inside PROXIES_DIR so serving/cleanup work unchanged.
+        external = None
         rc, tail = -1, ""
-        for label, codec_args in _ENCODERS:
+        try:
+            from tasks.curator import find_curator_proxy
+            external = find_curator_proxy(src)
+        except Exception as e:
+            append_log(db, job_id, f"Curator proxy lookup failed (falling back to encode): {e}")
+
+        if external:
+            append_log(db, job_id, f"Reusing existing Curator proxy: {external}")
+            if os.path.islink(proxy_path) or os.path.exists(proxy_path):
+                os.remove(proxy_path)
+            os.symlink(external, proxy_path)
+            rc, tail = 0, ""
+
+        for label, codec_args in ([] if external else _ENCODERS):
             cmd = [
                 "ffmpeg", "-y", "-i", src,
                 *codec_args,

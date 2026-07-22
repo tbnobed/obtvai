@@ -45,6 +45,12 @@ x-python-env: &python-env
   # API search embedding models (bge-m3 + SigLIP) get a longer window since
   # search is latency-sensitive; they reload in ~10-20 s. 0 = off.
   EMBED_IDLE_RELEASE_SECONDS: "${EMBED_IDLE_RELEASE_SECONDS:-1800}"
+  # IPV Curator proxy reuse: mount point inside containers + index cache TTL
+  CURATOR_PROXY_ROOT: "/curator"
+  CURATOR_INDEX_TTL: "${CURATOR_INDEX_TTL:-900}"
+  # Path translation for NLE exports (EDL/FCPXML/OTIO), e.g.
+  # EXPORT_PATH_MAP=/media=V:\Media;/media2=\\nas\media2
+  EXPORT_PATH_MAP: "${EXPORT_PATH_MAP:-}"
 
 # ─── Volume definitions ───────────────────────────────────────────────────────
 volumes:
@@ -151,6 +157,7 @@ services:
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       - "${UPLOAD_PATH:-./uploads}:/uploads"
       - "${COMFY_WORKFLOWS_PATH:-./comfy_workflows}:/workflows:ro"
+      - "${CURATOR_PROXY_PATH:-./curator_proxies}:/curator:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
     depends_on:
@@ -246,6 +253,7 @@ services:
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       # rw: link imports (Dropbox etc.) download into /uploads on this worker
       - "${UPLOAD_PATH:-./uploads}:/uploads"
+      - "${CURATOR_PROXY_PATH:-./curator_proxies}:/curator:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
     command: celery -A app worker -B --queues=cpu,ingest --concurrency=4 --loglevel=info
