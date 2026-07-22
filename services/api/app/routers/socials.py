@@ -309,12 +309,23 @@ async def _collect_metrics_summary(db: AsyncSession) -> tuple[str, dict] | None:
     if not channels:
         return None
 
+    configured = {
+        "youtube": bool(os.getenv("YOUTUBE_API_KEY")),
+        "instagram": bool(os.getenv("META_ACCESS_TOKEN")),
+        "facebook": bool(os.getenv("META_ACCESS_TOKEN")),
+        "tiktok": bool(os.getenv("TIKTOK_ACCESS_TOKEN")),
+    }
+
     prog_name = {p.id: p.name for p in programs}
     week_ago_ts = datetime.utcnow() - timedelta(days=7)
     lines: list[str] = []
     stats: dict = {"channels": []}
 
     for c in channels:
+        # Channels on platforms without API credentials have no data — that's a
+        # setup issue (already surfaced in the UI banner), not a content problem.
+        if not configured.get(c.platform, True):
+            continue
         snaps = (
             await db.execute(
                 select(SocialChannelSnapshot)
@@ -362,6 +373,11 @@ async def _collect_metrics_summary(db: AsyncSession) -> tuple[str, dict] | None:
             parts.append(f'best post "{(top.title or top.external_id)[:70]}" {top.views} views')
         if bottom is not None and bottom is not top:
             parts.append(f'weakest post "{(bottom.title or bottom.external_id)[:70]}" {bottom.views} views')
+        has_data = latest is not None or bool(viewed)
+        if not has_data:
+            # Nothing fetched yet (e.g. first sync pending or failing) —
+            # no basis for content analysis.
+            continue
         if c.last_error:
             parts.append(f"SYNC ERROR: {c.last_error[:120]}")
         lines.append(" ".join(parts))
@@ -370,6 +386,8 @@ async def _collect_metrics_summary(db: AsyncSession) -> tuple[str, dict] | None:
             "engagement": eng, "top": top, "bottom": bottom, "error": c.last_error,
         })
 
+    if not lines:
+        return None
     return "\n".join(lines), stats
 
 

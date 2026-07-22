@@ -3437,6 +3437,10 @@ router.post("/socials/insights", (_req, res) => {
     const prog = socialPrograms.find((p) => p.id === c.program_id)?.name ?? "?";
     const name = `${prog} / ${c.platform} ${c.handle}`;
     const snaps = socialSnapshots[c.id] ?? [];
+    const chanPosts = socialPosts[c.id] ?? [];
+    // Skip channels with no synced data (e.g. missing API credentials) —
+    // that's a setup issue shown in the config banner, not a content problem.
+    if (!snaps.length && !chanPosts.length) continue;
     const latest = snaps[snaps.length - 1];
     const weekAgoTs = Date.now() - 7 * 86400e3;
     const week = snaps.filter((s) => new Date(s.fetched_at).getTime() <= weekAgoTs).pop();
@@ -3457,10 +3461,6 @@ router.post("/socials/insights", (_req, res) => {
         working.push(`"${top.title}" is a breakout on ${name} (${top.views.toLocaleString()} views, ${Math.round(top.views / bottom.views)}x the weakest post).`);
         recs.push(`Make more content like "${top.title}" — it clearly outperforms on ${name}.`);
       }
-    }
-    if (c.last_error) {
-      notWorking.push(`${name} is not syncing: ${c.last_error}`);
-      recs.push(`Fix the sync credentials for ${name} so its metrics stay current.`);
     }
   }
   if (!recs.length) recs.push("Keep the posting cadence steady and compare next week's deltas to spot trends.");
