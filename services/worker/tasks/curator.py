@@ -94,6 +94,34 @@ def is_curator_video(path: str) -> bool:
     return os.path.basename(path).lower().endswith("_video.mp4")
 
 
+def has_audio_stream(path: str) -> bool:
+    """True if the file contains at least one audio stream."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a",
+             "-show_entries", "stream=codec_name", "-of", "json", path],
+            capture_output=True, text=True, timeout=30,
+        )
+        return bool(json.loads(out.stdout or "{}").get("streams"))
+    except Exception:
+        return False
+
+
+def find_curator_audio(video_path: str) -> list[str]:
+    """Sidecar audio renders next to a Curator _video.mp4.
+
+    Curator renders WebProxy video and audio as SEPARATE files in the same
+    folder (<id>_video.mp4 + <id>_audio0.mp4 [, _audio1...]), so the video
+    file alone is silent."""
+    d = os.path.dirname(video_path)
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return []
+    auds = sorted(n for n in names if re.search(r"_audio\d*\.(mp4|m4a|aac)$", n.lower()))
+    return [os.path.join(d, n) for n in auds]
+
+
 def find_sidecar_source_path(video_path: str) -> str | None:
     """Best-effort: pull the hi-res original path out of Curator's sidecar
     metadata XMLs (…_metadata_complete.xml / …_index.xml) that sit next to

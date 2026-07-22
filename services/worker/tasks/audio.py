@@ -23,8 +23,27 @@ def extract_audio(self, media_id: str, job_id: str):
         audio_path = os.path.join(AUDIO_DIR, f"{media_id}.wav")
         append_log(db, job_id, f"Extracting audio to {audio_path}")
 
-        cmd = [
-            "ffmpeg", "-y", "-i", src,
+        # Curator WebProxy _video.mp4 files are video-only: the audio lives in
+        # sidecar _audioN.mp4 files in the same folder. Extract from those.
+        from tasks.curator import is_curator_video, has_audio_stream, find_curator_audio
+        inputs = [src]
+        if is_curator_video(src) and not has_audio_stream(src):
+            sidecars = find_curator_audio(src)
+            if not sidecars:
+                raise RuntimeError(
+                    "Source video has no audio track and no Curator _audioN.mp4 "
+                    "sidecar was found next to it"
+                )
+            inputs = sidecars
+            append_log(db, job_id, "Video-only Curator proxy — using sidecar audio: "
+                       + ", ".join(os.path.basename(p) for p in inputs))
+
+        cmd = ["ffmpeg", "-y"]
+        for p in inputs:
+            cmd += ["-i", p]
+        if len(inputs) > 1:
+            cmd += ["-filter_complex", f"amix=inputs={len(inputs)}:duration=longest:normalize=0"]
+        cmd += [
             "-vn", "-acodec", "pcm_s16le",
             "-ar", "16000", "-ac", "1",
             audio_path,

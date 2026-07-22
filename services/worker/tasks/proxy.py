@@ -89,11 +89,40 @@ def create_proxy(self, media_id: str, job_id: str):
             append_log(db, job_id, f"Curator proxy lookup failed (falling back to encode): {e}")
 
         if external:
-            append_log(db, job_id, f"Reusing existing Curator proxy: {external}")
             if os.path.islink(proxy_path) or os.path.exists(proxy_path):
                 os.remove(proxy_path)
-            os.symlink(external, proxy_path)
-            rc, tail = 0, ""
+            # Curator renders video and audio as separate files — a symlink to
+            # the video-only _video.mp4 would play silent. Mux the sidecar
+            # audio in (video stream-copied, audio re-encoded to AAC).
+            from tasks.curator import has_audio_stream, find_curator_audio
+            sidecars = [] if has_audio_stream(external) else find_curator_audio(external)
+            if sidecars:
+                append_log(db, job_id, f"Reusing Curator proxy + muxing sidecar audio: {external}")
+                mux = ["ffmpeg", "-y", "-i", external]
+                for p in sidecars:
+                    mux += ["-i", p]
+                mux += ["-map", "0:v:0"]
+                if len(sidecars) > 1:
+                    amix_in = "".join(f"[{i}:a:0]" for i in range(1, len(sidecars) + 1))
+                    mux += ["-filter_complex", f"{amix_in}amix=inputs={len(sidecars)}:duration=longest:normalize=0[aout]",
+                            "-map", "[aout]"]
+                else:
+                    mux += ["-map", "1:a:0"]
+                mux += ["-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                        "-movflags", "+faststart", proxy_path]
+                r = subprocess.run(mux, capture_output=True, text=True, timeout=1800)
+                if r.returncode == 0:
+                    rc, tail = 0, ""
+                else:
+                    append_log(db, job_id, f"Sidecar audio mux failed (exit {r.returncode}), "
+                               f"falling back to full encode: {(r.stderr or '')[-200:]}")
+                    if os.path.exists(proxy_path):
+                        os.remove(proxy_path)
+                    external = None
+            else:
+                append_log(db, job_id, f"Reusing existing Curator proxy: {external}")
+                os.symlink(external, proxy_path)
+                rc, tail = 0, ""
 
         for label, codec_args in ([] if external else _ENCODERS):
             cmd = [
