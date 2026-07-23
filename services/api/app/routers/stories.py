@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
 from .projects import touch_project
-from ..models import StoryJob, MediaAsset, ClipList
+from ..models import StoryJob, MediaAsset, ClipList, Project
 from ..schemas import StoryRequestIn, StoryJobOut
 from ..worker_client import enqueue_story
 
@@ -52,11 +52,21 @@ async def create_story(body: StoryRequestIn, db: AsyncSession = Depends(get_db))
     if missing:
         raise HTTPException(status_code=404, detail=f"Unknown assets: {', '.join(sorted(missing))}")
 
+    # Project rule: work created inside a project inherits its target run time
+    # unless the request sets an explicit duration.
+    target = body.target_duration_seconds
+    if target is None and body.project_id:
+        proj_target = (await db.execute(
+            select(Project.target_runtime_seconds).where(Project.id == body.project_id)
+        )).scalar_one_or_none()
+        if proj_target:
+            target = min(max(float(proj_target), 30.0), 14400.0)
+
     story = StoryJob(
         prompt=(body.prompt or "").strip() or None,
         project_id=body.project_id,
         asset_ids=asset_ids,
-        target_duration_seconds=body.target_duration_seconds,
+        target_duration_seconds=target,
         status="pending",
     )
     db.add(story)

@@ -1168,9 +1168,14 @@ export default function ProjectDetail() {
                     step={0.5}
                     value={storyMinutes}
                     onChange={(e) => setStoryMinutes(e.target.value)}
-                    placeholder="auto"
+                    placeholder={project.target_runtime_seconds != null
+                      ? `${Math.round((project.target_runtime_seconds / 60) * 10) / 10}`
+                      : "auto"}
                   />
                   <p className="text-xs text-muted-foreground">
+                    {project.target_runtime_seconds != null
+                      ? <>Blank follows the project target ({formatRuntime(project.target_runtime_seconds)}). </>
+                      : null}
                     Short pieces get punchy bites; long productions get full segments.
                   </p>
                 </div>
@@ -1250,9 +1255,13 @@ export default function ProjectDetail() {
                 <Input
                   value={reelMinutes}
                   onChange={(e) => setReelMinutes(e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder="Auto"
+                  placeholder={project.target_runtime_seconds != null
+                    ? `${Math.round((project.target_runtime_seconds / 60) * 10) / 10} min`
+                    : "Auto"}
                   inputMode="decimal"
-                  title="Target run time in minutes (blank = short highlight reel, up to 240 for feature length)"
+                  title={project.target_runtime_seconds != null
+                    ? `Target run time in minutes — blank follows the project target (${formatRuntime(project.target_runtime_seconds)})`
+                    : "Target run time in minutes (blank = short highlight reel, up to 240 for feature length)"}
                   className="w-24 shrink-0"
                 />
                 <Select value={reelPace} onValueChange={(v) => setReelPace(v as typeof reelPace)}>

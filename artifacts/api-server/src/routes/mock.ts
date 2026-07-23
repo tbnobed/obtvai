@@ -1878,9 +1878,17 @@ router.post("/reels", (req, res) => {
   const pace: string = ["fast", "normal", "cinematic"].includes(req.body.pace) ? req.body.pace : "normal";
   // Pace is a hard max clip length (mirrors worker enforcement).
   const paceMax = pace === "fast" ? 6 : pace === "cinematic" ? 40 : 15;
+  // Project rule: work created inside a project inherits its target run time
+  // unless the request sets an explicit duration.
+  const reelProjectTarget =
+    projects.find((x) => x.id === req.body.project_id)?.target_runtime_seconds ?? null;
+  const rawReelTarget =
+    typeof req.body.target_duration_seconds === "number" && req.body.target_duration_seconds > 0
+      ? req.body.target_duration_seconds
+      : reelProjectTarget;
   const targetDuration: number | null =
-    typeof req.body.target_duration_seconds === "number" && req.body.target_duration_seconds >= 30
-      ? Math.min(req.body.target_duration_seconds, 14400)
+    rawReelTarget != null && rawReelTarget > 0
+      ? Math.min(Math.max(rawReelTarget, 30), 14400)
       : null;
   // With a target run time the clip count is driven by the duration goal.
   const maxClips = targetDuration
@@ -2228,6 +2236,11 @@ router.post("/stories", (req, res) => {
   const missing = assetIds.filter((id) => !assets.find((a) => a.id === id));
   if (missing.length) { res.status(404).json({ detail: `Unknown assets: ${missing.join(", ")}` }); return; }
   const rawTarget = Number(req.body?.target_duration_seconds);
+  // Project rule: work created inside a project inherits its target run time
+  // unless the request sets an explicit duration.
+  const storyProjectTarget =
+    projects.find((x) => x.id === req.body?.project_id)?.target_runtime_seconds ?? null;
+  const resolvedTarget = Number.isFinite(rawTarget) && rawTarget > 0 ? rawTarget : storyProjectTarget;
   const story: MockStory = {
     id: `story-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     prompt: (req.body?.prompt || "").trim() || null,
@@ -2235,8 +2248,8 @@ router.post("/stories", (req, res) => {
     asset_ids: assetIds,
     status: "pending", progress: 0,
     title: null, narrative: null, clip_list_id: null,
-    target_duration_seconds: Number.isFinite(rawTarget) && rawTarget > 0
-      ? Math.min(Math.max(rawTarget, 30), 14400)
+    target_duration_seconds: resolvedTarget != null && resolvedTarget > 0
+      ? Math.min(Math.max(resolvedTarget, 30), 14400)
       : null,
     error_message: null,
     created_at: new Date().toISOString(), finished_at: null,

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
 from .projects import touch_project
-from ..models import ReelJob, MediaAsset, TranscriptSegment, Scene
+from ..models import ReelJob, MediaAsset, TranscriptSegment, Scene, Project
 from ..schemas import ReelRequestIn, ReelJobOut, ReelClipOut, ReelFeedbackIn
 from ..worker_client import enqueue_reel
 
@@ -248,11 +248,21 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Prompt is too short")
     if body.preset not in _VALID_PRESETS:
         raise HTTPException(status_code=400, detail="Preset must be original or vertical")
-    if body.target_duration_seconds:
+    # Project rule: work created inside a project inherits its target run time
+    # unless the request sets an explicit duration.
+    target = body.target_duration_seconds
+    if target is None and body.project_id:
+        proj_target = (await db.execute(
+            select(Project.target_runtime_seconds).where(Project.id == body.project_id)
+        )).scalar_one_or_none()
+        if proj_target:
+            target = min(max(float(proj_target), 30.0), 14400.0)
+
+    if target:
         # Derive the clip budget from the runtime goal.
         import math
         max_clips = min(
-            max(math.ceil(body.target_duration_seconds / _ASSUMED_CLIP_SECONDS), 3),
+            max(math.ceil(target / _ASSUMED_CLIP_SECONDS), 3),
             _MAX_CLIPS_HARD,
         )
     else:
@@ -270,7 +280,7 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         prompt, max_clips, db,
         media_id=body.media_id,
         media_ids=None if body.media_id else media_ids,
-        target_duration=body.target_duration_seconds,
+        target_duration=target,
     )
     if not clips:
         raise HTTPException(
@@ -287,7 +297,7 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         prompt=prompt,
         media_id=body.media_id,
         project_id=body.project_id,
-        target_duration_seconds=body.target_duration_seconds,
+        target_duration_seconds=target,
         pace=body.pace,
         preset=body.preset,
         burn_captions=body.burn_captions,
