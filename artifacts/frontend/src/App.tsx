@@ -17,7 +17,7 @@ import PersonDetail from "@/pages/person-detail";
 import Insights from "@/pages/insights";
 import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
-import Graphics from "@/pages/graphics";
+// import Graphics from "@/pages/graphics"; // hidden (GPU contention)
 import Ratings from "@/pages/ratings";
 import Socials from "@/pages/socials";
 import SearchPage from "@/pages/search";
@@ -64,7 +64,7 @@ function Router() {
         <Route path="/library/:id" component={AssetDetail} />
         <Route path="/people" component={People} />
         <Route path="/people/:id" component={PersonDetail} />
-        <Route path="/graphics" component={Graphics} />
+        {/* Graphics intentionally hidden (GPU contention) — see layout.tsx */}
         <Route path="/insights" component={Insights} />
         <Route path="/ratings" component={Ratings} />
         <Route path="/socials" component={Socials} />

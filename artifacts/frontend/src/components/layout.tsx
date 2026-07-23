@@ -8,7 +8,7 @@ import {
   Users,
   Sparkles,
   FolderKanban,
-  Wand2,
+  // Wand2, // Graphics nav hidden
   Search,
   BarChart3,
   Share2,
@@ -124,7 +124,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/search", label: "Search", icon: Search },
     { href: "/people", label: "People", icon: Users },
     { href: "/ai", label: "AI Q&A", icon: MessageSquare },
-    { href: "/graphics", label: "Graphics", icon: Wand2 },
+    // Graphics is intentionally hidden — ComfyUI generation competes with the
+    // media workers for GPU. Restore this entry (and the route in App.tsx) to
+    // re-enable.
+    // { href: "/graphics", label: "Graphics", icon: Wand2 },
     { href: "/insights", label: "Insights", icon: Sparkles },
     { href: "/ratings", label: "Ratings", icon: BarChart3 },
     { href: "/socials", label: "Socials", icon: Share2 },
