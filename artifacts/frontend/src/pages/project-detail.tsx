@@ -338,29 +338,14 @@ export default function ProjectDetail() {
 
   const [query, setQuery] = useState("");
   const [searchAllMedia, setSearchAllMedia] = useState(false);
-  const [targetListId, setTargetListId] = useState<string>("");
   const [lastAdded, setLastAdded] = useState<string | null>(null);
-  // Rapid "Add" clicks race the clip-list refetch: each click would rebuild the
-  // list from stale cache and overwrite the previous add. Track the latest
-  // known clips per list synchronously so consecutive adds accumulate.
-  const pendingClipsRef = useRef<Record<string, ClipListUpdateClipsItem[]>>({});
-  // Same race for the media pool: rapid adds each merge into the latest known
-  // pool instead of the stale server copy, so no addition gets dropped.
+  // Rapid "Add" clicks race the project refetch: each click would merge into
+  // the stale server pool and drop the previous addition. Track the latest
+  // known pool synchronously so consecutive adds accumulate.
   const pendingPoolRef = useRef<string[] | null>(null);
   const reelVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   // Multi-select of search / script-match results, keyed by row key.
   const [selectedResults, setSelectedResults] = useState<Record<string, SearchResult>>({});
-
-  useEffect(() => {
-    // Keep the add-target off story-output lists: adding into them makes
-    // collected clips invisible to the story builder. Only reset when the
-    // target is empty or a known story list — a just-created list id must
-    // survive the refetch window (it isn't in editorLists yet), and a stale
-    // deleted id falls into the auto-create path on its own.
-    if (!targetListId || storyListIds.has(targetListId)) {
-      setTargetListId(editorLists[0]?.id ?? "");
-    }
-  }, [editorLists, storyListIds, targetListId]);
 
   const searchScope = searchAllMedia || !mediaPool.length ? {} : { media_ids: mediaPool };
 
@@ -384,89 +369,47 @@ export default function ProjectDetail() {
     });
   };
 
-  const addResultsToList = (results: SearchResult[]) => {
+  // Adding footage in Find does exactly one thing: pull that media into the
+  // project's source assets (and pre-select it for Build a Story). No clip
+  // list is created — at the gathering stage nobody knows yet which exact
+  // moments the story will need; that call belongs to the story builder.
+  const addResultsToSources = (results: SearchResult[]) => {
     if (!results.length) return;
-    const newClips: ClipListUpdateClipsItem[] = results.map((r) => ({
-      media_id: r.media_id,
-      start_time: r.start_time,
-      end_time: r.end_time,
-      label: r.snippet?.slice(0, 80) || r.filename,
-      approved: false,
-      match_reason: `${r.match_type === "visual" ? "Visual" : "Transcript"} match · ${(r.score * 100).toFixed(0)}%${r.snippet ? ` — “${r.snippet}”` : ""}`,
-    }));
-    const target = editorLists.find((l) => l.id === targetListId);
-    // Adding footage in Find pulls its media straight into the project pool
-    // and pre-selects it as a Build a Story source asset — the editor should
-    // see the media appear there immediately, not have to add it twice.
     const basePool = pendingPoolRef.current ?? mediaPool;
     const newMediaIds = [...new Set(results.map((r) => r.media_id))]
       .filter((x) => !basePool.includes(x));
+    const done = () => {
+      setLastAdded(
+        results.length === 1
+          ? results[0].filename
+          : `${results.length} results (${newMediaIds.length || "no"} new assets)`,
+      );
+      setSelectedResults({});
+      invalidateAll();
+    };
+    setStoryAssets((s) => {
+      const ids = results.map((r) => r.media_id).filter((x) => !s.includes(x));
+      return ids.length ? [...s, ...[...new Set(ids)]] : s;
+    });
     if (newMediaIds.length) {
       const merged = [...basePool, ...newMediaIds];
       pendingPoolRef.current = merged;
       updateMutation.mutate(
         { id, data: { media_ids: merged } },
-        { onSuccess: invalidateAll },
-      );
-    }
-    setStoryAssets((s) => {
-      const ids = results.map((r) => r.media_id).filter((x) => !s.includes(x));
-      return ids.length ? [...s, ...[...new Set(ids)]] : s;
-    });
-    const done = () => {
-      setLastAdded(
-        results.length === 1
-          ? `${results[0].filename} ${fmtTime(results[0].start_time)}`
-          : `${results.length} clips`,
-      );
-      setSelectedResults({});
-      invalidateAll();
-    };
-    if (target) {
-      const base: ClipListUpdateClipsItem[] =
-        pendingClipsRef.current[target.id] ??
-        target.clips.map((c) => ({
-          media_id: c.media_id,
-          start_time: c.start_time,
-          end_time: c.end_time,
-          label: c.label ?? undefined,
-          notes: c.notes ?? null,
-          approved: c.approved ?? false,
-          match_reason: c.match_reason ?? null,
-        }));
-      const clips = [...base, ...newClips];
-      pendingClipsRef.current[target.id] = clips;
-      updateListMutation.mutate(
-        { id: target.id, data: { clips } },
         {
           onSuccess: done,
           onError: () => {
-            // Drop the optimistic state so the next add rebuilds from the server.
-            delete pendingClipsRef.current[target.id];
+            // Drop the optimistic pool so the next add rebuilds from the server.
+            pendingPoolRef.current = null;
           },
         },
       );
     } else {
-      createListMutation.mutate(
-        {
-          data: {
-            name: `${project?.name ?? "Project"} — selects`,
-            project_id: id,
-            clips: newClips,
-          },
-        },
-        {
-          onSuccess: (created) => {
-            pendingClipsRef.current[created.id] = newClips;
-            setTargetListId(created.id);
-            done();
-          },
-        },
-      );
+      done();
     }
   };
 
-  const addResultToList = (r: SearchResult) => addResultsToList([r]);
+  const addResultToSources = (r: SearchResult) => addResultsToSources([r]);
 
   const newEmptyList = () => {
     const name = window.prompt("New clip list name", `${project?.name ?? "Project"} — selects`);
@@ -474,8 +417,7 @@ export default function ProjectDetail() {
     createListMutation.mutate(
       { data: { name: name.trim(), project_id: id } },
       {
-        onSuccess: (created) => {
-          setTargetListId(created.id);
+        onSuccess: () => {
           invalidateAll();
         },
       },
@@ -712,25 +654,6 @@ export default function ProjectDetail() {
     );
   }
 
-  const addTargetPicker = (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground shrink-0">Add results to</span>
-      <select
-        className="bg-muted border border-border rounded-md px-2 py-1.5 text-sm max-w-[220px]"
-        value={targetListId}
-        onChange={(e) => setTargetListId(e.target.value)}
-      >
-        {!editorLists.length && <option value="">New list (auto-created)</option>}
-        {editorLists.map((l) => (
-          <option key={l.id} value={l.id}>{l.name}</option>
-        ))}
-      </select>
-      <Button size="sm" variant="outline" onClick={newEmptyList}>
-        <Plus className="h-3.5 w-3.5 mr-1" /> New list
-      </Button>
-    </div>
-  );
-
   const toggleResult = (key: string, r: SearchResult) => {
     setSelectedResults((prev) => {
       const next = { ...prev };
@@ -745,10 +668,10 @@ export default function ProjectDetail() {
   const addSelectedButton = selectedCount > 0 && (
     <Button
       size="sm"
-      onClick={() => addResultsToList(Object.values(selectedResults))}
-      disabled={updateListMutation.isPending || createListMutation.isPending}
+      onClick={() => addResultsToSources(Object.values(selectedResults))}
+      disabled={updateMutation.isPending}
     >
-      {updateListMutation.isPending || createListMutation.isPending
+      {updateMutation.isPending
         ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
         : <Plus className="h-3.5 w-3.5 mr-1" />}
       Add {selectedCount} selected
@@ -786,8 +709,8 @@ export default function ProjectDetail() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => addResultToList(r)}
-          disabled={updateListMutation.isPending || createListMutation.isPending}
+          onClick={() => addResultToSources(r)}
+          disabled={updateMutation.isPending}
         >
           <Plus className="h-3.5 w-3.5 mr-1" /> Add
         </Button>
@@ -957,7 +880,6 @@ export default function ProjectDetail() {
                   </div>
                 )}
                 {addSelectedButton}
-                {addTargetPicker}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -973,7 +895,7 @@ export default function ProjectDetail() {
                 </Button>
               </div>
               {lastAdded && (
-                <p className="text-xs text-emerald-400">Added {lastAdded} to the clip list.</p>
+                <p className="text-xs text-emerald-400">Added {lastAdded} to the project's source assets.</p>
               )}
               {searchMutation.isError && (
                 <p className="text-sm text-red-400">Search failed — try again.</p>
@@ -1028,10 +950,10 @@ export default function ProjectDetail() {
               {(hasWorkingScript || clipsFromFind > 0) && (
                 <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    Uses what you collected in Find:
+                    Uses what you collected:
                     {hasWorkingScript ? " the working script guides the structure" : ""}
                     {hasWorkingScript && clipsFromFind > 0 ? "," : ""}
-                    {clipsFromFind > 0 ? ` these ${clipsFromFind} searched clip${clipsFromFind === 1 ? "" : "s"} go in as hand-picked moments` : ""}.
+                    {clipsFromFind > 0 ? ` these ${clipsFromFind} clip-list clip${clipsFromFind === 1 ? "" : "s"} go in as hand-picked moments` : ""}.
                   </p>
                   {clipsFromFind > 0 && (
                     <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
