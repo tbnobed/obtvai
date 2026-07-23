@@ -1,0 +1,48 @@
+Target language: es
+Cloned voices requested but no speaker has a ready voice profile — using stock voices
+No cloned voice — Person 32 (SPEAKER_14): no voice samples
+No cloned voice — Person 18 (SPEAKER_20): no voice samples
+No cloned voice — Person 24 (SPEAKER_08): no voice samples
+No cloned voice — Person 26 (SPEAKER_10): no voice samples
+No cloned voice — Person 27 (SPEAKER_31): no voice samples
+No cloned voice — Person 28 (SPEAKER_29): no voice samples
+No cloned voice — SPEAKER_26 (SPEAKER_26): no voice samples
+No cloned voice — Person 30 (SPEAKER_02): no voice samples
+No cloned voice — Person 31 (SPEAKER_01): no voice samples
+No cloned voice — Person 22 (SPEAKER_24): no voice samples
+No cloned voice — Person 33 (SPEAKER_27): no voice samples
+No cloned voice — SPEAKER_00 (SPEAKER_00): no voice samples
+No cloned voice — Person 35 (SPEAKER_25): no voice samples
+No cloned voice — Person 36 (SPEAKER_04): no voice samples
+No cloned voice — Person 56 (SPEAKER_19): no voice samples
+No cloned voice — Person 37 (SPEAKER_28): no voice samples
+No cloned voice — Person 57 (SPEAKER_22): no voice samples
+No cloned voice — Person 38 (SPEAKER_23): no voice samples
+No cloned voice — SPEAKER_11 (SPEAKER_11): no voice samples
+No cloned voice — Person 11 (SPEAKER_21): no voice samples
+No cloned voice — SPEAKER_03 (SPEAKER_15): no voice samples
+No cloned voice — Person 40 (SPEAKER_06): no voice samples
+No cloned voice — Person 41 (SPEAKER_07): no voice samples
+No cloned voice — Bob (SPEAKER_09): no voice samples
+No cloned voice — Person 59 (SPEAKER_16): no voice samples
+No cloned voice — Person 42 (SPEAKER_30): no voice samples
+No cloned voice — Person 9 (SPEAKER_18): no voice samples
+No cloned voice — Person 60 (SPEAKER_17): no voice samples
+No cloned voice — SPEAKER_13 (SPEAKER_13): no voice samples
+No cloned voice — Person 44 (SPEAKER_03): no voice samples
+No cloned voice — Person 13: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — Person 25: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — Person 23: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — Person 61: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — SPEAKER_20: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — SPEAKER_07: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — Person 12: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — Person 62: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — Person 63: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — SPEAKER_12 (SPEAKER_12): no voice samples
+No cloned voice — SPEAKER_03: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — Person 55: linked by face only (no speaker label on this asset) — cannot map to dialogue
+No cloned voice — SPEAKER_19: linked by face only (no speaker label on this asset) — cannot map to dialogue
+Loading XTTS-v2
+Synthesizing 1321 segments (es)
+Gender-matched stock voices — SPEAKER_00: male, SPEAKER_01: female, SPEAKER_02: female, SPEAKER_04: female, SPEAKER_06: female, SPEAKER_07: female, SPEAKER_08: male, SPEAKER_09: male, SPEAKER_10: male, SPEAKER_11: female, SPEAKER_12: female, SPEAKER_13: male, SPEAKER_14: female, SPEAKER_15: male, SPEAKER_16: male, SPEAKER_17: male, SPEAKER_18: male, SPEAKER_19: male, SPEAKER_20: male, SPEAKER_21: male, SPEAKER_22: male, SPEAKER_24: male, SPEAKER_25: male, SPEAKER_26: female, SPEAKER_27: male, SPEAKER_28: female, SPEAKER_29: female, SPEAKER_30: female, SPEAKER_31: female
