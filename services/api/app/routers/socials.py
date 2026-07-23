@@ -433,7 +433,9 @@ def _parse_insight_lines(text: str) -> tuple[list[str], list[str], list[str]]:
     not_working: list[str] = []
     recs: list[str] = []
     for raw in text.splitlines():
-        line = raw.strip().lstrip("-• ").strip()
+        # Tolerate bullets and markdown bold around the labels ("**WORKING:**",
+        # "- WORKING:") — larger models format more liberally.
+        line = raw.strip().lstrip("-•* ").replace("**", "").strip()
         upper = line.upper()
         if upper.startswith("WORKING:"):
             working.append(line[len("WORKING:"):].strip())
@@ -485,8 +487,13 @@ async def generate_socials_insights(db: AsyncSession = Depends(get_db)):
         answer = await generate_response(prompt, max_new_tokens=1200)
         working, not_working, recs = _parse_insight_lines(answer)
         model_used = bool(working or not_working or recs)
-    except Exception:
-        pass
+        if not model_used:
+            print(
+                "Socials insights: LLM answered but no WORKING/NOT WORKING/"
+                f"RECOMMEND lines parsed; first 300 chars: {answer[:300]!r}"
+            )
+    except Exception as e:
+        print(f"Socials insights: LLM generation failed: {type(e).__name__}: {e}")
     if not model_used:
         working, not_working, recs = _heuristic_insights(stats)
 
