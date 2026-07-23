@@ -275,11 +275,32 @@ export default function Socials() {
   });
   const deleteChannel = useDeleteSocialChannel({ mutation: { onSuccess: invalidate } });
 
+  // Insights are generated asynchronously server-side (the LLM can take a few
+  // minutes): a POST returning status "running" means keep polling by
+  // re-POSTing until status is "ready".
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [insightsPolling, setInsightsPolling] = useState(false);
   const insights = useGenerateSocialsInsights({
     mutation: {
-      onError: () => toast({ title: "Could not generate insights", variant: "destructive" }),
+      onSuccess: (data) => {
+        if (data.status === "running") {
+          setInsightsPolling(true);
+          pollTimer.current = setTimeout(() => insights.mutate(), 5000);
+        } else {
+          setInsightsPolling(false);
+        }
+      },
+      onError: () => {
+        if (pollTimer.current) clearTimeout(pollTimer.current);
+        setInsightsPolling(false);
+        toast({ title: "Could not generate insights", variant: "destructive" });
+      },
     },
   });
+  useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current); }, []);
+  const insightsBusy = insights.isPending || insightsPolling;
+  const insightsReady =
+    !insightsPolling && insights.data?.status === "ready" ? insights.data : null;
 
   const [programDialog, setProgramDialog] = useState<{ id?: string; name: string } | null>(null);
   const [channelDialog, setChannelDialog] = useState<{
@@ -310,11 +331,11 @@ export default function Socials() {
           <Button
             variant="outline"
             onClick={() => insights.mutate()}
-            disabled={insights.isPending}
+            disabled={insightsBusy}
             data-testid="button-ai-insights"
           >
-            <Sparkles className={`w-4 h-4 mr-2 text-primary ${insights.isPending ? "animate-pulse" : ""}`} />
-            {insights.isPending ? "Analyzing…" : "AI Insights"}
+            <Sparkles className={`w-4 h-4 mr-2 text-primary ${insightsBusy ? "animate-pulse" : ""}`} />
+            {insightsBusy ? "Analyzing…" : "AI Insights"}
           </Button>
           {canEdit && (
             <Button variant="outline" onClick={() => setProgramDialog({ name: "" })} data-testid="button-add-program">
@@ -341,14 +362,14 @@ export default function Socials() {
         </div>
       )}
 
-      {insights.data && (
+      {insightsReady && (
         <section className="border border-border rounded-lg bg-card">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <h2 className="font-medium flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" /> AI insights
             </h2>
             <span className="text-xs text-muted-foreground">
-              {insights.data.model_used ? "AI analysis" : "Metrics analysis (AI model unavailable)"} · {new Date(insights.data.generated_at).toLocaleTimeString()}
+              {insightsReady.model_used ? "AI analysis" : "Metrics analysis (AI model unavailable)"} · {new Date(insightsReady.generated_at).toLocaleTimeString()}
             </span>
           </div>
           <div className="p-4 grid gap-6 md:grid-cols-3">
@@ -356,9 +377,9 @@ export default function Socials() {
               <h3 className="text-sm font-medium mb-2 flex items-center gap-2 text-emerald-400">
                 <CheckCircle2 className="w-4 h-4" /> What's working
               </h3>
-              {insights.data.working.length ? (
+              {insightsReady.working.length ? (
                 <ul className="space-y-2 text-sm text-foreground/90">
-                  {insights.data.working.map((s, i) => (
+                  {insightsReady.working.map((s, i) => (
                     <li key={i} className="flex gap-2"><span className="text-emerald-400/60 shrink-0">•</span><span>{s}</span></li>
                   ))}
                 </ul>
@@ -370,9 +391,9 @@ export default function Socials() {
               <h3 className="text-sm font-medium mb-2 flex items-center gap-2 text-red-400">
                 <XCircle className="w-4 h-4" /> What's not working
               </h3>
-              {insights.data.not_working.length ? (
+              {insightsReady.not_working.length ? (
                 <ul className="space-y-2 text-sm text-foreground/90">
-                  {insights.data.not_working.map((s, i) => (
+                  {insightsReady.not_working.map((s, i) => (
                     <li key={i} className="flex gap-2"><span className="text-red-400/60 shrink-0">•</span><span>{s}</span></li>
                   ))}
                 </ul>
@@ -384,9 +405,9 @@ export default function Socials() {
               <h3 className="text-sm font-medium mb-2 flex items-center gap-2 text-amber-300">
                 <Lightbulb className="w-4 h-4" /> Recommendations
               </h3>
-              {insights.data.recommendations.length ? (
+              {insightsReady.recommendations.length ? (
                 <ul className="space-y-2 text-sm text-foreground/90">
-                  {insights.data.recommendations.map((s, i) => (
+                  {insightsReady.recommendations.map((s, i) => (
                     <li key={i} className="flex gap-2"><span className="text-amber-300/60 shrink-0">•</span><span>{s}</span></li>
                   ))}
                 </ul>

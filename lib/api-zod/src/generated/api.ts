@@ -2528,9 +2528,11 @@ export const RefreshSocialsResponse = zod.object({
 
 
 /**
- * @summary AI analysis of what is and isn't working across social channels (local LLM over current metrics)
+ * @summary AI analysis of what is and isn't working across social channels. Asynchronous: the first POST starts generation and returns status "running"; keep re-POSTing to poll until status is "ready". A ready result is cached briefly, so an immediate re-POST returns it instead of regenerating.
+
  */
 export const GenerateSocialsInsightsResponse = zod.object({
+  "status": zod.enum(['running', 'ready']).describe('\"running\" while generation is in progress (poll by re-POSTing); \"ready\" when the insight lists below are populated\n'),
   "generated_at": zod.string(),
   "working": zod.array(zod.string()).describe('What\'s performing well'),
   "not_working": zod.array(zod.string()).describe('What\'s underperforming'),

@@ -1190,7 +1190,20 @@ export interface SocialsOverview {
   tiktok_configured: boolean;
 }
 
+/**
+ * "running" while generation is in progress (poll by re-POSTing); "ready" when the insight lists below are populated
+ */
+export type SocialsInsightsStatus = typeof SocialsInsightsStatus[keyof typeof SocialsInsightsStatus];
+
+
+export const SocialsInsightsStatus = {
+  running: 'running',
+  ready: 'ready',
+} as const;
+
 export interface SocialsInsights {
+  /** "running" while generation is in progress (poll by re-POSTing); "ready" when the insight lists below are populated */
+  status: SocialsInsightsStatus;
   generated_at: string;
   /** What's performing well */
   working: string[];

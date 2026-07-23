@@ -169,6 +169,7 @@ export * from './socialProgramInput';
 export * from './socialProgramOverview';
 export * from './socialScore';
 export * from './socialsInsights';
+export * from './socialsInsightsStatus';
 export * from './socialSnapshot';
 export * from './socialsOverview';
 export * from './speakingMoment';

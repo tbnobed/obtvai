@@ -5,6 +5,7 @@ beat schedule or via POST /socials/refresh. This router manages the
 program/channel registry and reads stored metrics; week-over-week deltas are
 computed at read time from snapshots.
 """
+import asyncio
 import os
 from datetime import datetime, timedelta
 
@@ -12,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, func
 
-from ..database import get_db
+from ..database import get_db, AsyncSessionLocal
 from ..models import (
     SocialProgram,
     SocialChannel,
@@ -446,13 +447,18 @@ def _parse_insight_lines(text: str) -> tuple[list[str], list[str], list[str]]:
     return working[:6], not_working[:6], recs[:5]
 
 
-@router.post("/insights", response_model=SocialsInsightsOut)
-async def generate_socials_insights(db: AsyncSession = Depends(get_db)):
-    collected = await _collect_metrics_summary(db)
-    if collected is None:
-        raise HTTPException(status_code=404, detail="No social channels to analyze yet")
-    summary, stats = collected
+# Async insight generation state. The LLM can take minutes on a remote 32B
+# model, far longer than the proxy chain (edge openresty + nginx) will hold a
+# request open — so the endpoint starts a background task and the client polls
+# by re-POSTing until status is "ready". Single-process state is fine: the API
+# runs as one uvicorn process.
+_insights_task: "asyncio.Task | None" = None
+_insights_result: "SocialsInsightsOut | None" = None
+_insights_lock = asyncio.Lock()
+_INSIGHTS_CACHE_SECONDS = 180
 
+
+async def _generate_insights_now(summary: str, stats: dict) -> SocialsInsightsOut:
     prompt = (
         "You are a senior social media strategist for a TV broadcaster. Below are "
         "metrics for the station's social channels, grouped by program. Each channel "
@@ -498,9 +504,69 @@ async def generate_socials_insights(db: AsyncSession = Depends(get_db)):
         working, not_working, recs = _heuristic_insights(stats)
 
     return SocialsInsightsOut(
+        status="ready",
         generated_at=datetime.utcnow(),
         working=working,
         not_working=not_working,
         recommendations=recs,
         model_used=model_used,
     )
+
+
+async def _insights_background() -> None:
+    """Run insight generation with its own DB session and store the result."""
+    global _insights_result
+    async with AsyncSessionLocal() as session:
+        collected = await _collect_metrics_summary(session)
+    if collected is None:
+        # No data — surface as a heuristic-style empty result so the poll ends.
+        _insights_result = SocialsInsightsOut(
+            status="ready",
+            generated_at=datetime.utcnow(),
+            working=[],
+            not_working=["No social channel data to analyze yet."],
+            recommendations=[],
+            model_used=False,
+        )
+        return
+    summary, stats = collected
+    _insights_result = await _generate_insights_now(summary, stats)
+
+
+@router.post("/insights", response_model=SocialsInsightsOut)
+async def generate_socials_insights(db: AsyncSession = Depends(get_db)):
+    global _insights_task
+    running = SocialsInsightsOut(
+        status="running",
+        generated_at=datetime.utcnow(),
+        working=[],
+        not_working=[],
+        recommendations=[],
+        model_used=False,
+    )
+
+    # The lock serializes the whole check/start section so two concurrent
+    # POSTs can never both spawn a generation task.
+    async with _insights_lock:
+        if _insights_task is not None and not _insights_task.done():
+            return running
+
+        if _insights_task is not None and _insights_task.done():
+            exc = _insights_task.exception()
+            if exc is not None:
+                _insights_task = None
+                print(f"Socials insights: background task failed: {type(exc).__name__}: {exc}")
+                raise HTTPException(status_code=500, detail="Insight generation failed — check api logs")
+            # Task finished successfully: deliver the cached result while fresh.
+            if _insights_result is not None:
+                age = (datetime.utcnow() - _insights_result.generated_at).total_seconds()
+                if age < _INSIGHTS_CACHE_SECONDS:
+                    return _insights_result
+            _insights_task = None
+
+        # Nothing running and no fresh cache — check there's data, then start.
+        collected = await _collect_metrics_summary(db)
+        if collected is None:
+            raise HTTPException(status_code=404, detail="No social channels to analyze yet")
+        _insights_task = asyncio.create_task(_insights_background())
+    return running

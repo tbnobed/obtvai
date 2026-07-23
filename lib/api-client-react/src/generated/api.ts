@@ -6560,7 +6560,8 @@ export const getGenerateSocialsInsightsUrl = () => {
 }
 
 /**
- * @summary AI analysis of what is and isn't working across social channels (local LLM over current metrics)
+ * @summary AI analysis of what is and isn't working across social channels. Asynchronous: the first POST starts generation and returns status "running"; keep re-POSTing to poll until status is "ready". A ready result is cached briefly, so an immediate re-POST returns it instead of regenerating.
+
  */
 export const generateSocialsInsights = async ( options?: RequestInit): Promise<SocialsInsights> => {
 
@@ -6609,7 +6610,8 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type GenerateSocialsInsightsMutationError = ErrorType<void>
 
     /**
- * @summary AI analysis of what is and isn't working across social channels (local LLM over current metrics)
+ * @summary AI analysis of what is and isn't working across social channels. Asynchronous: the first POST starts generation and returns status "running"; keep re-POSTing to poll until status is "ready". A ready result is cached briefly, so an immediate re-POST returns it instead of regenerating.
+
  */
 export const useGenerateSocialsInsights = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateSocialsInsights>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}

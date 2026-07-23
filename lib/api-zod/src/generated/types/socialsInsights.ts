@@ -5,8 +5,11 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SocialsInsightsStatus } from './socialsInsightsStatus';
 
 export interface SocialsInsights {
+  /** "running" while generation is in progress (poll by re-POSTing); "ready" when the insight lists below are populated */
+  status: SocialsInsightsStatus;
   generated_at: string;
   /** What's performing well */
   working: string[];

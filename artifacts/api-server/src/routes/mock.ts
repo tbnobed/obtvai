@@ -3488,8 +3488,18 @@ router.post("/socials/refresh", (_req, res) => {
 
 // AI insights — production runs the local LLM over live metrics; here we
 // compute the same style of analysis heuristically from the mock data.
+// Async in production (LLM takes minutes): first POST returns status
+// "running", the client re-POSTs to poll. Simulated here with a short delay.
+let mockInsightsReadyAt: number | null = null;
 router.post("/socials/insights", (_req, res) => {
   if (!socialChannels.length) { res.status(404).json({ detail: "No social channels to analyze yet" }); return; }
+  if (mockInsightsReadyAt == null || Date.now() > mockInsightsReadyAt + 180_000) {
+    mockInsightsReadyAt = Date.now() + 3000;
+  }
+  if (Date.now() < mockInsightsReadyAt) {
+    res.json({ status: "running", generated_at: new Date().toISOString(), working: [], not_working: [], recommendations: [], model_used: false });
+    return;
+  }
   const working: string[] = [];
   const notWorking: string[] = [];
   const recs: string[] = [];
@@ -3525,6 +3535,7 @@ router.post("/socials/insights", (_req, res) => {
   }
   if (!recs.length) recs.push("Keep the posting cadence steady and compare next week's deltas to spot trends.");
   res.json({
+    status: "ready",
     generated_at: new Date().toISOString(),
     working: working.slice(0, 6),
     not_working: notWorking.slice(0, 6),

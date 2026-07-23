@@ -918,6 +918,7 @@ class SocialsOverviewOut(BaseModel):
 
 
 class SocialsInsightsOut(BaseModel):
+    status: Literal["running", "ready"] = "ready"
     generated_at: datetime
     working: List[str] = []
     not_working: List[str] = []
