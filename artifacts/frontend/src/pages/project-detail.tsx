@@ -286,6 +286,27 @@ export default function ProjectDetail() {
     queryClient.invalidateQueries({ queryKey: getListRendersQueryKey(listParams) });
   };
 
+  // Jobs write their results into OTHER queries (a finished story creates a
+  // clip list; a finished render creates a file). Polling stops the moment a
+  // job leaves "running", so without this the new output only shows up after
+  // a manual page refresh: when any story/reel/render leaves the active set,
+  // refetch everything once.
+  const activeJobIds = useMemo(() => {
+    const isActive = (s?: string) => s === "pending" || s === "queued" || s === "running";
+    return [
+      ...(stories ?? []).filter((x) => isActive(x.status)).map((x) => `s-${x.id}`),
+      ...(reels ?? []).filter((x) => isActive(x.status)).map((x) => `r-${x.id}`),
+      ...(renders ?? []).filter((x) => isActive(x.status)).map((x) => `x-${x.id}`),
+    ].sort().join(",");
+  }, [stories, reels, renders]);
+  const prevActiveJobsRef = useRef(activeJobIds);
+  useEffect(() => {
+    const prev = new Set(prevActiveJobsRef.current.split(",").filter(Boolean));
+    const cur = new Set(activeJobIds.split(",").filter(Boolean));
+    prevActiveJobsRef.current = activeJobIds;
+    if ([...prev].some((jid) => !cur.has(jid))) invalidateAll();
+  }, [activeJobIds]);
+
   // ---- Script ----
   const [script, setScript] = useState("");
   const [scriptDirty, setScriptDirty] = useState(false);
