@@ -110,6 +110,19 @@ async def get_job_stats(db: AsyncSession = Depends(get_db)):
     )
 
 
+def _legacy_params_from_logs(job_type: str, params: dict | None, logs: list | None) -> dict | None:
+    """Jobs created before the params column have NULL params; dub/translate
+    tasks need target_language, which their creation log line records. Derive
+    it so old failed jobs remain retryable."""
+    if params:
+        return params
+    if job_type in ("dub", "translate"):
+        for line in logs or []:
+            if isinstance(line, str) and line.startswith("Target language: "):
+                return {"target_language": line[len("Target language: "):].strip()}
+    return None
+
+
 @router.post("/retry-failed", response_model=RetryFailedOut, status_code=202)
 async def retry_failed_jobs(db: AsyncSession = Depends(get_db)):
     from sqlalchemy import update
@@ -127,16 +140,16 @@ async def retry_failed_jobs(db: AsyncSession = Depends(get_db)):
                 started_at=None,
                 finished_at=None,
             )
-            .returning(ProcessingJob.id, ProcessingJob.job_type, ProcessingJob.media_id)
+            .returning(ProcessingJob.id, ProcessingJob.job_type, ProcessingJob.media_id, ProcessingJob.params, ProcessingJob.logs)
         )
     ).all()
     await db.commit()
 
     from ..worker_client import enqueue_job
     retried = 0
-    for job_id, job_type, media_id in claimed:
+    for job_id, job_type, media_id, params, logs in claimed:
         try:
-            await enqueue_job(job_type, media_id, job_id)
+            await enqueue_job(job_type, media_id, job_id, extra=_legacy_params_from_logs(job_type, params, logs))
             retried += 1
         except Exception as e:
             # Never strand a claimed job as pending-but-unqueued: put it back
@@ -190,7 +203,7 @@ async def retry_job(id: str, db: AsyncSession = Depends(get_db)):
     await db.refresh(job)
 
     from ..worker_client import enqueue_job
-    await enqueue_job(job.job_type, job.media_id, job.id)
+    await enqueue_job(job.job_type, job.media_id, job.id, extra=_legacy_params_from_logs(job.job_type, job.params, job.logs))
 
     return _enrich(job, asset)
 

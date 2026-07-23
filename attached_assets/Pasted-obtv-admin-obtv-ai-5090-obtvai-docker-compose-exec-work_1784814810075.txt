@@ -1,0 +1,95 @@
+obtv-admin@obtv-ai-5090:~/obtvai$ docker compose exec worker-gpu grep -n visibility_timeout celeryconfig.py
+docker compose exec worker-gpu celery -A app inspect active
+docker compose logs worker-gpu worker-gpu-2 --tail 40
+14:broker_transport_options = {"visibility_timeout": 86400}
+->  worker-graphics@11e17c3c90dd: OK
+    - empty -
+->  worker-gpu-2@35f425ae9e3d: OK
+    - empty -
+->  celery@973b2deb21e3: OK
+    - empty -
+->  celery@58a72b587b7f: OK
+    - empty -
+
+4 nodes online.
+worker-gpu-1  | [2026-07-23 04:16:07,053: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,105: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,143: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,183: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,225: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,264: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,304: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,355: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,394: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,433: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,482: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,529: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1  | [2026-07-23 04:16:07,580: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:07,619: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-2-1  |     raise WorkerLostError(
+worker-gpu-2-1  | billiard.einfo.ExceptionWithTraceback:
+worker-gpu-2-1  | """
+worker-gpu-2-1  | Traceback (most recent call last):
+worker-gpu-2-1  |   File "/usr/local/lib/python3.10/dist-packages/billiard/pool.py", line 1265, in mark_as_worker_lost
+worker-gpu-2-1  |     raise WorkerLostError(
+worker-gpu-2-1  | billiard.exceptions.WorkerLostError: Worker exited prematurely: signal 11 (SIGSEGV) Job: 20.
+worker-gpu-2-1  | """
+worker-gpu-2-1  | [2026-07-23 05:05:30,381: WARNING/ForkPoolWorker-2] Exception in thread
+worker-gpu-2-1  | [2026-07-23 05:05:30,382: WARNING/ForkPoolWorker-2] gpu-idle-release
+worker-gpu-2-1  | [2026-07-23 05:05:30,382: WARNING/ForkPoolWorker-2] :
+worker-gpu-1    | [2026-07-23 04:16:07,668: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:07,708: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:07,748: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:07,789: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:07,834: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-2-1  | [2026-07-23 05:05:30,382: WARNING/ForkPoolWorker-2] Traceback (most recent call last):
+worker-gpu-2-1  | [2026-07-23 05:05:30,382: WARNING/ForkPoolWorker-2]   File "/usr/lib/python3.10/threading.py", line 1016, in _bootstrap_inner
+worker-gpu-2-1  | [2026-07-23 05:05:30,383: WARNING/ForkPoolWorker-2]
+worker-gpu-2-1  | [2026-07-23 05:05:30,383: WARNING/ForkPoolWorker-2] self.run()
+worker-gpu-1    | [2026-07-23 04:16:07,874: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:07,917: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-2-1  | [2026-07-23 05:05:30,383: WARNING/ForkPoolWorker-2]   File "/usr/lib/python3.10/threading.py", line 953, in run
+worker-gpu-2-1  | [2026-07-23 05:05:30,383: WARNING/ForkPoolWorker-2]
+worker-gpu-2-1  | [2026-07-23 05:05:30,383: WARNING/ForkPoolWorker-2] self._target(*self._args, **self._kwargs)
+worker-gpu-2-1  | [2026-07-23 05:05:30,383: WARNING/ForkPoolWorker-2]   File "/worker/tasks/gpu_mem.py", line 141, in _watchdog
+worker-gpu-2-1  | [2026-07-23 05:05:30,383: WARNING/ForkPoolWorker-2]
+worker-gpu-1    | [2026-07-23 04:16:07,956: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:07,996: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:08,036: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:08,077: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:08,115: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:08,165: INFO/ForkPoolWorker-1] HTTP Request: PUT http://qdrant:6333/collections/scenes/points?wait=true "HTTP/1.1 200 OK"
+worker-gpu-1    | [2026-07-23 04:16:08,175: INFO/ForkPoolWorker-1] Task tasks.visual_embed.embed_scenes[1cb7e6cf-4cd9-4778-a574-084711e31710] succeeded in 28.56190516399988s: None
+worker-gpu-1    | [2026-07-23 04:16:08,389: INFO/MainProcess] Task tasks.identify.identify_people[6e130f44-a64b-4dca-bb34-6fd07fb132a7] received
+worker-gpu-1    | [2026-07-23 04:17:57,742: INFO/ForkPoolWorker-1] Task tasks.identify.identify_people[6e130f44-a64b-4dca-bb34-6fd07fb132a7] succeeded in 109.35219321500017s: None
+worker-gpu-1    | [2026-07-23 04:17:57,887: INFO/MainProcess] Task tasks.analyze.analyze_media[7e30878f-de87-4d7c-952a-388bf52199b1] received
+worker-gpu-2-1  | [2026-07-23 05:05:30,384: WARNING/ForkPoolWorker-2] and (time.monotonic() - _last_activity) >= _IDLE_SECONDS
+worker-gpu-2-1  | [2026-07-23 05:05:30,384: WARNING/ForkPoolWorker-2] UnboundLocalError
+worker-gpu-2-1  | [2026-07-23 05:05:30,384: WARNING/ForkPoolWorker-2] :
+worker-gpu-2-1  | [2026-07-23 05:05:30,384: WARNING/ForkPoolWorker-2] local variable '_last_activity' referenced before assignment
+worker-gpu-2-1  | [2026-07-23 05:18:52,979: INFO/MainProcess] Task tasks.dub.generate_dub[6a84e12d-ba61-4d70-adf2-347645fead6d] received
+worker-gpu-1    | [2026-07-23 04:18:33,571: INFO/ForkPoolWorker-1] Task tasks.analyze.analyze_media[7e30878f-de87-4d7c-952a-388bf52199b1] succeeded in 35.68355831199983s: None
+worker-gpu-1    | [2026-07-23 04:18:33,710: INFO/MainProcess] Task tasks.creative.creative_pass[3b9324b8-fc96-4bca-897c-1fcdb536363b] received
+worker-gpu-2-1  | [2026-07-23 05:18:52,988: ERROR/ForkPoolWorker-2] Task tasks.dub.generate_dub[6a84e12d-ba61-4d70-adf2-347645fead6d] raised unexpected: TypeError("generate_dub() missing 1 required positional argument: 'target_language'")
+worker-gpu-2-1  | Traceback (most recent call last):
+worker-gpu-2-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 453, in trace_task
+worker-gpu-2-1  |     R = retval = fun(*args, **kwargs)
+worker-gpu-2-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+worker-gpu-2-1  |     return self.run(*args, **kwargs)
+worker-gpu-1    | [2026-07-23 04:19:41,736: INFO/ForkPoolWorker-1] Task tasks.creative.creative_pass[3b9324b8-fc96-4bca-897c-1fcdb536363b] succeeded in 68.02636763500004s: None
+worker-gpu-2-1  | TypeError: generate_dub() missing 1 required positional argument: 'target_language'
+worker-gpu-1    | [2026-07-23 04:19:41,912: INFO/MainProcess] Task tasks.creative.creative_pass[142eecfb-24c5-4ce4-ab04-6d911fbf3eb2] received
+worker-gpu-1    | [2026-07-23 04:20:46,226: INFO/ForkPoolWorker-1] Task tasks.creative.creative_pass[142eecfb-24c5-4ce4-ab04-6d911fbf3eb2] succeeded in 64.31348254199997s: None
+worker-gpu-1    | [2026-07-23 04:20:46,388: INFO/MainProcess] Task tasks.creative.creative_pass[e7e0a10e-3e20-4b14-9b01-4c54f6482fda] received
+worker-gpu-1    | [2026-07-23 04:21:51,798: INFO/ForkPoolWorker-1] Task tasks.creative.creative_pass[e7e0a10e-3e20-4b14-9b01-4c54f6482fda] succeeded in 65.4096527050001s: None
+worker-gpu-2-1  | [2026-07-23 13:51:17,947: INFO/MainProcess] Task tasks.dub.generate_dub[fd13091a-889d-41f9-a7ca-cb3a1d0ca2e5] received
+worker-gpu-2-1  | [2026-07-23 13:51:17,952: ERROR/ForkPoolWorker-2] Task tasks.dub.generate_dub[fd13091a-889d-41f9-a7ca-cb3a1d0ca2e5] raised unexpected: TypeError("generate_dub() missing 1 required positional argument: 'target_language'")
+worker-gpu-1    | [2026-07-23 04:21:51,952: INFO/MainProcess] Task tasks.identify.identify_people[d3d17bca-2815-40fd-9f21-06c1974d85af] received
+worker-gpu-1    | [2026-07-23 04:23:57,299: INFO/ForkPoolWorker-1] Task tasks.identify.identify_people[d3d17bca-2815-40fd-9f21-06c1974d85af] succeeded in 125.34668821800005s: None
+worker-gpu-2-1  | Traceback (most recent call last):
+worker-gpu-2-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 453, in trace_task
+worker-gpu-2-1  |     R = retval = fun(*args, **kwargs)
+worker-gpu-2-1  |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+worker-gpu-2-1  |     return self.run(*args, **kwargs)
+worker-gpu-2-1  | TypeError: generate_dub() missing 1 required positional argument: 'target_language'
+obtv-admin@obtv-ai-5090:~/obtvai$

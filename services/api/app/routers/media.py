@@ -1254,6 +1254,7 @@ async def create_translation(id: str, body: TranslateRequest, db: AsyncSession =
     job = ProcessingJob(
         media_id=id, job_type="translate", status="pending",
         logs=[f"Target language: {target}"],
+        params={"target_language": target},
     )
     db.add(job)
     await db.commit()
@@ -1322,6 +1323,7 @@ async def create_dub(id: str, body: DubRequest, db: AsyncSession = Depends(get_d
     job = ProcessingJob(
         media_id=id, job_type="dub", status="pending",
         logs=[f"Target language: {target}"],
+        params={"target_language": target, "use_cloned_voices": bool(body.use_cloned_voices), "lip_sync": bool(body.lip_sync)},
     )
     db.add(job)
     await db.commit()

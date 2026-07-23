@@ -251,6 +251,9 @@ class ProcessingJob(Base):
     progress: Mapped[float | None] = mapped_column(Float, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     logs: Mapped[list] = mapped_column(JSONB, default=list)
+    # Task kwargs beyond media_id/job_id (e.g. dub target_language) so retries
+    # can re-enqueue with the exact same arguments.
+    params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     celery_task_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

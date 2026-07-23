@@ -133,6 +133,10 @@ def _on_task_postrun(**kwargs):
 
 
 def _watchdog():
+    # The assignment at the end of the loop would otherwise make
+    # _last_activity function-local and crash the thread with
+    # UnboundLocalError on first read.
+    global _last_activity
     while True:
         time.sleep(_POLL_SECONDS)
         with _lock:
