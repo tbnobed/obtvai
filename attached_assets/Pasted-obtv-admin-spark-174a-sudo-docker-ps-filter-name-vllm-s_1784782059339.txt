@@ -1,0 +1,45 @@
+obtv-admin@spark-174a:~$ sudo docker ps --filter name=vllm
+sudo docker logs --tail 40 vllm
+[sudo] password for obtv-admin:
+CONTAINER ID   IMAGE                                 COMMAND                  CREATED         STATUS          PORTS                                         NAMES
+79f0555f2d3d   nvcr.io/nvidia/vllm:25.12.post1-py3   "/opt/nvidia/nvidia_…"   2 minutes ago   Up 11 seconds   0.0.0.0:8001->8000/tcp, [::]:8001->8000/tcp   vllm
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]     super().__init__(
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 102, in __init__
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]     self.model_executor = executor_class(vllm_config)
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/abstract.py", line 101, in __init__
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]     self._init_executor()
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/uniproc_executor.py", line 47, in _init_executor
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]     self.driver_worker.init_device()
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 326, in init_device
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]     self.worker.init_device()  # type: ignore
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]     ^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 239, in init_device
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843]     raise ValueError(
+(EngineCore_DP0 pid=169) ERROR 07-23 04:47:30 [core.py:843] ValueError: Free memory on device (89.5/119.67 GiB) on startup is less than desired GPU memory utilization (0.9, 107.7 GiB). Decrease GPU memory utilization or reduce GPU memory used by other processes.
+(EngineCore_DP0 pid=169) Traceback (most recent call last):
+(EngineCore_DP0 pid=169)   File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+(EngineCore_DP0 pid=169)     self.run()
+(EngineCore_DP0 pid=169)   File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+(EngineCore_DP0 pid=169)     self._target(*self._args, **self._kwargs)
+(EngineCore_DP0 pid=169)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 847, in run_engine_core
+(EngineCore_DP0 pid=169)     raise e
+(EngineCore_DP0 pid=169)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 834, in run_engine_core
+(EngineCore_DP0 pid=169)     engine_core = EngineCoreProc(*args, **kwargs)
+(EngineCore_DP0 pid=169)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore_DP0 pid=169)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 610, in __init__
+(EngineCore_DP0 pid=169)     super().__init__(
+(EngineCore_DP0 pid=169)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 102, in __init__
+(EngineCore_DP0 pid=169)     self.model_executor = executor_class(vllm_config)
+(EngineCore_DP0 pid=169)                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore_DP0 pid=169)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/abstract.py", line 101, in __init__
+(EngineCore_DP0 pid=169)     self._init_executor()
+(EngineCore_DP0 pid=169)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/uniproc_executor.py", line 47, in _init_executor
+(EngineCore_DP0 pid=169)     self.driver_worker.init_device()
+(EngineCore_DP0 pid=169)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 326, in init_device
+(EngineCore_DP0 pid=169)     self.worker.init_device()  # type: ignore
+(EngineCore_DP0 pid=169)     ^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore_DP0 pid=169)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 239, in init_device
+(EngineCore_DP0 pid=169)     raise ValueError(
+(EngineCore_DP0 pid=169) ValueError: Free memory on device (89.5/119.67 GiB) on startup is less than desired GPU memory utilization (0.9, 107.7 GiB). Decrease GPU memory utilization or reduce GPU memory used by other processes.
+[rank0]:[W723 04:47:30.951060283 ProcessGroupNCCL.cpp:1564] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
