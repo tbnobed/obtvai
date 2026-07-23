@@ -553,6 +553,11 @@ def build_story(self, story_id: str):
                         grew = True
                 if not grew:
                     break
+            print(
+                f"[story {story_id}] runtime fill: target={int(target_duration)}s "
+                f"achieved={int(_total(ordered))}s clips={len(ordered)}",
+                flush=True,
+            )
 
         # ── Working script: verbatim transcript of the cut, in story order ──
         # This is what the story actually says when played top to tail — the
