@@ -1,0 +1,323 @@
+ ✔ Image obtvai-worker-cpu            Built                                                                                                                                                                        2.1s
+ ✔ Image obtvai-worker-gpu            Built                                                                                                                                                                        2.1s
+ ✔ Image obtvai-flower                Built                                                                                                                                                                        2.1s
+ ✔ Image obtvai-api                   Built                                                                                                                                                                        2.1s
+ ✔ Image obtvai-watcher               Built                                                                                                                                                                        2.1s
+ ✔ Image obtvai-worker-gpu-2          Built                                                                                                                                                                        2.1s
+ ✔ Image obtvai-frontend              Built                                                                                                                                                                        2.1s
+ ✔ Image obtvai-worker-graphics       Built                                                                                                                                                                        2.1s
+ ✔ Container obtvai-searxng-1         Running                                                                                                                                                                      0.0s
+ ✔ Container obtvai-redis-1           Healthy                                                                                                                                                                      2.6s
+ ✔ Container obtvai-qdrant-1          Healthy                                                                                                                                                                      2.6s
+ ✔ Container obtvai-postgres-1        Healthy                                                                                                                                                                      2.6s
+ ⠸ Container obtvai-api-1             Starting                                                                                                                                                                     2.8s
+ ⠸ Container obtvai-worker-cpu-1      Starting                                                                                                                                                                     2.8s
+ ✔ Container obtvai-flower-1          Started                                                                                                                                                                      2.8s
+ ⠸ Container obtvai-worker-gpu-1      Starting                                                                                                                                                                     2.8s
+ ⠼ Container obtvai-worker-gpu-2-1    Starting                                                                                                                                                                     2.8s
+ ✔ Container obtvai-worker-graphics-1 Started                                                                                                                                                                      2.7s
+ ✔ Container obtvai-frontend-1        Recreated                                                                                                                                                                    0.1s
+ ✔ Container obtvai-watcher-1         Recreated                                                                                                                                                                    0.1s
+Error response from daemon: could not select device driver "nvidia" with capabilities: [[gpu video graphics]]
+obtv-admin@obtv-ai-5090:~/obtvai$ docker compose logs
+qdrant-1           |            _                 _
+worker-graphics-1  |
+searxng-1          | SearXNG 2026.7.22-ef8f6470e
+searxng-1          | Updating certificates in /etc/ssl/certs...
+searxng-1          | 0 added, 0 removed; done.
+searxng-1          | Running hooks in /etc/ca-certificates/update.d...
+qdrant-1           |   __ _  __| |_ __ __ _ _ __ | |_
+qdrant-1           |  / _` |/ _` | '__/ _` | '_ \| __|
+qdrant-1           | | (_| | (_| | | | (_| | | | | |_
+qdrant-1           |  \__, |\__,_|_|  \__,_|_| |_|\__|
+worker-graphics-1  | ==========
+searxng-1          | done.
+searxng-1          | [INFO] Starting granian (main PID: 1)
+worker-graphics-1  | == CUDA ==
+worker-graphics-1  | ==========
+searxng-1          | [INFO] Listening at: http://:::8080
+searxng-1          | [INFO] Spawning worker-1 with PID: 851
+searxng-1          | 2026-07-23 01:41:40,278 ERROR:searx.engines: (PID 851) ahmia: can't register engine (loading engine failed)
+qdrant-1           |     |_|
+worker-graphics-1  |
+worker-graphics-1  | CUDA Version 12.8.1
+qdrant-1           |
+worker-graphics-1  |
+searxng-1          | 2026-07-23 01:41:40,318 ERROR:searx.engines: (PID 851) torch: can't register engine (loading engine failed)
+worker-graphics-1  | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-graphics-1  |
+searxng-1          | 2026-07-23 01:41:40,336 WARNING:searx.botdetection.config: missing config file: /etc/searxng/limiter.toml
+searxng-1          | [INFO] Started worker-1
+worker-graphics-1  | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+searxng-1          | 2026-07-23 01:41:40,413 WARNING:searx.network.wikidata: HTTP Request failed: GET https://query.wikidata.org/sparql?query=%0ASELECT+%3Fitem+%3Fname%0AWHERE+%7B%0A++++%7B%0A++++++SELECT+%3Fitem%0A++++++WHERE+%7B+%3Fitem+wdt%3AP279%2A+wd%3AQ12132+%7D%0A++++%7D+UNION+%7B%0A++++++VALUES+%3Fitem+%7B+wd%3AP571+wd%3AP576+wd%3AP580+wd%3AP582+wd%3AP569+wd%3AP570+wd%3AP619+wd%3AP620+wd%3AP27+wd%3AP495+wd%3AP17+wd%3AP159+wd%3AP36+wd%3AP35+wd%3AP6+wd%3AP122+wd%3AP37+wd%3AP1082+wd%3AP2046+wd%3AP281+wd%3AP38+wd%3AP2048+wd%3AP400+wd%3AP50+wd%3AP170+wd%3AP57+wd%3AP175+wd%3AP178+wd%3AP162+wd%3AP176+wd%3AP58+wd%3AP272+wd%3AP264+wd%3AP123+wd%3AP449+wd%3AP750+wd%3AP86+wd%3AP577+wd%3AP136+wd%3AP364+wd%3AP212+wd%3AP957+wd%3AP275+wd%3AP277+wd%3AP348+wd%3AP840+wd%3AP1098+wd%3AP282+wd%3AP1018+wd%3AP218+wd%3AP169+wd%3AP112+wd%3AP1454+wd%3AP137+wd%3AP1029+wd%3AP225+wd%3AP274+wd%3AP1346+wd%3AP1120+wd%3AP498+wd%3AP856+wd%3AP1324+wd%3AP1581+%7D%0A++++%7D%0A++++OPTIONAL+%7B+%3Fitem+rdfs%3Alabel+%3Fname.+%7D%0A%7D%0A
+searxng-1          | 2026-07-23 01:41:40,415 ERROR:searx.searx.search.processor: (PID 851) wikidata: engine INIT failed, exception: HTTP error 403 (suspended_time=180)
+searxng-1          | Traceback (most recent call last):
+searxng-1          |   File "/usr/local/searxng/searx/search/processors/abstract.py", line 158, in init_engine
+worker-graphics-1  | By pulling and using the container, you accept the terms and conditions of this license:
+worker-graphics-1  | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+searxng-1          |     init_ok = self.engine.init(eng_setting)
+postgres-1         | The files belonging to this database system will be owned by user "postgres".
+searxng-1          |   File "/usr/local/searxng/searx/engines/wikidata.py", line 839, in init
+searxng-1          |     init_wikidata_properties()
+worker-graphics-1  |
+searxng-1          |     ~~~~~~~~~~~~~~~~~~~~~~~~^^
+searxng-1          |   File "/usr/local/searxng/searx/engines/wikidata.py", line 866, in init_wikidata_properties
+redis-1            | 1:C 23 Jul 2026 01:41:39.140 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+qdrant-1           | Version: 1.12.4, build: 5b578c4f
+qdrant-1           | Access web UI at http://localhost:6333/dashboard
+searxng-1          |     jsonresponse = send_wikidata_query(query, **kwargs)
+postgres-1         | This user must also own the server process.
+flower-1           |
+redis-1            | 1:C 23 Jul 2026 01:41:39.140 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+redis-1            | 1:C 23 Jul 2026 01:41:39.140 * Redis version=7.4.9, bits=64, commit=00000000, modified=0, pid=1, just started
+searxng-1          |   File "/usr/local/searxng/searx/engines/wikidata.py", line 473, in send_wikidata_query
+searxng-1          |     http_response = get(SPARQL_ENDPOINT_URL + "?" + urlencode({"query": query}), headers=get_headers(), **kwargs)
+searxng-1          |   File "/usr/local/searxng/searx/network/__init__.py", line 175, in get
+searxng-1          |     return request('get', url, **kwargs)
+flower-1           | ==========
+postgres-1         |
+flower-1           | == CUDA ==
+flower-1           | ==========
+flower-1           |
+flower-1           | CUDA Version 12.8.1
+flower-1           |
+searxng-1          |   File "/usr/local/searxng/searx/network/__init__.py", line 106, in request
+worker-graphics-1  | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+worker-graphics-1  |
+postgres-1         | The database cluster will be initialized with locale "en_US.utf8".
+qdrant-1           |
+qdrant-1           | 2026-07-23T01:41:39.155719Z  INFO storage::content_manager::consensus::persistent: Initializing new raft state at ./storage/raft_state.json
+flower-1           | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-graphics-1  | WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+flower-1           |
+worker-graphics-1  |    Use the NVIDIA Container Toolkit to start this container with GPU support; see
+worker-graphics-1  |    https://docs.nvidia.com/datacenter/cloud-native/ .
+worker-graphics-1  |
+flower-1           | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+worker-graphics-1  | /usr/local/lib/python3.10/dist-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+flower-1           | By pulling and using the container, you accept the terms and conditions of this license:
+redis-1            | 1:C 23 Jul 2026 01:41:39.140 * Configuration loaded
+redis-1            | 1:M 23 Jul 2026 01:41:39.140 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+redis-1            | 1:M 23 Jul 2026 01:41:39.140 * monotonic clock: POSIX clock_gettime
+worker-graphics-1  | absolutely not recommended!
+worker-graphics-1  |
+flower-1           | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+worker-graphics-1  | Please specify a different user using the --uid option.
+worker-graphics-1  |
+redis-1            | 1:M 23 Jul 2026 01:41:39.141 * Running mode=standalone, port=6379.
+postgres-1         | The default database encoding has accordingly been set to "UTF8".
+postgres-1         | The default text search configuration will be set to "english".
+redis-1            | 1:M 23 Jul 2026 01:41:39.141 * Server initialized
+searxng-1          |     return future.result(timeout)
+redis-1            | 1:M 23 Jul 2026 01:41:39.143 * Creating AOF base file appendonly.aof.1.base.rdb on server start
+flower-1           |
+flower-1           | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+flower-1           |
+redis-1            | 1:M 23 Jul 2026 01:41:39.150 * Creating AOF incr file appendonly.aof.1.incr.aof on server start
+redis-1            | 1:M 23 Jul 2026 01:41:39.150 * Ready to accept connections tcp
+redis-1            | 1:M 23 Jul 2026 02:41:40.085 * 1 changes in 3600 seconds. Saving...
+redis-1            | 1:M 23 Jul 2026 02:41:40.086 * Background saving started by pid 4277
+redis-1            | 4277:C 23 Jul 2026 02:41:40.101 * DB saved on disk
+redis-1            | 4277:C 23 Jul 2026 02:41:40.102 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+postgres-1         |
+qdrant-1           | 2026-07-23T01:41:39.167554Z  INFO qdrant: Distributed mode disabled
+flower-1           | WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+qdrant-1           | 2026-07-23T01:41:39.167574Z  INFO qdrant: Telemetry reporting enabled, id: 1afedba0-ab96-4821-b198-5fca6e631969
+flower-1           |    Use the NVIDIA Container Toolkit to start this container with GPU support; see
+postgres-1         | Data page checksums are disabled.
+flower-1           |    https://docs.nvidia.com/datacenter/cloud-native/ .
+postgres-1         |
+flower-1           |
+postgres-1         | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+qdrant-1           | 2026-07-23T01:41:39.167595Z  INFO qdrant: Inference service is not configured.
+postgres-1         | creating subdirectories ... ok
+qdrant-1           | 2026-07-23T01:41:39.168828Z  INFO qdrant::actix: TLS disabled for REST API
+searxng-1          |            ~~~~~~~~~~~~~^^^^^^^^^
+qdrant-1           | 2026-07-23T01:41:39.168871Z  INFO qdrant::actix: Qdrant HTTP listening on 6333
+worker-graphics-1  | User information: uid=0 euid=0 gid=0 egid=0
+qdrant-1           | 2026-07-23T01:41:39.168878Z  INFO actix_server::builder: Starting 31 workers
+searxng-1          |   File "/usr/lib/python3.14/concurrent/futures/_base.py", line 454, in result
+qdrant-1           | 2026-07-23T01:41:39.168885Z  INFO actix_server::server: Actix runtime found; starting in Actix runtime
+qdrant-1           | 2026-07-23T01:41:39.170661Z  INFO qdrant::tonic: Qdrant gRPC listening on 6334
+flower-1           | [I 260723 03:49:24 command:168] Visit me at http://0.0.0.0:5555
+postgres-1         | selecting dynamic shared memory implementation ... posix
+postgres-1         | selecting default max_connections ... 100
+postgres-1         | selecting default shared_buffers ... 128MB
+postgres-1         | selecting default time zone ... UTC
+postgres-1         | creating configuration files ... ok
+qdrant-1           | 2026-07-23T01:41:39.170669Z  INFO qdrant::tonic: TLS disabled for gRPC API
+postgres-1         | running bootstrap script ... ok
+postgres-1         | sh: locale: not found
+worker-graphics-1  |
+searxng-1          |     return self.__get_result()
+searxng-1          |            ~~~~~~~~~~~~~~~~~^^
+postgres-1         | 2026-07-23 01:41:39.351 UTC [35] WARNING:  no usable system locales were found
+postgres-1         | performing post-bootstrap initialization ... ok
+postgres-1         | syncing data to disk ... ok
+postgres-1         |
+postgres-1         |
+postgres-1         | Success. You can now start the database server using:
+searxng-1          |   File "/usr/lib/python3.14/concurrent/futures/_base.py", line 396, in __get_result
+postgres-1         |
+searxng-1          |     raise self._exception
+redis-1            | 1:M 23 Jul 2026 02:41:40.188 * Background saving terminated with success
+searxng-1          |   File "/usr/local/searxng/searx/network/network.py", line 304, in request
+redis-1            | 1:M 23 Jul 2026 03:41:41.046 * 1 changes in 3600 seconds. Saving...
+redis-1            | 1:M 23 Jul 2026 03:41:41.047 * Background saving started by pid 8543
+worker-graphics-1  |   warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+worker-graphics-1  |
+worker-graphics-1  |  -------------- worker-graphics@11e17c3c90dd v5.4.0 (opalescent)
+worker-graphics-1  | --- ***** -----
+worker-graphics-1  | -- ******* ---- Linux-7.0.0-28-generic-x86_64-with-glibc2.35 2026-07-23 03:49:24
+worker-graphics-1  | - *** --- * ---
+worker-graphics-1  | - ** ---------- [config]
+postgres-1         |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+worker-graphics-1  | - ** ---------- .> app:         obtv_worker:0x7e3f1f207a00
+postgres-1         |
+worker-graphics-1  | - ** ---------- .> transport:   redis://redis:6379/0
+postgres-1         | initdb: warning: enabling "trust" authentication for local connections
+searxng-1          |     return await self.call_client(False, method, url, **kwargs)
+postgres-1         | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+searxng-1          |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+postgres-1         | waiting for server to start....2026-07-23 01:41:39.588 UTC [41] LOG:  starting PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+searxng-1          |   File "/usr/local/searxng/searx/network/network.py", line 287, in call_client
+worker-graphics-1  | - ** ---------- .> results:     redis://redis:6379/0
+searxng-1          |     return self.patch_response(response, do_raise_for_httperror)
+worker-graphics-1  | - *** --- * --- .> concurrency: 2 (prefork)
+worker-graphics-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+redis-1            | 8543:C 23 Jul 2026 03:41:41.066 * DB saved on disk
+flower-1           | [I 260723 03:49:24 command:176] Broker: redis://redis:6379/0
+flower-1           | [I 260723 03:49:24 command:177] Registered tasks:
+redis-1            | 8543:C 23 Jul 2026 03:41:41.066 * Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB
+redis-1            | 1:M 23 Jul 2026 03:41:41.149 * Background saving terminated with success
+searxng-1          |            ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+searxng-1          |   File "/usr/local/searxng/searx/network/network.py", line 256, in patch_response
+flower-1           |     ['celery.accumulate',
+flower-1           |      'celery.backend_cleanup',
+postgres-1         | 2026-07-23 01:41:39.590 UTC [41] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+flower-1           |      'celery.chain',
+postgres-1         | 2026-07-23 01:41:39.595 UTC [44] LOG:  database system was shut down at 2026-07-23 01:41:39 UTC
+worker-graphics-1  | --- ***** -----
+worker-graphics-1  |  -------------- [queues]
+worker-graphics-1  |                 .> graphics         exchange=graphics(direct) key=graphics
+worker-graphics-1  |
+worker-graphics-1  |
+flower-1           |      'celery.chord',
+flower-1           |      'celery.chord_unlock',
+flower-1           |      'celery.chunks',
+postgres-1         | 2026-07-23 01:41:39.598 UTC [41] LOG:  database system is ready to accept connections
+postgres-1         |  done
+postgres-1         | server started
+postgres-1         | CREATE DATABASE
+postgres-1         |
+worker-graphics-1  | [tasks]
+flower-1           |      'celery.group',
+worker-graphics-1  |   . tasks.analyze.analyze_media
+worker-graphics-1  |   . tasks.audio.extract_audio
+worker-graphics-1  |   . tasks.creative.creative_pass
+searxng-1          |     raise_for_httperror(response)
+searxng-1          |     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+searxng-1          |   File "/usr/local/searxng/searx/network/raise_for_httperror.py", line 76, in raise_for_httperror
+searxng-1          |     raise SearxEngineAccessDeniedException(message='HTTP error ' + str(resp.status_code))
+worker-graphics-1  |   . tasks.diarize.run_diarization
+searxng-1          | searx.exceptions.SearxEngineAccessDeniedException: HTTP error 403 (suspended_time=180)
+flower-1           |      'celery.map',
+flower-1           |      'celery.starmap',
+flower-1           |      'tasks.analyze.analyze_media',
+flower-1           |      'tasks.audio.extract_audio',
+searxng-1          | 2026-07-23 01:41:40,420 ERROR:searx.searx.search.processor: (PID 851) wikidata: engine init was not successful
+searxng-1          | 2026-07-23 01:41:40,420 ERROR:searx.search.processors: (PID 851) wikidata: can't register engines processor (init engine failed)
+flower-1           |      'tasks.creative.creative_pass',
+worker-graphics-1  |   . tasks.dub.generate_dub
+flower-1           |      'tasks.diarize.run_diarization',
+postgres-1         |
+flower-1           |      'tasks.dub.generate_dub',
+flower-1           |      'tasks.face_detect.detect_faces',
+flower-1           |      'tasks.graphics.generate',
+flower-1           |      'tasks.highlight.build_highlight',
+flower-1           |      'tasks.identify.face_search',
+flower-1           |      'tasks.identify.identify_people',
+flower-1           |      'tasks.identify.regenerate_profile',
+postgres-1         | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+worker-graphics-1  |   . tasks.face_detect.detect_faces
+worker-graphics-1  |   . tasks.graphics.generate
+flower-1           |      'tasks.index.build_index',
+flower-1           |      'tasks.ingest.import_from_link',
+flower-1           |      'tasks.ingest.run_ingest_pipeline',
+flower-1           |      'tasks.insights.generate_insights',
+flower-1           |      'tasks.proxy.create_proxy',
+postgres-1         |
+postgres-1         | waiting for server to shut down....2026-07-23 01:41:39.719 UTC [41] LOG:  received fast shutdown request
+flower-1           |      'tasks.publish.publish_render',
+worker-graphics-1  |   . tasks.highlight.build_highlight
+flower-1           |      'tasks.qc.run_qc',
+postgres-1         | 2026-07-23 01:41:39.723 UTC [41] LOG:  aborting any active transactions
+postgres-1         | 2026-07-23 01:41:39.725 UTC [41] LOG:  background worker "logical replication launcher" (PID 47) exited with exit code 1
+postgres-1         | 2026-07-23 01:41:39.725 UTC [42] LOG:  shutting down
+flower-1           |      'tasks.reel.build_reel',
+flower-1           |      'tasks.render.render_clip',
+flower-1           |      'tasks.scene_detect.detect_scenes',
+flower-1           |      'tasks.social.score_social',
+flower-1           |      'tasks.social_stats.sync_youtube_stats',
+postgres-1         | 2026-07-23 01:41:39.727 UTC [42] LOG:  checkpoint starting: shutdown immediate
+postgres-1         | 2026-07-23 01:41:39.773 UTC [42] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.010 s, sync=0.026 s, total=0.048 s; sync files=301, longest=0.004 s, average=0.001 s; distance=4283 kB, estimate=4283 kB; lsn=0/1925D58, redo lsn=0/1925D58
+postgres-1         | 2026-07-23 01:41:39.776 UTC [41] LOG:  database system is shut down
+postgres-1         |  done
+flower-1           |      'tasks.social_sync.sync_social_channels',
+flower-1           |      'tasks.story.build_story',
+flower-1           |      'tasks.transcribe.transcribe_audio',
+flower-1           |      'tasks.translate.translate_transcript',
+flower-1           |      'tasks.trends.fetch_trends',
+flower-1           |      'tasks.visual_embed.embed_scenes',
+worker-graphics-1  |   . tasks.identify.face_search
+worker-graphics-1  |   . tasks.identify.identify_people
+worker-graphics-1  |   . tasks.identify.regenerate_profile
+worker-graphics-1  |   . tasks.index.build_index
+worker-graphics-1  |   . tasks.ingest.import_from_link
+postgres-1         | server stopped
+postgres-1         |
+postgres-1         | PostgreSQL init process complete; ready for start up.
+worker-graphics-1  |   . tasks.ingest.run_ingest_pipeline
+worker-graphics-1  |   . tasks.insights.generate_insights
+postgres-1         |
+postgres-1         | 2026-07-23 01:41:39.832 UTC [1] LOG:  starting PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+postgres-1         | 2026-07-23 01:41:39.832 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+flower-1           |      'tasks.voice.generate_speech',
+flower-1           |      'tasks.voice.prepare_voice_sample']
+flower-1           | [I 260723 03:49:24 mixins:228] Connected to redis://redis:6379/0
+flower-1           | [W 260723 03:49:25 inspector:44] Inspect method active failed
+flower-1           | [W 260723 03:49:25 inspector:44] Inspect method conf failed
+worker-graphics-1  |   . tasks.proxy.create_proxy
+flower-1           | [W 260723 03:49:25 inspector:44] Inspect method active_queues failed
+flower-1           | [W 260723 03:49:25 inspector:44] Inspect method revoked failed
+flower-1           | [W 260723 03:49:25 inspector:44] Inspect method scheduled failed
+flower-1           | [W 260723 03:49:25 inspector:44] Inspect method stats failed
+postgres-1         | 2026-07-23 01:41:39.832 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+postgres-1         | 2026-07-23 01:41:39.835 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1         | 2026-07-23 01:41:39.842 UTC [57] LOG:  database system was shut down at 2026-07-23 01:41:39 UTC
+postgres-1         | 2026-07-23 01:41:39.849 UTC [1] LOG:  database system is ready to accept connections
+postgres-1         | 2026-07-23 01:46:39.942 UTC [55] LOG:  checkpoint starting: time
+worker-graphics-1  |   . tasks.publish.publish_render
+postgres-1         | 2026-07-23 01:46:44.197 UTC [55] LOG:  checkpoint complete: wrote 45 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=4.227 s, sync=0.013 s, total=4.255 s; sync files=12, longest=0.010 s, average=0.002 s; distance=261 kB, estimate=261 kB; lsn=0/19671C8, redo lsn=0/1967190
+flower-1           | [W 260723 03:49:25 inspector:44] Inspect method registered failed
+flower-1           | [W 260723 03:49:25 inspector:44] Inspect method reserved failed
+worker-graphics-1  |   . tasks.qc.run_qc
+worker-graphics-1  |   . tasks.reel.build_reel
+worker-graphics-1  |   . tasks.render.render_clip
+worker-graphics-1  |   . tasks.scene_detect.detect_scenes
+worker-graphics-1  |   . tasks.social.score_social
+worker-graphics-1  |   . tasks.social_stats.sync_youtube_stats
+worker-graphics-1  |   . tasks.social_sync.sync_social_channels
+worker-graphics-1  |   . tasks.story.build_story
+worker-graphics-1  |   . tasks.transcribe.transcribe_audio
+worker-graphics-1  |   . tasks.translate.translate_transcript
+worker-graphics-1  |   . tasks.trends.fetch_trends
+worker-graphics-1  |   . tasks.visual_embed.embed_scenes
+worker-graphics-1  |   . tasks.voice.generate_speech
+worker-graphics-1  |   . tasks.voice.prepare_voice_sample
+worker-graphics-1  |
+worker-graphics-1  | [2026-07-23 03:49:24,981: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-graphics-1  | [2026-07-23 03:49:24,982: INFO/MainProcess] mingle: searching for neighbors
+worker-graphics-1  | [2026-07-23 03:49:25,987: INFO/MainProcess] mingle: all alone
+worker-graphics-1  | [2026-07-23 03:49:26,019: INFO/MainProcess] worker-graphics@11e17c3c90dd ready.
+worker-graphics-1  | [2026-07-23 03:49:29,886: INFO/MainProcess] Events of group {task} enabled by remote.
