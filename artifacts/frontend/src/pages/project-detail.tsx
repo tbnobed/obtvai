@@ -60,7 +60,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, Search, FileText, Scissors, BookOpen, Wand2, Clapperboard,
-  Play, Download, Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown,
+  Play, PlayCircle, Download, Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown,
   Monitor, Smartphone, ChevronDown, Upload, Archive, ArchiveRestore,
   ExternalLink, Lock, LockOpen, SlidersHorizontal, CheckCircle2, AlertTriangle,
   Clock,
@@ -259,6 +259,18 @@ export default function ProjectDetail() {
   const { data: renders } = useListRenders(listParams, {
     query: { queryKey: getListRendersQueryKey(listParams), refetchInterval: 5000 },
   });
+  // Story builds generate their own output clip lists — those are results,
+  // not collected footage. Find must only ever add into editor lists, and
+  // the story builder only consumes editor lists.
+  const storyListIds = useMemo(
+    () => new Set((stories ?? []).map((s) => s.clip_list_id).filter(Boolean)),
+    [stories],
+  );
+  const editorLists = useMemo(
+    () => (clipLists ?? []).filter((l) => !storyListIds.has(l.id)),
+    [clipLists, storyListIds],
+  );
+
   const mediaParams = { limit: 200 };
   const { data: media } = useListMedia(mediaParams, {
     query: { queryKey: getListMediaQueryKey(mediaParams) },
@@ -333,8 +345,15 @@ export default function ProjectDetail() {
   const [selectedResults, setSelectedResults] = useState<Record<string, SearchResult>>({});
 
   useEffect(() => {
-    if (!targetListId && clipLists?.length) setTargetListId(clipLists[0].id);
-  }, [clipLists, targetListId]);
+    // Keep the add-target off story-output lists: adding into them makes
+    // collected clips invisible to the story builder. Only reset when the
+    // target is empty or a known story list — a just-created list id must
+    // survive the refetch window (it isn't in editorLists yet), and a stale
+    // deleted id falls into the auto-create path on its own.
+    if (!targetListId || storyListIds.has(targetListId)) {
+      setTargetListId(editorLists[0]?.id ?? "");
+    }
+  }, [editorLists, storyListIds, targetListId]);
 
   const searchScope = searchAllMedia || !mediaPool.length ? {} : { media_ids: mediaPool };
 
@@ -368,7 +387,7 @@ export default function ProjectDetail() {
       approved: false,
       match_reason: `${r.match_type === "visual" ? "Visual" : "Transcript"} match · ${(r.score * 100).toFixed(0)}%${r.snippet ? ` — “${r.snippet}”` : ""}`,
     }));
-    const target = clipLists?.find((l) => l.id === targetListId);
+    const target = editorLists.find((l) => l.id === targetListId);
     const done = () => {
       setLastAdded(
         results.length === 1
@@ -503,13 +522,12 @@ export default function ProjectDetail() {
 
   // What the editor collected in Find feeds the story build: the working
   // script guides the structure, and clips added from search go in as
-  // hand-picked moments (story-generated lists excluded).
+  // hand-picked moments (story-generated output lists excluded).
   const hasWorkingScript = !!project?.script?.trim();
-  const storyListIds = new Set((stories ?? []).map((s) => s.clip_list_id).filter(Boolean));
   const storyAssetSet = new Set(storyAssets);
-  const clipsFromFind = (clipLists ?? [])
-    .filter((l) => !storyListIds.has(l.id))
-    .reduce((n, l) => n + l.clips.filter((c) => storyAssetSet.has(c.media_id)).length, 0);
+  const findClips = editorLists.flatMap((l) =>
+    l.clips.filter((c) => storyAssetSet.has(c.media_id)));
+  const clipsFromFind = findClips.length;
 
   const submitStory = () => {
     if (!storyAssets.length) return;
@@ -677,8 +695,8 @@ export default function ProjectDetail() {
         value={targetListId}
         onChange={(e) => setTargetListId(e.target.value)}
       >
-        {!clipLists?.length && <option value="">New list (auto-created)</option>}
-        {clipLists?.map((l) => (
+        {!editorLists.length && <option value="">New list (auto-created)</option>}
+        {editorLists.map((l) => (
           <option key={l.id} value={l.id}>{l.name}</option>
         ))}
       </select>
@@ -983,12 +1001,38 @@ export default function ProjectDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               {(hasWorkingScript || clipsFromFind > 0) && (
-                <p className="text-xs text-muted-foreground">
-                  Uses what you collected in Find:
-                  {hasWorkingScript ? " the working script guides the structure" : ""}
-                  {hasWorkingScript && clipsFromFind > 0 ? "," : ""}
-                  {clipsFromFind > 0 ? ` ${clipsFromFind} searched clip${clipsFromFind === 1 ? "" : "s"} go in as hand-picked moments` : ""}.
-                </p>
+                <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Uses what you collected in Find:
+                    {hasWorkingScript ? " the working script guides the structure" : ""}
+                    {hasWorkingScript && clipsFromFind > 0 ? "," : ""}
+                    {clipsFromFind > 0 ? ` these ${clipsFromFind} searched clip${clipsFromFind === 1 ? "" : "s"} go in as hand-picked moments` : ""}.
+                  </p>
+                  {clipsFromFind > 0 && (
+                    <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
+                      {findClips.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setPlayerClip({
+                            media_id: c.media_id,
+                            start_time: c.start_time,
+                            end_time: c.end_time,
+                            filename: c.filename,
+                          })}
+                          className="w-full flex items-center gap-2 text-xs text-left rounded px-1.5 py-1 hover:bg-muted"
+                        >
+                          <PlayCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="font-mono text-muted-foreground shrink-0">
+                            {fmtTime(c.start_time)}–{fmtTime(c.end_time)}
+                          </span>
+                          <span className="truncate">{c.filename}</span>
+                          {c.label && <span className="truncate text-muted-foreground">— {c.label}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
               <div>
                 <Label className="mb-2 block">Source assets</Label>
