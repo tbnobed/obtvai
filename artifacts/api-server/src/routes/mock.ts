@@ -2190,8 +2190,26 @@ function tickStory(s: MockStory) {
   s.title = s.title || "Downtown at a Crossroads";
   s.narrative = s.narrative ||
     "The cut opens on the mandate to set stakes, moves through the affordability math and the merchant conflict, and closes on the ballot deadline. Interleaving the field-report reaction against the planner's data rebuttal turns two separate videos into one argument, and the bond-measure close gives the piece a ticking clock.";
+  const storyProj = projects.find((p) => p.id === s.project_id);
+  if (storyProj?.script?.trim()) {
+    s.narrative = `Structured around the project's working script. ${s.narrative}`;
+  }
   if (!s.clip_list_id) {
     const picked: any[] = [];
+    // Editor-collected clips from Find lead the cut (story-generated lists excluded).
+    const storyListIds = new Set(stories.map((x) => x.clip_list_id).filter(Boolean));
+    for (const l of clipLists.filter((cl) =>
+      cl.project_id != null && cl.project_id === s.project_id && !storyListIds.has(cl.id))) {
+      for (const c of l.clips) {
+        if (!s.asset_ids.includes(c.media_id)) continue;
+        picked.push({
+          media_id: c.media_id, filename: c.filename, thumbnail_url: c.thumbnail_url ?? null,
+          start: c.start_time, end: c.end_time,
+          label: c.label || "Editor-picked clip",
+          reason: c.match_reason || "Editor-picked in Find",
+        });
+      }
+    }
     for (const mid of s.asset_ids) {
       const a = assets.find((x) => x.id === mid);
       const sugg = (a as any)?.creative?.clip_suggestions || [];

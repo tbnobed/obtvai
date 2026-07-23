@@ -501,6 +501,16 @@ export default function ProjectDetail() {
     if (!storyTouchedRef.current && mediaPool.length) setStoryAssets(mediaPool);
   }, [mediaPool]);
 
+  // What the editor collected in Find feeds the story build: the working
+  // script guides the structure, and clips added from search go in as
+  // hand-picked moments (story-generated lists excluded).
+  const hasWorkingScript = !!project?.script?.trim();
+  const storyListIds = new Set((stories ?? []).map((s) => s.clip_list_id).filter(Boolean));
+  const storyAssetSet = new Set(storyAssets);
+  const clipsFromFind = (clipLists ?? [])
+    .filter((l) => !storyListIds.has(l.id))
+    .reduce((n, l) => n + l.clips.filter((c) => storyAssetSet.has(c.media_id)).length, 0);
+
   const submitStory = () => {
     if (!storyAssets.length) return;
     const mins = parseFloat(storyMinutes);
@@ -965,6 +975,125 @@ export default function ProjectDetail() {
 
         {/* ---------------------------- ASSEMBLE ---------------------------- */}
         <TabsContent value="assemble" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BookOpen className="h-4 w-4" /> Build a Story
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(hasWorkingScript || clipsFromFind > 0) && (
+                <p className="text-xs text-muted-foreground">
+                  Uses what you collected in Find:
+                  {hasWorkingScript ? " the working script guides the structure" : ""}
+                  {hasWorkingScript && clipsFromFind > 0 ? "," : ""}
+                  {clipsFromFind > 0 ? ` ${clipsFromFind} searched clip${clipsFromFind === 1 ? "" : "s"} go in as hand-picked moments` : ""}.
+                </p>
+              )}
+              <div>
+                <Label className="mb-2 block">Source assets</Label>
+                {mediaPool.length > 0 && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Your project media (from Find) is pre-selected — narrow it down here if you only want some of it in the story.
+                  </p>
+                )}
+                <MediaPickerGrid
+                  selected={storyAssets}
+                  onToggle={(assetId, checked) => {
+                    storyTouchedRef.current = true;
+                    setStoryAssets((s) =>
+                      checked ? [...s, assetId] : s.filter((x) => x !== assetId));
+                  }}
+                  onToggleMany={(assetIds, checked) => {
+                    storyTouchedRef.current = true;
+                    setStoryAssets((s) =>
+                      checked
+                        ? [...s, ...assetIds.filter((x) => !s.includes(x))]
+                        : s.filter((x) => !assetIds.includes(x)));
+                  }}
+                  restrictTo={mediaPool.length ? mediaPool : undefined}
+                  requireReady
+                  gridClass="sm:grid-cols-2"
+                  onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
+                  emptyText="The library is empty — add or upload footage first, then build a story from it here."
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
+                <div className="space-y-2">
+                  <Label htmlFor="story-prompt">Editorial direction (optional)</Label>
+                  <Input
+                    id="story-prompt"
+                    value={storyPrompt}
+                    onChange={(e) => setStoryPrompt(e.target.value)}
+                    placeholder='e.g. "focus on the community reaction"'
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="story-minutes">Target length (min)</Label>
+                  <Input
+                    id="story-minutes"
+                    type="number"
+                    min={0.5}
+                    max={240}
+                    step={0.5}
+                    value={storyMinutes}
+                    onChange={(e) => setStoryMinutes(e.target.value)}
+                    placeholder={project.target_runtime_seconds != null
+                      ? `${Math.round((project.target_runtime_seconds / 60) * 10) / 10}`
+                      : "auto"}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {project.target_runtime_seconds != null
+                      ? <>Blank follows the project target ({formatRuntime(project.target_runtime_seconds)}). </>
+                      : null}
+                    Short pieces get punchy bites; long productions get full segments.
+                  </p>
+                </div>
+              </div>
+              {createStoryMutation.isError && (
+                <p className="text-sm text-red-400">Could not start the story — try again.</p>
+              )}
+              <Button onClick={submitStory} disabled={!storyAssets.length || createStoryMutation.isPending}>
+                {createStoryMutation.isPending
+                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  : <BookOpen className="h-4 w-4 mr-2" />}
+                Build story from {storyAssets.length || "selected"} asset{storyAssets.length === 1 ? "" : "s"}
+              </Button>
+
+              {stories?.length ? (
+                <div className="space-y-2 pt-2">
+                  {stories.map((s) => (
+                    <div key={s.id} className="bg-muted/50 p-2.5 rounded text-sm space-y-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="truncate font-medium">{s.title || s.prompt || `${s.asset_ids.length} assets`}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <JobStatusBadge status={s.status} />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                            onClick={() => deleteStoryMutation.mutate({ id: s.id }, { onSuccess: invalidateAll })}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      {s.status === "running" && (
+                        <p className="text-xs text-muted-foreground">Building… {Math.round(s.progress ?? 0)}%</p>
+                      )}
+                      {s.status === "error" && s.error_message && (
+                        <p className="text-xs text-red-400">{s.error_message}</p>
+                      )}
+                      {s.narrative && (
+                        <p className="text-xs text-muted-foreground leading-relaxed">{s.narrative}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">Arrange the story — order and label clips, or build an AI story from selected assets. Nothing is rendered here; review each beat in Refine, then render in Cut.</p>
             <Button size="sm" variant="outline" onClick={newEmptyList}>
@@ -1113,116 +1242,6 @@ export default function ProjectDetail() {
             </div>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BookOpen className="h-4 w-4" /> Build a Story
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="mb-2 block">Source assets</Label>
-                {mediaPool.length > 0 && (
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Your project media (from Find) is pre-selected — narrow it down here if you only want some of it in the story.
-                  </p>
-                )}
-                <MediaPickerGrid
-                  selected={storyAssets}
-                  onToggle={(assetId, checked) => {
-                    storyTouchedRef.current = true;
-                    setStoryAssets((s) =>
-                      checked ? [...s, assetId] : s.filter((x) => x !== assetId));
-                  }}
-                  onToggleMany={(assetIds, checked) => {
-                    storyTouchedRef.current = true;
-                    setStoryAssets((s) =>
-                      checked
-                        ? [...s, ...assetIds.filter((x) => !s.includes(x))]
-                        : s.filter((x) => !assetIds.includes(x)));
-                  }}
-                  restrictTo={mediaPool.length ? mediaPool : undefined}
-                  requireReady
-                  gridClass="sm:grid-cols-2"
-                  onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
-                  emptyText="The library is empty — add or upload footage first, then build a story from it here."
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
-                <div className="space-y-2">
-                  <Label htmlFor="story-prompt">Editorial direction (optional)</Label>
-                  <Input
-                    id="story-prompt"
-                    value={storyPrompt}
-                    onChange={(e) => setStoryPrompt(e.target.value)}
-                    placeholder='e.g. "focus on the community reaction"'
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="story-minutes">Target length (min)</Label>
-                  <Input
-                    id="story-minutes"
-                    type="number"
-                    min={0.5}
-                    max={240}
-                    step={0.5}
-                    value={storyMinutes}
-                    onChange={(e) => setStoryMinutes(e.target.value)}
-                    placeholder={project.target_runtime_seconds != null
-                      ? `${Math.round((project.target_runtime_seconds / 60) * 10) / 10}`
-                      : "auto"}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {project.target_runtime_seconds != null
-                      ? <>Blank follows the project target ({formatRuntime(project.target_runtime_seconds)}). </>
-                      : null}
-                    Short pieces get punchy bites; long productions get full segments.
-                  </p>
-                </div>
-              </div>
-              {createStoryMutation.isError && (
-                <p className="text-sm text-red-400">Could not start the story — try again.</p>
-              )}
-              <Button onClick={submitStory} disabled={!storyAssets.length || createStoryMutation.isPending}>
-                {createStoryMutation.isPending
-                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  : <BookOpen className="h-4 w-4 mr-2" />}
-                Build story from {storyAssets.length || "selected"} asset{storyAssets.length === 1 ? "" : "s"}
-              </Button>
-
-              {stories?.length ? (
-                <div className="space-y-2 pt-2">
-                  {stories.map((s) => (
-                    <div key={s.id} className="bg-muted/50 p-2.5 rounded text-sm space-y-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="truncate font-medium">{s.title || s.prompt || `${s.asset_ids.length} assets`}</span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <JobStatusBadge status={s.status} />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-muted-foreground hover:text-red-400"
-                            onClick={() => deleteStoryMutation.mutate({ id: s.id }, { onSuccess: invalidateAll })}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                      {s.status === "running" && (
-                        <p className="text-xs text-muted-foreground">Building… {Math.round(s.progress ?? 0)}%</p>
-                      )}
-                      {s.status === "error" && s.error_message && (
-                        <p className="text-xs text-red-400">{s.error_message}</p>
-                      )}
-                      {s.narrative && (
-                        <p className="text-xs text-muted-foreground leading-relaxed">{s.narrative}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* ----------------------------- REFINE ----------------------------- */}
