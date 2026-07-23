@@ -83,11 +83,35 @@ async def _run_startup_migrations():
         # the retry loop in lifespan() handles the timeout.
         await conn.execute(text("SET LOCAL lock_timeout = '5s'"))
         await conn.run_sync(Base.metadata.create_all)
+
+        # ALTER TABLE takes an ACCESS EXCLUSIVE lock even when the column
+        # already exists (IF NOT EXISTS checks AFTER locking). On a busy
+        # library the workers hold long locks on hot tables, so re-running
+        # the whole migration list on every boot deadlocks startup. Read the
+        # catalog first and only ALTER what is actually missing.
+        existing = {
+            (r[0], r[1])
+            for r in (await conn.execute(text(
+                "SELECT table_name, column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public'"
+            ))).fetchall()
+        }
         for table, column, coltype in _COLUMN_MIGRATIONS:
+            if (table, column) in existing:
+                continue
             await conn.execute(text(
                 f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {coltype}"
             ))
+        nullable = {
+            (r[0], r[1])
+            for r in (await conn.execute(text(
+                "SELECT table_name, column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND is_nullable = 'YES'"
+            ))).fetchall()
+        }
         for table, column in _NULLABLE_MIGRATIONS:
+            if (table, column) in nullable:
+                continue
             await conn.execute(text(
                 f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL"
             ))
