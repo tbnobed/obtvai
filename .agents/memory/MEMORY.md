@@ -26,4 +26,5 @@
 - [onnxruntime CPU wheel shadows GPU](onnxruntime-gpu-shadowing.md) — never install onnxruntime and onnxruntime-gpu together; CPU wheel silently drops the CUDA provider (0% GPU, huge slowdowns).
 - [Curator proxy reuse](curator-proxy-reuse.md) — Curator WebProxy = video-only fMP4 + _audioN sidecars; never symlink media on SMB for browser playback (endless tiny 206s), remux to a local faststart file.
 - [Phantom running jobs](phantom-running-jobs.md) — worker rebuilds kill in-flight tasks leaving jobs stuck "running"; reaper needs inspect-miss x2 + stale heartbeat, never single-signal.
+- [Remote LLM offload](remote-llm-offload.md) — gate every local load site (incl. startup warm-up threads), loaders return (None,None); no silent local fallback.
 - [Postgres startup DDL locks](postgres-startup-ddl.md) — ADD COLUMN IF NOT EXISTS locks before checking; gate boot migrations on information_schema or busy workers make the API unhealthy.

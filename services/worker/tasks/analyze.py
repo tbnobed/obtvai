@@ -47,6 +47,12 @@ EDITOR_RULES = (
 
 def _load_llm():
     global _llm
+    from tasks.llm_remote import remote_enabled
+    if remote_enabled():
+        # Remote inference (LLM_BASE_URL): nothing to load — _generate routes
+        # every prompt to the remote server; (None, None) flows through all
+        # callers untouched.
+        return (None, None)
     if _llm is None:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -99,6 +105,11 @@ def _build_chunks(rows):
 
 
 def _generate(tokenizer, model, prompt: str, max_new_tokens: int = 1500) -> str:
+    from tasks.llm_remote import remote_enabled, remote_chat
+    if remote_enabled():
+        return remote_chat(
+            [{"role": "user", "content": prompt}], max_new_tokens=max_new_tokens
+        )
     import torch
     messages = [{"role": "user", "content": prompt}]
     # enable_thinking=False: Qwen3 hybrid-reasoning models default to emitting

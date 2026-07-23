@@ -71,6 +71,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - Auth is enforced by ASGI middleware on all `/api/*` paths (incl. the StaticFiles thumbnail mount) — allowlist only `/api/auth/login` + `/api/healthz`; viewer POST allowlist lives in `services/api/app/auth.py` (`VIEWER_POST_ALLOWLIST`) and must be mirrored in `artifacts/api-server/src/routes/auth.ts`
 - `INTERNAL_API_TOKEN` env is REQUIRED in production — the watcher authenticates with the `X-Internal-Token` header; watched-folder ingest breaks without it
 - Mock preview logins: `admin` / `editor` / `viewer`, all password `obtv` (in-memory, reset on workflow restart)
+- Remote LLM offload: set `LLM_BASE_URL` (OpenAI-compatible, e.g. vLLM on the DGX Spark at `http://192.168.101.1:8000/v1`) and ALL LLM inference (Q&A, insights, story/reel/creative/social/identify) routes there — local Qwen never loads (api warm-up skipped too); unset = fully local as before; optional `LLM_REMOTE_MODEL` (else first `/v1/models` entry) and `LLM_API_KEY`; failures raise, no silent local fallback; `llm_remote.py` duplicated in `services/api/app/services/` + `services/worker/tasks/` — keep identical; translation (MADLAD) stays local
 - Use the `bcrypt` package directly, never passlib (passlib 1.7.4 breaks with bcrypt>=4.1 and was removed from requirements)
 - Re-run codegen after any OpenAPI spec change: `pnpm --filter @workspace/api-spec run codegen`
 - The production stack requires a HuggingFace token for pyannote speaker diarization — see `.env.example`

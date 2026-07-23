@@ -129,13 +129,18 @@ def _generate_inner(
     history: list[dict] | None = None,
     system: str | None = None,
 ) -> str:
-    import torch
-    tokenizer, model = _load_pipeline()
     messages = [{"role": "system", "content": system or _DEFAULT_SYSTEM}]
     for m in history or []:
         if m.get("role") in ("user", "assistant") and m.get("content"):
             messages.append({"role": m["role"], "content": m["content"]})
     messages.append({"role": "user", "content": prompt})
+    from app.services.llm_remote import remote_enabled, remote_chat
+    if remote_enabled():
+        # Remote inference (LLM_BASE_URL, e.g. vLLM on the DGX Spark): the
+        # local model is never loaded, keeping the media GPUs free.
+        return remote_chat(messages, max_new_tokens=max_new_tokens)
+    import torch
+    tokenizer, model = _load_pipeline()
     # enable_thinking=False: Qwen3 hybrid-reasoning models default to emitting
     # <think> blocks; disable for direct answers. Older templates ignore the kwarg.
     inputs = tokenizer.apply_chat_template(

@@ -257,10 +257,14 @@ async def lifespan(app: FastAPI):
             print(f"[{_ts()}] Warm-up: embedding model failed to load: {e}")
         t1 = time.monotonic()
         try:
-            from .services.llm import _load_pipeline
-            print(f"[{_ts()}] Warm-up: loading LLM (downloads shards here if cache is cold)...")
-            _load_pipeline()
-            print(f"[{_ts()}] Warm-up: LLM pipeline ready ({time.monotonic() - t1:.0f}s)")
+            from .services.llm_remote import remote_enabled
+            if remote_enabled():
+                print(f"[{_ts()}] Warm-up: remote LLM mode (LLM_BASE_URL set) — local LLM warm-up skipped")
+            else:
+                from .services.llm import _load_pipeline
+                print(f"[{_ts()}] Warm-up: loading LLM (downloads shards here if cache is cold)...")
+                _load_pipeline()
+                print(f"[{_ts()}] Warm-up: LLM pipeline ready ({time.monotonic() - t1:.0f}s)")
         except Exception as e:
             print(f"[{_ts()}] Warm-up: LLM failed to load: {e}")
 

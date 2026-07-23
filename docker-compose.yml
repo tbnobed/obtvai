@@ -34,6 +34,12 @@ x-python-env: &python-env
   EMBEDDINGS_MODEL: "${EMBEDDINGS_MODEL:-BAAI/bge-m3}"
   VISION_MODEL: "${VISION_MODEL:-google/siglip2-so400m-patch14-384}"
   LLM_MODEL: "${LLM_MODEL:-Qwen/Qwen3-8B}"
+  # Remote LLM offload (OpenAI-compatible server, e.g. vLLM on a DGX Spark).
+  # When LLM_BASE_URL is set, Q&A/insights/story prompts go there instead of
+  # loading the local model. Unset = fully local (unchanged behavior).
+  LLM_BASE_URL: "${LLM_BASE_URL:-}"
+  LLM_REMOTE_MODEL: "${LLM_REMOTE_MODEL:-}"
+  LLM_API_KEY: "${LLM_API_KEY:-}"
   TRANSLATE_MODEL: "${TRANSLATE_MODEL:-google/madlad400-3b-mt}"
   DIARIZATION_MODEL: "${DIARIZATION_MODEL:-pyannote/speaker-diarization-community-1}"
   HF_TOKEN: "${HF_TOKEN:-}"
