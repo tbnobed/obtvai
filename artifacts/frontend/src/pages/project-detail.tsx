@@ -310,6 +310,10 @@ export default function ProjectDetail() {
 
   // ---- Media pool: restrict Find to selected assets ----
   const mediaPool = useMemo(() => project?.media_ids ?? [], [project?.media_ids]);
+  useEffect(() => {
+    // Server pool caught up — drop the optimistic copy.
+    pendingPoolRef.current = null;
+  }, [mediaPool]);
   const toggleMediaPool = (assetId: string, checked: boolean) => {
     const next = checked ? [...mediaPool, assetId] : mediaPool.filter((x) => x !== assetId);
     updateMutation.mutate({ id, data: { media_ids: next } }, { onSuccess: invalidateAll });
@@ -340,6 +344,9 @@ export default function ProjectDetail() {
   // list from stale cache and overwrite the previous add. Track the latest
   // known clips per list synchronously so consecutive adds accumulate.
   const pendingClipsRef = useRef<Record<string, ClipListUpdateClipsItem[]>>({});
+  // Same race for the media pool: rapid adds each merge into the latest known
+  // pool instead of the stale server copy, so no addition gets dropped.
+  const pendingPoolRef = useRef<string[] | null>(null);
   const reelVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   // Multi-select of search / script-match results, keyed by row key.
   const [selectedResults, setSelectedResults] = useState<Record<string, SearchResult>>({});
@@ -388,6 +395,24 @@ export default function ProjectDetail() {
       match_reason: `${r.match_type === "visual" ? "Visual" : "Transcript"} match · ${(r.score * 100).toFixed(0)}%${r.snippet ? ` — “${r.snippet}”` : ""}`,
     }));
     const target = editorLists.find((l) => l.id === targetListId);
+    // Adding footage in Find pulls its media straight into the project pool
+    // and pre-selects it as a Build a Story source asset — the editor should
+    // see the media appear there immediately, not have to add it twice.
+    const basePool = pendingPoolRef.current ?? mediaPool;
+    const newMediaIds = [...new Set(results.map((r) => r.media_id))]
+      .filter((x) => !basePool.includes(x));
+    if (newMediaIds.length) {
+      const merged = [...basePool, ...newMediaIds];
+      pendingPoolRef.current = merged;
+      updateMutation.mutate(
+        { id, data: { media_ids: merged } },
+        { onSuccess: invalidateAll },
+      );
+    }
+    setStoryAssets((s) => {
+      const ids = results.map((r) => r.media_id).filter((x) => !s.includes(x));
+      return ids.length ? [...s, ...[...new Set(ids)]] : s;
+    });
     const done = () => {
       setLastAdded(
         results.length === 1
