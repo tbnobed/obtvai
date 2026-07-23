@@ -322,6 +322,7 @@ class StoryJob(Base):
     progress: Mapped[float] = mapped_column(Float, default=0.0)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
+    script: Mapped[str | None] = mapped_column(Text, nullable=True)
     clip_list_id: Mapped[str | None] = mapped_column(String, nullable=True)
     target_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

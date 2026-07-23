@@ -508,6 +508,7 @@ class StoryJobOut(BaseModel):
     progress: float
     title: Optional[str] = None
     narrative: Optional[str] = None
+    script: Optional[str] = None
     clip_list_id: Optional[str] = None
     target_duration_seconds: Optional[float] = None
     error_message: Optional[str] = None

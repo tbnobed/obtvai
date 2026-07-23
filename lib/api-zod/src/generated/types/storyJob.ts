@@ -21,6 +21,11 @@ export interface StoryJob {
   /** @nullable */
   narrative?: string | null;
   /**
+     * Working script of the finished cut — clip-by-clip verbatim dialogue in story order, with suggested VO/transition lines
+     * @nullable
+     */
+  script?: string | null;
+  /**
      * Clip list with the ordered cross-asset clips
      * @nullable
      */

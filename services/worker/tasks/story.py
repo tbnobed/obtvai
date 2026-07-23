@@ -12,6 +12,79 @@ from app import celery_app
 from db import get_session
 
 
+def _segments_between(db, media_id: str, start: float, end: float):
+    from sqlalchemy import text
+    return db.execute(
+        text("""
+            SELECT start_time, end_time, speaker, text FROM transcript_segments
+            WHERE media_id = :mid AND end_time > :s AND start_time < :e
+            ORDER BY start_time
+        """),
+        {"mid": media_id, "s": start, "e": end},
+    ).fetchall()
+
+
+_TERMINALS = (".", "!", "?", '."', '!"', '?"', "…", ".'", "!'", "?'")
+
+
+def _snap_to_sentences(db, media_id: str, start: float, end: float,
+                       clip_max: float, duration: float | None):
+    """Align a clip to transcript boundaries so it never cuts mid-sentence.
+
+    Start snaps back to the beginning of the segment that is speaking at
+    `start`; end extends forward through segments until one closes a sentence
+    (terminal punctuation) or the extension budget runs out.
+    """
+    from sqlalchemy import text
+    rows = db.execute(
+        text("""
+            SELECT start_time, end_time, text FROM transcript_segments
+            WHERE media_id = :mid AND end_time > :s - 15 AND start_time < :e + 60
+            ORDER BY start_time
+        """),
+        {"mid": media_id, "s": start, "e": end},
+    ).fetchall()
+    if not rows:
+        return start, end
+    new_start, new_end = start, end
+    for r in rows:
+        s_t, e_t = float(r[0]), float(r[1])
+        if s_t <= start < e_t:
+            new_start = s_t          # don't start mid-sentence
+            break
+        if start <= s_t <= end:
+            new_start = s_t          # start exactly on the next spoken line
+            break
+        if s_t > end:
+            # No speech inside the window at all — don't drift the clip onto
+            # unrelated later speech; leave it as mined.
+            return start, end
+    # Hard cap on the final clip length: snapping may complete a sentence but
+    # must never balloon the clip far past the mined intent.
+    hard_max = max(clip_max * 1.5, (end - new_start) + 12.0)
+    for r in rows:
+        s_t, e_t, seg_text = float(r[0]), float(r[1]), (r[2] or "").strip()
+        if e_t <= new_start:
+            continue
+        if e_t <= end:
+            new_end = max(new_end, e_t)
+            continue
+        # Segment crosses or follows the cut point: keep extending until a
+        # sentence actually closes, within the length cap.
+        candidate_end = min(e_t, new_start + hard_max)
+        if candidate_end <= new_end:
+            break
+        new_end = candidate_end
+        if seg_text.endswith(_TERMINALS) or candidate_end < e_t:
+            break
+    new_end = min(new_end, new_start + hard_max)
+    if duration:
+        new_end = min(new_end, duration)
+    if new_end - new_start < 1.0:
+        return start, end
+    return round(new_start, 1), round(new_end, 1)
+
+
 def _set_story(db, story_id: str, **fields):
     from sqlalchemy import text
     sets = ", ".join(f"{k} = :{k}" for k in fields)
@@ -254,6 +327,32 @@ def build_story(self, story_id: str):
         if not candidates:
             raise RuntimeError("No usable moments found in the selected assets")
 
+        # Snap every candidate to transcript boundaries so no clip starts or
+        # ends mid-sentence, and attach what is actually said so ordering can
+        # follow the conversation, not just the titles.
+        durations = {a[0]: float(a[2] or 0) for a in assets}
+        for c in candidates:
+            s, e = _snap_to_sentences(
+                db, c["media_id"], c["start"], c["end"],
+                float(clip_max), durations.get(c["media_id"]) or None,
+            )
+            c["start"], c["end"] = s, e
+            segs_c = _segments_between(db, c["media_id"], s, e)
+            spoken = " ".join((r[3] or "").strip() for r in segs_c).strip()
+            c["spoken"] = spoken[:220] + ("…" if len(spoken) > 220 else "")
+
+        # Drop exact duplicates created by snapping (two mined moments can
+        # collapse onto the same sentence span).
+        seen_spans = set()
+        deduped = []
+        for c in candidates:
+            span = (c["media_id"], c["start"], c["end"])
+            if span in seen_spans:
+                continue
+            seen_spans.add(span)
+            deduped.append(c)
+        candidates = deduped
+
         # ── Reduce: order into one storyline ─────────────────────────────────
         from tasks.visual_context import clip_visual_profile, describe_profile, diversify_order
 
@@ -266,12 +365,23 @@ def build_story(self, story_id: str):
                 profile = {"people": [], "scene_count": 0, "vector": None}
             profiles_by_key[c["key"]] = profile
             c["visual"] = describe_profile(profile)
-        listing = "\n".join(
-            f"{c['key']}: {'[EDITOR-PICKED] ' if c.get('picked') else ''}"
-            f"[{c['filename']} {_format_timecode(c['start'])}–{_format_timecode(c['end'])}] "
-            f"{c['title']} — {c['why']} (visuals: {c.get('visual', 'no visual data')})"
-            for c in candidates
-        )[:9000]
+        # Build the listing without ever dropping candidates: if the full
+        # version is over budget, shrink the per-candidate detail (SAYS quote,
+        # then visuals) instead of cutting the tail of the list.
+        def _listing_line(c, says_chars, with_visuals):
+            spoken = (c.get("spoken") or "")[:says_chars].strip()
+            return (
+                f"{c['key']}: {'[EDITOR-PICKED] ' if c.get('picked') else ''}"
+                f"[{c['filename']} {_format_timecode(c['start'])}–{_format_timecode(c['end'])}] "
+                f"{c['title']} — {c['why']}"
+                + (f' | SAYS: "{spoken}"' if spoken else "")
+                + (f" (visuals: {c.get('visual', 'no visual data')})" if with_visuals else "")
+            )
+        listing = ""
+        for says_chars, with_visuals in ((220, True), (120, True), (80, False), (0, False)):
+            listing = "\n".join(_listing_line(c, says_chars, with_visuals) for c in candidates)
+            if len(listing) <= 12000:
+                break
         direction = (
             f"\nEditorial direction from the editor (TOP PRIORITY): {user_prompt}\n"
             "Build the entire story around this direction. Prefer moments that serve it, "
@@ -308,7 +418,14 @@ def build_story(self, story_id: str):
             "you may interleave moments from different videos, drop weak or redundant ones. "
             "Moments tagged [EDITOR-PICKED] were hand-selected from search by the editor — "
             "strongly prefer including them. "
-            "Cut like a real editor: use the visuals notes to vary the picture — avoid "
+            "CONVERSATIONAL FLOW IS THE TOP EDITING RULE: read each moment's SAYS quote and "
+            "order the sequence so the spoken words connect — every moment must pick up an "
+            "idea, question, or claim from the one before it (answer it, build on it, or "
+            "counter it). Never place a moment whose words have no link to its neighbours; "
+            "drop it instead. A moment that opens mid-thought must directly follow a moment "
+            "that sets up that thought. The finished cut should read like ONE continuous "
+            "conversation or narration when the SAYS quotes are read in order. "
+            "Then, within that flow, use the visuals notes to vary the picture — avoid "
             "back-to-back moments showing the same person in the same framing; alternate "
             "faces and source files so the sequence never feels static."
         )
@@ -339,6 +456,69 @@ def build_story(self, story_id: str):
         except Exception:
             pass
         title = title or "Untitled story"
+
+        # ── Working script: verbatim transcript of the cut, in story order ──
+        # This is what the story actually says when played top to tail — the
+        # editor's proof that the conversation flows and each beat is complete.
+        _set_story(db, story_id, progress=90.0)
+        script_lines = []
+        for pos, c in enumerate(ordered):
+            seg_rows = _segments_between(db, c["media_id"], c["start"], c["end"])
+            parts = []
+            cur_speaker, cur_text = None, []
+            for r in seg_rows:
+                spk = (r[2] or "").strip() or "SPEAKER"
+                t = (r[3] or "").strip()
+                if not t:
+                    continue
+                if spk != cur_speaker and cur_text:
+                    parts.append(f"{cur_speaker}: {' '.join(cur_text)}")
+                    cur_text = []
+                cur_speaker = spk
+                cur_text.append(t)
+            if cur_text:
+                parts.append(f"{cur_speaker}: {' '.join(cur_text)}")
+            head = (
+                f"[{pos + 1}] {c['filename']} "
+                f"{_format_timecode(c['start'])}–{_format_timecode(c['end'])}"
+                + (f" — {c['role']}" if c.get("role") else "")
+            )
+            body = "\n".join(parts) if parts else "(no dialogue — visual moment)"
+            script_lines.append(f"{head}\n{body}")
+        assembled_transcript = "\n\n".join(script_lines)
+
+        story_script = assembled_transcript
+        try:
+            if len(assembled_transcript) > 9000:
+                # Too long to hand the LLM whole — the verbatim assembly IS the
+                # working script; never polish from a truncated view (that
+                # silently drops tail clips).
+                raise ValueError("transcript too long for polish pass")
+            script_prompt = (
+                f"You are a broadcast script editor. {CREATIVE_PERSONA}\n"
+                f"Story title: {title}\n"
+                f"Storyline: {narrative or ''}\n\n"
+                "Below is the verbatim transcript of an assembled cut, clip by clip, "
+                "in final story order:\n---\n"
+                f"{assembled_transcript}\n---\n\n"
+                "Write the WORKING SCRIPT for this cut. Keep every clip, in this exact "
+                "order, with its [N] header line unchanged. Under each header keep the "
+                "spoken dialogue VERBATIM (do not rewrite quotes), and where a transition "
+                "between clips needs help, add a single short 'VO:' or 'TRANSITION:' line "
+                "between them so the piece flows as one continuous story. "
+                "Respond with ONLY the script text, no JSON, no commentary."
+            )
+            raw_script = _generate(tokenizer, model, script_prompt, max_new_tokens=2400)
+            raw_script = (raw_script or "").strip()
+            # Guard: the polished version must keep EVERY clip header — a
+            # working script that silently drops clips is worse than the
+            # verbatim assembly.
+            kept = sum(1 for pos in range(len(ordered)) if f"[{pos + 1}]" in raw_script)
+            if raw_script and kept == len(ordered):
+                story_script = raw_script
+        except Exception:
+            pass
+        story_script = story_script[:20000]
 
         # ── Write result as a clip list ──────────────────────────────────────
         cl_id = str(uuid.uuid4())
@@ -379,6 +559,7 @@ def build_story(self, story_id: str):
             db, story_id,
             status="success", progress=100.0,
             title=title, narrative=narrative, clip_list_id=cl_id,
+            script=story_script or None,
             finished_at=datetime.utcnow(),
         )
 

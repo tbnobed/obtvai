@@ -2172,7 +2172,7 @@ router.post("/clips/:id/roughcut", (req, res) => {
 type MockStory = {
   id: string; prompt: string | null; project_id: string | null; asset_ids: string[];
   status: string; progress: number;
-  title: string | null; narrative: string | null; clip_list_id: string | null;
+  title: string | null; narrative: string | null; script: string | null; clip_list_id: string | null;
   target_duration_seconds: number | null;
   error_message: string | null; created_at: string; finished_at: string | null;
   _startedAt: number;
@@ -2199,6 +2199,22 @@ function tickStory(s: MockStory) {
   if (storyProj?.script?.trim()) {
     s.narrative = `Structured around the project's working script. ${s.narrative}`;
   }
+  s.script = s.script ||
+    `[1] city_council_march.mp4 00:42–01:18 — opener: sets the stakes
+COUNCILMEMBER ORTIZ: The question before us tonight is simple — do we grow downtown, or do we let it hollow out? The mandate from voters could not be clearer.
+
+VO: But clarity at the podium meets resistance on the street.
+
+[2] merchant_row_interviews.mp4 03:05–03:41 — conflict: the merchants push back
+DANA KEELER: Every one of these storefronts pays rent on foot traffic that construction will kill for two years. Nobody asked us.
+
+[3] planning_office_walkthrough.mp4 12:10–12:58 — rebuttal: the affordability math
+MARCUS WEBB: If we do nothing, average rents rise nineteen percent by 2028. The bond is the only tool that bends that curve. That's the whole argument.
+
+TRANSITION: From the numbers back to the ballot box.
+
+[4] city_council_march.mp4 22:31–23:04 — payoff: the ticking clock
+COUNCILMEMBER ORTIZ: The measure goes to voters in November. Whatever you believe about downtown, this is the moment to say it out loud.`;
   if (!s.clip_list_id) {
     const picked: any[] = [];
     // Editor-collected clips from Find lead the cut (story-generated lists excluded).
@@ -2270,7 +2286,7 @@ router.post("/stories", (req, res) => {
     project_id: (req.body?.project_id as string | null) || null,
     asset_ids: assetIds,
     status: "pending", progress: 0,
-    title: null, narrative: null, clip_list_id: null,
+    title: null, narrative: null, script: null, clip_list_id: null,
     target_duration_seconds: resolvedTarget != null && resolvedTarget > 0
       ? Math.min(Math.max(resolvedTarget, 30), 14400)
       : null,

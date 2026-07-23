@@ -22,6 +22,7 @@ def _to_out(s: StoryJob) -> StoryJobOut:
         progress=s.progress or 0.0,
         title=s.title,
         narrative=s.narrative,
+        script=s.script,
         clip_list_id=s.clip_list_id,
         target_duration_seconds=s.target_duration_seconds,
         error_message=s.error_message,

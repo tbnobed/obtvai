@@ -1120,6 +1120,26 @@ export default function ProjectDetail() {
                       {s.narrative && (
                         <p className="text-xs text-muted-foreground leading-relaxed">{s.narrative}</p>
                       )}
+                      {s.script && (
+                        <details className="pt-1">
+                          <summary className="text-xs font-medium cursor-pointer select-none text-primary hover:underline">
+                            Working script
+                          </summary>
+                          <div className="mt-1.5 space-y-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => navigator.clipboard?.writeText(s.script ?? "")}
+                            >
+                              Copy script
+                            </Button>
+                            <pre className="text-xs text-muted-foreground bg-background/60 border rounded p-2 whitespace-pre-wrap max-h-72 overflow-y-auto font-mono leading-relaxed">
+                              {s.script}
+                            </pre>
+                          </div>
+                        </details>
+                      )}
                     </div>
                   ))}
                 </div>
