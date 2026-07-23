@@ -1,0 +1,41 @@
+obtv-admin@spark-174a:~$ sudo docker logs -f vllm
+
+==========
+== vLLM ==
+==========
+
+NVIDIA Release 25.12.post1 (build 247811356)
+vLLM Version 0.12.0+35a9f223
+Container image Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+Various files include modifications (c) NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+
+GOVERNING TERMS: The software and materials are governed by the NVIDIA Software License Agreement
+(found at https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/)
+and the Product-Specific Terms for NVIDIA AI Products
+(found at https://www.nvidia.com/en-us/agreements/enterprise-software/product-specific-terms-for-ai-products/).
+
+NOTE: CUDA Forward Compatibility mode ENABLED.
+  Using CUDA 13.1 driver version 590.44.01 with kernel driver version 580.126.09.
+  See https://docs.nvidia.com/deploy/cuda-compatibility/ for details.
+
+NOTE: The SHMEM allocation limit is set to the default of 64MB.  This may be
+   insufficient for vLLM.  NVIDIA recommends the use of the following flags:
+   docker run --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 ...
+
+/usr/local/lib/python3.12/dist-packages/torchvision/io/image.py:14: UserWarning: Failed to load image Python extension: 'Could not load this library: /usr/local/lib/python3.12/dist-packages/torchvision/image.so'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+(APIServer pid=1) INFO 07-23 04:48:00 [api_server.py:1775] vLLM API server version 0.12.0+35a9f223.nv25.12.post1
+(APIServer pid=1) INFO 07-23 04:48:00 [utils.py:253] non-default args: {'model_tag': 'Qwen/Qwen3-32B-AWQ', 'host': '0.0.0.0', 'model': 'Qwen/Qwen3-32B-AWQ', 'max_model_len': 32768, 'gpu_memory_utilization': 0.65}
+(APIServer pid=1) INFO 07-23 04:48:04 [model.py:637] Resolved architecture: Qwen3ForCausalLM
+(APIServer pid=1) INFO 07-23 04:48:04 [model.py:1750] Using max model len 32768
+(APIServer pid=1) INFO 07-23 04:48:04 [awq_marlin.py:163] The model is convertible to awq_marlin during runtime. Using awq_marlin kernel.
+(APIServer pid=1) INFO 07-23 04:48:04 [scheduler.py:228] Chunked prefill is enabled with max_num_batched_tokens=2048.
+Parse safetensors files: 100%|██████████| 4/4 [00:00<00:00, 12.04it/s]
+/usr/local/lib/python3.12/dist-packages/torchvision/io/image.py:14: UserWarning: Failed to load image Python extension: 'Could not load this library: /usr/local/lib/python3.12/dist-packages/torchvision/image.so'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+(EngineCore_DP0 pid=170) INFO 07-23 04:48:08 [core.py:93] Initializing a V1 LLM engine (v0.12.0+35a9f223.nv25.12.post1) with config: model='Qwen/Qwen3-32B-AWQ', speculative_config=None, tokenizer='Qwen/Qwen3-32B-AWQ', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.float16, max_seq_len=32768, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, disable_custom_all_reduce=False, quantization=awq_marlin, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_fallback=False, disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01), seed=0, served_model_name=Qwen/Qwen3-32B-AWQ, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'level': None, 'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['none'], 'splitting_ops': ['vllm::unified_attention', 'vllm::unified_attention_with_output', 'vllm::unified_mla_attention', 'vllm::unified_mla_attention_with_output', 'vllm::mamba_mixer2', 'vllm::mamba_mixer', 'vllm::short_conv', 'vllm::linear_attention', 'vllm::plamo2_mamba_mixer', 'vllm::gdn_attention_core', 'vllm::kda_attention', 'vllm::sparse_attn_indexer'], 'compile_mm_encoder': False, 'compile_sizes': [], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256, 272, 288, 304, 320, 336, 352, 368, 384, 400, 416, 432, 448, 464, 480, 496, 512], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'eliminate_noops': True, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False}, 'max_cudagraph_capture_size': 512, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>}, 'local_cache_dir': None}
+(EngineCore_DP0 pid=170) INFO 07-23 04:48:08 [parallel_state.py:1200] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://172.17.0.2:46369 backend=nccl
+(EngineCore_DP0 pid=170) INFO 07-23 04:48:08 [parallel_state.py:1408] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0
+(EngineCore_DP0 pid=170) INFO 07-23 04:48:08 [gpu_model_runner.py:3467] Starting to load model Qwen/Qwen3-32B-AWQ...
+(EngineCore_DP0 pid=170) INFO 07-23 04:48:18 [cuda.py:411] Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION']
