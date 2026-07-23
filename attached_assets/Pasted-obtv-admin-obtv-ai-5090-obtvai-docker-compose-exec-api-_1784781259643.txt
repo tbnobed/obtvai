@@ -1,0 +1,29 @@
+obtv-admin@obtv-ai-5090:~/obtvai$ docker compose exec api curl -sI http://localhost:8000/api/thumbnails/e866d747-67c1-4215-a60d-e0a6e0c1dfb9.jpg
+docker compose logs api --tail 20
+HTTP/1.1 401 Unauthorized
+date: Thu, 23 Jul 2026 04:34:11 GMT
+server: uvicorn
+content-length: 30
+content-type: application/json
+
+api-1  | INFO:     172.30.0.13:57956 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:57970 - "GET /api/media/e866d747-67c1-4215-a60d-e0a6e0c1dfb9/stream HTTP/1.1" 206 Partial Content
+api-1  | INFO:     172.30.0.13:57982 - "GET /api/media/e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:57994 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:37846 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:58002 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:36676 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:36692 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:60922 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:36708 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:60754 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:60762 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:35532 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:60772 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:37060 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:37064 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:37080 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:42958 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.30.0.13:49602 - "GET /api/jobs?media_id=e866d747-67c1-4215-a60d-e0a6e0c1dfb9 HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:60576 - "HEAD /api/thumbnails/e866d747-67c1-4215-a60d-e0a6e0c1dfb9.jpg HTTP/1.1" 401 Unauthorized
+obtv-admin@obtv-ai-5090:~/obtvai$
