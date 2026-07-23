@@ -63,7 +63,9 @@ import {
   Play, Download, Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown,
   Monitor, Smartphone, ChevronDown, Upload, Archive, ArchiveRestore,
   ExternalLink, Lock, LockOpen, SlidersHorizontal, CheckCircle2, AlertTriangle,
+  Clock,
 } from "lucide-react";
+import { formatRuntime, parseRuntime } from "@/lib/runtime";
 import { RefineTab } from "@/components/project/refine-tab";
 import { ClipThumb } from "@/components/project/clip-thumb";
 import { MediaPickerGrid } from "@/components/project/media-picker";
@@ -224,6 +226,18 @@ export default function ProjectDetail() {
 
   const { data: project, isLoading } = useGetProject(id);
   const updateMutation = useUpdateProject();
+
+  const [runtimeOpen, setRuntimeOpen] = useState(false);
+  const [runtimeValue, setRuntimeValue] = useState("");
+  const runtimeInvalid = runtimeValue.trim() !== "" && parseRuntime(runtimeValue) === null;
+
+  const saveRuntime = () => {
+    if (runtimeInvalid) return;
+    updateMutation.mutate(
+      { id, data: { target_runtime_seconds: runtimeValue.trim() ? parseRuntime(runtimeValue) : null } },
+      { onSuccess: () => { setRuntimeOpen(false); invalidateAll(); } },
+    );
+  };
 
   const listParams = { project_id: id };
   // Poll while anything is still in flight so progress updates without a manual refresh.
@@ -755,7 +769,51 @@ export default function ProjectDetail() {
         <span className="flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> {stageCounts.stories} stories</span>
         <span className="flex items-center gap-1.5"><Wand2 className="h-3.5 w-3.5" /> {stageCounts.reels} reels</span>
         <span className="flex items-center gap-1.5"><Clapperboard className="h-3.5 w-3.5" /> {stageCounts.delivered}/{stageCounts.renders} renders done</span>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+          title="Target run time — click to change"
+          onClick={() => {
+            setRuntimeValue(project.target_runtime_seconds != null ? formatRuntime(project.target_runtime_seconds) : "");
+            setRuntimeOpen(true);
+          }}
+        >
+          <Clock className="h-3.5 w-3.5" />
+          {project.target_runtime_seconds != null
+            ? <>Target {formatRuntime(project.target_runtime_seconds)}</>
+            : <span className="underline decoration-dotted underline-offset-2">Set run time</span>}
+        </button>
       </div>
+
+      <Dialog open={runtimeOpen} onOpenChange={setRuntimeOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" /> Target run time
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              value={runtimeValue}
+              onChange={(e) => setRuntimeValue(e.target.value)}
+              placeholder="MM:SS or HH:MM:SS — e.g. 22:30"
+              onKeyDown={(e) => e.key === "Enter" && !runtimeInvalid && saveRuntime()}
+              autoFocus
+            />
+            {runtimeInvalid ? (
+              <p className="text-xs text-red-400">Use MM:SS or HH:MM:SS (a plain number counts as minutes).</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Leave empty to clear the target.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRuntimeOpen(false)}>Cancel</Button>
+            <Button onClick={saveRuntime} disabled={runtimeInvalid || updateMutation.isPending}>
+              {updateMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6">

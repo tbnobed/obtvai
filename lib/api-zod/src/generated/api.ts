@@ -2960,6 +2960,7 @@ export const ListProjectsResponseItem = zod.object({
   "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
   "status": zod.enum(['active', 'archived']).default(listProjectsResponseStatusDefault),
   "media_ids": zod.array(zod.string()).default(listProjectsResponseMediaIdsDefault).describe('Media pool — asset ids this project works with; empty means the whole library'),
+  "target_runtime_seconds": zod.number().nullish().describe('Target run time for the finished piece, in seconds'),
   "created_at": zod.string(),
   "updated_at": zod.string().nullish(),
   "counts": zod.object({
@@ -2982,7 +2983,8 @@ export const CreateProjectBody = zod.object({
   "name": zod.string().min(1),
   "description": zod.string().nullish(),
   "script": zod.string().nullish(),
-  "media_ids": zod.array(zod.string()).nullish()
+  "media_ids": zod.array(zod.string()).nullish(),
+  "target_runtime_seconds": zod.number().nullish().describe('Target run time for the finished piece, in seconds')
 })
 
 export const createProjectResponseStatusDefault = `active`;
@@ -2995,6 +2997,7 @@ export const CreateProjectResponse = zod.object({
   "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
   "status": zod.enum(['active', 'archived']).default(createProjectResponseStatusDefault),
   "media_ids": zod.array(zod.string()).default(createProjectResponseMediaIdsDefault).describe('Media pool — asset ids this project works with; empty means the whole library'),
+  "target_runtime_seconds": zod.number().nullish().describe('Target run time for the finished piece, in seconds'),
   "created_at": zod.string(),
   "updated_at": zod.string().nullish(),
   "counts": zod.object({
@@ -3023,6 +3026,7 @@ export const GetProjectResponse = zod.object({
   "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
   "status": zod.enum(['active', 'archived']).default(getProjectResponseStatusDefault),
   "media_ids": zod.array(zod.string()).default(getProjectResponseMediaIdsDefault).describe('Media pool — asset ids this project works with; empty means the whole library'),
+  "target_runtime_seconds": zod.number().nullish().describe('Target run time for the finished piece, in seconds'),
   "created_at": zod.string(),
   "updated_at": zod.string().nullish(),
   "counts": zod.object({
@@ -3049,7 +3053,8 @@ export const UpdateProjectBody = zod.object({
   "description": zod.string().nullish(),
   "script": zod.string().nullish(),
   "status": zod.enum(['active', 'archived']).optional(),
-  "media_ids": zod.array(zod.string()).nullish()
+  "media_ids": zod.array(zod.string()).nullish(),
+  "target_runtime_seconds": zod.number().nullish().describe('Target run time for the finished piece, in seconds')
 })
 
 export const updateProjectResponseStatusDefault = `active`;
@@ -3062,6 +3067,7 @@ export const UpdateProjectResponse = zod.object({
   "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
   "status": zod.enum(['active', 'archived']).default(updateProjectResponseStatusDefault),
   "media_ids": zod.array(zod.string()).default(updateProjectResponseMediaIdsDefault).describe('Media pool — asset ids this project works with; empty means the whole library'),
+  "target_runtime_seconds": zod.number().nullish().describe('Target run time for the finished piece, in seconds'),
   "created_at": zod.string(),
   "updated_at": zod.string().nullish(),
   "counts": zod.object({

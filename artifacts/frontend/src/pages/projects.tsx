@@ -26,8 +26,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   FolderKanban, Plus, Scissors, BookOpen, Wand2, Clapperboard, Trash2, Loader2,
-  MoreVertical, Pencil, Archive, ArchiveRestore,
+  MoreVertical, Pencil, Archive, ArchiveRestore, Clock,
 } from "lucide-react";
+import { formatRuntime, parseRuntime } from "@/lib/runtime";
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -56,6 +57,7 @@ export default function Projects() {
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [runtime, setRuntime] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -64,16 +66,25 @@ export default function Projects() {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
 
+  const runtimeInvalid = runtime.trim() !== "" && parseRuntime(runtime) === null;
+
   const submitCreate = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || runtimeInvalid) return;
     createMutation.mutate(
-      { data: { name: name.trim(), description: description.trim() || null } },
+      {
+        data: {
+          name: name.trim(),
+          description: description.trim() || null,
+          target_runtime_seconds: runtime.trim() ? parseRuntime(runtime) : null,
+        },
+      },
       {
         onSuccess: (p) => {
           invalidate();
           setCreateOpen(false);
           setName("");
           setDescription("");
+          setRuntime("");
           navigate(`/projects/${p.id}`);
         },
       },
@@ -184,6 +195,11 @@ export default function Projects() {
           <span className="flex items-center gap-1.5">
             <Clapperboard className="h-3.5 w-3.5" /> {p.counts.renders} renders
           </span>
+          {p.target_runtime_seconds != null && (
+            <span className="flex items-center gap-1.5" title="Target run time">
+              <Clock className="h-3.5 w-3.5" /> {formatRuntime(p.target_runtime_seconds)}
+            </span>
+          )}
         </div>
         <p className="text-xs text-muted-foreground mt-3">
           Last activity {relativeTime(p.updated_at ?? p.created_at)} · created {new Date(p.created_at).toLocaleDateString()}
@@ -241,13 +257,28 @@ export default function Projects() {
                 rows={3}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="proj-runtime">Target run time (optional)</Label>
+              <Input
+                id="proj-runtime"
+                value={runtime}
+                onChange={(e) => setRuntime(e.target.value)}
+                placeholder="MM:SS or HH:MM:SS — e.g. 22:30"
+                onKeyDown={(e) => e.key === "Enter" && submitCreate()}
+              />
+              {runtimeInvalid ? (
+                <p className="text-xs text-red-400">Use MM:SS or HH:MM:SS (a plain number counts as minutes).</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">How long the finished piece should run — a plain number counts as minutes.</p>
+              )}
+            </div>
             {createMutation.isError && (
               <p className="text-sm text-red-400">Could not create the project — try again.</p>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={submitCreate} disabled={!name.trim() || createMutation.isPending}>
+            <Button onClick={submitCreate} disabled={!name.trim() || runtimeInvalid || createMutation.isPending}>
               {createMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Create
             </Button>

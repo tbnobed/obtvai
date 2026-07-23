@@ -1620,6 +1620,11 @@ export interface Project {
   status?: ProjectStatus;
   /** Media pool — asset ids this project works with; empty means the whole library */
   media_ids?: string[];
+  /**
+     * Target run time for the finished piece, in seconds
+     * @nullable
+     */
+  target_runtime_seconds?: number | null;
   created_at: string;
   /** @nullable */
   updated_at?: string | null;
@@ -1635,6 +1640,11 @@ export interface ProjectInput {
   script?: string | null;
   /** @nullable */
   media_ids?: string[] | null;
+  /**
+     * Target run time for the finished piece, in seconds
+     * @nullable
+     */
+  target_runtime_seconds?: number | null;
 }
 
 export type ProjectUpdateStatus = typeof ProjectUpdateStatus[keyof typeof ProjectUpdateStatus];
@@ -1655,6 +1665,11 @@ export interface ProjectUpdate {
   status?: ProjectUpdateStatus;
   /** @nullable */
   media_ids?: string[] | null;
+  /**
+     * Target run time for the finished piece, in seconds
+     * @nullable
+     */
+  target_runtime_seconds?: number | null;
 }
 
 export interface ClipList {

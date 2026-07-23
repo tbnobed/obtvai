@@ -17,4 +17,9 @@ export interface ProjectUpdate {
   status?: ProjectUpdateStatus;
   /** @nullable */
   media_ids?: string[] | null;
+  /**
+     * Target run time for the finished piece, in seconds
+     * @nullable
+     */
+  target_runtime_seconds?: number | null;
 }

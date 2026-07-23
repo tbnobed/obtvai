@@ -42,6 +42,7 @@ async def _to_out(p: Project, db: AsyncSession) -> ProjectOut:
         script=p.script,
         status=p.status or "active",
         media_ids=p.media_ids or [],
+        target_runtime_seconds=p.target_runtime_seconds,
         created_at=p.created_at,
         updated_at=p.updated_at,
         counts=await _counts(db, p.id),
@@ -71,6 +72,7 @@ async def create_project(body: ProjectInput, db: AsyncSession = Depends(get_db))
         description=body.description,
         script=body.script,
         media_ids=body.media_ids or [],
+        target_runtime_seconds=body.target_runtime_seconds,
         created_at=datetime.utcnow(),
     )
     db.add(p)
@@ -98,6 +100,8 @@ async def update_project(id: str, body: ProjectUpdate, db: AsyncSession = Depend
         p.status = body.status
     if "media_ids" in body.model_fields_set:
         p.media_ids = body.media_ids or []
+    if "target_runtime_seconds" in body.model_fields_set:
+        p.target_runtime_seconds = body.target_runtime_seconds
     p.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(p)

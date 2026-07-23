@@ -348,6 +348,7 @@ type MockProject = {
   id: string; name: string; description: string | null; script: string | null;
   status: "active" | "archived";
   media_ids: string[];
+  target_runtime_seconds: number | null;
   created_at: string; updated_at: string | null;
 };
 
@@ -365,6 +366,7 @@ const projects: MockProject[] = [
     script: "Sarah Chen explains the local AI infrastructure initiative\nCouncil vote on the affordable housing measure",
     status: "active",
     media_ids: [],
+    target_runtime_seconds: 1350,
     created_at: new Date(Date.now() - 86400000).toISOString(),
     updated_at: null,
   },
@@ -1478,6 +1480,7 @@ router.post("/projects", (req, res) => {
     script: req.body?.script || null,
     status: "active",
     media_ids: Array.isArray(req.body?.media_ids) ? req.body.media_ids : [],
+    target_runtime_seconds: typeof req.body?.target_runtime_seconds === "number" ? req.body.target_runtime_seconds : null,
     created_at: new Date().toISOString(),
     updated_at: null,
   };
@@ -1499,6 +1502,7 @@ router.patch("/projects/:id", (req, res) => {
   if (req.body.script !== undefined) p.script = req.body.script;
   if (req.body.status === "active" || req.body.status === "archived") p.status = req.body.status;
   if (req.body.media_ids !== undefined) p.media_ids = Array.isArray(req.body.media_ids) ? req.body.media_ids : [];
+  if (req.body.target_runtime_seconds !== undefined) p.target_runtime_seconds = typeof req.body.target_runtime_seconds === "number" ? req.body.target_runtime_seconds : null;
   p.updated_at = new Date().toISOString();
   res.json(projectOut(p));
 });

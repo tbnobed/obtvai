@@ -42,6 +42,7 @@ _COLUMN_MIGRATIONS = [
     ("media_folders", "parent_id", "TEXT"),
     ("projects", "status", "TEXT NOT NULL DEFAULT 'active'"),
     ("projects", "media_ids", "JSONB"),
+    ("projects", "target_runtime_seconds", "DOUBLE PRECISION"),
     ("reel_jobs", "target_duration_seconds", "DOUBLE PRECISION"),
     ("reel_jobs", "pace", "TEXT"),
     ("reel_jobs", "rating", "TEXT"),

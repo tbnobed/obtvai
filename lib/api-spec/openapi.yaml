@@ -5354,6 +5354,9 @@ components:
             type: string
           default: []
           description: Media pool — asset ids this project works with; empty means the whole library
+        target_runtime_seconds:
+          type: ["number", "null"]
+          description: Target run time for the finished piece, in seconds
         created_at:
           type: string
         updated_at:
@@ -5386,6 +5389,9 @@ components:
           type: ["array", "null"]
           items:
             type: string
+        target_runtime_seconds:
+          type: ["number", "null"]
+          description: Target run time for the finished piece, in seconds
 
     ProjectUpdate:
       type: object
@@ -5404,6 +5410,9 @@ components:
           type: ["array", "null"]
           items:
             type: string
+        target_runtime_seconds:
+          type: ["number", "null"]
+          description: Target run time for the finished piece, in seconds
 
     ClipList:
       type: object
