@@ -259,6 +259,7 @@ async def list_media(
     person: Optional[str] = Query(None),
     topic: Optional[str] = Query(None),
     folder: Optional[str] = Query(None),
+    ids: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -276,6 +277,10 @@ async def list_media(
     q = select(MediaAsset).order_by(sort_map.get(sort or "", desc(MediaAsset.created_at)))
     if status:
         q = q.where(MediaAsset.status == status)
+    if ids and ids.strip():
+        wanted = [s.strip() for s in ids.split(",") if s.strip()]
+        if wanted:
+            q = q.where(MediaAsset.id.in_(wanted))
     if folder == "root":
         q = q.where(MediaAsset.folder_id.is_(None))
     elif folder:

@@ -25,6 +25,10 @@ topic?: string;
  * Only assets in this folder (folder id, or "root" for unfiled assets)
  */
 folder?: string;
+/**
+ * Comma-separated asset ids — return exactly these assets (e.g. resolving a project's media pool regardless of pagination)
+ */
+ids?: string;
 sort?: ListMediaSort;
 limit?: number;
 offset?: number;

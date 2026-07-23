@@ -585,6 +585,11 @@ router.get("/media", (req, res) => {
     const ids = new Set((personAppearances[person] ?? []).map((x) => x.media_id));
     items = items.filter((a) => ids.has(a.id));
   }
+  const idsParam = String(req.query.ids ?? "").trim();
+  if (idsParam) {
+    const wanted = new Set(idsParam.split(",").map((s) => s.trim()).filter(Boolean));
+    items = items.filter((a) => wanted.has(a.id));
+  }
   const topic = String(req.query.topic ?? "").trim();
   if (topic) {
     const key = normalizeTopicKey(topic);

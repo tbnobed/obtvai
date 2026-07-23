@@ -25,6 +25,7 @@ export const ListMediaQueryParams = zod.object({
   "person": zod.coerce.string().optional().describe('Only assets a given person (by id) appears in'),
   "topic": zod.coerce.string().optional().describe('Only assets tagged with this topic (normalized key match)'),
   "folder": zod.coerce.string().optional().describe('Only assets in this folder (folder id, or \"root\" for unfiled assets)'),
+  "ids": zod.coerce.string().optional().describe('Comma-separated asset ids — return exactly these assets (e.g. resolving a project\'s media pool regardless of pagination)'),
   "sort": zod.enum(['created_desc', 'created_asc', 'name_asc', 'name_desc', 'duration_desc', 'duration_asc', 'size_desc', 'size_asc']).optional(),
   "limit": zod.coerce.number().optional(),
   "offset": zod.coerce.number().optional()

@@ -51,9 +51,16 @@ export function MediaPickerGrid({
   const [selectedOnly, setSelectedOnly] = useState(false);
   const search = useDebounced(searchText.trim(), 300);
 
+  // When the grid is restricted to a fixed pool (e.g. a project's source
+  // assets), resolve those exact ids — paging through the newest 200 library
+  // assets can miss pool members and silently hide them from the picker.
+  const restrictKey = restrictTo && restrictTo.length ? [...restrictTo].sort().join(",") : "";
   const mediaParams = useMemo(
-    () => ({ limit: 200, ...(search ? { search } : {}) }),
-    [search],
+    () =>
+      restrictKey
+        ? { ids: restrictKey, limit: Math.min(Math.max(restrictKey.split(",").length, 1), 200) }
+        : { limit: 200, ...(search ? { search } : {}) },
+    [search, restrictKey],
   );
   const { data: media, error, isFetching } = useListMedia(mediaParams, {
     query: { queryKey: getListMediaQueryKey(mediaParams), placeholderData: (p) => p },
