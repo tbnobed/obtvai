@@ -436,5 +436,8 @@ async def healthz():
 
 
 thumbnails_dir = settings.thumbnails_dir
-if os.path.exists(thumbnails_dir):
-    app.mount("/api/thumbnails", StaticFiles(directory=thumbnails_dir), name="thumbnails")
+# Create the dir ourselves before mounting: on a fresh deployment it doesn't
+# exist until a worker writes the first thumbnail, and a conditional mount
+# would silently 404 every thumbnail until the api container restarts.
+os.makedirs(thumbnails_dir, exist_ok=True)
+app.mount("/api/thumbnails", StaticFiles(directory=thumbnails_dir), name="thumbnails")
