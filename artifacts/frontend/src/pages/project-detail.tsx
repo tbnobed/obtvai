@@ -678,13 +678,26 @@ export default function ProjectDetail() {
     </Button>
   );
 
-  const resultRow = (r: SearchResult, key: string) => (
-    <div key={key} className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm gap-3">
+  // A result is "added" when its media is already a project source asset —
+  // check the optimistic pending pool first so the row flips instantly on Add.
+  const isInSources = (mediaId: string) =>
+    (pendingPoolRef.current ?? mediaPool).includes(mediaId);
+
+  const resultRow = (r: SearchResult, key: string) => {
+    const added = isInSources(r.media_id);
+    return (
+    <div
+      key={key}
+      className={`flex items-center justify-between p-2.5 rounded text-sm gap-3 ${
+        added ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-muted/50"
+      }`}
+    >
       <input
         type="checkbox"
         className="h-4 w-4 shrink-0 accent-primary cursor-pointer"
         checked={!!selectedResults[key]}
         onChange={() => toggleResult(key, r)}
+        disabled={added}
       />
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{r.filename}</div>
@@ -706,17 +719,24 @@ export default function ProjectDetail() {
         >
           <Play className="h-3.5 w-3.5" />
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => addResultToSources(r)}
-          disabled={updateMutation.isPending}
-        >
-          <Plus className="h-3.5 w-3.5 mr-1" /> Add
-        </Button>
+        {added ? (
+          <span className="flex items-center gap-1 text-xs text-emerald-400 px-2">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Added
+          </span>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => addResultToSources(r)}
+            disabled={updateMutation.isPending}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+          </Button>
+        )}
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="flex-1 p-8 overflow-y-auto">
