@@ -85,6 +85,32 @@ def _snap_to_sentences(db, media_id: str, start: float, end: float,
     return round(new_start, 1), round(new_end, 1)
 
 
+def _extend_forward(db, media_id: str, end: float, want: float) -> float:
+    """Grow a clip's end forward through complete transcript sentences.
+
+    Extends toward `want` seconds, finishing the sentence in progress near the
+    target (up to 10s past it) rather than cutting mid-thought.
+    """
+    from sqlalchemy import text
+    rows = db.execute(
+        text("""
+            SELECT start_time, end_time, text FROM transcript_segments
+            WHERE media_id = :mid AND end_time > :e AND start_time < :w + 30
+            ORDER BY start_time
+        """),
+        {"mid": media_id, "e": end, "w": want},
+    ).fetchall()
+    new_end = end
+    for r in rows:
+        s_t, e_t, seg_text = float(r[0]), float(r[1]), (r[2] or "").strip()
+        if s_t >= want:
+            break
+        new_end = max(new_end, min(e_t, want + 10.0))
+        if e_t <= want + 10.0 and seg_text.endswith(_TERMINALS) and new_end >= want - 5.0:
+            break
+    return round(new_end, 1)
+
+
 def _set_story(db, story_id: str, **fields):
     from sqlalchemy import text
     sets = ", ".join(f"{k} = :{k}" for k in fields)
@@ -310,7 +336,10 @@ def build_story(self, story_id: str):
                         s = _clamp(_timecode_to_seconds(c.get("start", c_start)), c_start, c_end or duration)
                         e = _clamp(_timecode_to_seconds(c.get("end", s + 20)), s, duration or s + float(clip_max))
                         e = min(e, duration) if duration else e
-                        if e - s < 4.0:
+                        if e - s < float(clip_min):
+                            # Enforce the target-driven minimum, not just a
+                            # sanity floor — short-form bites can't add up to a
+                            # long-form runtime.
                             e = s + float(clip_min)
                         if e - s > float(clip_max):
                             e = s + float(clip_max)
@@ -391,9 +420,23 @@ def build_story(self, story_id: str):
         )
         script_ctx = (
             f"\nThe editor's working script for this production:\n---\n{working_script}\n---\n"
-            "Follow the script's structure wherever the footage allows — order the "
-            "moments to track the script's beats.\n"
+            "THE SCRIPT IS THE BLUEPRINT: your sequence must walk the script's beats "
+            "in the script's order. For every beat, pick the moment(s) whose SAYS "
+            "quote covers or supports that beat; skip a beat only when no moment "
+            "covers it. Do not reorder beats and do not build a different story.\n"
             if working_script else ""
+        )
+        flow_rule = (
+            "FOLLOW THE SCRIPT ABOVE — beat order is the top editing rule. Within "
+            "each beat, order moments so the spoken words connect naturally. "
+            if working_script else
+            "CONVERSATIONAL FLOW IS THE TOP EDITING RULE: read each moment's SAYS quote and "
+            "order the sequence so the spoken words connect — every moment must pick up an "
+            "idea, question, or claim from the one before it (answer it, build on it, or "
+            "counter it). Never place a moment whose words have no link to its neighbours; "
+            "drop it instead. A moment that opens mid-thought must directly follow a moment "
+            "that sets up that thought. The finished cut should read like ONE continuous "
+            "conversation or narration when the SAYS quotes are read in order. "
         )
         reduce_prompt = (
             f"You are a senior story editor. {CREATIVE_PERSONA}\n"
@@ -418,13 +461,7 @@ def build_story(self, story_id: str):
             "you may interleave moments from different videos, drop weak or redundant ones. "
             "Moments tagged [EDITOR-PICKED] were hand-selected from search by the editor — "
             "strongly prefer including them. "
-            "CONVERSATIONAL FLOW IS THE TOP EDITING RULE: read each moment's SAYS quote and "
-            "order the sequence so the spoken words connect — every moment must pick up an "
-            "idea, question, or claim from the one before it (answer it, build on it, or "
-            "counter it). Never place a moment whose words have no link to its neighbours; "
-            "drop it instead. A moment that opens mid-thought must directly follow a moment "
-            "that sets up that thought. The finished cut should read like ONE continuous "
-            "conversation or narration when the SAYS quotes are read in order. "
+            + flow_rule +
             "Then, within that flow, use the visuals notes to vary the picture — avoid "
             "back-to-back moments showing the same person in the same framing; alternate "
             "faces and source files so the sequence never feels static."
@@ -456,6 +493,66 @@ def build_story(self, story_id: str):
         except Exception:
             pass
         title = title or "Untitled story"
+
+        # ── Runtime fill: the cut must actually reach the target ────────────
+        # The LLM routinely over-trims; a 20-minute ask must not ship at 3.
+        if target_duration:
+            def _total(seq):
+                return sum(float(c["end"]) - float(c["start"]) for c in seq)
+
+            def _overlaps(c, seq):
+                return any(
+                    o is not c and o["media_id"] == c["media_id"]
+                    and float(o["start"]) < float(c["end"])
+                    and float(c["start"]) < float(o["end"])
+                    for o in seq
+                )
+
+            # 1) Put dropped candidates back — each after the last kept clip
+            #    from the same source that precedes it, so flow isn't scrambled.
+            used = {c["key"] for c in ordered}
+            leftovers = sorted(
+                (c for c in candidates if c["key"] not in used),
+                key=lambda c: (asset_ids.index(c["media_id"]), float(c["start"])),
+            )
+            for c in leftovers:
+                if _total(ordered) >= target_duration * 0.95:
+                    break
+                if _overlaps(c, ordered):
+                    continue
+                pos = None
+                for i, o in enumerate(ordered):
+                    if o["media_id"] == c["media_id"] and float(o["start"]) < float(c["start"]):
+                        pos = i
+                ordered.insert(pos + 1 if pos is not None else len(ordered), c)
+
+            # 2) Still short (candidate pool too small): grow clips forward
+            #    through complete sentences until the target is reached or the
+            #    footage runs out. Never grow into the next kept clip.
+            for _ in range(6):
+                deficit = target_duration * 0.95 - _total(ordered)
+                if deficit <= 0:
+                    break
+                grew = False
+                for c in ordered:
+                    deficit = target_duration * 0.95 - _total(ordered)
+                    if deficit <= 0:
+                        break
+                    c_end = float(c["end"])
+                    ceiling = durations.get(c["media_id"]) or float("inf")
+                    for o in ordered:
+                        if o is not c and o["media_id"] == c["media_id"] \
+                                and float(o["start"]) >= c_end:
+                            ceiling = min(ceiling, float(o["start"]))
+                    want = min(c_end + min(90.0, deficit), ceiling)
+                    if want <= c_end + 2.0:
+                        continue
+                    new_end = min(_extend_forward(db, c["media_id"], c_end, want), ceiling)
+                    if new_end > c_end + 1.0:
+                        c["end"] = round(new_end, 1)
+                        grew = True
+                if not grew:
+                    break
 
         # ── Working script: verbatim transcript of the cut, in story order ──
         # This is what the story actually says when played top to tail — the
