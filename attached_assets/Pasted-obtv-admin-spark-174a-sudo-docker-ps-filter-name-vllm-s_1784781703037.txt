@@ -1,0 +1,35 @@
+obtv-admin@spark-174a:~$ sudo docker ps --filter name=vllm
+sudo docker logs --tail 30 vllm
+[sudo] password for obtv-admin:
+CONTAINER ID   IMAGE                           COMMAND                  CREATED          STATUS                  PORTS                                         NAMES
+4a8b4936eef8   nvcr.io/nvidia/vllm:26.06-py3   "/opt/nvidia/nvidia_…"   13 minutes ago   Up Less than a second   0.0.0.0:8001->8000/tcp, [::]:8001->8000/tcp   vllm
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/torch/library.py", line 593, in _clear_torch_ops_cache
+(APIServer pid=1)     if not hasattr(namespace, name):
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/torch/_ops.py", line 1383, in __getattr__
+(APIServer pid=1)     op, overload_names = _get_packet(qualified_op_name, module_name)
+(APIServer pid=1)                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/dist-packages/torch/_ops.py", line 1408, in _get_packet
+(APIServer pid=1)     op, overload_names = torch._C._jit_get_operation(qualname)
+(APIServer pid=1)                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1) UnicodeDecodeError: 'utf-8' codec can't decode byte 0x98 in position 180: invalid start byte
+
+==========
+== vLLM ==
+==========
+
+NVIDIA Release 26.06 (build 348723378)
+vLLM Version 0.22.1+7b9cb5b7
+Container image Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+Various files include modifications (c) NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+
+GOVERNING TERMS: The software and materials are governed by the NVIDIA Software License Agreement
+(found at https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/)
+and the Product-Specific Terms for NVIDIA AI Products
+(found at https://www.nvidia.com/en-us/agreements/enterprise-software/product-specific-terms-for-ai-products/).
+
+ERROR: This container was built for NVIDIA Driver Release 610.43 or later, but
+       version 580.126.09 was detected and compatibility mode is UNAVAILABLE.
+
+       [[]]
