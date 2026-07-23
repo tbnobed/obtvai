@@ -347,6 +347,32 @@ export default function ProjectDetail() {
   // Multi-select of search / script-match results, keyed by row key.
   const [selectedResults, setSelectedResults] = useState<Record<string, SearchResult>>({});
 
+  // Track the exact moments the editor clicked Add on (per project, persisted
+  // locally) — "Added" must mean "you added THIS result", not "this result's
+  // source file happens to be in the project", or every row from an added
+  // file lights up and it looks like the app auto-added everything.
+  const momentKey = (r: { media_id: string; start_time: number; end_time: number }) =>
+    `${r.media_id}@${r.start_time.toFixed(1)}-${r.end_time.toFixed(1)}`;
+  const [pickedMoments, setPickedMoments] = useState<Set<string>>(() => {
+    try {
+      return new Set<string>(JSON.parse(localStorage.getItem(`obtv-picks-${id}`) ?? "[]"));
+    } catch {
+      return new Set<string>();
+    }
+  });
+  const recordPicks = (results: SearchResult[]) => {
+    setPickedMoments((prev) => {
+      const next = new Set(prev);
+      results.forEach((r) => next.add(momentKey(r)));
+      try {
+        localStorage.setItem(`obtv-picks-${id}`, JSON.stringify([...next]));
+      } catch {
+        // Persistence is best-effort; the in-memory set still works this session.
+      }
+      return next;
+    });
+  };
+
   const searchScope = searchAllMedia || !mediaPool.length ? {} : { media_ids: mediaPool };
 
   const runSearch = () => {
@@ -375,6 +401,7 @@ export default function ProjectDetail() {
   // moments the story will need; that call belongs to the story builder.
   const addResultsToSources = (results: SearchResult[]) => {
     if (!results.length) return;
+    recordPicks(results);
     const basePool = pendingPoolRef.current ?? mediaPool;
     const newMediaIds = [...new Set(results.map((r) => r.media_id))]
       .filter((x) => !basePool.includes(x));
@@ -678,13 +705,8 @@ export default function ProjectDetail() {
     </Button>
   );
 
-  // A result is "added" when its media is already a project source asset —
-  // check the optimistic pending pool first so the row flips instantly on Add.
-  const isInSources = (mediaId: string) =>
-    (pendingPoolRef.current ?? mediaPool).includes(mediaId);
-
   const resultRow = (r: SearchResult, key: string) => {
-    const added = isInSources(r.media_id);
+    const added = pickedMoments.has(momentKey(r));
     return (
     <div
       key={key}
