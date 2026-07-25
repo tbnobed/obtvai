@@ -38,11 +38,32 @@ def extract_audio(self, media_id: str, job_id: str):
             append_log(db, job_id, "Video-only Curator proxy — using sidecar audio: "
                        + ", ".join(os.path.basename(p) for p in inputs))
 
+        # Mix EVERY audio stream of every input. Camera/dailies files (.mov
+        # especially) carry several mono tracks (boom, lav, spares) — ffmpeg's
+        # default selection takes only ONE, often a silent channel, so Whisper
+        # would transcribe silence.
+        def _count_audio_streams(path: str) -> int:
+            try:
+                import json as _json
+                out = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", "a",
+                     "-show_entries", "stream=index", "-of", "json", path],
+                    capture_output=True, text=True, timeout=30,
+                )
+                return len(_json.loads(out.stdout or "{}").get("streams") or [])
+            except Exception:
+                return 1
+
         cmd = ["ffmpeg", "-y"]
-        for p in inputs:
+        pads = []
+        for i, p in enumerate(inputs):
             cmd += ["-i", p]
-        if len(inputs) > 1:
-            cmd += ["-filter_complex", f"amix=inputs={len(inputs)}:duration=longest:normalize=0"]
+            n = max(1, _count_audio_streams(p))
+            pads += [f"[{i}:a:{j}]" for j in range(n)]
+        if len(pads) > 1:
+            cmd += ["-filter_complex",
+                    f"{''.join(pads)}amix=inputs={len(pads)}:duration=longest:normalize=0"]
+            append_log(db, job_id, f"Mixing {len(pads)} audio streams")
         cmd += [
             "-vn", "-acodec", "pcm_s16le",
             "-ar", "16000", "-ac", "1",

@@ -7,4 +7,6 @@ Faster-whisper without `vad_filter=True` hallucinates short cues ("You", "Thank 
 
 **Why:** Whisper decodes every 30 s window even with no speech; the decoder emits its most probable filler tokens, and `condition_on_previous_text` (default True) seeds repetition loops from one hallucinated window to the next.
 
+Related: camera/dailies .mov files carry multiple mono audio tracks; ffmpeg default stream selection grabs only ONE (often silent) — audio extraction for transcription must amix ALL audio streams of the source, or Whisper sees silence.
+
 **How to apply:** any `model.transcribe(...)` call must pass `vad_filter=True` (plus `vad_parameters={"min_silence_duration_ms": 500}`) and `condition_on_previous_text=False`. Transcription is always local GPU — the remote LLM offload (Spark) never touches Whisper.
