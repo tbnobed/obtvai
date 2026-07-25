@@ -7,6 +7,7 @@ import {
   useGetMediaTranscript, getGetMediaTranscriptQueryKey,
   useListJobs, getListJobsQueryKey,
   useDeleteMedia, getListMediaQueryKey,
+  useRetryJob,
   useCreateHighlight,
   useCreateCreativePass,
   useCreateSocialAnalysis,
@@ -184,6 +185,9 @@ export default function AssetDetail() {
   const [clipListSegment, setClipListSegment] = useState<TranscriptSegment | null>(null);
   const { data: jobs } = useListJobs({ media_id: id! }, { query: { enabled: !!id, queryKey: getListJobsQueryKey({ media_id: id! }), refetchInterval: 3000 } });
   const { data: assetRatings } = useListRatings({ asset_id: id!, limit: 100 }, { query: { enabled: !!id, queryKey: getListRatingsQueryKey({ asset_id: id!, limit: 100 }) } });
+
+  const retryJobMutation = useRetryJob();
+  const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
 
   const highlightMutation = useCreateHighlight();
   const highlightJob = jobs?.find(j => j.job_type === "highlight" && (j.status === "pending" || j.status === "running"));
@@ -972,14 +976,38 @@ export default function AssetDetail() {
               <TabsContent value="jobs" className="mt-4">
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                   {jobs?.map(job => (
-                    <div key={job.id} className="p-3 border border-border rounded flex justify-between items-center">
-                      <div>
+                    <div key={job.id} className="p-3 border border-border rounded flex justify-between items-center gap-2">
+                      <div className="min-w-0">
                         <div className="font-medium">{job.job_type}</div>
                         <div className="text-xs text-muted-foreground">{new Date(job.created_at).toLocaleString()}</div>
+                        {job.status === 'error' && job.error_message && (
+                          <div className="text-xs text-destructive truncate" title={job.error_message}>{job.error_message}</div>
+                        )}
                       </div>
-                      <Badge variant={job.status === 'success' ? 'default' : job.status === 'error' ? 'destructive' : 'secondary'}>
-                        {job.status}
-                      </Badge>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant={job.status === 'success' ? 'default' : job.status === 'error' ? 'destructive' : 'secondary'}>
+                          {job.status}
+                        </Badge>
+                        {(job.status === 'success' || job.status === 'error' || job.status === 'cancelled') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={retryJobMutation.isPending && retryingJobId === job.id}
+                            onClick={() => {
+                              setRetryingJobId(job.id);
+                              retryJobMutation.mutate({ id: job.id }, {
+                                onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id! }) }),
+                                onSettled: () => setRetryingJobId(null),
+                              });
+                            }}
+                          >
+                            {retryJobMutation.isPending && retryingJobId === job.id
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <RefreshCw className="w-3.5 h-3.5" />}
+                            <span className="ml-1">Rerun</span>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
