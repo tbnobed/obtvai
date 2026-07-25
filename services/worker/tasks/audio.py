@@ -73,6 +73,77 @@ def extract_audio(self, media_id: str, job_id: str):
         if result.returncode != 0:
             raise RuntimeError(f"ffmpeg audio extract failed: {result.stderr[-500:]}")
 
+        # Guard against phase cancellation: some cameras record the same mic
+        # on L and R with inverted polarity, so the forced mono downmix
+        # (-ac 1) sums to near-silence even though each channel is loud.
+        # If the mixed WAV is effectively silent, re-extract single channels
+        # and keep the loudest result.
+        def _max_volume(path: str, map_spec: str | None = None,
+                        extra_af: str | None = None) -> float | None:
+            """max_volume in dB, or None if the probe itself failed."""
+            af = "volumedetect" if not extra_af else f"{extra_af},volumedetect"
+            probe = ["ffmpeg", "-i", path]
+            if map_spec:
+                probe += ["-map", map_spec]
+            probe += ["-af", af, "-f", "null", "-"]
+            out = subprocess.run(probe, capture_output=True, text=True, timeout=1800)
+            if out.returncode != 0:
+                return None
+            for line in out.stderr.splitlines():
+                if "max_volume:" in line:
+                    try:
+                        return float(line.split("max_volume:")[1].split("dB")[0])
+                    except ValueError:
+                        pass
+            return None
+
+        def _channels(path: str, stream_idx: int) -> int:
+            try:
+                import json as _json
+                out = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", f"a:{stream_idx}",
+                     "-show_entries", "stream=channels", "-of", "json", path],
+                    capture_output=True, text=True, timeout=30,
+                )
+                streams = _json.loads(out.stdout or "{}").get("streams") or []
+                return int(streams[0].get("channels", 1)) if streams else 1
+            except Exception:
+                return 1
+
+        mix_vol = _max_volume(audio_path)
+        if mix_vol is not None and mix_vol < -45.0:
+            append_log(db, job_id, "Mono downmix is near-silent — probing every "
+                       "source channel for phase cancellation")
+            # Scan every channel of every mapped audio stream of every input —
+            # the same source set the mix used (incl. Curator sidecars).
+            best = None  # (vol, input_idx, stream_idx, channel_idx)
+            stream_counts = [max(1, _count_audio_streams(p)) for p in inputs]
+            for ii, p in enumerate(inputs):
+                for si in range(stream_counts[ii]):
+                    for ch in range(_channels(p, si)):
+                        vol = _max_volume(p, map_spec=f"0:a:{si}",
+                                          extra_af=f"pan=mono|c0=c{ch}")
+                        if vol is not None and (best is None or vol > best[0]):
+                            best = (vol, ii, si, ch)
+            if best and best[0] > -45.0:
+                vol, ii, si, ch = best
+                append_log(db, job_id, f"Phase cancellation detected — using input "
+                           f"{ii} stream {si} channel {ch} only (max {vol:.1f} dB)")
+                single = subprocess.run(
+                    ["ffmpeg", "-y", "-i", inputs[ii],
+                     "-map", f"0:a:{si}", "-vn",
+                     "-af", f"pan=mono|c0=c{ch}",
+                     "-acodec", "pcm_s16le", "-ar", "16000",
+                     audio_path],
+                    capture_output=True, text=True, timeout=1800,
+                )
+                if single.returncode != 0:
+                    raise RuntimeError(
+                        f"single-channel re-extract failed: {single.stderr[-500:]}")
+            else:
+                append_log(db, job_id, "All source channels are near-silent — "
+                           "keeping downmix (clip has no usable audio)")
+
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         append_log(db, job_id, "Audio extracted successfully")
 
