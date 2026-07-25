@@ -1,0 +1,28 @@
+docker compose exec postgres psql -U obtv -d obtv -c "
+SELECT ma.filename, pj.job_type, pj.status, pj.progress, pj.error_message,
+       pj.logs->>-1 AS last_log, pj.created_at
+FROM processing_jobs pj JOIN media_assets ma ON ma.id = pj.media_id
+WHERE ma.filename ILIKE 'A080%' AND pj.job_type IN ('transcribe','audio_extract')
+ORDER BY pj.created_at DESC LIMIT 15;"
+            filename            |   job_type    | status  | progress | error_message |               last_log               |         created_at
+--------------------------------+---------------+---------+----------+---------------+--------------------------------------+----------------------------
+ A080_10231240_C009_DAILIES.mov | transcribe    | success |      100 |               | Transcription complete: 0 segments   | 2026-07-25 18:55:28.117353
+ A080_10211646_C001_DAILIES.mov | transcribe    | success |      100 |               | Transcription complete: 965 segments | 2026-07-25 02:10:36.336453
+ A080_10221747_C007_DAILIES.mov | transcribe    | success |      100 |               | Transcription complete: 0 segments   | 2026-07-25 02:05:55.576273
+ A080_10221710_C006_DAILIES.mov | transcribe    | success |      100 |               | Transcription complete: 63 segments  | 2026-07-25 02:03:06.52757
+ A080_10221637_C005_DAILIES.mov | transcribe    | success |      100 |               | Transcription complete: 48 segments  | 2026-07-25 02:02:18.54404
+ A080_10211646_C001_DAILIES.mov | audio_extract | success |      100 |               | Audio extracted successfully         | 2026-07-25 01:58:56.685485
+ A080_10221337_C004_DAILIES.mov | transcribe    | success |      100 |               | Transcription complete: 15 segments  | 2026-07-25 01:58:56.571137
+ A080_10231240_C009_DAILIES.mov | audio_extract | success |      100 |               | Audio extracted successfully         | 2026-07-25 01:58:55.495714
+ A080_10221747_C007_DAILIES.mov | audio_extract | success |      100 |               | Audio extracted successfully         | 2026-07-25 01:58:27.602927
+ A080_10221710_C006_DAILIES.mov | audio_extract | success |      100 |               | Audio extracted successfully         | 2026-07-25 01:56:57.818349
+ A080_10211836_C003_DAILIES.mov | transcribe    | success |      100 |               | Transcription complete: 374 segments | 2026-07-25 01:56:57.643498
+ A080_10221637_C005_DAILIES.mov | audio_extract | success |      100 |               | Audio extracted successfully         | 2026-07-25 01:56:56.000813
+ A080_10221337_C004_DAILIES.mov | audio_extract | success |      100 |               | Audio extracted successfully         | 2026-07-25 01:56:22.438419
+ A080_10211836_C003_DAILIES.mov | audio_extract | success |      100 |               | Audio extracted successfully         | 2026-07-25 01:55:36.91591
+ A080_10211756_C002_DAILIES.mov | transcribe    | success |      100 |               | Transcription complete: 524 segments | 2026-07-25 01:55:36.608381
+(15 rows)
+
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose exec worker-cpu sh -c 'ffmpeg -i /artifacts/audio/<paste-media-id>.wav -af volumedetect -f null - 2>&1 | grep mean_volume'
+sh: 1: cannot open paste-media-id: No such file
+obtv-admin@obtv-llm-2:~/obtv-ai$
