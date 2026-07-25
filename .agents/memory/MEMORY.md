@@ -28,4 +28,5 @@
 - [Phantom running jobs](phantom-running-jobs.md) — worker rebuilds kill in-flight tasks leaving jobs stuck "running"; reaper needs inspect-miss x2 + stale heartbeat, never single-signal.
 - [Remote LLM offload](remote-llm-offload.md) — gate every local load site (incl. startup warm-up threads), loaders return (None,None); no silent local fallback.
 - [DGX Spark vLLM serving](dgx-spark-vllm.md) — no :latest tag, match container tag to driver branch (R580→25.12), unified memory needs gpu-memory-utilization ~0.65.
+- [Whisper silence hallucination](whisper-hallucination.md) — 30s-boundary "You"/"Thank you." cues on silent audio; always transcribe with vad_filter=True + condition_on_previous_text=False.
 - [Postgres startup DDL locks](postgres-startup-ddl.md) — ADD COLUMN IF NOT EXISTS locks before checking; gate boot migrations on information_schema or busy workers make the API unhealthy.

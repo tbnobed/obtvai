@@ -54,7 +54,19 @@ def transcribe_audio(self, media_id: str, job_id: str):
             )
             append_log(db, job_id, f"Transcribing with {device}...")
 
-            segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=True)
+            # vad_filter: skip non-speech audio — without it Whisper hallucinates
+            # cues ("You" / "Thank you.") at every 30 s window boundary on
+            # silent/ambient-only material (e.g. dailies).
+            # condition_on_previous_text=False: prevents a hallucination from one
+            # window seeding repetition loops in the following windows.
+            segments, info = model.transcribe(
+                audio_path,
+                beam_size=5,
+                word_timestamps=True,
+                vad_filter=True,
+                vad_parameters={"min_silence_duration_ms": 500},
+                condition_on_previous_text=False,
+            )
             total_duration = float(getattr(info, "duration", 0) or 0)
 
             db.execute(text("DELETE FROM transcript_segments WHERE media_id = :mid"), {"mid": media_id})
