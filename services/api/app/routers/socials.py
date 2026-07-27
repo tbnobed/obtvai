@@ -615,11 +615,89 @@ def _analysis_out(a) -> SocialChannelAnalysisOut:
         mcn_share_percent=a.mcn_share_percent or 0,
         risk_level=a.risk_level or "unknown",
         top_videos=a.top_videos or [],
+        ai_sections=a.ai_sections or [],
         avg_views=a.avg_views,
         avg_likes=a.avg_likes,
         avg_comments=a.avg_comments,
         engagement_rate=a.engagement_rate,
     )
+
+
+import re as _re
+
+_HEADING_BODY_SPLIT = _re.compile(
+    r"\s(?=(?:The|This|That|These|A|An|In|It|If|With|While|Based|Focus|Given|Regularly|Overall|Despite|Although|To|By|For)\b)")
+
+
+def _clean_md(s: str) -> str:
+    """Strip markdown emphasis/heading tokens so text renders as plain prose."""
+    s = _re.sub(r"\*\*(.*?)\*\*", r"\1", s)
+    s = _re.sub(r"__(.*?)__", r"\1", s)
+    s = _re.sub(r"`([^`]*)`", r"\1", s)
+    s = _re.sub(r"^#{1,6}\s*", "", s)
+    s = _re.sub(r"\s+", " ", s)
+    return s.strip(" \t-–—:*•")
+
+
+def _parse_ai_sections(text: str) -> list[dict]:
+    """Break an LLM markdown narrative (### headings, **bold**, numbered/dash
+    lists — sometimes flattened onto a single line) into structured sections:
+    [{title, body, bullets[]}]."""
+    if not text or ("#" not in text and "**" not in text and "\n- " not in text):
+        return []
+
+    # If newlines were lost, re-introduce them before headings and list markers.
+    if len(text.splitlines()) <= 2:
+        text = _re.sub(r"\s*(#{2,6}\s)", r"\n\1", text)
+        text = _re.sub(r"\s+(-\s+\*\*)", r"\n\1", text)
+        text = _re.sub(r"\s+(\d{1,2}\.\s+\*\*)", r"\n\1", text)
+
+    sections: list[dict] = []
+    cur: dict = {"title": None, "body": [], "bullets": []}
+
+    def push():
+        nonlocal cur
+        if cur["title"] or cur["body"] or cur["bullets"]:
+            sections.append({
+                "title": cur["title"],
+                "body": " ".join(cur["body"]) or None,
+                "bullets": cur["bullets"][:12],
+            })
+        cur = {"title": None, "body": [], "bullets": []}
+
+    for ln in text.splitlines():
+        t = ln.strip()
+        if not t:
+            continue
+        m = _re.match(r"#{2,6}\s*(.+)", t)
+        if m:
+            push()
+            heading = _clean_md(m.group(1))
+            # Flattened input can glue the first body sentence onto the heading.
+            if len(heading) > 30:
+                parts = _HEADING_BODY_SPLIT.split(heading, maxsplit=1)
+                if len(parts) == 2 and len(parts[0]) <= 60:
+                    heading, rest = parts[0], parts[1]
+                    cur["body"].append(rest.strip())
+                elif len(heading) > 100:
+                    # No clean sentence boundary — keep a readable prefix.
+                    words = heading.split()
+                    heading, rest = " ".join(words[:8]), " ".join(words[8:])
+                    if rest:
+                        cur["body"].append(rest)
+            cur["title"] = heading.rstrip(".")
+            continue
+        m = _re.match(r"(?:[-*•]|\d{1,2}[.)])\s+(.+)", t)
+        if m:
+            b = _clean_md(m.group(1))
+            if b:
+                cur["bullets"].append(b)
+            continue
+        p = _clean_md(t)
+        if p:
+            cur["body"].append(p)
+    push()
+    return sections[:12]
 
 
 def _parse_top_videos(data: dict) -> list[dict]:
@@ -699,14 +777,30 @@ def _parse_n8n_analysis(data: dict) -> dict:
     ai = data.get("aiInsights")
     summary: str | None = None
     recs: list[str] = []
+    sections: list[dict] = []
     if isinstance(ai, str):
-        summary = ai.strip() or None
+        sections = _parse_ai_sections(ai)
+        if sections:
+            # Prefer the "Overview"/"Summary" section body; fall back to the
+            # first section with a substantive body.
+            summary = next(
+                (s["body"] for s in sections
+                 if s.get("body") and s.get("title")
+                 and _re.search(r"overview|summary", s["title"], _re.I)),
+                None,
+            ) or next((s["body"] for s in sections
+                       if s.get("body") and len(s["body"]) > 40), None)
+        else:
+            summary = _clean_md(ai) or None
     elif isinstance(ai, dict):
         s = ai.get("summary")
-        summary = str(s).strip() if s else None
+        if s:
+            sections = _parse_ai_sections(str(s))
+            summary = (next((x["body"] for x in sections if x.get("body")), None)
+                       if sections else _clean_md(str(s)) or None)
         raw_recs = ai.get("recommendations")
         if isinstance(raw_recs, list):
-            recs = [str(r).strip() for r in raw_recs if str(r).strip()]
+            recs = [_clean_md(str(r)) for r in raw_recs if _clean_md(str(r))]
 
     level = risk.get("level")
     return {
@@ -715,6 +809,7 @@ def _parse_n8n_analysis(data: dict) -> dict:
         "subs12": _int(proj.get("subs12")),
         "ai_summary": summary,
         "ai_recommendations": recs,
+        "ai_sections": sections,
         "est_monthly_revenue": _float(prof.get("estMonthlyRevenue")),
         "margin_percent": _float(prof.get("marginPercent")),
         "mcn_share_percent": _int(prof.get("mcnSharePercent")) or 0,

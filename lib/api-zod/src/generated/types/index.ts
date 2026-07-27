@@ -161,6 +161,7 @@ export * from './searchResponse';
 export * from './searchResult';
 export * from './sessionUser';
 export * from './sessionUserRole';
+export * from './socialAiSection';
 export * from './socialChannel';
 export * from './socialChannelAnalysis';
 export * from './socialChannelAnalysisStatus';

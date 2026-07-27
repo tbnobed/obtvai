@@ -1238,6 +1238,12 @@ export interface SocialTopVideo {
   published_at?: string | null;
 }
 
+export interface SocialAiSection {
+  title?: string | null;
+  body?: string | null;
+  bullets: string[];
+}
+
 export interface SocialChannelAnalysis {
   channel_id: string;
   /** "running" while n8n is analyzing (poll); "ready" when fields below are populated */
@@ -1259,6 +1265,8 @@ export interface SocialChannelAnalysis {
   risk_level: string;
   /** Top-5 videos by view count (YouTube Data API v3; n8n fallback) */
   top_videos: SocialTopVideo[];
+  /** Structured sections parsed from n8n's markdown narrative (render these instead of ai_summary/ai_recommendations when non-empty) */
+  ai_sections: SocialAiSection[];
   /** Average views over the 10 most recent uploads */
   avg_views?: number | null;
   avg_likes?: number | null;

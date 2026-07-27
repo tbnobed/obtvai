@@ -4921,7 +4921,7 @@ components:
 
     SocialChannelAnalysis:
       type: object
-      required: [channel_id, status, analyzed_at, ai_recommendations, est_monthly_revenue, margin_percent, mcn_share_percent, risk_level, top_videos]
+      required: [channel_id, status, analyzed_at, ai_recommendations, est_monthly_revenue, margin_percent, mcn_share_percent, risk_level, top_videos, ai_sections]
       properties:
         channel_id:
           type: string
@@ -4967,6 +4967,11 @@ components:
           description: Top-5 videos by view count (YouTube Data API v3; n8n fallback)
           items:
             $ref: "#/components/schemas/SocialTopVideo"
+        ai_sections:
+          type: array
+          description: Structured sections parsed from n8n's markdown narrative (render these instead of ai_summary/ai_recommendations when non-empty)
+          items:
+            $ref: "#/components/schemas/SocialAiSection"
         avg_views:
           type: number
           nullable: true
@@ -4981,6 +4986,20 @@ components:
           type: number
           nullable: true
           description: (likes+comments)/views over the 10 most recent uploads, as a percentage
+    SocialAiSection:
+      type: object
+      required: [bullets]
+      properties:
+        title:
+          type: string
+          nullable: true
+        body:
+          type: string
+          nullable: true
+        bullets:
+          type: array
+          items:
+            type: string
     SocialTopVideo:
       type: object
       required: [title]

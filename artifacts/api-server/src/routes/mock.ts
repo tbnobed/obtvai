@@ -3542,7 +3542,7 @@ router.post("/socials/channels/:id/analyze", (req, res) => {
     channel_id: c.id, status: "running", error: null, analyzed_at: new Date().toISOString(),
     subs3: null, subs6: null, subs12: null, ai_summary: null, ai_recommendations: [],
     est_monthly_revenue: 0, margin_percent: 0, mcn_share_percent: 0, risk_level: "unknown",
-    top_videos: [], avg_views: null, avg_likes: null, avg_comments: null, engagement_rate: null,
+    top_videos: [], ai_sections: [], avg_views: null, avg_likes: null, avg_comments: null, engagement_rate: null,
   };
   res.json(channelAnalyses[c.id]);
 });
@@ -3570,6 +3570,18 @@ router.get("/socials/channels/:id/analysis", (req, res) => {
       margin_percent: 62.5,
       mcn_share_percent: 30,
       risk_level: "low",
+      ai_sections: [
+        { title: "Overview", body: `${c?.handle ?? "This channel"} has a solid subscriber base and steady growth driven by clip-length interview content.`, bullets: [] },
+        { title: "Key Insights", body: null, bullets: [
+          "Content Performance Variability: Recent videos show a wide range of views, from 5.6K to over 300K.",
+          "Engagement Metrics: Average likes and comments per video are relatively low compared to views.",
+        ] },
+        { title: "Risks", body: null, bullets: [
+          "Content Saturation: A large back catalog risks viewers feeling overwhelmed.",
+          "Monetization Challenges: Current profitability poses a risk for long-term sustainability.",
+        ] },
+        { title: "Conclusion", body: "The channel has significant potential for growth with stronger hooks and consistent packaging.", bullets: [] },
+      ],
       avg_views: 14830.4,
       avg_likes: 902.1,
       avg_comments: 118.6,

@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SocialAiSection } from './socialAiSection';
 import type { SocialChannelAnalysisStatus } from './socialChannelAnalysisStatus';
 import type { SocialTopVideo } from './socialTopVideo';
 
@@ -29,6 +30,8 @@ export interface SocialChannelAnalysis {
   risk_level: string;
   /** Top-5 videos by view count (YouTube Data API v3; n8n fallback) */
   top_videos: SocialTopVideo[];
+  /** Structured sections parsed from n8n's markdown narrative (render these instead of ai_summary/ai_recommendations when non-empty) */
+  ai_sections: SocialAiSection[];
   /** Average views over the 10 most recent uploads */
   avg_views?: number | null;
   avg_likes?: number | null;

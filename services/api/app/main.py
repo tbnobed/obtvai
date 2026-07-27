@@ -33,6 +33,7 @@ _COLUMN_MIGRATIONS = [
     ("face_clusters", "embedding", "JSONB"),
     ("reel_jobs", "media_id", "TEXT"),
     ("social_channel_analyses", "top_videos", "JSONB"),
+    ("social_channel_analyses", "ai_sections", "JSONB"),
     ("social_channel_analyses", "avg_views", "DOUBLE PRECISION"),
     ("social_channel_analyses", "avg_likes", "DOUBLE PRECISION"),
     ("social_channel_analyses", "avg_comments", "DOUBLE PRECISION"),

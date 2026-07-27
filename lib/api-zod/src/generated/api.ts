@@ -2590,6 +2590,11 @@ export const AnalyzeSocialChannelResponse = zod.object({
   "comments": zod.number().nullish(),
   "published_at": zod.string().nullish()
 })).describe('Top-5 videos by view count (YouTube Data API v3; n8n fallback)'),
+  "ai_sections": zod.array(zod.object({
+  "title": zod.string().nullish(),
+  "body": zod.string().nullish(),
+  "bullets": zod.array(zod.string())
+})).describe('Structured sections parsed from n8n\'s markdown narrative (render these instead of ai_summary\/ai_recommendations when non-empty)'),
   "avg_views": zod.number().nullish().describe('Average views over the 10 most recent uploads'),
   "avg_likes": zod.number().nullish(),
   "avg_comments": zod.number().nullish(),
@@ -2627,6 +2632,11 @@ export const GetSocialChannelAnalysisResponse = zod.object({
   "comments": zod.number().nullish(),
   "published_at": zod.string().nullish()
 })).describe('Top-5 videos by view count (YouTube Data API v3; n8n fallback)'),
+  "ai_sections": zod.array(zod.object({
+  "title": zod.string().nullish(),
+  "body": zod.string().nullish(),
+  "bullets": zod.array(zod.string())
+})).describe('Structured sections parsed from n8n\'s markdown narrative (render these instead of ai_summary\/ai_recommendations when non-empty)'),
   "avg_views": zod.number().nullish().describe('Average views over the 10 most recent uploads'),
   "avg_likes": zod.number().nullish(),
   "avg_comments": zod.number().nullish(),

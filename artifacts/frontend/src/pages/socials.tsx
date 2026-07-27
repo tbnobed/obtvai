@@ -198,21 +198,57 @@ function ChannelAnalysis({ channel }: { channel: SocialChannelOverview }) {
             ))}
           </div>
 
-          {/* AI insights */}
-          {(ready.ai_summary || ready.ai_recommendations.length > 0) && (
-            <div className="space-y-2">
-              {ready.ai_summary && <p className="text-sm text-foreground/90">{ready.ai_summary}</p>}
-              {ready.ai_recommendations.length > 0 && (
-                <ul className="space-y-1.5 text-sm text-foreground/90">
-                  {ready.ai_recommendations.map((r, i) => (
-                    <li key={i} className="flex gap-2">
-                      <Lightbulb className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-300" />
-                      <span>{r}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          {/* AI insights — structured sections when available, flat summary otherwise */}
+          {ready.ai_sections.length > 0 ? (
+            <div className="space-y-3">
+              {ready.ai_sections.map((s, i) => (
+                <div key={i} className="space-y-1.5" data-testid={`section-analysis-${channel.id}-${i}`}>
+                  {s.title && (
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{s.title}</div>
+                  )}
+                  {s.body && <p className="text-sm text-foreground/90">{s.body}</p>}
+                  {s.bullets.length > 0 && (
+                    <ul className="space-y-1 text-sm text-foreground/90">
+                      {s.bullets.map((b, j) => {
+                        const ci = b.indexOf(": ");
+                        const label = ci > 0 && ci < 60 ? b.slice(0, ci) : null;
+                        return (
+                          <li key={j} className="flex gap-2">
+                            <span className="text-primary mt-0.5 shrink-0">•</span>
+                            <span>
+                              {label ? (
+                                <>
+                                  <span className="font-medium">{label}:</span>
+                                  {b.slice(ci + 1)}
+                                </>
+                              ) : (
+                                b
+                              )}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ))}
             </div>
+          ) : (
+            (ready.ai_summary || ready.ai_recommendations.length > 0) && (
+              <div className="space-y-2">
+                {ready.ai_summary && <p className="text-sm text-foreground/90">{ready.ai_summary}</p>}
+                {ready.ai_recommendations.length > 0 && (
+                  <ul className="space-y-1.5 text-sm text-foreground/90">
+                    {ready.ai_recommendations.map((r, i) => (
+                      <li key={i} className="flex gap-2">
+                        <Lightbulb className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-300" />
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )
           )}
 
           {/* Recent performance — averages over the last 10 uploads (YouTube API) */}

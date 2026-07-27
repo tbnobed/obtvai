@@ -921,6 +921,12 @@ class SocialsOverviewOut(BaseModel):
     tiktok_configured: bool
 
 
+class SocialAiSectionOut(BaseModel):
+    title: Optional[str] = None
+    body: Optional[str] = None
+    bullets: List[str] = []
+
+
 class SocialTopVideoOut(BaseModel):
     title: str
     url: Optional[str] = None
@@ -946,6 +952,7 @@ class SocialChannelAnalysisOut(BaseModel):
     mcn_share_percent: int = 0
     risk_level: str = "unknown"
     top_videos: List[SocialTopVideoOut] = []
+    ai_sections: List[SocialAiSectionOut] = []
     avg_views: Optional[float] = None
     avg_likes: Optional[float] = None
     avg_comments: Optional[float] = None
