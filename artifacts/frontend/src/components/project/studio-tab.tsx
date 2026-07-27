@@ -32,8 +32,8 @@ function cutDuration(clips: CutClip[]) {
 }
 
 function fmtRuntime(s: number) {
-  const m = Math.floor(s / 60);
-  return `${m}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+  const t = Math.round(s);
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 }
 
 export function StudioTab({ project, onOpenPool, focusVersion }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null }) {

@@ -167,6 +167,53 @@ def _sanitize_clips(clips: list) -> list[dict]:
     return out
 
 
+_RUNTIME_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(?:-|to)?\s*(minutes?|mins?|m\b|seconds?|secs?|s\b)",
+    re.IGNORECASE,
+)
+
+
+def _requested_runtime(text: str) -> float | None:
+    """Cheap regex fallback: pull an explicit runtime out of the user message."""
+    m = _RUNTIME_RE.search(text or "")
+    if not m:
+        return None
+    val = float(m.group(1))
+    unit = m.group(2).lower()
+    secs = val * 60.0 if unit.startswith("m") else val
+    return secs if 10.0 <= secs <= 7200.0 else None
+
+
+def _trim_to_target(clips: list[dict], target: float) -> None:
+    """The inverse of _fill_to_target: when the cut runs long, drop unlocked
+    clips from the end (never below the target), then shorten the last
+    unlocked clip to land close to the target."""
+    def total() -> float:
+        return sum(_clip_duration(c) for c in clips)
+
+    tol = max(5.0, target * 0.05)
+    # Drop whole unlocked clips from the end while doing so keeps us >= target.
+    while total() > target + tol:
+        idx = next((i for i in range(len(clips) - 1, -1, -1) if not clips[i].get("locked")), None)
+        if idx is None:
+            return
+        if total() - _clip_duration(clips[idx]) < target - tol:
+            break
+        clips.pop(idx)
+    # Shorten the last unlocked clip to close the remaining overshoot.
+    over = total() - target
+    if over > tol:
+        for i in range(len(clips) - 1, -1, -1):
+            c = clips[i]
+            if c.get("locked"):
+                continue
+            dur = _clip_duration(c)
+            cut = min(over, dur - 4.0)
+            if cut > 0:
+                c["end_time"] -= cut
+            break
+
+
 # ---------------------------------------------------------------- agent loop
 
 _PLAN_SYSTEM = (
@@ -177,6 +224,8 @@ _PLAN_SYSTEM = (
     '{"mode": "edit" or "answer", "reply": "short answer if mode=answer else empty", '
     '"searches": ["up to 3 transcript search queries to find new material"], '
     '"remove": [clip numbers to drop from the current cut], '
+    '"target_seconds": runtime in seconds if the user asked for a specific '
+    'length (e.g. \'3 minutes\' -> 180), else null, '
     '"notes": "one sentence of editing intent"}\n'
     "Use mode=answer only when the user asks a question that requires no change "
     "to the cut. When the user wants to build or change the cut, use mode=edit. "
@@ -301,6 +350,22 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         plan = _extract_json(plan_raw) or {}
         mode = plan.get("mode") or "edit"
 
+        # Honor a runtime asked for in chat ("make it 3 minutes") over the
+        # project default, and persist it so later turns keep the new length.
+        req_target = None
+        try:
+            v = plan.get("target_seconds")
+            if isinstance(v, (int, float)) and 10.0 <= float(v) <= 7200.0:
+                req_target = float(v)
+        except (TypeError, ValueError):
+            req_target = None
+        if req_target is None:
+            req_target = _requested_runtime(user_text)
+        if req_target is not None:
+            target = req_target
+            project.target_runtime_seconds = int(req_target)
+            db.add(project)
+
         if mode == "answer":
             reply = (plan.get("reply") or "").strip() or plan_raw.strip()[:1500]
             await _finish(db, assistant_id, reply, None)
@@ -362,6 +427,7 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         # Meet the runtime target the same way reels do, then re-clamp —
         # widening must not push clips past their Media Pool trim ranges.
         _fill_to_target(new_cut, target)
+        _trim_to_target(new_cut, target)
         if ranges:
             new_cut = [c for c in new_cut if _clamp_to_range(c, ranges)]
 
