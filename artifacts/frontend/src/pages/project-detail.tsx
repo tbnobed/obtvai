@@ -398,11 +398,16 @@ export default function ProjectDetail() {
 
   const searchScope = searchAllMedia || !mediaPool.length ? {} : { media_ids: mediaPool };
 
-  const runSearch = () => {
+  const runSearch = (wholeLibrary = false) => {
     if (query.trim().length < 2) return;
     setSelectedResults({});
+    if (wholeLibrary) setSearchAllMedia(true);
     searchMutation.mutate({
-      data: { query: query.trim(), search_type: searchType, ...searchScope },
+      data: {
+        query: query.trim(),
+        search_type: searchType,
+        ...(wholeLibrary ? {} : searchScope),
+      },
     });
   };
 
@@ -837,7 +842,7 @@ export default function ProjectDetail() {
                     <SelectItem value="visual">Visuals</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button onClick={runSearch} disabled={query.trim().length < 2 || searchMutation.isPending}>
+                <Button onClick={() => runSearch()} disabled={query.trim().length < 2 || searchMutation.isPending}>
                   {searchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 </Button>
               </div>
@@ -852,7 +857,19 @@ export default function ProjectDetail() {
                   {searchMutation.data.results.length ? (
                     searchMutation.data.results.map((r, i) => resultRow(r, `s-${i}`))
                   ) : (
-                    <p className="text-sm text-muted-foreground">No matches for “{searchMutation.data.query}”.</p>
+                    <div className="text-sm text-muted-foreground space-y-2">
+                      <p>
+                        No matches for “{searchMutation.data.query}”
+                        {!searchAllMedia && mediaPool.length
+                          ? ` in this project's ${mediaPool.length} pool asset${mediaPool.length === 1 ? "" : "s"}.`
+                          : " in the whole library."}
+                      </p>
+                      {!searchAllMedia && mediaPool.length ? (
+                        <Button size="sm" variant="outline" onClick={() => runSearch(true)} data-testid="button-search-whole-library">
+                          <Search className="h-3.5 w-3.5 mr-2" /> Search whole library instead
+                        </Button>
+                      ) : null}
+                    </div>
                   )}
                 </div>
               )}
