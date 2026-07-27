@@ -40,27 +40,39 @@ export function CutPreviewPlayer({
     if (open) {
       setIndex(0);
       pendingOffset.current = 0;
+      seekedFor.current = -1;
       setClipElapsed(0);
       setPlaying(true);
     }
   }, [open]);
+
+  // Tracks which clip index we've already seeked for — the effect re-runs on
+  // play/pause/scrub changes too, and must not re-seek (it would snap the
+  // playhead back and skip parts of the clip).
+  const seekedFor = useRef(-1);
 
   // Seek to in-point (+ pending scrub offset) when the clip changes, track
   // time, stop at the out-point and auto-advance.
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !clip || !open) return;
-    const target = clip.start_time + pendingOffset.current;
     const onLoaded = () => {
-      if (Math.abs(v.currentTime - target) > 0.3) v.currentTime = target;
+      if (seekedFor.current !== index) {
+        const target = clip.start_time + pendingOffset.current;
+        pendingOffset.current = 0;
+        seekedFor.current = index;
+        if (Math.abs(v.currentTime - target) > 0.3) v.currentTime = target;
+      }
       if (playing && !scrubbing) v.play().catch(() => {});
     };
     const onTime = () => {
       setClipElapsed(Math.max(0, v.currentTime - clip.start_time));
       if (scrubbing) return;
+      if (seekedFor.current !== index) return; // seek for this clip hasn't landed yet
       if (v.currentTime >= clip.end_time - 0.05) {
         if (index < clips.length - 1) {
           pendingOffset.current = 0;
+          seekedFor.current = -1;
           setIndex((i) => i + 1);
         } else {
           v.pause();
@@ -91,6 +103,7 @@ export function CutPreviewPlayer({
       setClipElapsed(offset);
     } else {
       pendingOffset.current = offset;
+      seekedFor.current = -1;
       setClipElapsed(offset);
       setIndex(i);
     }
@@ -105,7 +118,9 @@ export function CutPreviewPlayer({
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    // Capture on the container — capturing the child under the pointer loses
+    // the pointerup if that child re-renders mid-drag, leaving scrubbing stuck.
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     setScrubbing(true);
     videoRef.current?.pause();
     seekGlobal(timeFromPointer(e));
@@ -125,6 +140,7 @@ export function CutPreviewPlayer({
 
   const goToClip = (i: number) => {
     pendingOffset.current = 0;
+    seekedFor.current = -1;
     setClipElapsed(0);
     setIndex(Math.max(0, Math.min(clips.length - 1, i)));
     setPlaying(true);
