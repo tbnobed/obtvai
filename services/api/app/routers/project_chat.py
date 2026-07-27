@@ -228,7 +228,12 @@ _PLAN_SYSTEM = (
     '"notes": "one sentence of editing intent"}\n'
     "Modes:\n"
     "- answer: the user asked a question or is chatting — no change to the cut. "
-    "Answer warmly and concretely, referencing the current cut when relevant.\n"
+    "Answer warmly and concretely, referencing the current cut when relevant. "
+    "NEVER promise future work in answer mode ('I will remove...', 'let me "
+    "double-check...') — you cannot act later. If the message implies the cut "
+    "should change (complaints about clips included), pick edit or adjust and "
+    "do it NOW: challenged clips you agree are off-topic go in remove, and "
+    "searches should re-find on-topic material to replace them.\n"
     "- adjust: the user wants to reshape what is already there — change the "
     "runtime (longer/shorter/specific length), drop or tighten clips — with NO "
     "new material needed. Leave searches empty.\n"
