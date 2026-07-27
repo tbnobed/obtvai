@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Film, Scissors, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Film, Scissors, RotateCcw, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { MediaPickerGrid } from "@/components/project/media-picker";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 import { TrimPlayer } from "@/components/project/trim-player";
@@ -27,6 +27,7 @@ export function MediaPoolTab({ project }: { project: Project }) {
   const ranges: Record<string, Range> = (project.media_ranges ?? {}) as Record<string, Range>;
 
   const [playerClip, setPlayerClip] = useState<PlayerClip | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [openTrim, setOpenTrim] = useState<string | null>(null);
   // Draft in/out while the trim player is open for an asset.
   const [draft, setDraft] = useState<Range | null>(null);
@@ -91,27 +92,36 @@ export function MediaPoolTab({ project }: { project: Project }) {
           </CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">
-              {pool.length ? `${pool.length} selected` : "Whole library"}
+              {pool.length ? `${pool.length} asset${pool.length === 1 ? "" : "s"}` : "Whole library"}
             </Badge>
-            {pool.length > 0 && (
-              <Button size="sm" variant="ghost" onClick={() => patchProject({ media_ids: [], media_ranges: null })} disabled={updateMutation.isPending}>
-                Use whole library
-              </Button>
-            )}
+            <Button size="sm" variant="outline" onClick={() => setPickerOpen((o) => !o)} data-testid="button-toggle-picker">
+              {pickerOpen ? <ChevronUp className="h-3.5 w-3.5 mr-1.5" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+              {pickerOpen ? "Done adding" : "Add media"}
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
           <p className="text-xs text-muted-foreground mb-3">
             Everything in this project works from these assets — Studio, search, and script matching stay within this pool.
+            {pool.length === 0 && " No assets picked yet, so the whole library is in play — add footage here or from the Find tab."}
           </p>
-          <MediaPickerGrid
-            selected={pool}
-            onToggle={togglePool}
-            onToggleMany={togglePoolMany}
-            togglesDisabled={updateMutation.isPending}
-            onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
-            emptyText="The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
-          />
+          {pickerOpen && (
+            <div className="mb-3 rounded border border-border p-3">
+              <MediaPickerGrid
+                selected={pool}
+                onToggle={togglePool}
+                onToggleMany={togglePoolMany}
+                togglesDisabled={updateMutation.isPending}
+                onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
+                emptyText="The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
+              />
+            </div>
+          )}
+          {pool.length === 0 && !pickerOpen && (
+            <div className="text-center text-muted-foreground text-sm py-8 border border-dashed border-border rounded-lg">
+              The pool is empty — add footage with “Add media” or from the Find tab.
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -159,6 +169,15 @@ export function MediaPoolTab({ project }: { project: Project }) {
                     >
                       {isOpen ? <ChevronUp className="h-3.5 w-3.5 mr-1" /> : <ChevronDown className="h-3.5 w-3.5 mr-1" />}
                       {isOpen ? "Close" : r ? "Adjust" : "Trim"}
+                    </Button>
+                    <Button
+                      size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                      title="Remove from pool"
+                      disabled={updateMutation.isPending}
+                      onClick={() => togglePool(a.id, false)}
+                      data-testid={`button-remove-pool-${a.id}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                   {isOpen && draft && (
