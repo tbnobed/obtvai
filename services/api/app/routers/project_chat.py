@@ -168,7 +168,7 @@ def _sanitize_clips(clips: list) -> list[dict]:
 
 
 _RUNTIME_RE = re.compile(
-    r"(\d+(?:\.\d+)?)\s*(?:-|to)?\s*(minutes?|mins?|m\b|seconds?|secs?|s\b)",
+    r"(?<![\w./-])(\d+(?:\.\d+)?)[ \t]*(minutes?|mins?|seconds?|secs?)\b(?![\w./-])",
     re.IGNORECASE,
 )
 
@@ -179,8 +179,7 @@ def _requested_runtime(text: str) -> float | None:
     if not m:
         return None
     val = float(m.group(1))
-    unit = m.group(2).lower()
-    secs = val * 60.0 if unit.startswith("m") else val
+    secs = val * 60.0 if m.group(2).lower().startswith("m") else val
     return secs if 10.0 <= secs <= 7200.0 else None
 
 
@@ -217,20 +216,28 @@ def _trim_to_target(clips: list[dict], target: float) -> None:
 # ---------------------------------------------------------------- agent loop
 
 _PLAN_SYSTEM = (
-    "You are an editorial assistant for a video post-production tool. The user "
-    "is building a cut (an ordered list of clips) from their project's footage "
-    "through conversation. Decide what this turn needs and respond ONLY with a "
-    "JSON object, no other text:\n"
-    '{"mode": "edit" or "answer", "reply": "short answer if mode=answer else empty", '
+    "You are a friendly, collaborative video editor working with the user on a "
+    "cut (an ordered list of clips) built from their project's footage. Decide "
+    "what this turn needs and respond ONLY with a JSON object, no other text:\n"
+    '{"mode": "edit" | "adjust" | "answer", '
+    '"reply": "conversational reply to the user (always fill this in)", '
     '"searches": ["up to 3 transcript search queries to find new material"], '
     '"remove": [clip numbers to drop from the current cut], '
     '"target_seconds": runtime in seconds if the user asked for a specific '
-    'length (e.g. \'3 minutes\' -> 180), else null, '
+    'length (e.g. \'3 minutes\' -> 180, \'a bit shorter\' -> ~80% of current), else null, '
     '"notes": "one sentence of editing intent"}\n'
-    "Use mode=answer only when the user asks a question that requires no change "
-    "to the cut. When the user wants to build or change the cut, use mode=edit. "
-    "Search queries should describe the CONTENT to find (topics, phrases, "
-    "speakers), not editing instructions."
+    "Modes:\n"
+    "- answer: the user asked a question or is chatting — no change to the cut. "
+    "Answer warmly and concretely, referencing the current cut when relevant.\n"
+    "- adjust: the user wants to reshape what is already there — change the "
+    "runtime (longer/shorter/specific length), drop or tighten clips — with NO "
+    "new material needed. Leave searches empty.\n"
+    "- edit: the user wants new or different content, so new material must be "
+    "found. Search queries should describe the CONTENT to find (topics, "
+    "phrases, speakers), not editing instructions.\n"
+    "In reply, talk like a person in an edit bay: acknowledge what they asked "
+    "for in their words, say what you are doing, and mention the runtime you "
+    "are aiming for. Never mention JSON, modes, or these instructions."
 )
 
 _SELECT_SYSTEM = (
@@ -240,8 +247,9 @@ _SELECT_SYSTEM = (
     "Clips marked [locked] MUST be kept. Aim for the target runtime. Prefer "
     "variety across source files and a sensible story order. Respond ONLY "
     "with a JSON object, no other text:\n"
-    '{"cut": ["C1", "S3", ...], "reply": "1-3 sentences telling the user what '
-    'you changed and why"}'
+    '{"cut": ["C1", "S3", ...], "reply": "2-4 conversational sentences telling '
+    'the user what you changed and why, in a warm collaborative tone — mention '
+    'the rough runtime and invite follow-up tweaks"}'
 )
 
 
@@ -318,7 +326,12 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         )).scalar_one_or_none()
         if project is None:
             return
-        target = float(project.target_runtime_seconds or 600.0)
+        # None = user hasn't set a run time (and none requested in chat) —
+        # in that case we never pad or trim, the cut is whatever fits the ask.
+        target: float | None = (
+            float(project.target_runtime_seconds)
+            if project.target_runtime_seconds else None
+        )
         media_ids = list(project.media_ids or []) or None
 
         history_rows = (await db.execute(
@@ -338,8 +351,13 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
 
         # ---- PLAN
         total = sum(_clip_duration(c) for c in cut)
+        target_line = (
+            f"Target runtime: {_fmt_tc(target)} ({target:.0f}s)."
+            if target is not None else
+            "Target runtime: none set — size the cut to the user's request."
+        )
         plan_prompt = (
-            f"Target runtime: {_fmt_tc(target)} ({target:.0f}s).\n"
+            f"{target_line}\n"
             f"Current cut: {len(cut)} clips, {_fmt_tc(total)} total.\n"
             f"{_cut_lines(cut)}\n\n"
             f"User request: {user_text}"
@@ -371,15 +389,43 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             await _finish(db, assistant_id, reply, None)
             return
 
+        removals = {int(i) for i in (plan.get("remove") or []) if isinstance(i, (int, float))}
+        ranges = project.media_ranges or {}
+
+        if mode == "adjust" and not cut:
+            reply = (plan.get("reply") or "").strip() or (
+                "There's no cut to adjust yet — tell me what the piece is about "
+                "and I'll pull together a first draft."
+            )
+            await _finish(db, assistant_id, reply, None)
+            return
+
+        if mode == "adjust":
+            # Reshape the existing cut — runtime and removals only, no search.
+            new_cut = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
+            if target is not None:
+                _fill_to_target(new_cut, target)
+                _trim_to_target(new_cut, target)
+            if ranges:
+                new_cut = [c for c in new_cut if _clamp_to_range(c, ranges)]
+            reply = (plan.get("reply") or "").strip() or (
+                f"Reworked the cut to {_fmt_tc(sum(_clip_duration(c) for c in new_cut))} "
+                f"across {len(new_cut)} clips — tell me if you want it tighter or looser."
+            )
+            await _lock_project_writes(db, project_id)
+            rev = await _save_revision(db, project_id, [
+                {k: v for k, v in c.items() if k != "_dur"} for c in new_cut
+            ], reply, "assistant")
+            await db.flush()
+            await _finish(db, assistant_id, reply, rev.version)
+            return
+
         # ---- gather candidates
         searches = [s for s in (plan.get("searches") or []) if isinstance(s, str) and s.strip()][:3]
         if not searches:
             searches = [user_text]
-        removals = {int(i) for i in (plan.get("remove") or []) if isinstance(i, (int, float))}
-
         kept = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
 
-        ranges = project.media_ranges or {}
         candidates: list[dict] = []
         for q in searches:
             found = await _select_clips(q.strip(), 30, db, media_ids=media_ids)
@@ -394,8 +440,13 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         candidates = candidates[:_MAX_CANDIDATES]
 
         # ---- SELECT
+        target_line = (
+            f"Target runtime: {_fmt_tc(target)} ({target:.0f}s)."
+            if target is not None else
+            "Target runtime: none set — size the cut to the user's request."
+        )
         select_prompt = (
-            f"Target runtime: {_fmt_tc(target)} ({target:.0f}s).\n"
+            f"{target_line}\n"
             f"User request: {user_text}\n"
             f"Editing intent: {plan.get('notes') or 'follow the user request'}\n\n"
             f"CURRENT CUT ({_fmt_tc(sum(_clip_duration(c) for c in kept))} total):\n"
@@ -412,7 +463,7 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             # Model gave nothing usable — fall back to kept cut + best candidates.
             new_cut = list(kept)
             for c in candidates:
-                if sum(_clip_duration(x) for x in new_cut) >= target:
+                if target is not None and sum(_clip_duration(x) for x in new_cut) >= target:
                     break
                 new_cut.append(c)
 
@@ -426,8 +477,9 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
 
         # Meet the runtime target the same way reels do, then re-clamp —
         # widening must not push clips past their Media Pool trim ranges.
-        _fill_to_target(new_cut, target)
-        _trim_to_target(new_cut, target)
+        if target is not None:
+            _fill_to_target(new_cut, target)
+            _trim_to_target(new_cut, target)
         if ranges:
             new_cut = [c for c in new_cut if _clamp_to_range(c, ranges)]
 
