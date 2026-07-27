@@ -162,6 +162,8 @@ export * from './searchResult';
 export * from './sessionUser';
 export * from './sessionUserRole';
 export * from './socialChannel';
+export * from './socialChannelAnalysis';
+export * from './socialChannelAnalysisStatus';
 export * from './socialChannelInput';
 export * from './socialChannelInputPlatform';
 export * from './socialChannelOverview';

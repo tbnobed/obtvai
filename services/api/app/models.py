@@ -412,6 +412,28 @@ class SocialInsight(Base):
     model_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
+class SocialChannelAnalysis(Base):
+    """Latest n8n analyze-channel result for a channel (one row per channel)."""
+    __tablename__ = "social_channel_analyses"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    channel_id: Mapped[str] = mapped_column(
+        String, ForeignKey("social_channels.id", ondelete="CASCADE"),
+        nullable=False, unique=True, index=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="running")  # running|ready|error
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    analyzed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    subs3: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    subs6: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    subs12: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_recommendations: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    est_monthly_revenue: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    margin_percent: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    mcn_share_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    risk_level: Mapped[str] = mapped_column(String, default="unknown", nullable=False)
+
+
 class SocialProgram(Base):
     """A show/program grouping its social channels (Praise, Better Together, ...)."""
     __tablename__ = "social_programs"

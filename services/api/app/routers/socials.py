@@ -33,6 +33,7 @@ from ..schemas import (
     SocialPostOut,
     SocialsOverviewOut,
     SocialsInsightsOut,
+    SocialChannelAnalysisOut,
     ProcessingJobOut,
 )
 
@@ -582,6 +583,188 @@ async def get_socials_insights(db: AsyncSession = Depends(get_db)):
         recommendations=row.recommendations or [],
         model_used=row.model_used,
     )
+
+
+# ── Per-channel n8n analysis ─────────────────────────────────────────────────
+# POSTs {channelId} to the n8n analyze-channel webhook and stores the parsed
+# result. n8n can take a while, so the call runs in a background task and the
+# client polls GET /channels/{id}/analysis until status != "running".
+
+N8N_ANALYZE_URL = os.environ.get(
+    "N8N_ANALYZE_URL", "https://n8n.obtv.io/webhook/analyze-channel")
+_analysis_tasks: dict[str, asyncio.Task] = {}
+_analysis_lock = asyncio.Lock()  # serializes analyze-start across channels
+
+
+def _analysis_out(a) -> SocialChannelAnalysisOut:
+    return SocialChannelAnalysisOut(
+        channel_id=a.channel_id,
+        status=a.status,
+        error=a.error,
+        analyzed_at=a.analyzed_at,
+        subs3=a.subs3,
+        subs6=a.subs6,
+        subs12=a.subs12,
+        ai_summary=a.ai_summary,
+        ai_recommendations=a.ai_recommendations or [],
+        est_monthly_revenue=a.est_monthly_revenue or 0,
+        margin_percent=a.margin_percent or 0,
+        mcn_share_percent=a.mcn_share_percent or 0,
+        risk_level=a.risk_level or "unknown",
+    )
+
+
+def _parse_n8n_analysis(data: dict) -> dict:
+    """Map the n8n response onto our columns, tolerating missing fields."""
+    def _int(v):
+        try:
+            return int(float(v)) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _float(v, default=0.0):
+        try:
+            return float(v) if v is not None else default
+        except (TypeError, ValueError):
+            return default
+
+    proj = data.get("projections") or {}
+    prof = data.get("profitability") or {}
+    risk = data.get("riskAnalysis") or {}
+
+    ai = data.get("aiInsights")
+    summary: str | None = None
+    recs: list[str] = []
+    if isinstance(ai, str):
+        summary = ai.strip() or None
+    elif isinstance(ai, dict):
+        s = ai.get("summary")
+        summary = str(s).strip() if s else None
+        raw_recs = ai.get("recommendations")
+        if isinstance(raw_recs, list):
+            recs = [str(r).strip() for r in raw_recs if str(r).strip()]
+
+    level = risk.get("level")
+    return {
+        "subs3": _int(proj.get("subs3")),
+        "subs6": _int(proj.get("subs6")),
+        "subs12": _int(proj.get("subs12")),
+        "ai_summary": summary,
+        "ai_recommendations": recs,
+        "est_monthly_revenue": _float(prof.get("estMonthlyRevenue")),
+        "margin_percent": _float(prof.get("marginPercent")),
+        "mcn_share_percent": _int(prof.get("mcnSharePercent")) or 0,
+        "risk_level": (str(level).strip().lower() if level else "unknown") or "unknown",
+    }
+
+
+async def _run_channel_analysis(channel_id: str, external_id: str) -> None:
+    from ..models import SocialChannelAnalysis
+    error: str | None = None
+    parsed: dict | None = None
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=15.0)) as client:
+            resp = await client.post(
+                N8N_ANALYZE_URL,
+                json={"channelId": external_id},
+                headers={"Content-Type": "application/json"},
+            )
+            resp.raise_for_status()
+            body = resp.json()
+        if isinstance(body, list):  # n8n webhooks often wrap output in a list
+            body = body[0] if body else {}
+        if not isinstance(body, dict):
+            raise ValueError("n8n returned an unexpected response shape")
+        parsed = _parse_n8n_analysis(body)
+    except Exception as e:
+        # Persist only a user-safe message: httpx error strings embed the full
+        # request URL (which can carry credentials in some deployments).
+        import httpx
+        if isinstance(e, httpx.HTTPStatusError):
+            error = f"n8n returned HTTP {e.response.status_code}"
+        elif isinstance(e, httpx.TimeoutException):
+            error = "n8n did not respond in time (timeout)"
+        elif isinstance(e, httpx.HTTPError):
+            error = "Could not reach the n8n analysis service"
+        elif isinstance(e, ValueError):
+            error = "n8n returned an unexpected response"
+        else:
+            error = "Analysis failed — check api logs"
+        print(f"Socials channel analysis failed for {channel_id}: {type(e).__name__}: {str(e)[:300]}")
+
+    try:
+        async with AsyncSessionLocal() as db:
+            row = (await db.execute(select(SocialChannelAnalysis).where(
+                SocialChannelAnalysis.channel_id == channel_id))).scalar_one_or_none()
+            if row is None:
+                return
+            row.analyzed_at = datetime.utcnow()
+            if error is not None:
+                row.status = "error"
+                row.error = error
+            else:
+                row.status = "ready"
+                row.error = None
+                for k, v in (parsed or {}).items():
+                    setattr(row, k, v)
+            await db.commit()
+    except Exception as e:
+        print(f"Socials channel analysis: failed to persist for {channel_id}: {type(e).__name__}: {e}")
+
+
+@router.post("/channels/{channel_id}/analyze", response_model=SocialChannelAnalysisOut)
+async def analyze_social_channel(channel_id: str, db: AsyncSession = Depends(get_db)):
+    from ..models import SocialChannelAnalysis
+    c = await db.get(SocialChannel, channel_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if c.platform != "youtube":
+        raise HTTPException(status_code=400, detail="Analysis is only available for YouTube channels")
+    if not c.external_id:
+        raise HTTPException(status_code=400, detail="Channel has not synced yet — no YouTube channel ID resolved")
+
+    # The lock serializes the whole check/upsert/spawn section so two
+    # concurrent POSTs can never both spawn a run or race the unique
+    # channel_id constraint (same pattern as /insights).
+    async with _analysis_lock:
+        row = (await db.execute(select(SocialChannelAnalysis).where(
+            SocialChannelAnalysis.channel_id == channel_id))).scalar_one_or_none()
+
+        task = _analysis_tasks.get(channel_id)
+        if task is not None and not task.done() and row is not None:
+            return _analysis_out(row)  # already running — treat POST as a poll
+
+        if row is None:
+            row = SocialChannelAnalysis(channel_id=channel_id)
+            db.add(row)
+        row.status = "running"
+        row.error = None
+        row.analyzed_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(row)
+        _analysis_tasks[channel_id] = asyncio.create_task(
+            _run_channel_analysis(channel_id, c.external_id))
+        return _analysis_out(row)
+
+
+@router.get("/channels/{channel_id}/analysis", response_model=SocialChannelAnalysisOut)
+async def get_social_channel_analysis(channel_id: str, db: AsyncSession = Depends(get_db)):
+    from ..models import SocialChannelAnalysis
+    row = (await db.execute(select(SocialChannelAnalysis).where(
+        SocialChannelAnalysis.channel_id == channel_id))).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No analysis for this channel yet")
+    # A restart can strand a row in "running" — surface it as an error so the
+    # UI doesn't poll forever.
+    if row.status == "running":
+        task = _analysis_tasks.get(channel_id)
+        if (task is None or task.done()) and \
+                (datetime.utcnow() - row.analyzed_at).total_seconds() > 600:
+            row.status = "error"
+            row.error = "Analysis was interrupted — run it again"
+            await db.commit()
+    return _analysis_out(row)
 
 
 @router.post("/insights", response_model=SocialsInsightsOut)

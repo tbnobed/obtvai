@@ -120,6 +120,7 @@ import type {
   SearchResponse,
   SessionUser,
   SocialChannel,
+  SocialChannelAnalysis,
   SocialChannelInput,
   SocialChannelUpdate,
   SocialCutsRequest,
@@ -6638,6 +6639,154 @@ export const useRefreshSocials = <TError = ErrorType<void>,
       > => {
       return useMutation(getRefreshSocialsMutationOptions(options));
     }
+
+export const getAnalyzeSocialChannelUrl = (channelId: string,) => {
+
+
+
+
+  return `/api/socials/channels/${channelId}/analyze`
+}
+
+/**
+ * @summary Run the n8n analyze-channel workflow for a YouTube channel
+ */
+export const analyzeSocialChannel = async (channelId: string, options?: RequestInit): Promise<SocialChannelAnalysis> => {
+
+  return customFetch<SocialChannelAnalysis>(getAnalyzeSocialChannelUrl(channelId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAnalyzeSocialChannelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof analyzeSocialChannel>>, TError,{channelId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof analyzeSocialChannel>>, TError,{channelId: string}, TContext> => {
+
+const mutationKey = ['analyzeSocialChannel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof analyzeSocialChannel>>, {channelId: string}> = (props) => {
+          const {channelId} = props ?? {};
+
+          return  analyzeSocialChannel(channelId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AnalyzeSocialChannelMutationResult = NonNullable<Awaited<ReturnType<typeof analyzeSocialChannel>>>
+
+    export type AnalyzeSocialChannelMutationError = ErrorType<void>
+
+    /**
+ * @summary Run the n8n analyze-channel workflow for a YouTube channel
+ */
+export const useAnalyzeSocialChannel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof analyzeSocialChannel>>, TError,{channelId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof analyzeSocialChannel>>,
+        TError,
+        {channelId: string},
+        TContext
+      > => {
+      return useMutation(getAnalyzeSocialChannelMutationOptions(options));
+    }
+
+export const getGetSocialChannelAnalysisUrl = (channelId: string,) => {
+
+
+
+
+  return `/api/socials/channels/${channelId}/analysis`
+}
+
+/**
+ * @summary Last stored analysis for a channel
+ */
+export const getSocialChannelAnalysis = async (channelId: string, options?: RequestInit): Promise<SocialChannelAnalysis> => {
+
+  return customFetch<SocialChannelAnalysis>(getGetSocialChannelAnalysisUrl(channelId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSocialChannelAnalysisQueryKey = (channelId: string,) => {
+    return [
+    `/api/socials/channels/${channelId}/analysis`
+    ] as const;
+    }
+
+
+export const getGetSocialChannelAnalysisQueryOptions = <TData = Awaited<ReturnType<typeof getSocialChannelAnalysis>>, TError = ErrorType<void>>(channelId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSocialChannelAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSocialChannelAnalysisQueryKey(channelId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSocialChannelAnalysis>>> = ({ signal }) => getSocialChannelAnalysis(channelId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: channelId !== null && channelId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSocialChannelAnalysis>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSocialChannelAnalysisQueryResult = NonNullable<Awaited<ReturnType<typeof getSocialChannelAnalysis>>>
+export type GetSocialChannelAnalysisQueryError = ErrorType<void>
+
+
+/**
+ * @summary Last stored analysis for a channel
+ */
+
+export function useGetSocialChannelAnalysis<TData = Awaited<ReturnType<typeof getSocialChannelAnalysis>>, TError = ErrorType<void>>(
+ channelId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSocialChannelAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSocialChannelAnalysisQueryOptions(channelId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetSocialsInsightsUrl = () => {
 

@@ -921,6 +921,22 @@ class SocialsOverviewOut(BaseModel):
     tiktok_configured: bool
 
 
+class SocialChannelAnalysisOut(BaseModel):
+    channel_id: str
+    status: Literal["running", "ready", "error"] = "running"
+    error: Optional[str] = None
+    analyzed_at: datetime
+    subs3: Optional[int] = None
+    subs6: Optional[int] = None
+    subs12: Optional[int] = None
+    ai_summary: Optional[str] = None
+    ai_recommendations: List[str] = []
+    est_monthly_revenue: float = 0
+    margin_percent: float = 0
+    mcn_share_percent: int = 0
+    risk_level: str = "unknown"
+
+
 class SocialsInsightsOut(BaseModel):
     status: Literal["running", "ready"] = "ready"
     generated_at: datetime

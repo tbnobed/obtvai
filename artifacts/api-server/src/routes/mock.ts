@@ -3528,6 +3528,52 @@ router.post("/socials/refresh", (_req, res) => {
 let mockInsightsReadyAt: number | null = null;
 let mockSavedInsights: any = null;
 
+// Per-channel n8n analyze-channel results (production calls n8n.obtv.io).
+const channelAnalyses: Record<string, any> = {};
+const channelAnalysisReadyAt: Record<string, number> = {};
+
+router.post("/socials/channels/:id/analyze", (req, res) => {
+  const c = socialChannels.find((x) => x.id === req.params.id);
+  if (!c) { res.status(404).json({ detail: "Channel not found" }); return; }
+  if (c.platform !== "youtube") { res.status(400).json({ detail: "Analysis is only available for YouTube channels" }); return; }
+  if (!c.external_id) { res.status(400).json({ detail: "Channel has not synced yet — no YouTube channel ID resolved" }); return; }
+  channelAnalysisReadyAt[c.id] = Date.now() + 4000;
+  channelAnalyses[c.id] = {
+    channel_id: c.id, status: "running", error: null, analyzed_at: new Date().toISOString(),
+    subs3: null, subs6: null, subs12: null, ai_summary: null, ai_recommendations: [],
+    est_monthly_revenue: 0, margin_percent: 0, mcn_share_percent: 0, risk_level: "unknown",
+  };
+  res.json(channelAnalyses[c.id]);
+});
+
+router.get("/socials/channels/:id/analysis", (req, res) => {
+  const a = channelAnalyses[req.params.id];
+  if (!a) { res.status(404).json({ detail: "No analysis for this channel yet" }); return; }
+  if (a.status === "running" && Date.now() >= (channelAnalysisReadyAt[req.params.id] ?? 0)) {
+    const c = socialChannels.find((x) => x.id === req.params.id);
+    const snaps = socialSnapshots[req.params.id] ?? [];
+    const followers = snaps[snaps.length - 1]?.followers ?? 100_000;
+    Object.assign(a, {
+      status: "ready",
+      analyzed_at: new Date().toISOString(),
+      subs3: Math.round(followers * 1.06),
+      subs6: Math.round(followers * 1.14),
+      subs12: Math.round(followers * 1.31),
+      ai_summary: `${c?.handle ?? "This channel"} shows steady growth driven by clip-length interview content; watch time concentrates in the first 90 seconds, so stronger hooks would lift retention across the board.`,
+      ai_recommendations: [
+        "Post 3 Shorts per week cut from the top-performing interview segments.",
+        "Standardize thumbnails around close-up faces + 3-word text overlays.",
+        "Schedule uploads Tue/Thu 9am ET when this audience is most active.",
+      ],
+      est_monthly_revenue: 4820,
+      margin_percent: 62.5,
+      mcn_share_percent: 30,
+      risk_level: "low",
+    });
+  }
+  res.json(a);
+});
+
 router.get("/socials/insights", (_req, res) => {
   if (!mockSavedInsights) { res.status(404).json({ detail: "No insights generated yet" }); return; }
   res.json(mockSavedInsights);

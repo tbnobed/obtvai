@@ -17,6 +17,9 @@ import {
   getGetSocialsInsightsQueryKey,
   useListJobs,
   getListJobsQueryKey,
+  useAnalyzeSocialChannel,
+  useGetSocialChannelAnalysis,
+  getGetSocialChannelAnalysisQueryKey,
   type SocialChannelOverview,
   type SocialProgramOverview,
   type SocialChannelInputPlatform,
@@ -94,6 +97,145 @@ function Delta({ now, before }: { now?: number | null; before?: number | null })
   );
 }
 
+const RISK_STYLE: Record<string, string> = {
+  low: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  medium: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  high: "bg-red-500/15 text-red-400 border-red-500/30",
+  unknown: "bg-muted text-muted-foreground border-border",
+};
+
+function money(v: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
+}
+
+/** n8n analyze-channel panel — YouTube channels only. */
+function ChannelAnalysis({ channel }: { channel: SocialChannelOverview }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const canEdit = useCanEdit();
+  const analysisKey = getGetSocialChannelAnalysisQueryKey(channel.id);
+
+  const { data: analysis } = useGetSocialChannelAnalysis(channel.id, {
+    query: {
+      queryKey: analysisKey,
+      retry: false,
+      refetchOnWindowFocus: false,
+      // Poll while n8n is working.
+      refetchInterval: (q) => (q.state.data?.status === "running" ? 5000 : false),
+    },
+  });
+  const analyze = useAnalyzeSocialChannel({
+    mutation: {
+      onSuccess: (data) => queryClient.setQueryData(analysisKey, data),
+      onError: (e: any) =>
+        toast({ title: "Could not start analysis", description: e?.data?.detail, variant: "destructive" }),
+    },
+  });
+
+  const running = analysis?.status === "running" || analyze.isPending;
+  const ready = analysis?.status === "ready" ? analysis : null;
+  const currentFollowers = channel.latest?.followers ?? null;
+  const growthPct =
+    ready?.subs12 != null && currentFollowers ? ((ready.subs12 - currentFollowers) / currentFollowers) * 100 : null;
+
+  return (
+    <div className="border border-border rounded-md">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <span className="text-sm font-medium flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary" /> Channel analysis
+          {ready && (
+            <span className="text-xs font-normal text-muted-foreground">
+              · {new Date(ready.analyzed_at).toLocaleString()}
+            </span>
+          )}
+        </span>
+        <div className="flex items-center gap-2">
+          {ready && (
+            <Badge variant="outline" className={RISK_STYLE[ready.risk_level] ?? RISK_STYLE.unknown} data-testid={`badge-risk-${channel.id}`}>
+              {ready.risk_level === "unknown" ? "risk unknown" : `${ready.risk_level} risk`}
+            </Badge>
+          )}
+          {canEdit && (
+            <Button size="sm" variant="outline" disabled={running} onClick={() => analyze.mutate({ channelId: channel.id })} data-testid={`button-analyze-${channel.id}`}>
+              <Sparkles className={`w-3.5 h-3.5 mr-1.5 text-primary ${running ? "animate-pulse" : ""}`} />
+              {running ? "Analyzing…" : ready ? "Re-analyze" : "Analyze"}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {analysis?.status === "error" && (
+        <p className="px-3 py-3 text-sm text-red-400 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /> {analysis.error ?? "Analysis failed — try again."}
+        </p>
+      )}
+      {running && (
+        <p className="px-3 py-3 text-sm text-muted-foreground">
+          Analyzing this channel — projections, profitability and risk will appear here in a minute or two.
+        </p>
+      )}
+      {!analysis && !running && (
+        <p className="px-3 py-3 text-sm text-muted-foreground">
+          No analysis yet{canEdit ? " — run one to get growth projections, AI insights, profitability and risk." : "."}
+        </p>
+      )}
+
+      {ready && !running && (
+        <div className="p-3 space-y-4">
+          {/* Projections */}
+          <div className="grid grid-cols-3 gap-3">
+            {([["3 months", ready.subs3], ["6 months", ready.subs6], ["12 months", ready.subs12]] as const).map(([label, v]) => (
+              <div key={label} className="border border-border rounded-md px-3 py-2 bg-background/40">
+                <div className="text-[11px] text-muted-foreground">{label}</div>
+                <div className="text-base font-semibold tabular-nums">{fmt(v)}</div>
+                {label === "12 months" && growthPct != null && (
+                  <div className={`text-[11px] inline-flex items-center gap-1 ${growthPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {growthPct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {growthPct >= 0 ? "+" : ""}{growthPct.toFixed(1)}% vs today
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* AI insights */}
+          {(ready.ai_summary || ready.ai_recommendations.length > 0) && (
+            <div className="space-y-2">
+              {ready.ai_summary && <p className="text-sm text-foreground/90">{ready.ai_summary}</p>}
+              {ready.ai_recommendations.length > 0 && (
+                <ul className="space-y-1.5 text-sm text-foreground/90">
+                  {ready.ai_recommendations.map((r, i) => (
+                    <li key={i} className="flex gap-2">
+                      <Lightbulb className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-300" />
+                      <span>{r}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Profitability */}
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm border-t border-border pt-3">
+            <div>
+              <span className="text-muted-foreground">Est. monthly revenue </span>
+              <span className="font-medium tabular-nums">{money(ready.est_monthly_revenue)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Margin </span>
+              <span className="font-medium tabular-nums">{ready.margin_percent.toFixed(1)}%</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">MCN share </span>
+              <span className="font-medium tabular-nums">{ready.mcn_share_percent}%</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type PostSortKey = "views" | "likes" | "comments" | "published_at";
 
 function ChannelDetail({ channel }: { channel: SocialChannelOverview }) {
@@ -139,6 +281,7 @@ function ChannelDetail({ channel }: { channel: SocialChannelOverview }) {
 
   return (
     <div className="space-y-4">
+      {channel.platform === "youtube" && <ChannelAnalysis channel={channel} />}
       {chartData.length > 1 && (
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">

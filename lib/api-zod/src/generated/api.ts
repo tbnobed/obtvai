@@ -2561,6 +2561,54 @@ export const RefreshSocialsResponse = zod.object({
 
 
 /**
+ * @summary Run the n8n analyze-channel workflow for a YouTube channel
+ */
+export const AnalyzeSocialChannelParams = zod.object({
+  "channelId": zod.coerce.string()
+})
+
+export const AnalyzeSocialChannelResponse = zod.object({
+  "channel_id": zod.string(),
+  "status": zod.enum(['running', 'ready', 'error']).describe('\"running\" while n8n is analyzing (poll); \"ready\" when fields below are populated'),
+  "error": zod.string().nullish(),
+  "analyzed_at": zod.string(),
+  "subs3": zod.number().nullish().describe('Projected subscriber count at 3 months'),
+  "subs6": zod.number().nullish().describe('Projected subscriber count at 6 months'),
+  "subs12": zod.number().nullish().describe('Projected subscriber count at 12 months (drives the growth % string)'),
+  "ai_summary": zod.string().nullish(),
+  "ai_recommendations": zod.array(zod.string()),
+  "est_monthly_revenue": zod.number(),
+  "margin_percent": zod.number(),
+  "mcn_share_percent": zod.number(),
+  "risk_level": zod.string().describe('lowercased risk level from n8n (low\/medium\/high), \"unknown\" if absent')
+})
+
+
+/**
+ * @summary Last stored analysis for a channel
+ */
+export const GetSocialChannelAnalysisParams = zod.object({
+  "channelId": zod.coerce.string()
+})
+
+export const GetSocialChannelAnalysisResponse = zod.object({
+  "channel_id": zod.string(),
+  "status": zod.enum(['running', 'ready', 'error']).describe('\"running\" while n8n is analyzing (poll); \"ready\" when fields below are populated'),
+  "error": zod.string().nullish(),
+  "analyzed_at": zod.string(),
+  "subs3": zod.number().nullish().describe('Projected subscriber count at 3 months'),
+  "subs6": zod.number().nullish().describe('Projected subscriber count at 6 months'),
+  "subs12": zod.number().nullish().describe('Projected subscriber count at 12 months (drives the growth % string)'),
+  "ai_summary": zod.string().nullish(),
+  "ai_recommendations": zod.array(zod.string()),
+  "est_monthly_revenue": zod.number(),
+  "margin_percent": zod.number(),
+  "mcn_share_percent": zod.number(),
+  "risk_level": zod.string().describe('lowercased risk level from n8n (low\/medium\/high), \"unknown\" if absent')
+})
+
+
+/**
  * @summary Last saved AI insights run (survives restarts)
  */
 export const GetSocialsInsightsResponse = zod.object({

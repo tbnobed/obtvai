@@ -2006,6 +2006,48 @@ paths:
         "409":
           description: A socials sync job is already running
 
+  /socials/channels/{channelId}/analyze:
+    post:
+      operationId: analyzeSocialChannel
+      tags: [socials]
+      summary: Run the n8n analyze-channel workflow for a YouTube channel
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analysis started (poll the analysis endpoint) or already running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialChannelAnalysis"
+        "400":
+          description: Not a YouTube channel, or channel has no resolved YouTube channel ID yet
+        "404":
+          description: Channel not found
+  /socials/channels/{channelId}/analysis:
+    get:
+      operationId: getSocialChannelAnalysis
+      tags: [socials]
+      summary: Last stored analysis for a channel
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialChannelAnalysis"
+        "404":
+          description: No analysis for this channel yet
   /socials/insights:
     get:
       operationId: getSocialsInsights
@@ -4877,6 +4919,49 @@ components:
         tiktok_configured:
           type: boolean
 
+    SocialChannelAnalysis:
+      type: object
+      required: [channel_id, status, analyzed_at, ai_recommendations, est_monthly_revenue, margin_percent, mcn_share_percent, risk_level]
+      properties:
+        channel_id:
+          type: string
+        status:
+          type: string
+          enum: [running, ready, error]
+          description: '"running" while n8n is analyzing (poll); "ready" when fields below are populated'
+        error:
+          type: string
+          nullable: true
+        analyzed_at:
+          type: string
+        subs3:
+          type: integer
+          nullable: true
+          description: Projected subscriber count at 3 months
+        subs6:
+          type: integer
+          nullable: true
+          description: Projected subscriber count at 6 months
+        subs12:
+          type: integer
+          nullable: true
+          description: Projected subscriber count at 12 months (drives the growth % string)
+        ai_summary:
+          type: string
+          nullable: true
+        ai_recommendations:
+          type: array
+          items:
+            type: string
+        est_monthly_revenue:
+          type: number
+        margin_percent:
+          type: number
+        mcn_share_percent:
+          type: integer
+        risk_level:
+          type: string
+          description: lowercased risk level from n8n (low/medium/high), "unknown" if absent
     SocialsInsights:
       type: object
       required: [status, generated_at, working, not_working, recommendations, model_used]

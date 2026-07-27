@@ -1217,6 +1217,39 @@ export interface SocialsOverview {
 }
 
 /**
+ * "running" while n8n is analyzing (poll); "ready" when fields below are populated
+ */
+export type SocialChannelAnalysisStatus = typeof SocialChannelAnalysisStatus[keyof typeof SocialChannelAnalysisStatus];
+
+
+export const SocialChannelAnalysisStatus = {
+  running: 'running',
+  ready: 'ready',
+  error: 'error',
+} as const;
+
+export interface SocialChannelAnalysis {
+  channel_id: string;
+  /** "running" while n8n is analyzing (poll); "ready" when fields below are populated */
+  status: SocialChannelAnalysisStatus;
+  error?: string | null;
+  analyzed_at: string;
+  /** Projected subscriber count at 3 months */
+  subs3?: number | null;
+  /** Projected subscriber count at 6 months */
+  subs6?: number | null;
+  /** Projected subscriber count at 12 months (drives the growth % string) */
+  subs12?: number | null;
+  ai_summary?: string | null;
+  ai_recommendations: string[];
+  est_monthly_revenue: number;
+  margin_percent: number;
+  mcn_share_percent: number;
+  /** lowercased risk level from n8n (low/medium/high), "unknown" if absent */
+  risk_level: string;
+}
+
+/**
  * "running" while generation is in progress (poll by re-POSTing); "ready" when the insight lists below are populated
  */
 export type SocialsInsightsStatus = typeof SocialsInsightsStatus[keyof typeof SocialsInsightsStatus];
