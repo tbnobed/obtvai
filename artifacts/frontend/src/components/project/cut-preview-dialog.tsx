@@ -26,7 +26,6 @@ export function CutPreviewDialog({
   const [clipElapsed, setClipElapsed] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const timelineRef = useRef<HTMLDivElement | null>(null);
   const clip = clips[index];
 
   const durations = useMemo(() => clips.map((c) => Math.max(0.01, c.end_time - c.start_time)), [clips]);
@@ -99,8 +98,7 @@ export function CutPreviewDialog({
   }, [clips, starts, total, index]);
 
   const timeFromPointer = (e: React.PointerEvent) => {
-    const el = timelineRef.current;
-    if (!el) return 0;
+    const el = e.currentTarget as HTMLElement;
     const rect = el.getBoundingClientRect();
     const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     return frac * total;
@@ -151,7 +149,7 @@ export function CutPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-[96vw] w-[96vw] xl:max-w-[1700px] max-h-[96vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base">
             Preview draft cut — clip {index + 1} of {clips.length}
@@ -161,14 +159,40 @@ export function CutPreviewDialog({
           key={clip.media_id}
           ref={videoRef}
           src={`/api/media/${clip.media_id}/stream#t=${clip.start_time},${clip.end_time}`}
-          className="w-full aspect-video rounded bg-black"
+          className="w-full aspect-video max-h-[62vh] rounded bg-black object-contain"
           onClick={togglePlay}
           playsInline
         />
+        {/* Playback bar: play/pause + click/drag-to-scrub progress */}
+        <div className="flex items-center gap-3 select-none">
+          <Button size="icon" className="h-9 w-9 shrink-0" onClick={togglePlay} data-testid="button-playbar-playpause">
+            {playing && !scrubbing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </Button>
+          <div
+            className="group relative h-6 flex-1 cursor-pointer touch-none"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            data-testid="preview-seekbar"
+          >
+            <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-full rounded-full bg-muted group-hover:h-2 transition-all" />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-primary group-hover:h-2 transition-all"
+              style={{ width: `${total ? (globalTime / total) * 100 : 0}%` }}
+            />
+            <div
+              className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-primary shadow"
+              style={{ left: `${total ? (globalTime / total) * 100 : 0}%` }}
+            />
+          </div>
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            {formatTC(globalTime)} / {formatTC(total)}
+          </span>
+        </div>
         <div className="space-y-1.5 select-none">
           {/* Scrubbable timeline: each segment shows a frame thumbnail */}
           <div
-            ref={timelineRef}
             className="relative flex h-14 w-full cursor-ew-resize gap-px overflow-hidden rounded touch-none"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
