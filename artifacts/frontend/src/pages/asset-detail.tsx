@@ -449,6 +449,17 @@ export default function AssetDetail() {
             ) : (
               undefined
             )}
+            {asset.status === 'ready' && (
+              <div
+                className="absolute top-8 left-8 z-10 pointer-events-none flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm"
+                data-testid="badge-active-version"
+              >
+                <Volume2 className="h-3 w-3 opacity-80" />
+                {dubOn && dubAvailable
+                  ? `${TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()} dub`
+                  : "Original"}
+              </div>
+            )}
             {asset.status !== 'ready' && (
               <div className="w-full h-64 bg-muted flex flex-col items-center justify-center">
                 <p className="text-muted-foreground mb-2">Media is {asset.status}</p>
