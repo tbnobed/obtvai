@@ -359,6 +359,7 @@ export default function ProjectDetail() {
   const updateListMutation = useUpdateClipList();
 
   const [query, setQuery] = useState("");
+  const [searchType, setSearchType] = useState<"combined" | "transcript" | "visual">("combined");
   const [searchAllMedia, setSearchAllMedia] = useState(false);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   // Rapid "Add" clicks race the project refetch: each click would merge into
@@ -401,7 +402,7 @@ export default function ProjectDetail() {
     if (query.trim().length < 2) return;
     setSelectedResults({});
     searchMutation.mutate({
-      data: { query: query.trim(), ...searchScope },
+      data: { query: query.trim(), search_type: searchType, ...searchScope },
     });
   };
 
@@ -592,6 +593,20 @@ export default function ProjectDetail() {
         onChange={() => toggleResult(key, r)}
         disabled={added}
       />
+      <button
+        type="button"
+        className="shrink-0"
+        title="Play this clip"
+        onClick={() => setPlayerClip({
+          media_id: r.media_id,
+          start_time: r.start_time,
+          end_time: r.end_time,
+          label: r.snippet || undefined,
+          filename: r.filename,
+        })}
+      >
+        <ClipThumb url={r.thumbnail_url} mediaId={r.media_id} time={r.start_time} className="h-12 w-20 rounded" />
+      </button>
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{r.filename}</div>
         <div className="text-xs text-muted-foreground truncate">
@@ -807,9 +822,21 @@ export default function ProjectDetail() {
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder='e.g. "mayor talks about the housing vote"'
+                  placeholder={searchType === "visual"
+                    ? 'e.g. "flowers", "crowd outside city hall", "close-up of hands"'
+                    : 'e.g. "mayor talks about the housing vote"'}
                   onKeyDown={(e) => e.key === "Enter" && runSearch()}
                 />
+                <Select value={searchType} onValueChange={(v) => setSearchType(v as typeof searchType)}>
+                  <SelectTrigger className="w-[130px] shrink-0" data-testid="select-search-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="combined">All</SelectItem>
+                    <SelectItem value="transcript">Spoken words</SelectItem>
+                    <SelectItem value="visual">Visuals</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button onClick={runSearch} disabled={query.trim().length < 2 || searchMutation.isPending}>
                   {searchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 </Button>

@@ -874,7 +874,7 @@ router.post("/search", (req, res) => {
       results.push({
         media_id: s.media_id,
         filename: asset?.filename || "unknown",
-        thumbnail_url: null,
+        thumbnail_url: asset?.thumbnail_url ?? null,
         start_time: s.start_time,
         end_time: s.end_time,
         score: 0.72 + Math.random() * 0.25,
