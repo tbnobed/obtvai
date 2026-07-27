@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film } from "lucide-react";
+import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play } from "lucide-react";
+import { CutPreviewDialog } from "./cut-preview-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatTC } from "@/lib/timecode";
 
@@ -40,6 +41,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
 
   const [input, setInput] = useState("");
   const [viewVersion, setViewVersion] = useState<number | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   // Deliver's "Studio cut vN" badge jumps here with a specific version.
   useEffect(() => {
     if (focusVersion != null) setViewVersion(focusVersion);
@@ -252,6 +254,15 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
             )}
             <Button
               size="sm"
+              variant="outline"
+              onClick={() => setPreviewOpen(true)}
+              disabled={!clips.length}
+              data-testid="button-preview-cut"
+            >
+              <Play className="w-4 h-4 mr-1.5" /> Preview
+            </Button>
+            <Button
+              size="sm"
               onClick={() =>
                 renderMutation.mutate(
                   { id: projectId, data: { preset: "original" } },
@@ -331,6 +342,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
         </div>
       </div>
 
+      <CutPreviewDialog clips={clips} open={previewOpen} onClose={() => setPreviewOpen(false)} />
     </div>
   );
 }
