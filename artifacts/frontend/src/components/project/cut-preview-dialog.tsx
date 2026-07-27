@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { CutClip } from "@workspace/api-client-react";
-import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
+import { Pause, Play, SkipBack, SkipForward, X } from "lucide-react";
 import { formatTC } from "@/lib/timecode";
 
 /**
@@ -10,7 +9,7 @@ import { formatTC } from "@/lib/timecode";
  * needed. The timeline shows every clip as a segment with a frame thumbnail;
  * click or drag anywhere on it to scrub through the entire cut.
  */
-export function CutPreviewDialog({
+export function CutPreviewPlayer({
   clips,
   open,
   onClose,
@@ -122,7 +121,7 @@ export function CutPreviewDialog({
     if (playing) videoRef.current?.play().catch(() => {});
   };
 
-  if (!clip) return null;
+  if (!open || !clip) return null;
 
   const goToClip = (i: number) => {
     pendingOffset.current = 0;
@@ -148,18 +147,20 @@ export function CutPreviewDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[96vw] w-[96vw] xl:max-w-[1700px] max-h-[96vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-base">
+    <div className="space-y-3 rounded-lg border border-border bg-black/30 p-3" data-testid="inline-cut-preview">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">
             Preview draft cut — clip {index + 1} of {clips.length}
-          </DialogTitle>
-        </DialogHeader>
+          </span>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClose} title="Close preview" data-testid="button-close-preview">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
         <video
           key={clip.media_id}
           ref={videoRef}
           src={`/api/media/${clip.media_id}/stream#t=${clip.start_time},${clip.end_time}`}
-          className="w-full aspect-video max-h-[62vh] rounded bg-black object-contain"
+          className="w-full aspect-video max-h-[48vh] rounded bg-black object-contain"
           onClick={togglePlay}
           playsInline
         />
@@ -248,7 +249,6 @@ export function CutPreviewDialog({
         <p className="text-xs text-muted-foreground text-center">
           Rough preview straight from the source files — transitions between different files may pause briefly to buffer. Render for the real thing.
         </p>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }

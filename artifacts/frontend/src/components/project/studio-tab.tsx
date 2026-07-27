@@ -16,7 +16,7 @@ import {
 import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TrimPlayer } from "./trim-player";
-import { CutPreviewDialog } from "./cut-preview-dialog";
+import { CutPreviewPlayer } from "./cut-preview-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatTC } from "@/lib/timecode";
 
@@ -297,6 +297,9 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {previewOpen && clips.length > 0 && (
+            <CutPreviewPlayer clips={clips} open={previewOpen} onClose={() => setPreviewOpen(false)} />
+          )}
           {!clips.length ? (
             <p className="text-sm text-muted-foreground pt-6 text-center">
               No cut yet — describe what you want in the chat and I'll build the first draft.
@@ -404,7 +407,6 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
           )}
         </DialogContent>
       </Dialog>
-      <CutPreviewDialog clips={clips} open={previewOpen} onClose={() => setPreviewOpen(false)} />
     </div>
   );
 }
