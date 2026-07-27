@@ -13,7 +13,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play } from "lucide-react";
+import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { TrimPlayer } from "./trim-player";
 import { CutPreviewDialog } from "./cut-preview-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatTC } from "@/lib/timecode";
@@ -42,6 +44,9 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
   const [input, setInput] = useState("");
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Per-clip trim editor: index into `clips` plus a draft in/out.
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<{ in: number; out: number } | null>(null);
   // Deliver's "Studio cut vN" badge jumps here with a specific version.
   useEffect(() => {
     if (focusVersion != null) setViewVersion(focusVersion);
@@ -123,6 +128,17 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
   const toggleLock = (i: number) =>
     patchClips(clips.map((c, j) => (j === i ? { ...c, locked: !c.locked } : c)));
   const removeClip = (i: number) => patchClips(clips.filter((_, j) => j !== i));
+  const openClipEditor = (i: number) => {
+    const c = clips[i];
+    setEditDraft({ in: c.start_time, out: c.end_time });
+    setEditIdx(i);
+  };
+  const closeClipEditor = () => { setEditIdx(null); setEditDraft(null); };
+  const saveClipTrim = () => {
+    if (editIdx == null || !editDraft) return;
+    patchClips(clips.map((c, j) => (j === editIdx ? { ...c, start_time: editDraft.in, end_time: editDraft.out } : c)));
+    closeClipEditor();
+  };
 
   const events = useMemo(() => {
     let rec = 0;
@@ -316,6 +332,15 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
                     <span className="tabular-nums shrink-0 w-10 text-right">{Math.round(ev.dur)}s</span>
                     <Button
                       size="icon" variant="ghost" className="h-6 w-6 shrink-0"
+                      title="Preview & trim this clip"
+                      onClick={() => openClipEditor(i)}
+                      disabled={viewingOld || updateMutation.isPending}
+                      data-testid={`button-edit-clip-${i}`}
+                    >
+                      <Scissors className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      size="icon" variant="ghost" className="h-6 w-6 shrink-0"
                       title={ev.clip.locked ? "Unlock — allow the assistant to change this clip" : "Lock — the assistant will keep this clip"}
                       onClick={() => toggleLock(i)}
                       disabled={viewingOld || updateMutation.isPending}
@@ -342,6 +367,43 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
         </div>
       </div>
 
+      <Dialog open={editIdx != null} onOpenChange={(o) => { if (!o) closeClipEditor(); }}>
+        <DialogContent className="max-w-3xl">
+          {editIdx != null && editDraft && clips[editIdx] && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">
+                  Clip {editIdx + 1} — {clips[editIdx].filename}
+                </DialogTitle>
+              </DialogHeader>
+              <TrimPlayer
+                mediaId={clips[editIdx].media_id}
+                clipKey={`${clips[editIdx].media_id}-${editIdx}`}
+                inPoint={editDraft.in}
+                outPoint={editDraft.out}
+                onChange={(inPoint, outPoint) => setEditDraft({ in: inPoint, out: outPoint })}
+              />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {fmtTime(editDraft.in)}–{fmtTime(editDraft.out)} · {Math.round(editDraft.out - editDraft.in)}s
+                </span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={closeClipEditor}>Cancel</Button>
+                  <Button
+                    size="sm"
+                    disabled={updateMutation.isPending || editDraft.out - editDraft.in < 0.5}
+                    onClick={saveClipTrim}
+                    data-testid="button-save-clip-trim"
+                  >
+                    {updateMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                    Save trim
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       <CutPreviewDialog clips={clips} open={previewOpen} onClose={() => setPreviewOpen(false)} />
     </div>
   );
