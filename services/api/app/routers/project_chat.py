@@ -449,17 +449,38 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         kept = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
 
         candidates: list[dict] = []
-        for q in searches:
-            found = await _select_clips(q.strip(), 30, db, media_ids=media_ids)
+
+        def _admit(found: list[dict]) -> None:
             for c in found:
                 c["locked"] = False
                 if not _clamp_to_range(c, ranges):
                     continue
                 if not _overlaps_existing(c, kept) and not _overlaps_existing(c, candidates):
                     candidates.append(c)
-            if len(candidates) >= _MAX_CANDIDATES:
-                break
-        candidates = candidates[:_MAX_CANDIDATES]
+
+        if media_ids and len(media_ids) <= 12:
+            # Small pool: search each asset separately — a global similarity
+            # search lets one or two chatty files crowd out all the others.
+            for q in searches:
+                for mid in media_ids:
+                    _admit(await _select_clips(q.strip(), 6, db, media_id=mid))
+        else:
+            for q in searches:
+                _admit(await _select_clips(q.strip(), 30, db, media_ids=media_ids))
+                if len(candidates) >= _MAX_CANDIDATES:
+                    break
+
+        # Round-robin across source files so every episode stays visible even
+        # after the cap, instead of the top-scoring file eating the whole list.
+        by_file: dict[str, list[dict]] = {}
+        for c in candidates:
+            by_file.setdefault(c["media_id"], []).append(c)
+        interleaved: list[dict] = []
+        while len(interleaved) < _MAX_CANDIDATES and any(by_file.values()):
+            for lst in by_file.values():
+                if lst:
+                    interleaved.append(lst.pop(0))
+        candidates = interleaved[:_MAX_CANDIDATES]
 
         # ---- SELECT
         target_line = (
@@ -516,10 +537,14 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             )
             return
 
-        reply = (sel.get("reply") or "").strip() or (
-            f"Updated the cut — {len(new_cut)} clips, "
-            f"{_fmt_tc(sum(_clip_duration(c) for c in new_cut))} total."
+        n_files = len({c["media_id"] for c in new_cut})
+        pool_n = len(media_ids) if media_ids else None
+        stats = (
+            f"{len(new_cut)} clips · {_fmt_tc(sum(_clip_duration(c) for c in new_cut))}"
+            + (f" · {n_files} of {pool_n} sources" if pool_n else f" · {n_files} sources")
         )
+        reply = (sel.get("reply") or "").strip()
+        reply = f"{reply}\n\n({stats})" if reply else f"Updated the cut — {stats}."
         await _lock_project_writes(db, project_id)
         rev = await _save_revision(db, project_id, [
             {k: v for k, v in c.items() if k != "_dur"} for c in new_cut
