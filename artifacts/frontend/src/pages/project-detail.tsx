@@ -220,9 +220,9 @@ export default function ProjectDetail() {
 
   const [tab, setTab] = useState<string>(() => {
     const t = new URLSearchParams(window.location.search).get("tab") ?? "";
-    return ["find", "pool", "studio", "cut", "deliver"].includes(t) ? t : "find";
+    return ["find", "pool", "studio", "deliver"].includes(t) ? t : "find";
   });
-  const [approvalGate, setApprovalGate] = useState<{ list: ClipList; action: "roughcut" | "render" } | null>(null);
+  const [approvalGate, setApprovalGate] = useState<{ list: ClipList; action: "render" } | null>(null);
 
   const { data: project, isLoading } = useGetProject(id);
   const updateMutation = useUpdateProject();
@@ -456,41 +456,6 @@ export default function ProjectDetail() {
   const addResultToSources = (r: SearchResult) => addResultsToSources([r]);
 
   // ---- Cut: reels + rough cuts ----
-  const createReelMutation = useCreateReel();
-  const roughCutMutation = useCreateClipListRoughCut();
-  const [reelPrompt, setReelPrompt] = useState("");
-  const [reelPreset, setReelPreset] = useState<"original" | "vertical">("vertical");
-  const [reelMinutes, setReelMinutes] = useState("");
-  const [reelPace, setReelPace] = useState<"fast" | "normal" | "cinematic">("normal");
-
-  const submitReel = () => {
-    if (reelPrompt.trim().length < 3) return;
-    const mins = parseFloat(reelMinutes);
-    const targetSeconds = Number.isFinite(mins) && mins > 0
-      ? Math.min(Math.max(Math.round(mins * 60), 30), 14400)
-      : null;
-    createReelMutation.mutate(
-      {
-        data: {
-          prompt: reelPrompt.trim(),
-          preset: reelPreset,
-          pace: reelPace,
-          project_id: id,
-          ...(targetSeconds ? { target_duration_seconds: targetSeconds } : {}),
-          ...(mediaPool.length ? { media_ids: mediaPool } : {}),
-        },
-      },
-      { onSuccess: () => { setReelPrompt(""); invalidateAll(); } },
-    );
-  };
-
-  const startRoughCut = (listId: string) => {
-    roughCutMutation.mutate(
-      { id: listId, data: { preset: "original", burn_captions: false } },
-      { onSuccess: invalidateAll },
-    );
-  };
-
   // ---- Deliver: render / export / publish ----
   const renderListMutation = useRenderClipList();
   const exportMutation = useExportClipList();
@@ -743,7 +708,6 @@ export default function ProjectDetail() {
           <TabsTrigger value="find"><Search className="h-4 w-4 mr-2" /> Find</TabsTrigger>
           <TabsTrigger value="pool"><Clapperboard className="h-4 w-4 mr-2" /> Media Pool</TabsTrigger>
           <TabsTrigger value="studio"><Sparkles className="h-4 w-4 mr-2" /> Studio</TabsTrigger>
-          <TabsTrigger value="cut"><Wand2 className="h-4 w-4 mr-2" /> Cut</TabsTrigger>
           <TabsTrigger value="deliver"><Clapperboard className="h-4 w-4 mr-2" /> Deliver</TabsTrigger>
         </TabsList>
 
@@ -893,101 +857,8 @@ export default function ProjectDetail() {
           )}
         </TabsContent>
 
-        {/* ------------------------------ CUT ------------------------------ */}
-        <TabsContent value="cut" className="space-y-6">
-          <p className="text-sm text-muted-foreground">
-            Cut renders actual video files — build a reel from a prompt, or turn a clip list into a rough-cut video.
-          </p>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Wand2 className="h-4 w-4" /> Build from Prompt
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  value={reelPrompt}
-                  onChange={(e) => setReelPrompt(e.target.value)}
-                  placeholder='Describe what to build, e.g. "a highlight reel of the strongest soundbites about the vote"'
-                  onKeyDown={(e) => e.key === "Enter" && submitReel()}
-                />
-                <Input
-                  value={reelMinutes}
-                  onChange={(e) => setReelMinutes(e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder={project.target_runtime_seconds != null
-                    ? `${Math.round((project.target_runtime_seconds / 60) * 10) / 10} min`
-                    : "Auto"}
-                  inputMode="decimal"
-                  title={project.target_runtime_seconds != null
-                    ? `Target run time in minutes — blank follows the project target (${formatRuntime(project.target_runtime_seconds)})`
-                    : "Target run time in minutes (blank = short highlight reel, up to 240 for feature length)"}
-                  className="w-24 shrink-0"
-                />
-                <Select value={reelPace} onValueChange={(v) => setReelPace(v as typeof reelPace)}>
-                  <SelectTrigger className="w-32 shrink-0" title="Cutting pace — hard max clip length">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fast">Fast (2–6 s)</SelectItem>
-                    <SelectItem value="normal">Normal (≤15 s)</SelectItem>
-                    <SelectItem value="cinematic">Cinematic (≤40 s)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant={reelPreset === "original" ? "default" : "outline"} size="icon"
-                  onClick={() => setReelPreset("original")} title="Original framing">
-                  <Monitor className="h-4 w-4" />
-                </Button>
-                <Button variant={reelPreset === "vertical" ? "default" : "outline"} size="icon"
-                  onClick={() => setReelPreset("vertical")} title="Vertical 9:16">
-                  <Smartphone className="h-4 w-4" />
-                </Button>
-                <Button onClick={submitReel} disabled={reelPrompt.trim().length < 3 || createReelMutation.isPending}>
-                  {createReelMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Target run time in minutes (optional) — leave blank for a short highlight reel, or set up to 240 for feature-length builds.
-                {mediaPool.length ? " Uses this project's media pool." : " Uses the whole library."}
-              </p>
-              {createReelMutation.isError && (
-                <p className="text-sm text-red-400">Could not start the reel — try different wording.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {clipLists?.length ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Scissors className="h-4 w-4" /> Rough Cuts from Clip Lists
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {clipLists.map((l) => (
-                  <div key={l.id} className="flex items-center justify-between gap-3 bg-muted/50 p-2.5 rounded text-sm">
-                    <span className="truncate">{l.name} · {l.clips.length} clips</span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <ApprovalBadge list={l} />
-                      <Button size="sm" variant="outline"
-                        onClick={() => {
-                          if (!l.locked && !l.clips.every((c) => c.approved)) setApprovalGate({ list: l, action: "roughcut" });
-                          else startRoughCut(l.id);
-                        }}
-                        disabled={!l.clips.length || roughCutMutation.isPending}
-                        title={l.clips.length && !l.clips.every((c) => c.approved) ? "Some beats aren't approved yet — review them in Refine first" : undefined}>
-                        {roughCutMutation.isPending
-                          ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          : <Wand2 className="h-4 w-4 mr-2" />}
-                        Rough cut
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ) : null}
-
+        {/* ----------------------------- DELIVER ---------------------------- */}
+        <TabsContent value="deliver" className="space-y-6">
           {reels?.length ? (
             <div className="grid gap-6 md:grid-cols-2">
               {reels.map((reel: ReelJob) => (
@@ -1043,13 +914,10 @@ export default function ProjectDetail() {
             </div>
           ) : (
             <div className="text-center text-muted-foreground py-10 border border-dashed border-border rounded-lg">
-              No reels yet — describe a highlight above or rough-cut a clip list.
+              No reels yet — build a cut in Studio and hit Render.
             </div>
           )}
-        </TabsContent>
 
-        {/* ----------------------------- DELIVER ---------------------------- */}
-        <TabsContent value="deliver" className="space-y-6">
           {clipLists?.length ? (
             <Card>
               <CardHeader>
@@ -1235,8 +1103,7 @@ export default function ProjectDetail() {
             <Button
               onClick={() => {
                 if (approvalGate) {
-                  if (approvalGate.action === "roughcut") startRoughCut(approvalGate.list.id);
-                  else { setPreset("original"); setBurnCaptions(false); setRenderTarget(approvalGate.list); }
+                  setPreset("original"); setBurnCaptions(false); setRenderTarget(approvalGate.list);
                 }
                 setApprovalGate(null);
               }}

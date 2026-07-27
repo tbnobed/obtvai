@@ -252,7 +252,7 @@ export function StudioTab({ project, onOpenPool }: { project: Project; onOpenPoo
                 renderMutation.mutate(
                   { id: projectId, data: { preset: "original" } },
                   {
-                    onSuccess: () => toast({ title: "Render started", description: "Track progress in the Cut tab." }),
+                    onSuccess: () => toast({ title: "Render started", description: "Track progress in the Deliver tab." }),
                     onError: () => toast({ title: "Render failed to start", variant: "destructive" }),
                   },
                 )
