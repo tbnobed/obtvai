@@ -24,6 +24,7 @@ import type {
   AIMessage,
   AIQuestion,
   AssetPerson,
+  AuditLogList,
   ClipExportInput,
   ClipExportResult,
   ClipList,
@@ -51,6 +52,7 @@ import type {
   KeywordHeatmap,
   LibraryInsights,
   LibraryStats,
+  ListAuditLogParams,
   ListClipListsParams,
   ListGraphicsGenerationsParams,
   ListJobsParams,
@@ -6637,6 +6639,83 @@ export const useRefreshSocials = <TError = ErrorType<void>,
       return useMutation(getRefreshSocialsMutationOptions(options));
     }
 
+export const getGetSocialsInsightsUrl = () => {
+
+
+
+
+  return `/api/socials/insights`
+}
+
+/**
+ * @summary Last saved AI insights run (survives restarts)
+ */
+export const getSocialsInsights = async ( options?: RequestInit): Promise<SocialsInsights> => {
+
+  return customFetch<SocialsInsights>(getGetSocialsInsightsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSocialsInsightsQueryKey = () => {
+    return [
+    `/api/socials/insights`
+    ] as const;
+    }
+
+
+export const getGetSocialsInsightsQueryOptions = <TData = Awaited<ReturnType<typeof getSocialsInsights>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSocialsInsights>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSocialsInsightsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSocialsInsights>>> = ({ signal }) => getSocialsInsights({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSocialsInsights>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSocialsInsightsQueryResult = NonNullable<Awaited<ReturnType<typeof getSocialsInsights>>>
+export type GetSocialsInsightsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Last saved AI insights run (survives restarts)
+ */
+
+export function useGetSocialsInsights<TData = Awaited<ReturnType<typeof getSocialsInsights>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSocialsInsights>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSocialsInsightsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGenerateSocialsInsightsUrl = () => {
 
 
@@ -11106,4 +11185,88 @@ export const useDeleteUser = <TError = ErrorType<void>,
       > => {
       return useMutation(getDeleteUserMutationOptions(options));
     }
+
+export const getListAuditLogUrl = (params?: ListAuditLogParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/audit?${stringifiedParams}` : `/api/audit`
+}
+
+/**
+ * @summary List the audit trail of who did what (admin only)
+ */
+export const listAuditLog = async (params?: ListAuditLogParams, options?: RequestInit): Promise<AuditLogList> => {
+
+  return customFetch<AuditLogList>(getListAuditLogUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAuditLogQueryKey = (params?: ListAuditLogParams,) => {
+    return [
+    `/api/audit`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAuditLogQueryOptions = <TData = Awaited<ReturnType<typeof listAuditLog>>, TError = ErrorType<void>>(params?: ListAuditLogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAuditLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAuditLogQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAuditLog>>> = ({ signal }) => listAuditLog(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAuditLog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAuditLogQueryResult = NonNullable<Awaited<ReturnType<typeof listAuditLog>>>
+export type ListAuditLogQueryError = ErrorType<void>
+
+
+/**
+ * @summary List the audit trail of who did what (admin only)
+ */
+
+export function useListAuditLog<TData = Awaited<ReturnType<typeof listAuditLog>>, TError = ErrorType<void>>(
+ params?: ListAuditLogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAuditLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAuditLogQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

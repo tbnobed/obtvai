@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..audit import record_audit_bg
 from ..auth import (
     COOKIE_NAME,
     create_session,
@@ -27,15 +28,20 @@ def _session_user(u: User) -> SessionUserOut:
 
 
 @router.post("/login", response_model=SessionUserOut)
-async def login(body: LoginIn, response: Response, db: AsyncSession = Depends(get_db)):
+async def login(body: LoginIn, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     username = body.username.strip().lower()
+    ip = request.client.host if request.client else None
     user = (await db.execute(select(User).where(User.username == username))).scalar_one_or_none()
     # Verify against a constant dummy hash when the user is unknown so the
     # response time does not reveal which usernames exist.
     dummy = "$2b$12$C6UzMDM.H6dfI/f/IKcEeO7ZBpTd/O0iBLW6dB2Sy0YO5FeSNr8B2"
     ok = verify_password(body.password, user.password_hash if user else dummy)
     if not user or not ok or user.disabled:
+        record_audit_bg(username=username, method="POST",
+                        path="/api/auth/login", status_code=401, ip=ip)
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    record_audit_bg(user=user, method="POST",
+                    path="/api/auth/login", status_code=200, ip=ip)
     token = new_session_token()
     await create_session(db, user.id, token)
     await db.commit()

@@ -2007,6 +2007,19 @@ paths:
           description: A socials sync job is already running
 
   /socials/insights:
+    get:
+      operationId: getSocialsInsights
+      tags: [socials]
+      summary: Last saved AI insights run (survives restarts)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialsInsights"
+        "404":
+          description: No insights generated yet
     post:
       operationId: generateSocialsInsights
       tags: [socials]
@@ -3255,6 +3268,52 @@ paths:
           description: Admin only
         "404":
           description: Not found
+
+  # ── Audit log (admin) ──────────────────────────────────────────────────────
+  /audit:
+    get:
+      operationId: listAuditLog
+      tags: [audit]
+      summary: List the audit trail of who did what (admin only)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Substring filter on the request path
+        - name: username
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: method
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [POST, PUT, PATCH, DELETE]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogList"
+        "403":
+          description: Admin only
 
 components:
   schemas:
@@ -5997,6 +6056,39 @@ components:
           minLength: 8
           maxLength: 72
           description: 8-72 characters (bcrypt limit)
+
+    AuditLogEntry:
+      type: object
+      required: [id, created_at, method, path, status_code]
+      properties:
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        user_id:
+          type: ["string", "null"]
+        username:
+          type: ["string", "null"]
+        method:
+          type: string
+        path:
+          type: string
+        status_code:
+          type: integer
+        ip:
+          type: ["string", "null"]
+
+    AuditLogList:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLogEntry"
 
     UserOut:
       type: object

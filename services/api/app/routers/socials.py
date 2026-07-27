@@ -531,6 +531,57 @@ async def _insights_background() -> None:
         return
     summary, stats = collected
     _insights_result = await _generate_insights_now(summary, stats)
+    await _save_insights(_insights_result)
+
+
+async def _save_insights(result: "SocialsInsightsOut") -> None:
+    """Persist a finished run so insights survive restarts and page loads."""
+    from ..models import SocialInsight
+    # Insert and prune are separate transactions: a prune failure must never
+    # cost us the freshly generated result.
+    try:
+        async with AsyncSessionLocal() as db:
+            db.add(SocialInsight(
+                generated_at=result.generated_at,
+                working=result.working,
+                not_working=result.not_working,
+                recommendations=result.recommendations,
+                model_used=result.model_used,
+            ))
+            await db.commit()
+    except Exception as e:
+        print(f"Socials insights: failed to persist result: {type(e).__name__}: {e}")
+        return
+    try:
+        async with AsyncSessionLocal() as db:
+            # Keep a short history; prune everything but the newest 20 runs.
+            from sqlalchemy import delete as sa_delete
+            keep = select(SocialInsight.id).order_by(
+                SocialInsight.generated_at.desc()).limit(20)
+            await db.execute(sa_delete(SocialInsight).where(
+                SocialInsight.id.notin_(keep.subquery().select())))
+            await db.commit()
+    except Exception as e:
+        print(f"Socials insights: history prune failed (non-fatal): {type(e).__name__}: {e}")
+
+
+@router.get("/insights", response_model=SocialsInsightsOut)
+async def get_socials_insights(db: AsyncSession = Depends(get_db)):
+    """Last saved insights run (survives restarts). 404 if never run."""
+    from ..models import SocialInsight
+    row = (await db.execute(
+        select(SocialInsight).order_by(SocialInsight.generated_at.desc()).limit(1)
+    )).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No insights generated yet")
+    return SocialsInsightsOut(
+        status="ready",
+        generated_at=row.generated_at,
+        working=row.working or [],
+        not_working=row.not_working or [],
+        recommendations=row.recommendations or [],
+        model_used=row.model_used,
+    )
 
 
 @router.post("/insights", response_model=SocialsInsightsOut)

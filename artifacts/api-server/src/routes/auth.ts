@@ -84,6 +84,39 @@ function viewerMayPost(path: string): boolean {
   return false;
 }
 
+// ── Audit trail (mirrors the production audit_logs table) ───────────────────
+
+type AuditEntry = {
+  id: string; created_at: string; user_id: string | null; username: string | null;
+  method: string; path: string; status_code: number; ip: string | null;
+};
+
+const auditLog: AuditEntry[] = [];
+
+function recordAudit(entry: Omit<AuditEntry, "id" | "created_at">) {
+  auditLog.unshift({ id: randomUUID(), created_at: new Date().toISOString(), ...entry });
+  if (auditLog.length > 2000) auditLog.length = 2000;
+}
+
+// Seed a few entries so the admin view has content before any actions.
+const seedNow = Date.now();
+([
+  ["admin", "POST", "/api/auth/login", 200],
+  ["editor", "POST", "/api/auth/login", 200],
+  ["editor", "POST", "/api/media/asset-001/run-stage", 202],
+  ["editor", "PATCH", "/api/people/person-001", 200],
+  ["admin", "POST", "/api/users", 201],
+  ["viewer", "POST", "/api/search", 200],
+  ["editor", "DELETE", "/api/clips/clip-002", 204],
+] as const).forEach(([username, method, path, status], i) => {
+  auditLog.push({
+    id: `audit-seed-${i}`,
+    created_at: new Date(seedNow - (i + 1) * 47 * 60 * 1000).toISOString(),
+    user_id: `user-${username}`, username, method, path, status_code: status,
+    ip: "192.168.1.20",
+  });
+});
+
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const path = req.path.replace(/\/+$/, "") || "/";
   if (PUBLIC_PATHS.has(path)) { next(); return; }
@@ -108,6 +141,12 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     res.status(403).json({ detail: "View-only account — ask an admin for edit access" });
     return;
   }
+  if (!isRead) {
+    res.on("finish", () => recordAudit({
+      user_id: user.id, username: user.username, method,
+      path: `/api${path}`, status_code: res.statusCode, ip: req.ip ?? null,
+    }));
+  }
   next();
 }
 
@@ -117,15 +156,33 @@ const router: IRouter = Router();
 
 router.post("/auth/login", (req, res) => {
   const { username, password } = req.body ?? {};
-  const user = users.find((u) => u.username === String(username ?? "").trim().toLowerCase());
+  const name = String(username ?? "").trim().toLowerCase();
+  const user = users.find((u) => u.username === name);
   if (!user || user.password !== password || user.disabled) {
+    recordAudit({ user_id: null, username: name || null, method: "POST", path: "/api/auth/login", status_code: 401, ip: req.ip ?? null });
     res.status(401).json({ detail: "Invalid username or password" });
     return;
   }
+  recordAudit({ user_id: user.id, username: user.username, method: "POST", path: "/api/auth/login", status_code: 200, ip: req.ip ?? null });
   const token = randomUUID();
   sessions.set(token, user.id);
   setSessionCookie(res, token);
   res.json(sessionUserOut(user));
+});
+
+router.get("/audit", (req, res) => {
+  const me = (req as Request & { user?: MockUser }).user;
+  if (!me || me.role !== "admin") { res.status(403).json({ detail: "Admin only" }); return; }
+  const q = typeof req.query.q === "string" ? req.query.q.toLowerCase() : null;
+  const username = typeof req.query.username === "string" ? req.query.username.trim().toLowerCase() : null;
+  const method = typeof req.query.method === "string" ? req.query.method.trim().toUpperCase() : null;
+  const limit = Math.min(500, Math.max(1, Number(req.query.limit ?? 100) || 100));
+  const offset = Math.max(0, Number(req.query.offset ?? 0) || 0);
+  let rows = auditLog;
+  if (q) rows = rows.filter((r) => r.path.toLowerCase().includes(q));
+  if (username) rows = rows.filter((r) => r.username === username);
+  if (method) rows = rows.filter((r) => r.method === method);
+  res.json({ total: rows.length, items: rows.slice(offset, offset + limit) });
 });
 
 router.post("/auth/logout", (req, res) => {

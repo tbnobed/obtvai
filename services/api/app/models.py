@@ -400,6 +400,18 @@ class TrendTopic(Base):
     fetched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class SocialInsight(Base):
+    """Persisted result of a Socials AI-insights run (latest row wins)."""
+    __tablename__ = "social_insights"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    generated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    working: Mapped[list] = mapped_column(JSONB, default=list)
+    not_working: Mapped[list] = mapped_column(JSONB, default=list)
+    recommendations: Mapped[list] = mapped_column(JSONB, default=list)
+    model_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
 class SocialProgram(Base):
     """A show/program grouping its social channels (Praise, Better Together, ...)."""
     __tablename__ = "social_programs"
@@ -487,6 +499,20 @@ class Clip(Base):
 
     clip_list: Mapped["ClipList"] = relationship("ClipList", back_populates="clips")
     asset: Mapped["MediaAsset"] = relationship("MediaAsset")
+
+
+class AuditLog(Base):
+    """Who did what: one row per mutating API request (plus logins)."""
+    __tablename__ = "audit_logs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    username: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    method: Mapped[str] = mapped_column(String, nullable=False)
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    status_code: Mapped[int] = mapped_column(Integer, nullable=False)
+    ip: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class User(Base):

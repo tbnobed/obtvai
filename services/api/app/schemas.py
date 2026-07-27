@@ -1089,6 +1089,22 @@ class UserOut(BaseModel):
     last_seen: Optional[datetime] = None
 
 
+class AuditLogOut(BaseModel):
+    id: str
+    created_at: datetime
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    method: str
+    path: str
+    status_code: int
+    ip: Optional[str] = None
+
+
+class AuditLogList(BaseModel):
+    total: int
+    items: list[AuditLogOut]
+
+
 class UserCreateIn(BaseModel):
     username: str = Field(min_length=3, max_length=50, pattern=r"^[a-z0-9._-]+$")
     password: str = Field(min_length=8, max_length=72)

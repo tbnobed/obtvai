@@ -2561,6 +2561,19 @@ export const RefreshSocialsResponse = zod.object({
 
 
 /**
+ * @summary Last saved AI insights run (survives restarts)
+ */
+export const GetSocialsInsightsResponse = zod.object({
+  "status": zod.enum(['running', 'ready']).describe('\"running\" while generation is in progress (poll by re-POSTing); \"ready\" when the insight lists below are populated\n'),
+  "generated_at": zod.string(),
+  "working": zod.array(zod.string()).describe('What\'s performing well'),
+  "not_working": zod.array(zod.string()).describe('What\'s underperforming'),
+  "recommendations": zod.array(zod.string()),
+  "model_used": zod.boolean().describe('false when the LLM was unavailable and heuristic analysis was returned instead')
+})
+
+
+/**
  * @summary AI analysis of what is and isn't working across social channels. Asynchronous: the first POST starts generation and returns status "running"; keep re-POSTing to poll until status is "ready". A ready result is cached briefly, so an immediate re-POST returns it instead of regenerating.
 
  */
@@ -4054,5 +4067,34 @@ export const DeleteUserParams = zod.object({
 })
 
 export const DeleteUserResponse = zod.void()
+
+
+/**
+ * @summary List the audit trail of who did what (admin only)
+ */
+export const listAuditLogQueryLimitDefault = 100;
+export const listAuditLogQueryOffsetDefault = 0;
+
+export const ListAuditLogQueryParams = zod.object({
+  "limit": zod.coerce.number().default(listAuditLogQueryLimitDefault),
+  "offset": zod.coerce.number().default(listAuditLogQueryOffsetDefault),
+  "q": zod.coerce.string().optional().describe('Substring filter on the request path'),
+  "username": zod.coerce.string().optional(),
+  "method": zod.enum(['POST', 'PUT', 'PATCH', 'DELETE']).optional()
+})
+
+export const ListAuditLogResponse = zod.object({
+  "total": zod.number(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "created_at": zod.coerce.date(),
+  "user_id": zod.string().nullish(),
+  "username": zod.string().nullish(),
+  "method": zod.string(),
+  "path": zod.string(),
+  "status_code": zod.number(),
+  "ip": zod.string().nullish()
+}))
+})
 
 

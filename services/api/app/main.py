@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends, ratings, folders, socials, auth as auth_router, users as users_router
+from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, voice, graphics, trends, ratings, folders, socials, auth as auth_router, users as users_router, audit as audit_router
 from .auth import auth_middleware
 
 
@@ -423,6 +423,7 @@ app.middleware("http")(auth_middleware)
 
 app.include_router(auth_router.router, prefix="/api")
 app.include_router(users_router.router, prefix="/api")
+app.include_router(audit_router.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
 app.include_router(folders.router, prefix="/api")
 app.include_router(search.router, prefix="/api")

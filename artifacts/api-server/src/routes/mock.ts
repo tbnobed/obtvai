@@ -3526,6 +3526,12 @@ router.post("/socials/refresh", (_req, res) => {
 // Async in production (LLM takes minutes): first POST returns status
 // "running", the client re-POSTs to poll. Simulated here with a short delay.
 let mockInsightsReadyAt: number | null = null;
+let mockSavedInsights: any = null;
+
+router.get("/socials/insights", (_req, res) => {
+  if (!mockSavedInsights) { res.status(404).json({ detail: "No insights generated yet" }); return; }
+  res.json(mockSavedInsights);
+});
 router.post("/socials/insights", (_req, res) => {
   if (!socialChannels.length) { res.status(404).json({ detail: "No social channels to analyze yet" }); return; }
   if (mockInsightsReadyAt == null || Date.now() > mockInsightsReadyAt + 180_000) {
@@ -3569,14 +3575,15 @@ router.post("/socials/insights", (_req, res) => {
     }
   }
   if (!recs.length) recs.push("Keep the posting cadence steady and compare next week's deltas to spot trends.");
-  res.json({
+  mockSavedInsights = {
     status: "ready",
     generated_at: new Date().toISOString(),
     working: working.slice(0, 6),
     not_working: notWorking.slice(0, 6),
     recommendations: recs.slice(0, 5),
     model_used: false,
-  });
+  };
+  res.json(mockSavedInsights);
 });
 
 // ---------------------------------------------------------------------------

@@ -13,6 +13,8 @@ import {
   useDeleteSocialChannel,
   useRefreshSocials,
   useGenerateSocialsInsights,
+  useGetSocialsInsights,
+  getGetSocialsInsightsQueryKey,
   useListJobs,
   getListJobsQueryKey,
   type SocialChannelOverview,
@@ -288,6 +290,8 @@ export default function Socials() {
           pollTimer.current = setTimeout(() => insights.mutate(), 5000);
         } else {
           setInsightsPolling(false);
+          // A run finished — refresh the persisted copy shown on page load.
+          queryClient.invalidateQueries({ queryKey: getGetSocialsInsightsQueryKey() });
         }
       },
       onError: () => {
@@ -298,9 +302,18 @@ export default function Socials() {
     },
   });
   useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current); }, []);
+  // Last persisted run — shown immediately on page load; 404 just means no run yet.
+  const savedInsights = useGetSocialsInsights({
+    query: {
+      queryKey: getGetSocialsInsightsQueryKey(),
+      retry: false,
+      refetchOnWindowFocus: false,
+    },
+  });
   const insightsBusy = insights.isPending || insightsPolling;
   const insightsReady =
-    !insightsPolling && insights.data?.status === "ready" ? insights.data : null;
+    (!insightsPolling && insights.data?.status === "ready" ? insights.data : null)
+    ?? (savedInsights.data?.status === "ready" ? savedInsights.data : null);
 
   const [programDialog, setProgramDialog] = useState<{ id?: string; name: string } | null>(null);
   const [channelDialog, setChannelDialog] = useState<{
@@ -369,7 +382,7 @@ export default function Socials() {
               <Sparkles className="w-4 h-4 text-primary" /> AI insights
             </h2>
             <span className="text-xs text-muted-foreground">
-              {insightsReady.model_used ? "AI analysis" : "Metrics analysis (AI model unavailable)"} · {new Date(insightsReady.generated_at).toLocaleTimeString()}
+              {insightsReady.model_used ? "AI analysis" : "Metrics analysis (AI model unavailable)"} · {new Date(insightsReady.generated_at).toLocaleString()}
             </span>
           </div>
           <div className="p-4 grid gap-6 md:grid-cols-3">

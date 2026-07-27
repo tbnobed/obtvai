@@ -13,6 +13,7 @@ import {
   BarChart3,
   Share2,
   UserCog,
+  ScrollText,
   LogOut,
   KeyRound,
   ChevronUp,
@@ -132,7 +133,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/ratings", label: "Ratings", icon: BarChart3 },
     { href: "/socials", label: "Socials", icon: Share2 },
     { href: "/jobs", label: "Processing Pipeline", icon: Activity },
-    ...(isAdmin ? [{ href: "/users", label: "Users", icon: UserCog }] : []),
+    ...(isAdmin ? [
+      { href: "/users", label: "Users", icon: UserCog },
+      { href: "/audit", label: "Audit Log", icon: ScrollText },
+    ] : []),
   ];
 
   return (

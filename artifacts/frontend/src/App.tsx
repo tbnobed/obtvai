@@ -23,6 +23,7 @@ import Socials from "@/pages/socials";
 import SearchPage from "@/pages/search";
 import Login from "@/pages/login";
 import UsersPage from "@/pages/users";
+import AuditLogPage from "@/pages/audit-log";
 
 function is401(error: unknown): boolean {
   return (error as { status?: number })?.status === 401;
@@ -73,6 +74,9 @@ function Router() {
         <Route path="/search" component={SearchPage} />
         <Route path="/users">
           <AdminRoute component={UsersPage} />
+        </Route>
+        <Route path="/audit">
+          <AdminRoute component={AuditLogPage} />
         </Route>
         {/* Old workflow pages now live inside Projects */}
         <Route path="/clips"><Redirect to="/projects" /></Route>

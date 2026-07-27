@@ -2197,6 +2197,25 @@ export interface PasswordChangeInput {
   new_password: string;
 }
 
+export interface AuditLogEntry {
+  id: string;
+  created_at: string;
+  /** @nullable */
+  user_id?: string | null;
+  /** @nullable */
+  username?: string | null;
+  method: string;
+  path: string;
+  status_code: number;
+  /** @nullable */
+  ip?: string | null;
+}
+
+export interface AuditLogList {
+  total: number;
+  items: AuditLogEntry[];
+}
+
 export type UserOutRole = typeof UserOutRole[keyof typeof UserOutRole];
 
 
@@ -2490,4 +2509,25 @@ export type ListStoriesParams = {
  */
 project_id?: string;
 };
+
+export type ListAuditLogParams = {
+limit?: number;
+offset?: number;
+/**
+ * Substring filter on the request path
+ */
+q?: string;
+username?: string;
+method?: ListAuditLogMethod;
+};
+
+export type ListAuditLogMethod = typeof ListAuditLogMethod[keyof typeof ListAuditLogMethod];
+
+
+export const ListAuditLogMethod = {
+  POST: 'POST',
+  PUT: 'PUT',
+  PATCH: 'PATCH',
+  DELETE: 'DELETE',
+} as const;
 

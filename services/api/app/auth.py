@@ -17,6 +17,7 @@ import bcrypt
 from fastapi import HTTPException, Request
 from sqlalchemy import delete, select
 
+from .audit import AUDITED_METHODS, record_audit_bg
 from .config import settings
 from .database import AsyncSessionLocal
 from .models import User, UserSession
@@ -136,7 +137,14 @@ async def auth_middleware(request: Request, call_next):
     internal = request.headers.get("x-internal-token")
     if internal and settings.internal_api_token and secrets.compare_digest(internal, settings.internal_api_token):
         request.state.user = None
-        return await call_next(request)
+        response = await call_next(request)
+        if request.method in AUDITED_METHODS:
+            record_audit_bg(
+                username="internal", method=request.method, path=path,
+                status_code=response.status_code,
+                ip=request.client.host if request.client else None,
+            )
+        return response
 
     from fastapi.responses import JSONResponse
 
@@ -155,7 +163,16 @@ async def auth_middleware(request: Request, call_next):
             status_code=403,
         )
 
-    return await call_next(request)
+    response = await call_next(request)
+    # Audit trail: every mutating request by a signed-in user. Logins are
+    # recorded in the auth router (they carry the attempted username).
+    if request.method in AUDITED_METHODS:
+        record_audit_bg(
+            user=user, method=request.method, path=path,
+            status_code=response.status_code,
+            ip=request.client.host if request.client else None,
+        )
+    return response
 
 
 def current_user(request: Request) -> User:
