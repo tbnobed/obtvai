@@ -236,7 +236,10 @@ _PLAN_SYSTEM = (
     "searches should re-find on-topic material to replace them.\n"
     "- adjust: the user wants to reshape what is already there — change the "
     "runtime (longer/shorter/specific length), drop or tighten clips — with NO "
-    "new material needed. Leave searches empty.\n"
+    "new material needed. Leave searches empty. Adjust can only remove or "
+    "resize existing clips; if the user wants different, better, or broader "
+    "material (more variety, more episodes, more impactful moments), that "
+    "requires edit with searches.\n"
     "- edit: the user wants new or different content, so new material must be "
     "found. Search queries should describe the CONTENT to find (topics, "
     "phrases, speakers), not editing instructions.\n"
@@ -421,17 +424,23 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 _trim_to_target(new_cut, target)
             if ranges:
                 new_cut = [c for c in new_cut if _clamp_to_range(c, ranges)]
-            reply = (plan.get("reply") or "").strip() or (
-                f"Reworked the cut to {_fmt_tc(sum(_clip_duration(c) for c in new_cut))} "
-                f"across {len(new_cut)} clips — tell me if you want it tighter or looser."
-            )
-            await _lock_project_writes(db, project_id)
-            rev = await _save_revision(db, project_id, [
-                {k: v for k, v in c.items() if k != "_dur"} for c in new_cut
-            ], reply, "assistant")
-            await db.flush()
-            await _finish(db, assistant_id, reply, rev.version)
-            return
+            if not new_cut:
+                # Removals wiped the cut and there is nothing to add back —
+                # never save an empty revision; fall through to the edit path
+                # so replacement material gets searched for instead.
+                mode = "edit"
+            else:
+                reply = (plan.get("reply") or "").strip() or (
+                    f"Reworked the cut to {_fmt_tc(sum(_clip_duration(c) for c in new_cut))} "
+                    f"across {len(new_cut)} clips — tell me if you want it tighter or looser."
+                )
+                await _lock_project_writes(db, project_id)
+                rev = await _save_revision(db, project_id, [
+                    {k: v for k, v in c.items() if k != "_dur"} for c in new_cut
+                ], reply, "assistant")
+                await db.flush()
+                await _finish(db, assistant_id, reply, rev.version)
+                return
 
         # ---- gather candidates
         searches = [s for s in (plan.get("searches") or []) if isinstance(s, str) and s.strip()][:3]
@@ -498,6 +507,14 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             _trim_to_target(new_cut, target)
         if ranges:
             new_cut = [c for c in new_cut if _clamp_to_range(c, ranges)]
+        if not new_cut:
+            await _finish(
+                db, assistant_id,
+                "That change would have left the cut empty, so I kept the "
+                "current version — try telling me what to replace the clips "
+                "with.", None,
+            )
+            return
 
         reply = (sel.get("reply") or "").strip() or (
             f"Updated the cut — {len(new_cut)} clips, "
