@@ -1380,6 +1380,13 @@ router.get("/media/:id/dub/:lang/stream", (req, res) => {
     res.status(404).json({ error: "No dubbed audio for this language" });
     return;
   }
+  if (String(req.query.download ?? "") === "true") {
+    const base = String(asset.filename ?? "audio")
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^A-Za-z0-9._-]+/g, "_");
+    res.setHeader("Content-Disposition",
+      `attachment; filename="dub_${lang}_${base}.wav"`);
+  }
   // No real TTS in the mock environment — serve a silent WAV matching the
   // asset duration so the player toggle can be exercised end-to-end.
   const sampleRate = 8000;

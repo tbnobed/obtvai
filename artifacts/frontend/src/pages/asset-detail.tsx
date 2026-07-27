@@ -1184,6 +1184,20 @@ export default function AssetDetail() {
                       </Button>
                       <Button
                         size="sm"
+                        variant="outline"
+                        className="w-full gap-2 mt-1.5"
+                        asChild
+                        data-testid="button-download-dub-audio"
+                      >
+                        <a href={`/api/media/${id}/dub/${transcriptLang}/stream?download=true`} download>
+                          <Download className="h-4 w-4" />
+                          Download audio only (
+                          {TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()}
+                          {" "}dub, M4A)
+                        </a>
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="ghost"
                         className="w-full gap-2 mt-1.5 text-muted-foreground"
                         onClick={() => startDub(transcriptLang)}

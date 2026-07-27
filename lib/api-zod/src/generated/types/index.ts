@@ -179,6 +179,7 @@ export * from './storyBeat';
 export * from './storyJob';
 export * from './storyOpportunity';
 export * from './storyRequestIn';
+export * from './streamDubParams';
 export * from './tightenCut';
 export * from './tightenInput';
 export * from './tightenResult';

@@ -728,6 +728,12 @@ export const StreamDubParams = zod.object({
   "lang": zod.coerce.string()
 })
 
+export const streamDubQueryDownloadDefault = false;
+
+export const StreamDubQueryParams = zod.object({
+  "download": zod.coerce.boolean().default(streamDubQueryDownloadDefault).describe('Force a file download (Content-Disposition attachment)')
+})
+
 export const StreamDubResponse = zod.unknown()
 
 

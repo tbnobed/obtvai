@@ -556,6 +556,13 @@ paths:
           required: true
           schema:
             type: string
+        - name: download
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Force a file download (Content-Disposition attachment)
       responses:
         "200":
           description: Dubbed audio (AAC in M4A container)

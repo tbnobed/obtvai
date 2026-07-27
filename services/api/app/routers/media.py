@@ -1413,7 +1413,9 @@ async def create_dub(id: str, body: DubRequest, db: AsyncSession = Depends(get_d
 
 
 @router.get("/{id}/dub/{lang}/stream")
-async def stream_dub(id: str, lang: str, db: AsyncSession = Depends(get_db)):
+async def stream_dub(id: str, lang: str, download: bool = False,
+                     db: AsyncSession = Depends(get_db)):
+    """Standalone dubbed audio (M4A). ?download=true forces a file download."""
     from fastapi.responses import FileResponse
     result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
     asset = result.scalar_one_or_none()
@@ -1429,7 +1431,7 @@ async def stream_dub(id: str, lang: str, db: AsyncSession = Depends(get_db)):
         path,
         media_type="audio/mp4",
         filename=f"dub_{lang}_{asset.filename.rsplit('.', 1)[0]}.m4a",
-        content_disposition_type="inline",
+        content_disposition_type="attachment" if download else "inline",
     )
 
 

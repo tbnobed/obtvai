@@ -129,6 +129,7 @@ import type {
   SocialsOverview,
   StoryJob,
   StoryRequestIn,
+  StreamDubParams,
   TightenInput,
   TightenResult,
   TranscriptSegment,
@@ -1709,21 +1710,30 @@ export const useCreateDub = <TError = ErrorType<void>,
     }
 
 export const getStreamDubUrl = (id: string,
-    lang: string,) => {
+    lang: string,
+    params?: StreamDubParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/media/${id}/dub/${lang}/stream`
+  return stringifiedParams.length > 0 ? `/api/media/${id}/dub/${lang}/stream?${stringifiedParams}` : `/api/media/${id}/dub/${lang}/stream`
 }
 
 /**
  * @summary Stream the dubbed audio track for a language
  */
 export const streamDub = async (id: string,
-    lang: string, options?: RequestInit): Promise<Blob> => {
+    lang: string,
+    params?: StreamDubParams, options?: RequestInit): Promise<Blob> => {
 
-  return customFetch<Blob>(getStreamDubUrl(id,lang),
+  return customFetch<Blob>(getStreamDubUrl(id,lang,params),
   {
     ...options,
     method: 'GET'
@@ -1737,24 +1747,26 @@ export const streamDub = async (id: string,
 
 
 export const getStreamDubQueryKey = (id: string,
-    lang: string,) => {
+    lang: string,
+    params?: StreamDubParams,) => {
     return [
-    `/api/media/${id}/dub/${lang}/stream`
+    `/api/media/${id}/dub/${lang}/stream`, ...(params ? [params] : [])
     ] as const;
     }
 
 
 export const getStreamDubQueryOptions = <TData = Awaited<ReturnType<typeof streamDub>>, TError = ErrorType<void>>(id: string,
-    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamDub>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+    lang: string,
+    params?: StreamDubParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamDub>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getStreamDubQueryKey(id,lang);
+  const queryKey =  queryOptions?.queryKey ?? getStreamDubQueryKey(id,lang,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamDub>>> = ({ signal }) => streamDub(id,lang, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamDub>>> = ({ signal }) => streamDub(id,lang,params, { signal, ...requestOptions });
 
 
 
@@ -1773,11 +1785,12 @@ export type StreamDubQueryError = ErrorType<void>
 
 export function useStreamDub<TData = Awaited<ReturnType<typeof streamDub>>, TError = ErrorType<void>>(
  id: string,
-    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamDub>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+    lang: string,
+    params?: StreamDubParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamDub>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getStreamDubQueryOptions(id,lang,options)
+  const queryOptions = getStreamDubQueryOptions(id,lang,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -2340,6 +2340,13 @@ export const GetCaptionsFormat = {
   vtt: 'vtt',
 } as const;
 
+export type StreamDubParams = {
+/**
+ * Force a file download (Content-Disposition attachment)
+ */
+download?: boolean;
+};
+
 export type ListPeopleParams = {
 /**
  * @minimum 1
