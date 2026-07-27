@@ -32,7 +32,9 @@ _LEAD_IN_SECONDS = 1.0
 _MAX_CLIP_SECONDS_LONGFORM = 300.0
 _MAX_CLIPS_HARD = 500
 # Planning assumption when converting a runtime target into a clip count.
-_ASSUMED_CLIP_SECONDS = 20.0
+# Transcript hits average well under 10s once widened, so plan generously —
+# the accumulation loop stops at the runtime target anyway.
+_ASSUMED_CLIP_SECONDS = 8.0
 
 
 def _to_out(r: ReelJob) -> ReelJobOut:
@@ -71,6 +73,39 @@ def _window(
     if duration > 0:
         e = min(e, duration)
     return s, e
+
+
+def _fill_to_target(clips: list[dict], target: float) -> None:
+    """If the selected clips fall short of the runtime target, widen them
+    around their moments — extending each clip's end in small rounds, bounded
+    by the asset duration, the next clip in the same asset, and the per-clip
+    longform cap — until the target is met or no headroom remains."""
+    total = sum(c["end_time"] - c["start_time"] for c in clips)
+    deficit = target - total
+    if deficit <= 0.5:
+        return
+    ordered = sorted(clips, key=lambda c: (c["media_id"], c["start_time"]))
+    step = 5.0
+    progress = True
+    while deficit > 0.5 and progress:
+        progress = False
+        for i, c in enumerate(ordered):
+            if deficit <= 0.5:
+                break
+            limit = c["start_time"] + _MAX_CLIP_SECONDS_LONGFORM
+            dur = c.get("_dur") or 0.0
+            if dur > 0:
+                limit = min(limit, dur)
+            nxt = ordered[i + 1] if i + 1 < len(ordered) else None
+            if nxt is not None and nxt["media_id"] == c["media_id"]:
+                limit = min(limit, nxt["start_time"])
+            room = limit - c["end_time"]
+            if room <= 0.01:
+                continue
+            ext = min(step, room, deficit)
+            c["end_time"] += ext
+            deficit -= ext
+            progress = True
 
 
 def _merge_overlaps(clips: list[dict]) -> list[dict]:
@@ -112,7 +147,7 @@ async def _select_clips(
         vec = await get_text_embedding(prompt)
         vector_hits = await search_vectors(
             collection="transcripts", vector=vec,
-            limit=min(max_clips * 3, 1500),
+            limit=min(max(max_clips * 3, 300 if target_duration else 0), 1500),
             media_id=media_id, media_ids=media_ids,
         )
         for hit in vector_hits:
@@ -133,6 +168,7 @@ async def _select_clips(
                 "end_time": e,
                 "snippet": seg.text,
                 "_score": float(hit.score),
+                "_dur": float(asset.duration_seconds or 0),
             })
     except Exception:
         logger.exception("Vector search failed for reel prompt %r — falling back to text search", prompt)
@@ -147,7 +183,7 @@ async def _select_clips(
             q = q.where(TranscriptSegment.media_id == media_id)
         elif media_ids:
             q = q.where(TranscriptSegment.media_id.in_(media_ids))
-        rows = (await db.execute(q.limit(min(max_clips * 3, 1500)))).all()
+        rows = (await db.execute(q.limit(min(max(max_clips * 3, 300 if target_duration else 0), 1500)))).all()
         for seg, asset in rows:
             s, e = _window(seg.start_time, seg.end_time, float(asset.duration_seconds or 0), max_clip_seconds)
             clips.append({
@@ -157,6 +193,7 @@ async def _select_clips(
                 "end_time": e,
                 "snippet": seg.text,
                 "_score": 0.5,
+                "_dur": float(asset.duration_seconds or 0),
             })
 
     clips.sort(key=lambda c: c["_score"], reverse=True)
@@ -173,10 +210,14 @@ async def _select_clips(
             if total >= target_duration:
                 break
         clips = selected
+        # Material ran out (or clips were shorter than planned) — widen the
+        # picked windows so the reel still reaches the requested runtime.
+        _fill_to_target(clips, target_duration)
     else:
         clips = clips[:max_clips]
     for c in clips:
         c.pop("_score", None)
+        c.pop("_dur", None)
     # Story order: keep assets grouped and windows chronological within each.
     clips.sort(key=lambda c: (c["media_id"], c["start_time"]))
 
