@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProjectInputMediaRanges } from './projectInputMediaRanges';
 
 export interface ProjectInput {
   /** @minLength 1 */
@@ -15,6 +16,8 @@ export interface ProjectInput {
   script?: string | null;
   /** @nullable */
   media_ids?: string[] | null;
+  /** @nullable */
+  media_ranges?: ProjectInputMediaRanges;
   /**
      * Target run time for the finished piece, in seconds
      * @nullable

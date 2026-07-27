@@ -66,7 +66,7 @@ import {
   Clock, Sparkles,
 } from "lucide-react";
 import { formatRuntime, parseRuntime } from "@/lib/runtime";
-import { RefineTab } from "@/components/project/refine-tab";
+import { MediaPoolTab } from "@/components/project/media-pool-tab";
 import { StudioTab } from "@/components/project/studio-tab";
 import { ClipThumb } from "@/components/project/clip-thumb";
 import { MediaPickerGrid } from "@/components/project/media-picker";
@@ -220,9 +220,8 @@ export default function ProjectDetail() {
 
   const [tab, setTab] = useState<string>(() => {
     const t = new URLSearchParams(window.location.search).get("tab") ?? "";
-    return ["find", "studio", "assemble", "refine", "cut", "deliver"].includes(t) ? t : "find";
+    return ["find", "pool", "studio", "cut", "deliver"].includes(t) ? t : "find";
   });
-  const [refineFocus, setRefineFocus] = useState<{ id: string } | null>(null);
   const [approvalGate, setApprovalGate] = useState<{ list: ClipList; action: "roughcut" | "render" } | null>(null);
 
   const { data: project, isLoading } = useGetProject(id);
@@ -436,10 +435,6 @@ export default function ProjectDetail() {
       setSelectedResults({});
       invalidateAll();
     };
-    setStoryAssets((s) => {
-      const ids = results.map((r) => r.media_id).filter((x) => !s.includes(x));
-      return ids.length ? [...s, ...[...new Set(ids)]] : s;
-    });
     if (newMediaIds.length) {
       const merged = [...basePool, ...newMediaIds];
       pendingPoolRef.current = merged;
@@ -459,118 +454,6 @@ export default function ProjectDetail() {
   };
 
   const addResultToSources = (r: SearchResult) => addResultsToSources([r]);
-
-  const newEmptyList = () => {
-    const name = window.prompt("New clip list name", `${project?.name ?? "Project"} — selects`);
-    if (!name?.trim()) return;
-    createListMutation.mutate(
-      { data: { name: name.trim(), project_id: id } },
-      {
-        onSuccess: () => {
-          invalidateAll();
-        },
-      },
-    );
-  };
-
-  // ---- Assemble: inline clip editing ----
-  const [editing, setEditing] = useState<Record<string, ClipListUpdateClipsItem[]>>({});
-
-  const startEdit = (list: ClipList) => {
-    setEditing((e) => ({
-      ...e,
-      [list.id]: list.clips.map((c) => ({
-        media_id: c.media_id,
-        start_time: c.start_time,
-        end_time: c.end_time,
-        label: c.label ?? undefined,
-        notes: c.notes ?? null,
-        approved: c.approved ?? false,
-        match_reason: c.match_reason ?? null,
-      })),
-    }));
-  };
-
-  const editClips = (listId: string, fn: (clips: ClipListUpdateClipsItem[]) => ClipListUpdateClipsItem[]) =>
-    setEditing((e) => ({ ...e, [listId]: fn(e[listId] ?? []) }));
-
-  const [toggleLockPending, setToggleLockPending] = useState<string | null>(null);
-  const toggleLock = (list: ClipList) => {
-    setToggleLockPending(list.id);
-    updateListMutation.mutate(
-      { id: list.id, data: { locked: !list.locked } },
-      {
-        onSuccess: () => invalidateAll(),
-        onSettled: () => setToggleLockPending(null),
-      },
-    );
-  };
-
-  const saveEdit = (listId: string) => {
-    const clips = editing[listId];
-    if (!clips) return;
-    updateListMutation.mutate(
-      { id: listId, data: { clips } },
-      {
-        onSuccess: () => {
-          setEditing((e) => {
-            const { [listId]: _drop, ...rest } = e;
-            return rest;
-          });
-          invalidateAll();
-        },
-      },
-    );
-  };
-
-  // ---- Assemble: story builder ----
-  const createStoryMutation = useCreateStory();
-  const [storyAssets, setStoryAssets] = useState<string[]>([]);
-  const [storyPrompt, setStoryPrompt] = useState("");
-  const [storyMinutes, setStoryMinutes] = useState("");
-  // The project's media pool (chosen in Find) is the default story source —
-  // pre-select it so the editor isn't asked to pick media twice. Once they
-  // touch the selection, respect their choice.
-  const storyTouchedRef = useRef(false);
-  useEffect(() => {
-    if (!storyTouchedRef.current && mediaPool.length) setStoryAssets(mediaPool);
-  }, [mediaPool]);
-
-  // What the editor collected in Find feeds the story build: the working
-  // script guides the structure, and clips added from search go in as
-  // hand-picked moments (story-generated output lists excluded).
-  const hasWorkingScript = !!project?.script?.trim();
-  const storyAssetSet = new Set(storyAssets);
-  const findClips = editorLists.flatMap((l) =>
-    l.clips.filter((c) => storyAssetSet.has(c.media_id)));
-  const clipsFromFind = findClips.length;
-
-  const submitStory = () => {
-    if (!storyAssets.length) return;
-    const mins = parseFloat(storyMinutes);
-    const targetSeconds = Number.isFinite(mins) && mins > 0
-      ? Math.min(Math.max(Math.round(mins * 60), 30), 14400)
-      : null;
-    createStoryMutation.mutate(
-      {
-        data: {
-          asset_ids: storyAssets,
-          prompt: storyPrompt.trim() || null,
-          project_id: id,
-          ...(targetSeconds ? { target_duration_seconds: targetSeconds } : {}),
-        },
-      },
-      {
-        onSuccess: () => {
-          storyTouchedRef.current = false;
-          setStoryAssets(mediaPool.length ? mediaPool : []);
-          setStoryPrompt("");
-          setStoryMinutes("");
-          invalidateAll();
-        },
-      },
-    );
-  };
 
   // ---- Cut: reels + rough cuts ----
   const createReelMutation = useCreateReel();
@@ -858,16 +741,19 @@ export default function ProjectDetail() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6">
           <TabsTrigger value="find"><Search className="h-4 w-4 mr-2" /> Find</TabsTrigger>
+          <TabsTrigger value="pool"><Clapperboard className="h-4 w-4 mr-2" /> Media Pool</TabsTrigger>
           <TabsTrigger value="studio"><Sparkles className="h-4 w-4 mr-2" /> Studio</TabsTrigger>
-          <TabsTrigger value="assemble"><Scissors className="h-4 w-4 mr-2" /> Assemble</TabsTrigger>
-          <TabsTrigger value="refine"><SlidersHorizontal className="h-4 w-4 mr-2" /> Refine</TabsTrigger>
           <TabsTrigger value="cut"><Wand2 className="h-4 w-4 mr-2" /> Cut</TabsTrigger>
           <TabsTrigger value="deliver"><Clapperboard className="h-4 w-4 mr-2" /> Deliver</TabsTrigger>
         </TabsList>
 
         {/* ------------------------------ FIND ------------------------------ */}
         <TabsContent value="studio">
-          {project && <StudioTab project={project} />}
+          {project && <StudioTab project={project} onOpenPool={() => setTab("pool")} />}
+        </TabsContent>
+
+        <TabsContent value="pool">
+          {project && <MediaPoolTab project={project} />}
         </TabsContent>
 
         <TabsContent value="find" className="space-y-6">
@@ -1005,331 +891,6 @@ export default function ProjectDetail() {
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-
-        {/* ---------------------------- ASSEMBLE ---------------------------- */}
-        <TabsContent value="assemble" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BookOpen className="h-4 w-4" /> Build a Story
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(hasWorkingScript || clipsFromFind > 0) && (
-                <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Uses what you collected:
-                    {hasWorkingScript ? " the working script guides the structure" : ""}
-                    {hasWorkingScript && clipsFromFind > 0 ? "," : ""}
-                    {clipsFromFind > 0 ? ` these ${clipsFromFind} clip-list clip${clipsFromFind === 1 ? "" : "s"} go in as hand-picked moments` : ""}.
-                  </p>
-                  {clipsFromFind > 0 && (
-                    <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
-                      {findClips.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => setPlayerClip({
-                            media_id: c.media_id,
-                            start_time: c.start_time,
-                            end_time: c.end_time,
-                            filename: c.filename,
-                          })}
-                          className="w-full flex items-center gap-2 text-xs text-left rounded px-1.5 py-1 hover:bg-muted"
-                        >
-                          <PlayCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="font-mono text-muted-foreground shrink-0">
-                            {fmtTime(c.start_time)}–{fmtTime(c.end_time)}
-                          </span>
-                          <span className="truncate">{c.filename}</span>
-                          {c.label && <span className="truncate text-muted-foreground">— {c.label}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              <div>
-                <Label className="mb-2 block">Source assets</Label>
-                {mediaPool.length > 0 && (
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Your project media (from Find) is pre-selected — narrow it down here if you only want some of it in the story.
-                  </p>
-                )}
-                <MediaPickerGrid
-                  selected={storyAssets}
-                  onToggle={(assetId, checked) => {
-                    storyTouchedRef.current = true;
-                    setStoryAssets((s) =>
-                      checked ? [...s, assetId] : s.filter((x) => x !== assetId));
-                  }}
-                  onToggleMany={(assetIds, checked) => {
-                    storyTouchedRef.current = true;
-                    setStoryAssets((s) =>
-                      checked
-                        ? [...s, ...assetIds.filter((x) => !s.includes(x))]
-                        : s.filter((x) => !assetIds.includes(x)));
-                  }}
-                  restrictTo={mediaPool.length ? mediaPool : undefined}
-                  requireReady
-                  gridClass="sm:grid-cols-2"
-                  onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
-                  emptyText="The library is empty — add or upload footage first, then build a story from it here."
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
-                <div className="space-y-2">
-                  <Label htmlFor="story-prompt">Editorial direction (optional)</Label>
-                  <Input
-                    id="story-prompt"
-                    value={storyPrompt}
-                    onChange={(e) => setStoryPrompt(e.target.value)}
-                    placeholder='e.g. "focus on the community reaction"'
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="story-minutes">Target length (min)</Label>
-                  <Input
-                    id="story-minutes"
-                    type="number"
-                    min={0.5}
-                    max={240}
-                    step={0.5}
-                    value={storyMinutes}
-                    onChange={(e) => setStoryMinutes(e.target.value)}
-                    placeholder={project.target_runtime_seconds != null
-                      ? `${Math.round((project.target_runtime_seconds / 60) * 10) / 10}`
-                      : "auto"}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {project.target_runtime_seconds != null
-                      ? <>Blank follows the project target ({formatRuntime(project.target_runtime_seconds)}). </>
-                      : null}
-                    Short pieces get punchy bites; long productions get full segments.
-                  </p>
-                </div>
-              </div>
-              {createStoryMutation.isError && (
-                <p className="text-sm text-red-400">Could not start the story — try again.</p>
-              )}
-              <Button onClick={submitStory} disabled={!storyAssets.length || createStoryMutation.isPending}>
-                {createStoryMutation.isPending
-                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  : <BookOpen className="h-4 w-4 mr-2" />}
-                Build story from {storyAssets.length || "selected"} asset{storyAssets.length === 1 ? "" : "s"}
-              </Button>
-
-              {stories?.length ? (
-                <div className="space-y-2 pt-2">
-                  {stories.map((s) => (
-                    <div key={s.id} className="bg-muted/50 p-2.5 rounded text-sm space-y-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="truncate font-medium">{s.title || s.prompt || `${s.asset_ids.length} assets`}</span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <JobStatusBadge status={s.status} />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-muted-foreground hover:text-red-400"
-                            onClick={() => deleteStoryMutation.mutate({ id: s.id }, { onSuccess: invalidateAll })}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                      {s.status === "running" && (
-                        <p className="text-xs text-muted-foreground">Building… {Math.round(s.progress ?? 0)}%</p>
-                      )}
-                      {s.status === "error" && s.error_message && (
-                        <p className="text-xs text-red-400">{s.error_message}</p>
-                      )}
-                      {s.narrative && (
-                        <p className="text-xs text-muted-foreground leading-relaxed">{s.narrative}</p>
-                      )}
-                      {s.script && (
-                        <details className="pt-1">
-                          <summary className="text-xs font-medium cursor-pointer select-none text-primary hover:underline">
-                            Working script
-                          </summary>
-                          <div className="mt-1.5 space-y-1.5">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => navigator.clipboard?.writeText(s.script ?? "")}
-                            >
-                              Copy script
-                            </Button>
-                            <pre className="text-xs text-muted-foreground bg-background/60 border rounded p-2 whitespace-pre-wrap max-h-72 overflow-y-auto font-mono leading-relaxed">
-                              {s.script}
-                            </pre>
-                          </div>
-                        </details>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">Arrange the story — order and label clips, or build an AI story from selected assets. Nothing is rendered here; review each beat in Refine, then render in Cut.</p>
-            <Button size="sm" variant="outline" onClick={newEmptyList}>
-              <Plus className="h-4 w-4 mr-2" /> New clip list
-            </Button>
-          </div>
-
-          {clipLists?.length ? clipLists.map((list) => {
-            const draft = editing[list.id];
-            return (
-              <Card key={list.id}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Scissors className="h-4 w-4" /> {list.name}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {(draft ?? list.clips).length} clips
-                    </span>
-                    <ApprovalBadge list={list} />
-                    {list.locked && (
-                      <Badge variant="outline" className="gap-1 text-amber-500 border-amber-500/40 font-normal">
-                        <Lock className="h-3 w-3" /> Picture locked
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  {draft ? (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() =>
-                        setEditing((e) => { const { [list.id]: _d, ...rest } = e; return rest; })
-                      }>Cancel</Button>
-                      <Button size="sm" onClick={() => saveEdit(list.id)} disabled={updateListMutation.isPending}>
-                        {updateListMutation.isPending
-                          ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          : <Save className="h-4 w-4 mr-2" />}
-                        Save changes
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm" variant="outline"
-                        className={list.locked ? "text-amber-500" : "text-muted-foreground"}
-                        title={list.locked ? "Unlock to allow edits" : "Freeze this cut — no more changes until unlocked"}
-                        disabled={toggleLockPending === list.id}
-                        onClick={() => toggleLock(list)}
-                      >
-                        {toggleLockPending === list.id
-                          ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          : list.locked ? <Lock className="h-4 w-4 mr-2" /> : <LockOpen className="h-4 w-4 mr-2" />}
-                        {list.locked ? "Unlock" : "Lock story"}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => startEdit(list)} disabled={!list.clips.length || list.locked}
-                        title={list.locked ? "Picture locked — unlock to edit" : undefined}>
-                        Edit clips
-                      </Button>
-                    </div>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {draft ? draft.map((c, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-muted/50 p-2 rounded text-sm">
-                      <div className="flex flex-col">
-                        <Button size="icon" variant="ghost" className="h-5 w-5" disabled={i === 0}
-                          onClick={() => editClips(list.id, (cs) => {
-                            const next = [...cs];
-                            [next[i - 1], next[i]] = [next[i], next[i - 1]];
-                            return next;
-                          })}>
-                          <ArrowUp className="h-3 w-3" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-5 w-5" disabled={i === draft.length - 1}
-                          onClick={() => editClips(list.id, (cs) => {
-                            const next = [...cs];
-                            [next[i], next[i + 1]] = [next[i + 1], next[i]];
-                            return next;
-                          })}>
-                          <ArrowDown className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <Input
-                        className="h-8 flex-1 min-w-0"
-                        value={c.label ?? ""}
-                        placeholder="Clip label"
-                        onChange={(e) => editClips(list.id, (cs) =>
-                          cs.map((x, xi) => xi === i ? { ...x, label: e.target.value } : x))}
-                      />
-                      <div className="flex items-center gap-1 shrink-0">
-                        <TimecodeInput
-                          className="h-8 w-20 font-mono text-xs"
-                          value={c.start_time}
-                          title="Start (mm:ss.ff)"
-                          onCommit={(v) => editClips(list.id, (cs) =>
-                            cs.map((x, xi) => xi === i ? { ...x, start_time: v } : x))}
-                        />
-                        <span className="text-muted-foreground text-xs">→</span>
-                        <TimecodeInput
-                          className="h-8 w-20 font-mono text-xs"
-                          value={c.end_time}
-                          title="End (mm:ss.ff)"
-                          onCommit={(v) => editClips(list.id, (cs) =>
-                            cs.map((x, xi) => xi === i ? { ...x, end_time: v } : x))}
-                        />
-                      </div>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-red-400 shrink-0"
-                        onClick={() => editClips(list.id, (cs) => cs.filter((_, xi) => xi !== i))}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )) : list.clips.length ? list.clips.map((clip, i) => (
-                    <div key={clip.id} className="flex items-center gap-2 bg-muted/50 p-2 rounded text-sm">
-                      <ClipThumb url={clip.thumbnail_url} mediaId={clip.media_id} time={clip.start_time} className="h-9 w-14" />
-                      <div className="truncate pr-2 flex-1 min-w-0">
-                        <div className="truncate">
-                          <span className="text-muted-foreground mr-2">{i + 1}.</span>
-                          {clip.label || clip.filename || clip.media_id}
-                        </div>
-                        {clip.match_reason && (
-                          <div className="truncate text-xs text-muted-foreground">{clip.match_reason}</div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {clip.approved && <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-label="Approved" />}
-                        <span className="font-mono text-xs">{fmtTime(clip.start_time)} – {fmtTime(clip.end_time)}</span>
-                        <Button
-                          size="icon" variant="ghost" className="h-6 w-6" title="Play this clip"
-                          onClick={() => setPlayerClip({
-                            media_id: clip.media_id,
-                            start_time: clip.start_time,
-                            end_time: clip.end_time,
-                            label: clip.label,
-                            filename: clip.filename,
-                          })}
-                        >
-                          <Play className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  )) : (
-                    <p className="text-sm text-muted-foreground">Empty — add clips from the Find tab.</p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          }) : (
-            <div className="text-center text-muted-foreground py-10 border border-dashed border-border rounded-lg">
-              No clip lists yet — search footage in the Find tab and add clips.
-            </div>
-          )}
-
-        </TabsContent>
-
-        {/* ----------------------------- REFINE ----------------------------- */}
-        <TabsContent value="refine" className="space-y-6">
-          <p className="text-sm text-muted-foreground">
-            Review and trim each beat right here — play it, drag the in/out points, see why it was picked, and approve it. Lock the story when the cut is final.
-          </p>
-          <RefineTab projectId={id} clipLists={clipLists} assets={media?.items} onChanged={invalidateAll} focusList={refineFocus} />
         </TabsContent>
 
         {/* ------------------------------ CUT ------------------------------ */}
@@ -1668,17 +1229,8 @@ export default function ProjectDetail() {
             </p>
           )}
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (approvalGate) {
-                  setRefineFocus({ id: approvalGate.list.id });
-                  setTab("refine");
-                }
-                setApprovalGate(null);
-              }}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5 mr-2" /> Review in Refine
+            <Button variant="outline" onClick={() => setApprovalGate(null)}>
+              Cancel
             </Button>
             <Button
               onClick={() => {

@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProjectUpdateMediaRanges } from './projectUpdateMediaRanges';
 import type { ProjectUpdateStatus } from './projectUpdateStatus';
 
 export interface ProjectUpdate {
@@ -17,6 +18,8 @@ export interface ProjectUpdate {
   status?: ProjectUpdateStatus;
   /** @nullable */
   media_ids?: string[] | null;
+  /** @nullable */
+  media_ranges?: ProjectUpdateMediaRanges;
   /**
      * Target run time for the finished piece, in seconds
      * @nullable

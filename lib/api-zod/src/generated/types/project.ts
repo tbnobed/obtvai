@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ProjectCounts } from './projectCounts';
+import type { ProjectMediaRanges } from './projectMediaRanges';
 import type { ProjectStatus } from './projectStatus';
 
 export interface Project {
@@ -21,6 +22,11 @@ export interface Project {
   status?: ProjectStatus;
   /** Media pool — asset ids this project works with; empty means the whole library */
   media_ids?: string[];
+  /**
+     * Per-asset usable region the Studio assistant selects within
+     * @nullable
+     */
+  media_ranges?: ProjectMediaRanges;
   /**
      * Target run time for the finished piece, in seconds
      * @nullable

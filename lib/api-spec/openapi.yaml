@@ -5795,6 +5795,17 @@ components:
             type: string
           default: []
           description: Media pool — asset ids this project works with; empty means the whole library
+        media_ranges:
+          type: ["object", "null"]
+          description: Per-asset usable region the Studio assistant selects within
+          additionalProperties:
+            type: object
+            required: [in, out]
+            properties:
+              in:
+                type: number
+              out:
+                type: number
         target_runtime_seconds:
           type: ["number", "null"]
           description: Target run time for the finished piece, in seconds
@@ -5830,6 +5841,16 @@ components:
           type: ["array", "null"]
           items:
             type: string
+        media_ranges:
+          type: ["object", "null"]
+          additionalProperties:
+            type: object
+            required: [in, out]
+            properties:
+              in:
+                type: number
+              out:
+                type: number
         target_runtime_seconds:
           type: ["number", "null"]
           description: Target run time for the finished piece, in seconds
@@ -5851,6 +5872,16 @@ components:
           type: ["array", "null"]
           items:
             type: string
+        media_ranges:
+          type: ["object", "null"]
+          additionalProperties:
+            type: object
+            required: [in, out]
+            properties:
+              in:
+                type: number
+              out:
+                type: number
         target_runtime_seconds:
           type: ["number", "null"]
           description: Target run time for the finished piece, in seconds

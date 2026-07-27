@@ -984,6 +984,7 @@ class ProjectOut(BaseModel):
     script: Optional[str] = None
     status: str = "active"
     media_ids: List[str] = []
+    media_ranges: Optional[dict] = None
     target_runtime_seconds: Optional[float] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -995,6 +996,7 @@ class ProjectInput(BaseModel):
     description: Optional[str] = None
     script: Optional[str] = None
     media_ids: Optional[List[str]] = None
+    media_ranges: Optional[dict] = None
     target_runtime_seconds: Optional[float] = None
 
 
@@ -1004,6 +1006,7 @@ class ProjectUpdate(BaseModel):
     script: Optional[str] = None
     status: Optional[Literal["active", "archived"]] = None
     media_ids: Optional[List[str]] = None
+    media_ranges: Optional[dict] = None
     target_runtime_seconds: Optional[float] = None
 
 

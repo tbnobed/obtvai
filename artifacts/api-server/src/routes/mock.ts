@@ -348,6 +348,7 @@ type MockProject = {
   id: string; name: string; description: string | null; script: string | null;
   status: "active" | "archived";
   media_ids: string[];
+  media_ranges?: Record<string, { in: number; out: number }> | null;
   target_runtime_seconds: number | null;
   created_at: string; updated_at: string | null;
 };
@@ -1519,6 +1520,14 @@ router.post("/projects", (req, res) => {
     script: req.body?.script || null,
     status: "active",
     media_ids: Array.isArray(req.body?.media_ids) ? req.body.media_ids : [],
+    media_ranges: (() => {
+      const clean: Record<string, { in: number; out: number }> = {};
+      for (const [k, v] of Object.entries(req.body?.media_ranges || {})) {
+        const r = v as any;
+        if (r && Number(r.out) > Number(r.in) && Number(r.in) >= 0) clean[k] = { in: Number(r.in), out: Number(r.out) };
+      }
+      return Object.keys(clean).length ? clean : null;
+    })(),
     target_runtime_seconds: typeof req.body?.target_runtime_seconds === "number" ? req.body.target_runtime_seconds : null,
     created_at: new Date().toISOString(),
     updated_at: null,
@@ -1540,7 +1549,20 @@ router.patch("/projects/:id", (req, res) => {
   if (req.body.description !== undefined) p.description = req.body.description;
   if (req.body.script !== undefined) p.script = req.body.script;
   if (req.body.status === "active" || req.body.status === "archived") p.status = req.body.status;
-  if (req.body.media_ids !== undefined) p.media_ids = Array.isArray(req.body.media_ids) ? req.body.media_ids : [];
+  if (req.body.media_ids !== undefined) {
+    p.media_ids = Array.isArray(req.body.media_ids) ? req.body.media_ids : [];
+    if (p.media_ranges) {
+      p.media_ranges = Object.fromEntries(Object.entries(p.media_ranges).filter(([k]) => p.media_ids.includes(k)));
+    }
+  }
+  if (req.body.media_ranges !== undefined) {
+    const clean: Record<string, { in: number; out: number }> = {};
+    for (const [k, v] of Object.entries(req.body.media_ranges || {})) {
+      const r = v as any;
+      if (r && Number(r.out) > Number(r.in) && Number(r.in) >= 0) clean[k] = { in: Number(r.in), out: Number(r.out) };
+    }
+    p.media_ranges = Object.keys(clean).length ? clean : null;
+  }
   if (req.body.target_runtime_seconds !== undefined) p.target_runtime_seconds = typeof req.body.target_runtime_seconds === "number" ? req.body.target_runtime_seconds : null;
   p.updated_at = new Date().toISOString();
   res.json(projectOut(p));

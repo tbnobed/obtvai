@@ -1698,6 +1698,15 @@ export const ProjectStatus = {
   archived: 'archived',
 } as const;
 
+/**
+ * Per-asset usable region the Studio assistant selects within
+ * @nullable
+ */
+export type ProjectMediaRanges = {[key: string]: {
+  in: number;
+  out: number;
+}} | null;
+
 export type ProjectCounts = {
   clip_lists: number;
   stories: number;
@@ -1719,6 +1728,11 @@ export interface Project {
   /** Media pool — asset ids this project works with; empty means the whole library */
   media_ids?: string[];
   /**
+     * Per-asset usable region the Studio assistant selects within
+     * @nullable
+     */
+  media_ranges?: ProjectMediaRanges;
+  /**
      * Target run time for the finished piece, in seconds
      * @nullable
      */
@@ -1729,6 +1743,14 @@ export interface Project {
   counts: ProjectCounts;
 }
 
+/**
+ * @nullable
+ */
+export type ProjectInputMediaRanges = {[key: string]: {
+  in: number;
+  out: number;
+}} | null;
+
 export interface ProjectInput {
   /** @minLength 1 */
   name: string;
@@ -1738,6 +1760,8 @@ export interface ProjectInput {
   script?: string | null;
   /** @nullable */
   media_ids?: string[] | null;
+  /** @nullable */
+  media_ranges?: ProjectInputMediaRanges;
   /**
      * Target run time for the finished piece, in seconds
      * @nullable
@@ -1753,6 +1777,14 @@ export const ProjectUpdateStatus = {
   archived: 'archived',
 } as const;
 
+/**
+ * @nullable
+ */
+export type ProjectUpdateMediaRanges = {[key: string]: {
+  in: number;
+  out: number;
+}} | null;
+
 export interface ProjectUpdate {
   /** @minLength 1 */
   name?: string;
@@ -1763,6 +1795,8 @@ export interface ProjectUpdate {
   status?: ProjectUpdateStatus;
   /** @nullable */
   media_ids?: string[] | null;
+  /** @nullable */
+  media_ranges?: ProjectUpdateMediaRanges;
   /**
      * Target run time for the finished piece, in seconds
      * @nullable

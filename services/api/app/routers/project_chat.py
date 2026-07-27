@@ -219,6 +219,21 @@ def _cand_lines(cands: list[dict]) -> str:
     return "\n".join(lines) if lines else "(none found)"
 
 
+def _clamp_to_range(c: dict, ranges: dict) -> bool:
+    """Clamp a clip to its asset's usable region (Media Pool trim). Returns
+    False when the clip falls entirely outside the region or gets too short."""
+    r = ranges.get(c["media_id"])
+    if not r:
+        return True
+    try:
+        lo, hi = float(r["in"]), float(r["out"])
+    except (KeyError, TypeError, ValueError):
+        return True
+    c["start_time"] = max(c["start_time"], lo)
+    c["end_time"] = min(c["end_time"], hi)
+    return c["end_time"] - c["start_time"] >= 2.0
+
+
 def _overlaps_existing(c: dict, existing: list[dict]) -> bool:
     for e in existing:
         if e["media_id"] == c["media_id"] and not (
@@ -299,11 +314,14 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
 
         kept = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
 
+        ranges = project.media_ranges or {}
         candidates: list[dict] = []
         for q in searches:
             found = await _select_clips(q.strip(), 30, db, media_ids=media_ids)
             for c in found:
                 c["locked"] = False
+                if not _clamp_to_range(c, ranges):
+                    continue
                 if not _overlaps_existing(c, kept) and not _overlaps_existing(c, candidates):
                     candidates.append(c)
             if len(candidates) >= _MAX_CANDIDATES:
@@ -341,8 +359,11 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             )
             return
 
-        # Meet the runtime target the same way reels do.
+        # Meet the runtime target the same way reels do, then re-clamp —
+        # widening must not push clips past their Media Pool trim ranges.
         _fill_to_target(new_cut, target)
+        if ranges:
+            new_cut = [c for c in new_cut if _clamp_to_range(c, ranges)]
 
         reply = (sel.get("reply") or "").strip() or (
             f"Updated the cut — {len(new_cut)} clips, "

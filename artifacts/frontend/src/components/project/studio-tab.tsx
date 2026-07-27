@@ -6,17 +6,10 @@ import {
   useUpdateProjectCut, useRevertProjectCut, useRenderProjectCut,
 } from "@workspace/api-client-react";
 import type { ProjectChatMessage, ProjectCut, CutClip, Project } from "@workspace/api-client-react";
-import { useUpdateProject, getGetProjectQueryKey } from "@workspace/api-client-react";
-import type { MediaAsset } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { MediaPickerGrid } from "@/components/project/media-picker";
-import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -40,7 +33,7 @@ function fmtRuntime(s: number) {
   return `${m}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 }
 
-export function StudioTab({ project }: { project: Project }) {
+export function StudioTab({ project, onOpenPool }: { project: Project; onOpenPool?: () => void }) {
   const projectId = project.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -49,29 +42,9 @@ export function StudioTab({ project }: { project: Project }) {
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Media pool picker — which assets the assistant may draw from.
-  const [poolOpen, setPoolOpen] = useState(false);
-  const [poolDraft, setPoolDraft] = useState<string[]>([]);
-  const [previewAsset, setPreviewAsset] = useState<PlayerClip | null>(null);
-  const updateProjectMutation = useUpdateProject();
+  // Which assets the assistant may draw from — managed in the Media Pool tab.
   const mediaPool = project.media_ids ?? [];
 
-  const openPool = () => {
-    setPoolDraft(mediaPool);
-    setPoolOpen(true);
-  };
-  const savePool = () => {
-    updateProjectMutation.mutate(
-      { id: projectId, data: { media_ids: poolDraft } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
-          setPoolOpen(false);
-        },
-        onError: () => toast({ title: "Couldn't update the media pool", variant: "destructive" }),
-      },
-    );
-  };
 
   const { data: messages } = useListProjectChatMessages(projectId, {
     query: {
@@ -167,7 +140,7 @@ export function StudioTab({ project }: { project: Project }) {
           <span className="text-sm font-medium">Editorial assistant</span>
           <Button
             size="sm" variant="outline" className="ml-auto h-7 text-xs"
-            onClick={openPool}
+            onClick={() => onOpenPool?.()}
             data-testid="button-media-pool"
           >
             <Film className="w-3.5 h-3.5 mr-1.5" />
@@ -354,43 +327,6 @@ export function StudioTab({ project }: { project: Project }) {
         </div>
       </div>
 
-      {/* ── Media pool picker ── */}
-      <Dialog open={poolOpen} onOpenChange={setPoolOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Media pool</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground -mt-2">
-            The assistant only pulls moments from these assets. Leave all unchecked to search the whole library.
-          </p>
-          <div className="max-h-[50vh] overflow-y-auto">
-            <MediaPickerGrid
-              selected={poolDraft}
-              onToggle={(mid, checked) =>
-                setPoolDraft((prev) => (checked ? [...prev, mid] : prev.filter((x) => x !== mid)))
-              }
-              onToggleMany={(ids, checked) =>
-                setPoolDraft((prev) =>
-                  checked ? [...new Set([...prev, ...ids])] : prev.filter((x) => !ids.includes(x))
-                )
-              }
-              onPreview={(asset: MediaAsset) =>
-                setPreviewAsset({ media_id: asset.id, filename: asset.filename, start_time: 0, end_time: asset.duration_seconds ?? 0 })
-              }
-              requireReady
-              emptyText="No media in the library yet — upload footage first."
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPoolOpen(false)}>Cancel</Button>
-            <Button onClick={savePool} disabled={updateProjectMutation.isPending} data-testid="button-save-media-pool">
-              {updateProjectMutation.isPending && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
-              Save pool
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <ClipPlayerDialog clip={previewAsset} onClose={() => setPreviewAsset(null)} />
     </div>
   );
 }

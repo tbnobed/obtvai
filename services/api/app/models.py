@@ -377,6 +377,9 @@ class Project(Base):
     script: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="active", server_default="active")
     media_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Per-asset usable region: {media_id: {"in": seconds, "out": seconds}}.
+    # The Studio assistant only selects moments inside these ranges.
+    media_ranges: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     target_runtime_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)

@@ -42,11 +42,28 @@ async def _to_out(p: Project, db: AsyncSession) -> ProjectOut:
         script=p.script,
         status=p.status or "active",
         media_ids=p.media_ids or [],
+        media_ranges=p.media_ranges,
         target_runtime_seconds=p.target_runtime_seconds,
         created_at=p.created_at,
         updated_at=p.updated_at,
         counts=await _counts(db, p.id),
     )
+
+
+def _clean_ranges(ranges: dict | None) -> dict | None:
+    """Validate {media_id: {"in": s, "out": s}} — drop malformed entries."""
+    if not ranges:
+        return None
+    out: dict = {}
+    for mid, r in ranges.items():
+        try:
+            lo = float(r["in"])
+            hi = float(r["out"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if hi > lo >= 0:
+            out[str(mid)] = {"in": lo, "out": hi}
+    return out or None
 
 
 async def _load(id: str, db: AsyncSession) -> Project:
@@ -72,6 +89,7 @@ async def create_project(body: ProjectInput, db: AsyncSession = Depends(get_db))
         description=body.description,
         script=body.script,
         media_ids=body.media_ids or [],
+        media_ranges=_clean_ranges(body.media_ranges),
         target_runtime_seconds=body.target_runtime_seconds,
         created_at=datetime.utcnow(),
     )
@@ -100,6 +118,15 @@ async def update_project(id: str, body: ProjectUpdate, db: AsyncSession = Depend
         p.status = body.status
     if "media_ids" in body.model_fields_set:
         p.media_ids = body.media_ids or []
+        # Drop trim ranges for assets no longer in the pool.
+        if p.media_ranges:
+            p.media_ranges = {k: v for k, v in p.media_ranges.items() if k in (p.media_ids or [])}
+    if "media_ranges" in body.model_fields_set:
+        cleaned = _clean_ranges(body.media_ranges)
+        # Ranges only make sense for assets in the pool.
+        if cleaned and p.media_ids:
+            cleaned = {k: v for k, v in cleaned.items() if k in p.media_ids} or None
+        p.media_ranges = cleaned
     if "target_runtime_seconds" in body.model_fields_set:
         p.target_runtime_seconds = body.target_runtime_seconds
     p.updated_at = datetime.utcnow()
