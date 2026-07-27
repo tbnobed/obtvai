@@ -220,7 +220,7 @@ export default function ProjectDetail() {
 
   const [tab, setTab] = useState<string>(() => {
     const t = new URLSearchParams(window.location.search).get("tab") ?? "";
-    return ["studio", "find", "assemble", "refine", "cut", "deliver"].includes(t) ? t : "studio";
+    return ["find", "studio", "assemble", "refine", "cut", "deliver"].includes(t) ? t : "find";
   });
   const [refineFocus, setRefineFocus] = useState<{ id: string } | null>(null);
   const [approvalGate, setApprovalGate] = useState<{ list: ClipList; action: "roughcut" | "render" } | null>(null);
@@ -857,8 +857,8 @@ export default function ProjectDetail() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6">
-          <TabsTrigger value="studio"><Sparkles className="h-4 w-4 mr-2" /> Studio</TabsTrigger>
           <TabsTrigger value="find"><Search className="h-4 w-4 mr-2" /> Find</TabsTrigger>
+          <TabsTrigger value="studio"><Sparkles className="h-4 w-4 mr-2" /> Studio</TabsTrigger>
           <TabsTrigger value="assemble"><Scissors className="h-4 w-4 mr-2" /> Assemble</TabsTrigger>
           <TabsTrigger value="refine"><SlidersHorizontal className="h-4 w-4 mr-2" /> Refine</TabsTrigger>
           <TabsTrigger value="cut"><Wand2 className="h-4 w-4 mr-2" /> Cut</TabsTrigger>
