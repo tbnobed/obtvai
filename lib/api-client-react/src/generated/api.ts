@@ -39,6 +39,7 @@ import type {
   GetKeywordHeatmapParams,
   GetMediaFrameParams,
   GetMediaTranscriptParams,
+  GetProjectCutParams,
   GetRatingsOverviewParams,
   GetSocialChannelHistoryParams,
   GraphicsGenerateInput,
@@ -90,6 +91,10 @@ import type {
   PersonUpdate,
   ProcessingJob,
   Project,
+  ProjectChatMessage,
+  ProjectChatMessageInput,
+  ProjectCut,
+  ProjectCutUpdate,
   ProjectInput,
   ProjectUpdate,
   PublishPlatforms,
@@ -106,10 +111,12 @@ import type {
   ReelRequest,
   RenderJob,
   RenderPresetInput,
+  RenderProjectCutBody,
   RenderRequest,
   ReprofileRequest,
   ResumeStalledResult,
   RetryFailedResult,
+  RevertProjectCutBody,
   RoughCutInput,
   RunStageInput,
   Scene,
@@ -8806,6 +8813,460 @@ export const useDeleteProject = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteProjectMutationOptions(options));
+    }
+
+export const getListProjectChatMessagesUrl = (id: string,) => {
+
+
+
+
+  return `/api/projects/${id}/chat`
+}
+
+/**
+ * @summary Chat history for a project's editorial assistant
+ */
+export const listProjectChatMessages = async (id: string, options?: RequestInit): Promise<ProjectChatMessage[]> => {
+
+  return customFetch<ProjectChatMessage[]>(getListProjectChatMessagesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProjectChatMessagesQueryKey = (id: string,) => {
+    return [
+    `/api/projects/${id}/chat`
+    ] as const;
+    }
+
+
+export const getListProjectChatMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listProjectChatMessages>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProjectChatMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProjectChatMessagesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProjectChatMessages>>> = ({ signal }) => listProjectChatMessages(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProjectChatMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProjectChatMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listProjectChatMessages>>>
+export type ListProjectChatMessagesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Chat history for a project's editorial assistant
+ */
+
+export function useListProjectChatMessages<TData = Awaited<ReturnType<typeof listProjectChatMessages>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProjectChatMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProjectChatMessagesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPostProjectChatMessageUrl = (id: string,) => {
+
+
+
+
+  return `/api/projects/${id}/chat/messages`
+}
+
+/**
+ * @summary Send a message; the assistant replies asynchronously
+ */
+export const postProjectChatMessage = async (id: string,
+    projectChatMessageInput: ProjectChatMessageInput, options?: RequestInit): Promise<ProjectChatMessage[]> => {
+
+  return customFetch<ProjectChatMessage[]>(getPostProjectChatMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(projectChatMessageInput)
+  }
+);}
+
+
+
+
+
+export const getPostProjectChatMessageMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProjectChatMessage>>, TError,{id: string;data: BodyType<ProjectChatMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postProjectChatMessage>>, TError,{id: string;data: BodyType<ProjectChatMessageInput>}, TContext> => {
+
+const mutationKey = ['postProjectChatMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProjectChatMessage>>, {id: string;data: BodyType<ProjectChatMessageInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  postProjectChatMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostProjectChatMessageMutationResult = NonNullable<Awaited<ReturnType<typeof postProjectChatMessage>>>
+    export type PostProjectChatMessageMutationBody = BodyType<ProjectChatMessageInput>
+    export type PostProjectChatMessageMutationError = ErrorType<void>
+
+    /**
+ * @summary Send a message; the assistant replies asynchronously
+ */
+export const usePostProjectChatMessage = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProjectChatMessage>>, TError,{id: string;data: BodyType<ProjectChatMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof postProjectChatMessage>>,
+        TError,
+        {id: string;data: BodyType<ProjectChatMessageInput>},
+        TContext
+      > => {
+      return useMutation(getPostProjectChatMessageMutationOptions(options));
+    }
+
+export const getGetProjectCutUrl = (id: string,
+    params?: GetProjectCutParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/projects/${id}/cut?${stringifiedParams}` : `/api/projects/${id}/cut`
+}
+
+/**
+ * @summary Current (or a specific) draft cut revision
+ */
+export const getProjectCut = async (id: string,
+    params?: GetProjectCutParams, options?: RequestInit): Promise<ProjectCut> => {
+
+  return customFetch<ProjectCut>(getGetProjectCutUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProjectCutQueryKey = (id: string,
+    params?: GetProjectCutParams,) => {
+    return [
+    `/api/projects/${id}/cut`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetProjectCutQueryOptions = <TData = Awaited<ReturnType<typeof getProjectCut>>, TError = ErrorType<void>>(id: string,
+    params?: GetProjectCutParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectCut>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProjectCutQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjectCut>>> = ({ signal }) => getProjectCut(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProjectCut>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProjectCutQueryResult = NonNullable<Awaited<ReturnType<typeof getProjectCut>>>
+export type GetProjectCutQueryError = ErrorType<void>
+
+
+/**
+ * @summary Current (or a specific) draft cut revision
+ */
+
+export function useGetProjectCut<TData = Awaited<ReturnType<typeof getProjectCut>>, TError = ErrorType<void>>(
+ id: string,
+    params?: GetProjectCutParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectCut>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProjectCutQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateProjectCutUrl = (id: string,) => {
+
+
+
+
+  return `/api/projects/${id}/cut`
+}
+
+/**
+ * @summary Manual edit of the draft cut (lock, remove, reorder, trim)
+ */
+export const updateProjectCut = async (id: string,
+    projectCutUpdate: ProjectCutUpdate, options?: RequestInit): Promise<ProjectCut> => {
+
+  return customFetch<ProjectCut>(getUpdateProjectCutUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(projectCutUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateProjectCutMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProjectCut>>, TError,{id: string;data: BodyType<ProjectCutUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProjectCut>>, TError,{id: string;data: BodyType<ProjectCutUpdate>}, TContext> => {
+
+const mutationKey = ['updateProjectCut'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProjectCut>>, {id: string;data: BodyType<ProjectCutUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateProjectCut(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProjectCutMutationResult = NonNullable<Awaited<ReturnType<typeof updateProjectCut>>>
+    export type UpdateProjectCutMutationBody = BodyType<ProjectCutUpdate>
+    export type UpdateProjectCutMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Manual edit of the draft cut (lock, remove, reorder, trim)
+ */
+export const useUpdateProjectCut = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProjectCut>>, TError,{id: string;data: BodyType<ProjectCutUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProjectCut>>,
+        TError,
+        {id: string;data: BodyType<ProjectCutUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateProjectCutMutationOptions(options));
+    }
+
+export const getRevertProjectCutUrl = (id: string,) => {
+
+
+
+
+  return `/api/projects/${id}/cut/revert`
+}
+
+/**
+ * @summary Restore an earlier cut revision as a new version
+ */
+export const revertProjectCut = async (id: string,
+    revertProjectCutBody: RevertProjectCutBody, options?: RequestInit): Promise<ProjectCut> => {
+
+  return customFetch<ProjectCut>(getRevertProjectCutUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(revertProjectCutBody)
+  }
+);}
+
+
+
+
+
+export const getRevertProjectCutMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revertProjectCut>>, TError,{id: string;data: BodyType<RevertProjectCutBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revertProjectCut>>, TError,{id: string;data: BodyType<RevertProjectCutBody>}, TContext> => {
+
+const mutationKey = ['revertProjectCut'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revertProjectCut>>, {id: string;data: BodyType<RevertProjectCutBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  revertProjectCut(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevertProjectCutMutationResult = NonNullable<Awaited<ReturnType<typeof revertProjectCut>>>
+    export type RevertProjectCutMutationBody = BodyType<RevertProjectCutBody>
+    export type RevertProjectCutMutationError = ErrorType<void>
+
+    /**
+ * @summary Restore an earlier cut revision as a new version
+ */
+export const useRevertProjectCut = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revertProjectCut>>, TError,{id: string;data: BodyType<RevertProjectCutBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revertProjectCut>>,
+        TError,
+        {id: string;data: BodyType<RevertProjectCutBody>},
+        TContext
+      > => {
+      return useMutation(getRevertProjectCutMutationOptions(options));
+    }
+
+export const getRenderProjectCutUrl = (id: string,) => {
+
+
+
+
+  return `/api/projects/${id}/cut/render`
+}
+
+/**
+ * @summary Render the current draft cut as a reel
+ */
+export const renderProjectCut = async (id: string,
+    renderProjectCutBody: RenderProjectCutBody, options?: RequestInit): Promise<ReelJob> => {
+
+  return customFetch<ReelJob>(getRenderProjectCutUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(renderProjectCutBody)
+  }
+);}
+
+
+
+
+
+export const getRenderProjectCutMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renderProjectCut>>, TError,{id: string;data: BodyType<RenderProjectCutBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renderProjectCut>>, TError,{id: string;data: BodyType<RenderProjectCutBody>}, TContext> => {
+
+const mutationKey = ['renderProjectCut'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renderProjectCut>>, {id: string;data: BodyType<RenderProjectCutBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  renderProjectCut(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenderProjectCutMutationResult = NonNullable<Awaited<ReturnType<typeof renderProjectCut>>>
+    export type RenderProjectCutMutationBody = BodyType<RenderProjectCutBody>
+    export type RenderProjectCutMutationError = ErrorType<void>
+
+    /**
+ * @summary Render the current draft cut as a reel
+ */
+export const useRenderProjectCut = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renderProjectCut>>, TError,{id: string;data: BodyType<RenderProjectCutBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof renderProjectCut>>,
+        TError,
+        {id: string;data: BodyType<RenderProjectCutBody>},
+        TContext
+      > => {
+      return useMutation(getRenderProjectCutMutationOptions(options));
     }
 
 export const getListClipListsUrl = (params?: ListClipListsParams,) => {

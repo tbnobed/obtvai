@@ -3223,6 +3223,199 @@ export const DeleteProjectResponse = zod.void()
 
 
 /**
+ * @summary Chat history for a project's editorial assistant
+ */
+export const ListProjectChatMessagesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListProjectChatMessagesResponseItem = zod.object({
+  "id": zod.string(),
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string().nullish(),
+  "status": zod.enum(['running', 'ready', 'error']),
+  "cut_version": zod.number().nullish().describe('Cut revision produced by this assistant turn'),
+  "created_at": zod.coerce.date()
+})
+export const ListProjectChatMessagesResponse = zod.array(ListProjectChatMessagesResponseItem)
+
+
+/**
+ * @summary Send a message; the assistant replies asynchronously
+ */
+export const PostProjectChatMessageParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const postProjectChatMessageBodyContentMax = 4000;
+
+
+
+export const PostProjectChatMessageBody = zod.object({
+  "content": zod.string().min(1).max(postProjectChatMessageBodyContentMax)
+})
+
+export const PostProjectChatMessageResponseItem = zod.object({
+  "id": zod.string(),
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string().nullish(),
+  "status": zod.enum(['running', 'ready', 'error']),
+  "cut_version": zod.number().nullish().describe('Cut revision produced by this assistant turn'),
+  "created_at": zod.coerce.date()
+})
+export const PostProjectChatMessageResponse = zod.array(PostProjectChatMessageResponseItem)
+
+
+/**
+ * @summary Current (or a specific) draft cut revision
+ */
+export const GetProjectCutParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetProjectCutQueryParams = zod.object({
+  "version": zod.coerce.number().optional()
+})
+
+export const getProjectCutResponseClipsItemLockedDefault = false;
+export const getProjectCutResponseSourceDefault = `assistant`;
+
+export const GetProjectCutResponse = zod.object({
+  "version": zod.number().describe('0 when no cut exists yet'),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "locked": zod.boolean().default(getProjectCutResponseClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
+})),
+  "summary": zod.string().nullish(),
+  "source": zod.enum(['assistant', 'user', 'revert']).default(getProjectCutResponseSourceDefault),
+  "created_at": zod.coerce.date().nullish(),
+  "versions": zod.array(zod.number())
+})
+
+
+/**
+ * @summary Manual edit of the draft cut (lock, remove, reorder, trim)
+ */
+export const UpdateProjectCutParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateProjectCutBodyClipsItemLockedDefault = false;
+
+export const UpdateProjectCutBody = zod.object({
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "locked": zod.boolean().default(updateProjectCutBodyClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
+}))
+})
+
+export const updateProjectCutResponseClipsItemLockedDefault = false;
+export const updateProjectCutResponseSourceDefault = `assistant`;
+
+export const UpdateProjectCutResponse = zod.object({
+  "version": zod.number().describe('0 when no cut exists yet'),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "locked": zod.boolean().default(updateProjectCutResponseClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
+})),
+  "summary": zod.string().nullish(),
+  "source": zod.enum(['assistant', 'user', 'revert']).default(updateProjectCutResponseSourceDefault),
+  "created_at": zod.coerce.date().nullish(),
+  "versions": zod.array(zod.number())
+})
+
+
+/**
+ * @summary Restore an earlier cut revision as a new version
+ */
+export const RevertProjectCutParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RevertProjectCutBody = zod.object({
+  "version": zod.number()
+})
+
+export const revertProjectCutResponseClipsItemLockedDefault = false;
+export const revertProjectCutResponseSourceDefault = `assistant`;
+
+export const RevertProjectCutResponse = zod.object({
+  "version": zod.number().describe('0 when no cut exists yet'),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "locked": zod.boolean().default(revertProjectCutResponseClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
+})),
+  "summary": zod.string().nullish(),
+  "source": zod.enum(['assistant', 'user', 'revert']).default(revertProjectCutResponseSourceDefault),
+  "created_at": zod.coerce.date().nullish(),
+  "versions": zod.array(zod.number())
+})
+
+
+/**
+ * @summary Render the current draft cut as a reel
+ */
+export const RenderProjectCutParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const renderProjectCutBodyPresetDefault = `original`;
+export const renderProjectCutBodyBurnCaptionsDefault = false;
+
+export const RenderProjectCutBody = zod.object({
+  "preset": zod.enum(['original', 'vertical']).default(renderProjectCutBodyPresetDefault),
+  "burn_captions": zod.boolean().default(renderProjectCutBodyBurnCaptionsDefault)
+})
+
+export const RenderProjectCutResponse = zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "media_id": zod.string().nullish().describe('Set when the reel is scoped to one asset'),
+  "project_id": zod.string().nullish(),
+  "target_duration_seconds": zod.number().nullish().describe('Requested run time in seconds, when one was given'),
+  "pace": zod.string().nullish().describe('fast | normal | cinematic'),
+  "rating": zod.string().nullish().describe('up | down when the user has rated the rendered reel'),
+  "preset": zod.string().describe('original | vertical'),
+  "burn_captions": zod.boolean(),
+  "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
+  "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
+})),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "output_url": zod.string().nullish().describe('Set when status is success'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "finished_at": zod.coerce.date().nullish()
+})
+
+
+/**
  * @summary List all clip lists
  */
 export const ListClipListsQueryParams = zod.object({

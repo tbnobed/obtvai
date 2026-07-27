@@ -382,6 +382,33 @@ class Project(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
 
+class ProjectChatMessage(Base):
+    """Conversation turns for the chat-driven project editor."""
+    __tablename__ = "project_chat_messages"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String, nullable=False)  # user | assistant
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="ready", server_default="ready")  # running | ready | error
+    cut_version: Mapped[int | None] = mapped_column(Integer, nullable=True)  # revision produced by this turn
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ProjectCutRevision(Base):
+    """Versioned draft cut (EDL) for a project's chat workspace."""
+    __tablename__ = "project_cut_revisions"
+    __table_args__ = (UniqueConstraint("project_id", "version", name="uq_cut_rev_project_version"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    clips: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String, nullable=False, default="assistant", server_default="assistant")  # assistant | user | revert
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class TrendTopic(Base):
     """External trend signals (YouTube trending, SearXNG news momentum).
 

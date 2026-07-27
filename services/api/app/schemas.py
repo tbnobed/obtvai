@@ -1007,6 +1007,51 @@ class ProjectUpdate(BaseModel):
     target_runtime_seconds: Optional[float] = None
 
 
+class ProjectChatMessageOut(BaseModel):
+    id: str
+    role: str
+    content: Optional[str] = None
+    status: str = "ready"
+    cut_version: Optional[int] = None
+    created_at: datetime
+
+
+class ProjectChatMessageIn(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class CutClip(BaseModel):
+    media_id: str
+    filename: str
+    start_time: float
+    end_time: float
+    snippet: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    locked: bool = False
+
+
+class ProjectCutOut(BaseModel):
+    version: int
+    clips: List[CutClip] = []
+    summary: Optional[str] = None
+    source: str = "assistant"
+    created_at: Optional[datetime] = None
+    versions: List[int] = []
+
+
+class CutUpdateIn(BaseModel):
+    clips: List[CutClip]
+
+
+class CutRevertIn(BaseModel):
+    version: int
+
+
+class CutRenderIn(BaseModel):
+    preset: Literal["original", "vertical"] = "original"
+    burn_captions: bool = False
+
+
 class JobCleanupIn(BaseModel):
     statuses: Optional[List[str]] = None
 

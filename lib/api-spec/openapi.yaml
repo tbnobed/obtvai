@@ -2586,6 +2586,176 @@ paths:
         "404":
           description: Not found
 
+  # ── Project chat & draft cut ──────────────────────────────────────────────
+  /projects/{id}/chat:
+    get:
+      operationId: listProjectChatMessages
+      tags: [projects]
+      summary: Chat history for a project's editorial assistant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectChatMessage"
+
+  /projects/{id}/chat/messages:
+    post:
+      operationId: postProjectChatMessage
+      tags: [projects]
+      summary: Send a message; the assistant replies asynchronously
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectChatMessageInput"
+      responses:
+        "202":
+          description: User message plus running assistant placeholder
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectChatMessage"
+        "404":
+          description: Project not found
+        "409":
+          description: Assistant is still working on the previous message
+
+  /projects/{id}/cut:
+    get:
+      operationId: getProjectCut
+      tags: [projects]
+      summary: Current (or a specific) draft cut revision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCut"
+        "404":
+          description: Cut version not found
+    patch:
+      operationId: updateProjectCut
+      tags: [projects]
+      summary: Manual edit of the draft cut (lock, remove, reorder, trim)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectCutUpdate"
+      responses:
+        "200":
+          description: New revision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCut"
+
+  /projects/{id}/cut/revert:
+    post:
+      operationId: revertProjectCut
+      tags: [projects]
+      summary: Restore an earlier cut revision as a new version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version:
+                  type: integer
+      responses:
+        "200":
+          description: New revision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCut"
+        "404":
+          description: Cut version not found
+
+  /projects/{id}/cut/render:
+    post:
+      operationId: renderProjectCut
+      tags: [projects]
+      summary: Render the current draft cut as a reel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                preset:
+                  type: string
+                  enum: [original, vertical]
+                  default: original
+                burn_captions:
+                  type: boolean
+                  default: false
+      responses:
+        "202":
+          description: Render started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelJob"
+        "400":
+          description: The cut is empty
+        "404":
+          description: Project not found
+
   # ── Clips ─────────────────────────────────────────────────────────────────
   /clips:
     get:
@@ -5960,6 +6130,91 @@ components:
           type: ["string", "null"]
           enum: [up, down, null]
           description: Thumbs up/down, or null to clear the rating
+
+    ProjectChatMessage:
+      type: object
+      required: [id, role, status, created_at]
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [running, ready, error]
+        cut_version:
+          type: ["integer", "null"]
+          description: Cut revision produced by this assistant turn
+        created_at:
+          type: string
+          format: date-time
+
+    ProjectChatMessageInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+
+    CutClip:
+      type: object
+      required: [media_id, filename, start_time, end_time]
+      properties:
+        media_id:
+          type: string
+        filename:
+          type: string
+        start_time:
+          type: number
+        end_time:
+          type: number
+        snippet:
+          type: ["string", "null"]
+        thumbnail_url:
+          type: ["string", "null"]
+        locked:
+          type: boolean
+          default: false
+          description: Locked clips are never removed or reordered by the assistant
+
+    ProjectCut:
+      type: object
+      required: [version, clips, versions]
+      properties:
+        version:
+          type: integer
+          description: 0 when no cut exists yet
+        clips:
+          type: array
+          items:
+            $ref: "#/components/schemas/CutClip"
+        summary:
+          type: ["string", "null"]
+        source:
+          type: string
+          enum: [assistant, user, revert]
+          default: assistant
+        created_at:
+          type: ["string", "null"]
+          format: date-time
+        versions:
+          type: array
+          items:
+            type: integer
+
+    ProjectCutUpdate:
+      type: object
+      required: [clips]
+      properties:
+        clips:
+          type: array
+          items:
+            $ref: "#/components/schemas/CutClip"
 
     ReelClip:
       type: object

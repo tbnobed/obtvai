@@ -63,10 +63,11 @@ import {
   Play, PlayCircle, Download, Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown,
   Monitor, Smartphone, ChevronDown, Upload, Archive, ArchiveRestore,
   ExternalLink, Lock, LockOpen, SlidersHorizontal, CheckCircle2, AlertTriangle,
-  Clock,
+  Clock, Sparkles,
 } from "lucide-react";
 import { formatRuntime, parseRuntime } from "@/lib/runtime";
 import { RefineTab } from "@/components/project/refine-tab";
+import { StudioTab } from "@/components/project/studio-tab";
 import { ClipThumb } from "@/components/project/clip-thumb";
 import { MediaPickerGrid } from "@/components/project/media-picker";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
@@ -219,7 +220,7 @@ export default function ProjectDetail() {
 
   const [tab, setTab] = useState<string>(() => {
     const t = new URLSearchParams(window.location.search).get("tab") ?? "";
-    return ["find", "assemble", "refine", "cut", "deliver"].includes(t) ? t : "find";
+    return ["studio", "find", "assemble", "refine", "cut", "deliver"].includes(t) ? t : "studio";
   });
   const [refineFocus, setRefineFocus] = useState<{ id: string } | null>(null);
   const [approvalGate, setApprovalGate] = useState<{ list: ClipList; action: "roughcut" | "render" } | null>(null);
@@ -856,6 +857,7 @@ export default function ProjectDetail() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6">
+          <TabsTrigger value="studio"><Sparkles className="h-4 w-4 mr-2" /> Studio</TabsTrigger>
           <TabsTrigger value="find"><Search className="h-4 w-4 mr-2" /> Find</TabsTrigger>
           <TabsTrigger value="assemble"><Scissors className="h-4 w-4 mr-2" /> Assemble</TabsTrigger>
           <TabsTrigger value="refine"><SlidersHorizontal className="h-4 w-4 mr-2" /> Refine</TabsTrigger>
@@ -864,6 +866,10 @@ export default function ProjectDetail() {
         </TabsList>
 
         {/* ------------------------------ FIND ------------------------------ */}
+        <TabsContent value="studio">
+          {project && <StudioTab project={project} />}
+        </TabsContent>
+
         <TabsContent value="find" className="space-y-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 flex-wrap gap-2">

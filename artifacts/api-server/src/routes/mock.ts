@@ -1546,6 +1546,132 @@ router.patch("/projects/:id", (req, res) => {
   res.json(projectOut(p));
 });
 
+// ── Project chat & draft cut ─────────────────────────────────────────────
+type MockCutClip = { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null; thumbnail_url: string | null; locked: boolean };
+type MockCutRev = { version: number; clips: MockCutClip[]; summary: string | null; source: string; created_at: string };
+const projectChat: Record<string, { id: string; role: string; content: string | null; status: string; cut_version: number | null; created_at: string }[]> = {};
+const projectCuts: Record<string, MockCutRev[]> = {};
+
+function mockCutClips(count: number): MockCutClip[] {
+  const segs = transcript.slice(0, count);
+  return segs.map((t, i) => {
+    const a = assets.find((x) => x.id === t.media_id) || assets[i % assets.length];
+    return {
+      media_id: a.id, filename: a.filename,
+      start_time: Math.max(0, t.start_time - 1), end_time: t.end_time + 4,
+      snippet: t.text, thumbnail_url: a.thumbnail_url ?? null, locked: false,
+    };
+  });
+}
+
+function cutOut(pid: string, rev: MockCutRev | null) {
+  const versions = (projectCuts[pid] || []).map((r) => r.version);
+  if (!rev) return { version: 0, clips: [], summary: null, source: "assistant", created_at: null, versions };
+  return { ...rev, versions };
+}
+
+router.get("/projects/:id/chat", (req, res) => {
+  res.json(projectChat[req.params.id] || []);
+});
+
+router.post("/projects/:id/chat/messages", (req, res) => {
+  const p = projects.find((x) => x.id === req.params.id);
+  if (!p) { res.status(404).json({ detail: "Project not found" }); return; }
+  const msgs = (projectChat[p.id] ||= []);
+  if (msgs.some((m) => m.status === "running")) {
+    res.status(409).json({ detail: "The assistant is still working on the previous message" });
+    return;
+  }
+  const content = (req.body?.content || "").trim();
+  if (!content) { res.status(400).json({ detail: "Message is empty" }); return; }
+  const now = Date.now();
+  const userMsg = { id: `pcm-${now}-u`, role: "user", content, status: "ready", cut_version: null as number | null, created_at: new Date(now).toISOString() };
+  const asst = { id: `pcm-${now}-a`, role: "assistant", content: null as string | null, status: "running", cut_version: null as number | null, created_at: new Date(now + 1).toISOString() };
+  msgs.push(userMsg, asst);
+  touchProject(p.id);
+  setTimeout(() => {
+    const revs = (projectCuts[p.id] ||= []);
+    const prev = revs[revs.length - 1];
+    const wantsAnswer = /^(what|how|why|which|who|can you tell|explain)\b/i.test(content);
+    if (wantsAnswer && prev) {
+      asst.content = `The current cut is v${prev.version} with ${prev.clips.length} clips (${Math.round(prev.clips.reduce((s, c) => s + c.end_time - c.start_time, 0))}s). It leans on ${prev.clips[0]?.filename ?? "your footage"} for the opening.`;
+      asst.status = "ready";
+      return;
+    }
+    const base = prev ? prev.clips.filter((c) => c.locked) : [];
+    const fresh = mockCutClips(6).filter((c) => !base.some((b) => b.media_id === c.media_id && b.start_time === c.start_time));
+    const clips = [...base, ...fresh];
+    const rev: MockCutRev = {
+      version: (prev?.version ?? 0) + 1,
+      clips,
+      summary: prev
+        ? `Revised the cut per your note — kept ${base.length} locked clip(s), swapped in ${fresh.length} new moments.`
+        : `Built a first cut: ${clips.length} moments matching "${content.slice(0, 60)}".`,
+      source: "assistant",
+      created_at: new Date().toISOString(),
+    };
+    revs.push(rev);
+    asst.content = rev.summary;
+    asst.status = "ready";
+    asst.cut_version = rev.version;
+  }, 1800);
+  res.status(202).json([userMsg, asst]);
+});
+
+router.get("/projects/:id/cut", (req, res) => {
+  const revs = projectCuts[req.params.id] || [];
+  if (req.query.version !== undefined) {
+    const v = Number(req.query.version);
+    const rev = revs.find((r) => r.version === v);
+    if (!rev) { res.status(404).json({ detail: "Cut version not found" }); return; }
+    res.json(cutOut(req.params.id, rev));
+    return;
+  }
+  res.json(cutOut(req.params.id, revs[revs.length - 1] || null));
+});
+
+router.patch("/projects/:id/cut", (req, res) => {
+  const revs = (projectCuts[req.params.id] ||= []);
+  const prev = revs[revs.length - 1];
+  const clips: MockCutClip[] = (req.body?.clips || []).map((c: any) => ({
+    media_id: String(c.media_id), filename: String(c.filename),
+    start_time: Number(c.start_time), end_time: Number(c.end_time),
+    snippet: c.snippet ?? null, thumbnail_url: c.thumbnail_url ?? null,
+    locked: Boolean(c.locked),
+  }));
+  const rev: MockCutRev = { version: (prev?.version ?? 0) + 1, clips, summary: "Manual edit", source: "user", created_at: new Date().toISOString() };
+  revs.push(rev);
+  touchProject(req.params.id);
+  res.json(cutOut(req.params.id, rev));
+});
+
+router.post("/projects/:id/cut/revert", (req, res) => {
+  const revs = (projectCuts[req.params.id] ||= []);
+  const src = revs.find((r) => r.version === Number(req.body?.version));
+  if (!src) { res.status(404).json({ detail: "Cut version not found" }); return; }
+  const rev: MockCutRev = { version: revs[revs.length - 1].version + 1, clips: src.clips.map((c) => ({ ...c })), summary: `Reverted to v${src.version}`, source: "revert", created_at: new Date().toISOString() };
+  revs.push(rev);
+  res.json(cutOut(req.params.id, rev));
+});
+
+router.post("/projects/:id/cut/render", (req, res) => {
+  const p = projects.find((x) => x.id === req.params.id);
+  if (!p) { res.status(404).json({ detail: "Project not found" }); return; }
+  const revs = projectCuts[p.id] || [];
+  const rev = revs[revs.length - 1];
+  if (!rev || !rev.clips.length) { res.status(400).json({ detail: "The cut is empty — nothing to render" }); return; }
+  const preset = req.body?.preset === "vertical" ? "vertical" : "original";
+  const reel = makeMockReel(
+    `Chat cut v${rev.version}: ${rev.summary || "draft cut"}`,
+    null, preset, Boolean(req.body?.burn_captions),
+    rev.clips.map(({ locked, ...c }) => c),
+    p.id,
+  );
+  reels.unshift(reel);
+  touchProject(p.id);
+  res.status(202).json(reelOut(reel));
+});
+
 router.delete("/projects/:id", (req, res) => {
   const idx = projects.findIndex((x) => x.id === req.params.id);
   if (idx === -1) { res.status(404).json({ detail: "Project not found" }); return; }

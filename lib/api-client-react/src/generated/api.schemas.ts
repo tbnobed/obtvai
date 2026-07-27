@@ -2041,6 +2041,83 @@ export interface ReelFeedback {
   rating: ReelFeedbackRating;
 }
 
+export type ProjectChatMessageRole = typeof ProjectChatMessageRole[keyof typeof ProjectChatMessageRole];
+
+
+export const ProjectChatMessageRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export type ProjectChatMessageStatus = typeof ProjectChatMessageStatus[keyof typeof ProjectChatMessageStatus];
+
+
+export const ProjectChatMessageStatus = {
+  running: 'running',
+  ready: 'ready',
+  error: 'error',
+} as const;
+
+export interface ProjectChatMessage {
+  id: string;
+  role: ProjectChatMessageRole;
+  /** @nullable */
+  content?: string | null;
+  status: ProjectChatMessageStatus;
+  /**
+     * Cut revision produced by this assistant turn
+     * @nullable
+     */
+  cut_version?: number | null;
+  created_at: string;
+}
+
+export interface ProjectChatMessageInput {
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
+  content: string;
+}
+
+export interface CutClip {
+  media_id: string;
+  filename: string;
+  start_time: number;
+  end_time: number;
+  /** @nullable */
+  snippet?: string | null;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  /** Locked clips are never removed or reordered by the assistant */
+  locked?: boolean;
+}
+
+export type ProjectCutSource = typeof ProjectCutSource[keyof typeof ProjectCutSource];
+
+
+export const ProjectCutSource = {
+  assistant: 'assistant',
+  user: 'user',
+  revert: 'revert',
+} as const;
+
+export interface ProjectCut {
+  /** 0 when no cut exists yet */
+  version: number;
+  clips: CutClip[];
+  /** @nullable */
+  summary?: string | null;
+  source?: ProjectCutSource;
+  /** @nullable */
+  created_at?: string | null;
+  versions: number[];
+}
+
+export interface ProjectCutUpdate {
+  clips: CutClip[];
+}
+
 export interface ReelClip {
   media_id: string;
   filename: string;
@@ -2528,6 +2605,27 @@ export type ListJobsParams = {
 media_id?: string;
 status?: string;
 limit?: number;
+};
+
+export type GetProjectCutParams = {
+version?: number;
+};
+
+export type RevertProjectCutBody = {
+  version: number;
+};
+
+export type RenderProjectCutBodyPreset = typeof RenderProjectCutBodyPreset[keyof typeof RenderProjectCutBodyPreset];
+
+
+export const RenderProjectCutBodyPreset = {
+  original: 'original',
+  vertical: 'vertical',
+} as const;
+
+export type RenderProjectCutBody = {
+  preset?: RenderProjectCutBodyPreset;
+  burn_captions?: boolean;
 };
 
 export type ListClipListsParams = {
