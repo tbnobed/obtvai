@@ -167,6 +167,11 @@ def _sanitize_clips(clips: list) -> list[dict]:
     return out
 
 
+_ALL_SOURCES_RE = re.compile(
+    r"\b(?:every|each|all(?:\s+\d+)?)\s+(?:episodes?|sources?|files?|assets?)\b",
+    re.IGNORECASE,
+)
+
 _RUNTIME_RE = re.compile(
     r"(?<![\w./-])(\d+(?:\.\d+)?)[ \t]*(minutes?|mins?|seconds?|secs?)\b(?![\w./-])",
     re.IGNORECASE,
@@ -223,6 +228,8 @@ _PLAN_SYSTEM = (
     '"reply": "conversational reply to the user (always fill this in)", '
     '"searches": ["up to 3 transcript search queries to find new material"], '
     '"remove": [clip numbers to drop from the current cut], '
+    '"all_sources": true if the user wants every episode/source file '
+    'represented in the cut, else false, '
     '"target_seconds": runtime in seconds if the user asked for a specific '
     'length (e.g. \'3 minutes\' -> 180, \'a bit shorter\' -> ~80% of current), else null, '
     '"notes": "one sentence of editing intent"}\n'
@@ -542,6 +549,40 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             )
             return
 
+        # Coverage is enforced HERE, not trusted to the model — it has claimed
+        # "all episodes included" while the cut said otherwise.
+        require_all = bool(plan.get("all_sources")) or bool(_ALL_SOURCES_RE.search(user_text))
+        uncovered: list[str] = []
+        if require_all and media_ids:
+            present = {c["media_id"] for c in new_cut}
+            used = {(c["media_id"], c["start_time"]) for c in new_cut}
+            for mid in media_ids:
+                if mid in present:
+                    continue
+                best = next(
+                    (c for c in candidates
+                     if c["media_id"] == mid and (c["media_id"], c["start_time"]) not in used),
+                    None,
+                )
+                if best is None:
+                    uncovered.append(mid)
+                    continue
+                b = dict(best)
+                if b["end_time"] - b["start_time"] > 10.0:
+                    b["end_time"] = b["start_time"] + 10.0
+                new_cut.append(b)
+        if uncovered:
+            names = (await db.execute(
+                select(MediaAsset.filename).where(MediaAsset.id.in_(uncovered))
+            )).scalars().all()
+            missing_note = (
+                " I couldn't find any usable transcript moments in: "
+                + ", ".join(names or uncovered)
+                + " — those files may not be transcribed/indexed yet."
+            )
+        else:
+            missing_note = ""
+
         n_files = len({c["media_id"] for c in new_cut})
         pool_n = len(media_ids) if media_ids else None
         stats = (
@@ -550,6 +591,8 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         )
         reply = (sel.get("reply") or "").strip()
         reply = f"{reply}\n\n({stats})" if reply else f"Updated the cut — {stats}."
+        if missing_note:
+            reply += missing_note
         await _lock_project_writes(db, project_id)
         rev = await _save_revision(db, project_id, [
             {k: v for k, v in c.items() if k != "_dur"} for c in new_cut
