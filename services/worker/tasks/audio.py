@@ -78,9 +78,9 @@ def extract_audio(self, media_id: str, job_id: str):
         # (-ac 1) sums to near-silence even though each channel is loud.
         # If the mixed WAV is effectively silent, re-extract single channels
         # and keep the loudest result.
-        def _max_volume(path: str, map_spec: str | None = None,
-                        extra_af: str | None = None) -> float | None:
-            """max_volume in dB, or None if the probe itself failed."""
+        def _volume(path: str, map_spec: str | None = None,
+                    extra_af: str | None = None) -> tuple[float, float] | None:
+            """(mean_volume, max_volume) in dB, or None if the probe failed."""
             af = "volumedetect" if not extra_af else f"{extra_af},volumedetect"
             probe = ["ffmpeg", "-i", path]
             if map_spec:
@@ -89,13 +89,23 @@ def extract_audio(self, media_id: str, job_id: str):
             out = subprocess.run(probe, capture_output=True, text=True, timeout=1800)
             if out.returncode != 0:
                 return None
+            mean = mx = None
             for line in out.stderr.splitlines():
-                if "max_volume:" in line:
-                    try:
-                        return float(line.split("max_volume:")[1].split("dB")[0])
-                    except ValueError:
-                        pass
-            return None
+                for key in ("mean_volume", "max_volume"):
+                    if f"{key}:" in line:
+                        try:
+                            val = float(line.split(f"{key}:")[1].split("dB")[0])
+                        except ValueError:
+                            continue
+                        if key == "mean_volume":
+                            mean = val
+                        else:
+                            mx = val
+            if mx is None:
+                return None
+            # If mean failed to parse, assume noise floor so max-based
+            # logic still works exactly as before.
+            return (mean if mean is not None else -91.0, mx)
 
         def _channels(path: str, stream_idx: int) -> int:
             try:
@@ -110,25 +120,42 @@ def extract_audio(self, media_id: str, job_id: str):
             except Exception:
                 return 1
 
-        mix_vol = _max_volume(audio_path)
-        if mix_vol is not None and mix_vol < -45.0:
-            append_log(db, job_id, "Mono downmix is near-silent — probing every "
-                       "source channel for phase cancellation")
+        # Silent when the peak is tiny (< -45 dB) OR when the average level is
+        # essentially noise floor (< -70 dB) even if a lone transient (slate
+        # clap surviving imperfect cancellation) spikes the peak.
+        mix = _volume(audio_path)
+        if mix is not None and (mix[1] < -45.0 or mix[0] < -70.0):
+            append_log(db, job_id,
+                       f"Mono downmix is near-silent (mean {mix[0]:.1f} dB, "
+                       f"max {mix[1]:.1f} dB) — probing every source channel "
+                       "for phase cancellation")
             # Scan every channel of every mapped audio stream of every input —
             # the same source set the mix used (incl. Curator sidecars).
-            best = None  # (vol, input_idx, stream_idx, channel_idx)
+            candidates = []  # (mean_vol, max_vol, input_idx, stream_idx, channel_idx)
             stream_counts = [max(1, _count_audio_streams(p)) for p in inputs]
             for ii, p in enumerate(inputs):
                 for si in range(stream_counts[ii]):
                     for ch in range(_channels(p, si)):
-                        vol = _max_volume(p, map_spec=f"0:a:{si}",
-                                          extra_af=f"pan=mono|c0=c{ch}")
-                        if vol is not None and (best is None or vol > best[0]):
-                            best = (vol, ii, si, ch)
-            if best and best[0] > -45.0:
-                vol, ii, si, ch = best
+                        vol = _volume(p, map_spec=f"0:a:{si}",
+                                      extra_af=f"pan=mono|c0=c{ch}")
+                        if vol is not None:
+                            candidates.append((vol[0], vol[1], ii, si, ch))
+            # Primary criterion (same as before): a usable channel needs real
+            # peaks (max > -45). Among those, prefer sustained content
+            # (highest mean) so a lone slate-clap channel doesn't win over a
+            # channel with actual dialogue; if no channel has sustained
+            # content, still recover the loudest-peak channel (old behavior).
+            usable = [c for c in candidates if c[1] > -45.0]
+            best = None
+            if usable:
+                sustained = [c for c in usable if c[0] > -70.0]
+                best = max(sustained or usable,
+                           key=lambda c: (c[0], c[1]) if sustained else (c[1], c[0]))
+            if best:
+                mean_vol, max_vol, ii, si, ch = best
                 append_log(db, job_id, f"Phase cancellation detected — using input "
-                           f"{ii} stream {si} channel {ch} only (max {vol:.1f} dB)")
+                           f"{ii} stream {si} channel {ch} only "
+                           f"(mean {mean_vol:.1f} dB, max {max_vol:.1f} dB)")
                 single = subprocess.run(
                     ["ffmpeg", "-y", "-i", inputs[ii],
                      "-map", f"0:a:{si}", "-vn",
