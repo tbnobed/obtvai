@@ -109,6 +109,7 @@ import type {
   ResumeStalledResult,
   RetryFailedResult,
   RoughCutInput,
+  RunStageInput,
   Scene,
   ScriptMatchRequest,
   ScriptMatchResponse,
@@ -2297,6 +2298,78 @@ export const useResumeStalledMedia = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getResumeStalledMediaMutationOptions(options));
+    }
+
+export const getRunStageUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/run-stage`
+}
+
+/**
+ * @summary Run a pipeline stage for this asset, creating a fresh job (works even when no prior job rows exist)
+ */
+export const runStage = async (id: string,
+    runStageInput: RunStageInput, options?: RequestInit): Promise<ProcessingJob> => {
+
+  return customFetch<ProcessingJob>(getRunStageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(runStageInput)
+  }
+);}
+
+
+
+
+
+export const getRunStageMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runStage>>, TError,{id: string;data: BodyType<RunStageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runStage>>, TError,{id: string;data: BodyType<RunStageInput>}, TContext> => {
+
+const mutationKey = ['runStage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runStage>>, {id: string;data: BodyType<RunStageInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  runStage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunStageMutationResult = NonNullable<Awaited<ReturnType<typeof runStage>>>
+    export type RunStageMutationBody = BodyType<RunStageInput>
+    export type RunStageMutationError = ErrorType<void>
+
+    /**
+ * @summary Run a pipeline stage for this asset, creating a fresh job (works even when no prior job rows exist)
+ */
+export const useRunStage = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runStage>>, TError,{id: string;data: BodyType<RunStageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runStage>>,
+        TError,
+        {id: string;data: BodyType<RunStageInput>},
+        TContext
+      > => {
+      return useMutation(getRunStageMutationOptions(options));
     }
 
 export const getMoveMediaUrl = () => {

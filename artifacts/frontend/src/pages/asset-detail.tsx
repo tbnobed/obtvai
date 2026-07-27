@@ -8,6 +8,7 @@ import {
   useListJobs, getListJobsQueryKey,
   useDeleteMedia, getListMediaQueryKey,
   useRetryJob,
+  useRunStage,
   useCreateHighlight,
   useCreateCreativePass,
   useCreateSocialAnalysis,
@@ -188,6 +189,8 @@ export default function AssetDetail() {
 
   const retryJobMutation = useRetryJob();
   const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
+  const runStageMutation = useRunStage();
+  const [runStageType, setRunStageType] = useState<string>("");
 
   const highlightMutation = useCreateHighlight();
   const highlightJob = jobs?.find(j => j.job_type === "highlight" && (j.status === "pending" || j.status === "running"));
@@ -974,6 +977,43 @@ export default function AssetDetail() {
                 </div>
               </TabsContent>
               <TabsContent value="jobs" className="mt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Select value={runStageType} onValueChange={setRunStageType}>
+                    <SelectTrigger className="h-8 text-xs w-48">
+                      <SelectValue placeholder="Run a pipeline stage…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["proxy", "audio_extract", "transcribe", "diarize", "scene_detect", "qc", "visual_embed", "face_detect", "index", "analyze", "creative", "identify"].map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!runStageType || runStageMutation.isPending}
+                    onClick={() => {
+                      runStageMutation.mutate({ id: id!, data: { job_type: runStageType as any } }, {
+                        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id! }) }),
+                      });
+                    }}
+                  >
+                    {runStageMutation.isPending
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <RefreshCw className="w-3.5 h-3.5" />}
+                    <span className="ml-1">Run stage</span>
+                  </Button>
+                  {runStageMutation.isError && (
+                    <span className="text-xs text-destructive">
+                      {(runStageMutation.error as any)?.data?.detail || "Failed to queue stage"}
+                    </span>
+                  )}
+                </div>
+                {(!jobs || jobs.length === 0) && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    No job history for this asset — pick a stage above to reprocess it.
+                  </p>
+                )}
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                   {jobs?.map(job => (
                     <div key={job.id} className="p-3 border border-border rounded flex justify-between items-center gap-2">

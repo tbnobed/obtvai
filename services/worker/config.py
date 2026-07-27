@@ -29,6 +29,10 @@ COMFYUI_URL_IMAGE = os.getenv("COMFYUI_URL_IMAGE") or COMFYUI_URL
 COMFYUI_URL_VIDEO = os.getenv("COMFYUI_URL_VIDEO") or COMFYUI_URL
 COMFY_WORKFLOWS_DIR = os.getenv("COMFY_WORKFLOWS_DIR", "/workflows")
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "large-v3")
+# Pin the transcription language (e.g. "en") and skip auto-detection entirely.
+# Whisper is known to misdetect clear English speech as Welsh/other languages.
+# Empty = auto-detect via multi-window vote.
+WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "").strip() or None
 EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "BAAI/bge-m3")
 VISION_MODEL = os.getenv("VISION_MODEL", "google/siglip2-so400m-patch14-384")
 LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen3-8B")

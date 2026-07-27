@@ -145,6 +145,8 @@ export * from './reprofileRequest';
 export * from './resumeStalledResult';
 export * from './retryFailedResult';
 export * from './roughCutInput';
+export * from './runStageInput';
+export * from './runStageInputJobType';
 export * from './scene';
 export * from './scriptMatchLine';
 export * from './scriptMatchRequest';

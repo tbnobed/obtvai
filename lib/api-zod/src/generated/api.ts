@@ -900,6 +900,33 @@ export const ResumeStalledMediaResponse = zod.object({
 
 
 /**
+ * @summary Run a pipeline stage for this asset, creating a fresh job (works even when no prior job rows exist)
+ */
+export const RunStageParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RunStageBody = zod.object({
+  "job_type": zod.enum(['proxy', 'audio_extract', 'transcribe', 'diarize', 'scene_detect', 'qc', 'visual_embed', 'face_detect', 'index', 'analyze', 'creative', 'identify']).describe('Pipeline stage to run for this asset')
+})
+
+export const RunStageResponse = zod.object({
+  "id": zod.string(),
+  "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),
+  "filename": zod.string().nullish(),
+  "job_type": zod.string().describe('ingest | proxy | audio_extract | transcribe | diarize | scene_detect | visual_embed | face_detect | index | analyze | translate | dub | identify | insights'),
+  "status": zod.string().describe('pending | running | success | error | cancelled'),
+  "progress": zod.number().nullish().describe('0-100'),
+  "error_message": zod.string().nullish(),
+  "logs": zod.array(zod.string()).optional(),
+  "retry_count": zod.number().optional(),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Move media assets into a folder (or back to the library root)
  */
 

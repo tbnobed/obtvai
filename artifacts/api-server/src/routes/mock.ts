@@ -1052,6 +1052,33 @@ router.post("/media/resume-stalled", (_req, res) => {
   res.status(202).json({ assets_resumed: 3, jobs_created: 5, assets_marked_ready: 1 });
 });
 
+router.post("/media/:id/run-stage", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ error: "Media not found" }); return; }
+  const jobType = req.body?.job_type;
+  if (!jobType) { res.status(422).json({ detail: "job_type is required" }); return; }
+  if (jobs.some((j: any) => j.media_id === asset.id && j.job_type === jobType && (j.status === "pending" || j.status === "running"))) {
+    res.status(409).json({ detail: "This stage is already pending or running" });
+    return;
+  }
+  const job = {
+    id: `job-rs-${Date.now()}`,
+    media_id: asset.id,
+    filename: asset.filename,
+    job_type: jobType,
+    status: "pending",
+    progress: 0,
+    error_message: null as string | null,
+    logs: [`Queued ${jobType} via Run stage`],
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    started_at: null as string | null,
+    finished_at: null as string | null,
+  };
+  jobs.unshift(job as any);
+  res.status(202).json(job);
+});
+
 router.post("/jobs/retry-failed", (_req, res) => {
   let retried = 0;
   for (const j of jobs as any[]) {

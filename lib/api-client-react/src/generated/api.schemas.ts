@@ -305,6 +305,32 @@ export interface MediaFolderUpdate {
   parent_id?: string | null;
 }
 
+/**
+ * Pipeline stage to run for this asset
+ */
+export type RunStageInputJobType = typeof RunStageInputJobType[keyof typeof RunStageInputJobType];
+
+
+export const RunStageInputJobType = {
+  proxy: 'proxy',
+  audio_extract: 'audio_extract',
+  transcribe: 'transcribe',
+  diarize: 'diarize',
+  scene_detect: 'scene_detect',
+  qc: 'qc',
+  visual_embed: 'visual_embed',
+  face_detect: 'face_detect',
+  index: 'index',
+  analyze: 'analyze',
+  creative: 'creative',
+  identify: 'identify',
+} as const;
+
+export interface RunStageInput {
+  /** Pipeline stage to run for this asset */
+  job_type: RunStageInputJobType;
+}
+
 export interface MediaMoveInput {
   /** @minItems 1 */
   media_ids: string[];

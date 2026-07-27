@@ -666,6 +666,10 @@ class VoiceGenerationOut(BaseModel):
     settings: Optional[dict] = None
 
 
+class RunStageIn(BaseModel):
+    job_type: str
+
+
 class ResumeStalledOut(BaseModel):
     assets_resumed: int
     jobs_created: int

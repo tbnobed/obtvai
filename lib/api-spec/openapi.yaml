@@ -711,6 +711,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/ResumeStalledResult"
 
+  /media/{id}/run-stage:
+    post:
+      operationId: runStage
+      tags: [media]
+      summary: Run a pipeline stage for this asset, creating a fresh job (works even when no prior job rows exist)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunStageInput"
+      responses:
+        "202":
+          description: Stage queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingJob"
+        "404":
+          description: Media not found
+        "409":
+          description: This stage is already pending or running for this asset
+        "422":
+          description: Unknown stage
+        "502":
+          description: Failed to publish the job to the worker queue
+
   /media/move:
     post:
       operationId: moveMedia
@@ -3539,6 +3572,15 @@ components:
         parent_id:
           type: ["string", "null"]
           description: New parent folder id; null moves the folder to the top level
+
+    RunStageInput:
+      type: object
+      required: [job_type]
+      properties:
+        job_type:
+          type: string
+          enum: [proxy, audio_extract, transcribe, diarize, scene_detect, qc, visual_embed, face_detect, index, analyze, creative, identify]
+          description: Pipeline stage to run for this asset
 
     MediaMoveInput:
       type: object

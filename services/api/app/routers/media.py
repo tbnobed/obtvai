@@ -13,7 +13,7 @@ from ..schemas import (
     ProcessingJobOut, TranslateRequest, DubRequest, TranscriptSegmentUpdate,
     SocialCutsRequestIn, RenderJobOut,
     ClipExportResult, TightenInput, TightenCut, TightenResult,
-    RoughCutInput, ReelJobOut, ResumeStalledOut,
+    RoughCutInput, ReelJobOut, ResumeStalledOut, RunStageIn,
     MarkerOut, MarkerInput,
     MediaMoveInput, MediaMoveResult,
     AssetPersonOut, SpeakingMomentOut, OnCameraRangeOut,
@@ -86,6 +86,81 @@ async def move_media(payload: MediaMoveInput, db: AsyncSession = Depends(get_db)
     )
     await db.commit()
     return MediaMoveResult(moved=result.rowcount or 0)
+
+
+RUNNABLE_STAGES = {
+    "proxy", "audio_extract", "transcribe", "diarize", "scene_detect", "qc",
+    "visual_embed", "face_detect", "index", "analyze", "creative", "identify",
+}
+
+
+@router.post("/{id}/run-stage", response_model=ProcessingJobOut, status_code=202)
+async def run_stage(id: str, body: RunStageIn, db: AsyncSession = Depends(get_db)):
+    """Run a pipeline stage for this asset as a fresh job — works even when
+    no prior job rows exist (e.g. history was cleared before soft-clear)."""
+    if body.job_type not in RUNNABLE_STAGES:
+        raise HTTPException(status_code=422, detail=f"Unknown stage: {body.job_type}")
+    asset = (await db.execute(select(MediaAsset).where(MediaAsset.id == id))).scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    # Serialize concurrent run-stage calls for the same (asset, stage) so two
+    # requests can't both pass the active-job check and double-enqueue.
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('obtv_run_stage:' || :key))"),
+        {"key": f"{id}:{body.job_type}"},
+    )
+
+    active = (
+        await db.execute(
+            select(ProcessingJob).where(
+                ProcessingJob.media_id == id,
+                ProcessingJob.job_type == body.job_type,
+                ProcessingJob.status.in_(("pending", "running")),
+            )
+        )
+    ).scalar_one_or_none()
+    if active:
+        # A pending job that never started after a grace period usually means
+        # its queue message was lost — re-publish it instead of blocking the
+        # user behind a permanent 409.
+        from datetime import timedelta
+        stuck = (
+            active.status == "pending"
+            and active.started_at is None
+            and active.created_at is not None
+            and datetime.utcnow() - active.created_at > timedelta(minutes=2)
+        )
+        if not stuck:
+            raise HTTPException(status_code=409, detail="This stage is already pending or running")
+        from ..worker_client import enqueue_job
+        try:
+            await enqueue_job(body.job_type, id, active.id)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Failed to re-queue stuck stage: {e}")
+        out = ProcessingJobOut.model_validate(active)
+        out.filename = asset.filename
+        return out
+
+    from .jobs import prune_finished_jobs
+    await prune_finished_jobs(db, id, body.job_type)
+    job = ProcessingJob(media_id=id, job_type=body.job_type, status="pending", logs=[])
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    from ..worker_client import enqueue_job
+    try:
+        await enqueue_job(body.job_type, id, job.id)
+    except Exception as e:
+        job.status = "error"
+        job.error_message = f"enqueue failed: {e}"
+        await db.commit()
+        raise HTTPException(status_code=502, detail=f"Failed to queue stage: {e}")
+
+    out = ProcessingJobOut.model_validate(job)
+    out.filename = asset.filename
+    return out
 
 
 @router.post("/resume-stalled", response_model=ResumeStalledOut, status_code=202)

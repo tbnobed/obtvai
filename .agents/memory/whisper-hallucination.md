@@ -13,3 +13,6 @@ Related: camera/dailies .mov files carry multiple mono audio tracks; ffmpeg defa
 
 ## Phase-cancelled stereo dailies
 Some camera .movs record the same mic on L and R with inverted polarity: each channel is loud (~-30 dB) but the forced mono downmix (`-ac 1`) sums to near-silence (~-91 dB), so Whisper sees a silent WAV → 0 segments. Detection: measure the extracted WAV's max_volume; if < -45 dB, probe every input/stream/channel with `pan=mono|c0=cN` and re-extract the loudest single channel. Note: volumedetect on a stereo file measures channels individually, NOT the mono sum — a "loud" stereo source can still cancel to silence.
+
+## Language mis-detection (English → Welsh)
+Whisper misdetects clear English speech as Welsh (cy) and other confusables even when dialogue starts immediately — NOT just a quiet-opening issue; it's a known model quirk. The whole file then gets "transcribed" in the wrong language, poisoning downstream analysis. Mitigations, in priority order: (1) WHISPER_LANGUAGE env pins the language and skips detection — right answer for a single-language library; (2) multi-window probability-weighted vote across the file with an English-bias guard (if the winner is a known confusable like cy and en got >=0.3 vote, pick en).
