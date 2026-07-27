@@ -133,8 +133,50 @@ def _generate(tokenizer, model, prompt: str, max_new_tokens: int = 1500) -> str:
     return tokenizer.decode(output_ids[0][inputs.shape[1]:], skip_special_tokens=True)
 
 
+def _repair_truncated_json(fragment: str) -> dict | None:
+    """Best-effort recovery of a JSON object whose tail was cut off by the
+    generation token limit. Walks the fragment tracking string/bracket state,
+    drops any incomplete trailing token, closes open brackets, and parses."""
+    stack: list[str] = []
+    in_str = False
+    escape = False
+    last_good = 0  # index just past the last structurally complete element
+    for i, ch in enumerate(fragment):
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+                last_good = i + 1
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]":
+            if stack:
+                stack.pop()
+            last_good = i + 1
+        elif ch in ",:":
+            pass
+        elif not ch.isspace():
+            last_good = i + 1  # numbers / true / false / null
+    if not stack:
+        return None  # balanced — a repair isn't what's needed
+    candidate = fragment[:last_good].rstrip().rstrip(",:")
+    candidate += "".join(reversed(stack))
+    try:
+        parsed = json.loads(candidate)
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
 def _extract_json(raw: str) -> dict:
-    """Pull the first JSON object out of LLM output (may be wrapped in prose/fences)."""
+    """Pull the first JSON object out of LLM output (may be wrapped in prose/fences).
+    If generation was truncated mid-object, salvage the complete leading part."""
     fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
     candidate = fence.group(1) if fence else None
     if candidate is None:
@@ -151,8 +193,18 @@ def _extract_json(raw: str) -> dict:
                     candidate = raw[brace:i + 1]
                     break
         if candidate is None:
+            # Output was cut off at the token limit — try to repair the tail.
+            repaired = _repair_truncated_json(raw[brace:])
+            if repaired is not None:
+                return repaired
             raise ValueError("Unbalanced JSON in LLM output")
-    return json.loads(candidate)
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        repaired = _repair_truncated_json(candidate)
+        if repaired is not None:
+            return repaired
+        raise
 
 
 def _timecode_to_seconds(value) -> float:

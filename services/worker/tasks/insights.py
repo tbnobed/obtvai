@@ -117,7 +117,9 @@ def generate_insights(self, job_id: str, media_id: str | None = None):
         update_job(db, job_id, progress=40.0)
         from tasks.analyze import _load_llm, _generate, _extract_json
         tokenizer, model = _load_llm()
-        result = _extract_json(_generate(tokenizer, model, prompt, max_new_tokens=900))
+        # 900 tokens routinely truncated the JSON mid-object ("Unbalanced JSON
+        # in LLM output") — the requested shape needs ~1500-2000 tokens.
+        result = _extract_json(_generate(tokenizer, model, prompt, max_new_tokens=2200))
 
         from topic_norm import normalize_topic_key, topic_label
 
