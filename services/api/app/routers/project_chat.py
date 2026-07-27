@@ -564,6 +564,7 @@ async def render_cut(project_id: str, body: CutRenderIn, db: AsyncSession = Depe
         id=str(uuid.uuid4()),
         prompt=f"Chat cut v{rev.version}: {(rev.summary or 'draft cut')[:200]}",
         project_id=project_id,
+        cut_version=rev.version,
         preset=body.preset,
         burn_captions=body.burn_captions,
         clips=reel_clips,

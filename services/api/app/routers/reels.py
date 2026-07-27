@@ -46,6 +46,7 @@ def _to_out(r: ReelJob) -> ReelJobOut:
         target_duration_seconds=r.target_duration_seconds,
         pace=r.pace,
         rating=r.rating,
+        cut_version=r.cut_version,
         preset=r.preset,
         burn_captions=r.burn_captions,
         unreviewed=bool(r.unreviewed),

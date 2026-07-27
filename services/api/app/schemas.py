@@ -306,6 +306,7 @@ class ReelJobOut(BaseModel):
     target_duration_seconds: Optional[float] = None
     pace: Optional[str] = None
     rating: Optional[str] = None
+    cut_version: Optional[int] = None
     preset: str
     burn_captions: bool
     unreviewed: Optional[bool] = None

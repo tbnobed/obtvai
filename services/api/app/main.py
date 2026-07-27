@@ -39,6 +39,7 @@ _COLUMN_MIGRATIONS = [
     ("social_channel_analyses", "avg_comments", "DOUBLE PRECISION"),
     ("social_channel_analyses", "engagement_rate", "DOUBLE PRECISION"),
     ("projects", "media_ranges", "JSONB"),
+    ("reel_jobs", "cut_version", "INTEGER"),
     ("media_assets", "creative", "JSONB"),
     ("clip_lists", "project_id", "TEXT"),
     ("render_jobs", "project_id", "TEXT"),

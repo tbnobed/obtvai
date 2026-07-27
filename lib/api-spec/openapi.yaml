@@ -6285,6 +6285,9 @@ components:
         pace:
           type: ["string", "null"]
           description: fast | normal | cinematic
+        cut_version:
+          type: ["integer", "null"]
+          description: Studio cut revision this reel was rendered from
         rating:
           type: ["string", "null"]
           description: up | down when the user has rated the rendered reel

@@ -223,6 +223,7 @@ export default function ProjectDetail() {
     return ["find", "pool", "studio", "deliver"].includes(t) ? t : "find";
   });
   const [approvalGate, setApprovalGate] = useState<{ list: ClipList; action: "render" } | null>(null);
+  const [studioFocusVersion, setStudioFocusVersion] = useState<number | null>(null);
 
   const { data: project, isLoading } = useGetProject(id);
   const updateMutation = useUpdateProject();
@@ -713,7 +714,7 @@ export default function ProjectDetail() {
 
         {/* ------------------------------ FIND ------------------------------ */}
         <TabsContent value="studio">
-          {project && <StudioTab project={project} onOpenPool={() => setTab("pool")} />}
+          {project && <StudioTab project={project} onOpenPool={() => setTab("pool")} focusVersion={studioFocusVersion} />}
         </TabsContent>
 
         <TabsContent value="pool">
@@ -866,6 +867,17 @@ export default function ProjectDetail() {
                   <CardHeader className="flex flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-base truncate pr-3">{reel.prompt}</CardTitle>
                     <div className="flex items-center gap-1 shrink-0">
+                      {reel.cut_version != null && (
+                        <Badge
+                          variant="outline"
+                          className="cursor-pointer text-primary border-primary/40 hover:bg-primary/10"
+                          title="Open this cut version in Studio"
+                          onClick={() => { setStudioFocusVersion(reel.cut_version!); setTab("studio"); }}
+                          data-testid={`badge-cut-version-${reel.id}`}
+                        >
+                          <Sparkles className="h-3 w-3 mr-1" /> cut v{reel.cut_version}
+                        </Badge>
+                      )}
                       <UnreviewedBadge show={reel.unreviewed} />
                       <JobStatusBadge status={reel.status} />
                       <ReelRatingButtons reel={reel} onRated={invalidateAll} />

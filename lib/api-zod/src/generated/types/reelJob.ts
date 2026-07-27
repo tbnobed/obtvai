@@ -28,6 +28,11 @@ export interface ReelJob {
      */
   pace?: string | null;
   /**
+     * Studio cut revision this reel was rendered from
+     * @nullable
+     */
+  cut_version?: number | null;
+  /**
      * up | down when the user has rated the rendered reel
      * @nullable
      */

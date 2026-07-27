@@ -1687,9 +1687,8 @@ router.post("/projects/:id/cut/render", (req, res) => {
     `Chat cut v${rev.version}: ${rev.summary || "draft cut"}`,
     null, preset, Boolean(req.body?.burn_captions),
     rev.clips.map(({ locked, ...c }) => c),
-    p.id,
+    p.id, false, rev.version,
   );
-  reels.unshift(reel);
   touchProject(p.id);
   res.status(202).json(reelOut(reel));
 });
@@ -2010,6 +2009,7 @@ type MockReel = {
   target_duration_seconds: number | null;
   pace: string;
   rating: string | null;
+  cut_version: number | null;
   preset: string; burn_captions: boolean; unreviewed: boolean;
   clips: { media_id: string; filename: string; start_time: number; end_time: number; snippet: string | null; thumbnail_url: string | null }[];
   status: string; progress: number;
@@ -2149,6 +2149,7 @@ router.post("/reels", (req, res) => {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     prompt,
     media_id: mediaId,
+    cut_version: null,
     project_id: (req.body.project_id as string | null) || null,
     target_duration_seconds: targetDuration,
     pace,
@@ -2302,11 +2303,11 @@ router.post("/media/:id/tighten", (req, res) => {
   });
 });
 
-function makeMockReel(prompt: string, mediaId: string | null, preset: string, burn: boolean, clips: MockReel["clips"], projectId: string | null = null, unreviewed = false): MockReel {
+function makeMockReel(prompt: string, mediaId: string | null, preset: string, burn: boolean, clips: MockReel["clips"], projectId: string | null = null, unreviewed = false, cutVersion: number | null = null): MockReel {
   touchProject(projectId);
   const reel: MockReel = {
     id: `reel-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-    prompt, media_id: mediaId, project_id: projectId, target_duration_seconds: null, pace: "normal", rating: null, preset, burn_captions: burn, unreviewed, clips,
+    prompt, media_id: mediaId, project_id: projectId, target_duration_seconds: null, pace: "normal", rating: null, cut_version: cutVersion, preset, burn_captions: burn, unreviewed, clips,
     status: "pending", progress: 0, output_url: null, error_message: null,
     created_at: new Date().toISOString(), finished_at: null, _startedAt: Date.now(),
   };

@@ -33,13 +33,17 @@ function fmtRuntime(s: number) {
   return `${m}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 }
 
-export function StudioTab({ project, onOpenPool }: { project: Project; onOpenPool?: () => void }) {
+export function StudioTab({ project, onOpenPool, focusVersion }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null }) {
   const projectId = project.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [input, setInput] = useState("");
   const [viewVersion, setViewVersion] = useState<number | null>(null);
+  // Deliver's "Studio cut vN" badge jumps here with a specific version.
+  useEffect(() => {
+    if (focusVersion != null) setViewVersion(focusVersion);
+  }, [focusVersion]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // Which assets the assistant may draw from — managed in the Media Pool tab.
