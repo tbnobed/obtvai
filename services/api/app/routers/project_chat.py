@@ -250,7 +250,15 @@ _SELECT_SYSTEM = (
     "(clips C1, C2, ...) and CANDIDATE moments (S1, S2, ...) found for the "
     "user's request. Compose the new cut as an ordered list of those IDs. "
     "Clips marked [locked] MUST be kept. Aim for the target runtime. Prefer "
-    "variety across source files and a sensible story order. Respond ONLY "
+    "variety across source files and a sensible story order.\n"
+    "BE STRICT ABOUT RELEVANCE. The candidates come from a similarity search "
+    "and many are only loosely related — a snippet mentioning a keyword is "
+    "NOT enough. Read each snippet and include it only if the words clearly "
+    "express the requested theme (for 'God's love', the snippet must actually "
+    "speak about God loving, grace, mercy — not merely mention God). A cut "
+    "that comes in under the target with strong clips is better than one "
+    "padded to length with off-topic material; the tool will widen strong "
+    "clips to reach the runtime. Respond ONLY "
     "with a JSON object, no other text:\n"
     '{"cut": ["C1", "S3", ...], "reply": "2-4 conversational sentences telling '
     'the user what you changed and why, in a warm collaborative tone — mention '
@@ -468,7 +476,10 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             # Model gave nothing usable — fall back to kept cut + best candidates.
             new_cut = list(kept)
             for c in candidates:
-                if target is not None and sum(_clip_duration(x) for x in new_cut) >= target:
+                # Blind fallback: take only the top-ranked half of the target,
+                # _fill_to_target widens the rest — avoids padding the tail
+                # with weakly related matches.
+                if target is not None and sum(_clip_duration(x) for x in new_cut) >= target * 0.5:
                     break
                 new_cut.append(c)
 
