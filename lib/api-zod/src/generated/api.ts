@@ -2580,7 +2580,20 @@ export const AnalyzeSocialChannelResponse = zod.object({
   "est_monthly_revenue": zod.number(),
   "margin_percent": zod.number(),
   "mcn_share_percent": zod.number(),
-  "risk_level": zod.string().describe('lowercased risk level from n8n (low\/medium\/high), \"unknown\" if absent')
+  "risk_level": zod.string().describe('lowercased risk level from n8n (low\/medium\/high), \"unknown\" if absent'),
+  "top_videos": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string().nullish(),
+  "thumbnail": zod.string().nullish(),
+  "views": zod.number().nullish(),
+  "likes": zod.number().nullish(),
+  "comments": zod.number().nullish(),
+  "published_at": zod.string().nullish()
+})).describe('Top-5 videos by view count (YouTube Data API v3; n8n fallback)'),
+  "avg_views": zod.number().nullish().describe('Average views over the 10 most recent uploads'),
+  "avg_likes": zod.number().nullish(),
+  "avg_comments": zod.number().nullish(),
+  "engagement_rate": zod.number().nullish().describe('(likes+comments)\/views over the 10 most recent uploads, as a percentage')
 })
 
 
@@ -2604,7 +2617,20 @@ export const GetSocialChannelAnalysisResponse = zod.object({
   "est_monthly_revenue": zod.number(),
   "margin_percent": zod.number(),
   "mcn_share_percent": zod.number(),
-  "risk_level": zod.string().describe('lowercased risk level from n8n (low\/medium\/high), \"unknown\" if absent')
+  "risk_level": zod.string().describe('lowercased risk level from n8n (low\/medium\/high), \"unknown\" if absent'),
+  "top_videos": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string().nullish(),
+  "thumbnail": zod.string().nullish(),
+  "views": zod.number().nullish(),
+  "likes": zod.number().nullish(),
+  "comments": zod.number().nullish(),
+  "published_at": zod.string().nullish()
+})).describe('Top-5 videos by view count (YouTube Data API v3; n8n fallback)'),
+  "avg_views": zod.number().nullish().describe('Average views over the 10 most recent uploads'),
+  "avg_likes": zod.number().nullish(),
+  "avg_comments": zod.number().nullish(),
+  "engagement_rate": zod.number().nullish().describe('(likes+comments)\/views over the 10 most recent uploads, as a percentage')
 })
 
 

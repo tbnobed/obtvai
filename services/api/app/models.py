@@ -432,6 +432,12 @@ class SocialChannelAnalysis(Base):
     margin_percent: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     mcn_share_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     risk_level: Mapped[str] = mapped_column(String, default="unknown", nullable=False)
+    top_videos: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Averages over the 10 most recent uploads (YouTube Data API v3).
+    avg_views: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_likes: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_comments: Mapped[float | None] = mapped_column(Float, nullable=True)
+    engagement_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class SocialProgram(Base):

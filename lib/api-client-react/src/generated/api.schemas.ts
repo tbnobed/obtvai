@@ -1228,6 +1228,16 @@ export const SocialChannelAnalysisStatus = {
   error: 'error',
 } as const;
 
+export interface SocialTopVideo {
+  title: string;
+  url?: string | null;
+  thumbnail?: string | null;
+  views?: number | null;
+  likes?: number | null;
+  comments?: number | null;
+  published_at?: string | null;
+}
+
 export interface SocialChannelAnalysis {
   channel_id: string;
   /** "running" while n8n is analyzing (poll); "ready" when fields below are populated */
@@ -1247,6 +1257,14 @@ export interface SocialChannelAnalysis {
   mcn_share_percent: number;
   /** lowercased risk level from n8n (low/medium/high), "unknown" if absent */
   risk_level: string;
+  /** Top-5 videos by view count (YouTube Data API v3; n8n fallback) */
+  top_videos: SocialTopVideo[];
+  /** Average views over the 10 most recent uploads */
+  avg_views?: number | null;
+  avg_likes?: number | null;
+  avg_comments?: number | null;
+  /** (likes+comments)/views over the 10 most recent uploads, as a percentage */
+  engagement_rate?: number | null;
 }
 
 /**

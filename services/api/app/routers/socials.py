@@ -592,6 +592,9 @@ async def get_socials_insights(db: AsyncSession = Depends(get_db)):
 
 N8N_ANALYZE_URL = os.environ.get(
     "N8N_ANALYZE_URL", "https://n8n.obtv.io/webhook/analyze-channel")
+# Server-side only — never expose this key to the frontend.
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
+_YT_API = "https://www.googleapis.com/youtube/v3"
 _analysis_tasks: dict[str, asyncio.Task] = {}
 _analysis_lock = asyncio.Lock()  # serializes analyze-start across channels
 
@@ -611,7 +614,68 @@ def _analysis_out(a) -> SocialChannelAnalysisOut:
         margin_percent=a.margin_percent or 0,
         mcn_share_percent=a.mcn_share_percent or 0,
         risk_level=a.risk_level or "unknown",
+        top_videos=a.top_videos or [],
+        avg_views=a.avg_views,
+        avg_likes=a.avg_likes,
+        avg_comments=a.avg_comments,
+        engagement_rate=a.engagement_rate,
     )
+
+
+def _parse_top_videos(data: dict) -> list[dict]:
+    """Pull the top-videos list out of the n8n response, tolerating different
+    key names and item shapes (dicts with varying field names, or plain strings)."""
+    raw = None
+    for key in ("topVideos", "top_videos", "topPerformingContent", "topContent",
+                "topPosts", "bestPerforming", "topPerforming"):
+        v = data.get(key)
+        if isinstance(v, list) and v:
+            raw = v
+            break
+    if raw is None:
+        return []
+
+    def _int(v):
+        try:
+            return int(float(v)) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def pick(item: dict, *keys):
+        for k in keys:
+            v = item.get(k)
+            if v not in (None, ""):
+                return v
+        return None
+
+    out: list[dict] = []
+    for item in raw[:10]:
+        if isinstance(item, str):
+            if item.strip():
+                out.append({"title": item.strip()})
+            continue
+        if not isinstance(item, dict):
+            continue
+        title = pick(item, "title", "name", "videoTitle", "video_title")
+        if not title:
+            continue
+        def _url(v):
+            # Only allow http(s) URLs — anything else (javascript:, data:, ...)
+            # is dropped so it can never reach an <a href> in the UI.
+            s = str(v).strip() if v is not None else ""
+            return s if s.startswith(("http://", "https://")) else None
+
+        out.append({
+            "title": str(title).strip(),
+            "url": _url(pick(item, "url", "link", "videoUrl", "video_url")),
+            "thumbnail": _url(pick(item, "thumbnail", "thumbnailUrl", "thumbnail_url", "image")),
+            "views": _int(pick(item, "views", "viewCount", "view_count")),
+            "likes": _int(pick(item, "likes", "likeCount", "like_count")),
+            "comments": _int(pick(item, "comments", "commentCount", "comment_count")),
+            "published_at": (lambda v: str(v).strip() if v is not None else None)(
+                pick(item, "publishedAt", "published_at", "published", "date")),
+        })
+    return out
 
 
 def _parse_n8n_analysis(data: dict) -> dict:
@@ -655,13 +719,113 @@ def _parse_n8n_analysis(data: dict) -> dict:
         "margin_percent": _float(prof.get("marginPercent")),
         "mcn_share_percent": _int(prof.get("mcnSharePercent")) or 0,
         "risk_level": (str(level).strip().lower() if level else "unknown") or "unknown",
+        "top_videos": _parse_top_videos(data),
     }
+
+
+async def _yt_search_ids(client, external_id: str, order: str, max_results: int) -> list[str]:
+    """search.list returns only video IDs; stats come from a videos.list batch."""
+    resp = await client.get(f"{_YT_API}/search", params={
+        "key": YOUTUBE_API_KEY, "channelId": external_id, "part": "id",
+        "type": "video", "order": order, "maxResults": max_results,
+    })
+    resp.raise_for_status()
+    return [
+        it["id"]["videoId"]
+        for it in resp.json().get("items", [])
+        if isinstance(it.get("id"), dict) and it["id"].get("videoId")
+    ]
+
+
+async def _yt_videos(client, ids: list[str]) -> list[dict]:
+    if not ids:
+        return []
+    resp = await client.get(f"{_YT_API}/videos", params={
+        "key": YOUTUBE_API_KEY, "part": "snippet,statistics", "id": ",".join(ids),
+    })
+    resp.raise_for_status()
+    return resp.json().get("items", [])
+
+
+def _yt_stat(v: dict, key: str) -> int:
+    try:
+        return int(v.get("statistics", {}).get(key) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+async def _fetch_youtube_stats(external_id: str) -> dict:
+    """Two parallel YouTube Data API v3 flows:
+    - order=date, 10 latest videos  -> avg views/likes/comments + engagement rate
+    - order=viewCount, top of 50    -> top-5 videos list with snippet+stats
+    """
+    import httpx
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+        recent_ids, top_ids = await asyncio.gather(
+            _yt_search_ids(client, external_id, "date", 10),
+            _yt_search_ids(client, external_id, "viewCount", 50),
+        )
+        recent, top = await asyncio.gather(
+            _yt_videos(client, recent_ids),
+            _yt_videos(client, top_ids[:5]),
+        )
+
+    out: dict = {}
+    if recent:
+        n = len(recent)
+        tv = sum(_yt_stat(v, "viewCount") for v in recent)
+        tl = sum(_yt_stat(v, "likeCount") for v in recent)
+        tc = sum(_yt_stat(v, "commentCount") for v in recent)
+        out.update(
+            avg_views=tv / n,
+            avg_likes=tl / n,
+            avg_comments=tc / n,
+            engagement_rate=((tl + tc) / tv * 100) if tv else 0.0,
+        )
+
+    # videos.list does not preserve request order — re-sort by views.
+    top_sorted = sorted(top, key=lambda v: _yt_stat(v, "viewCount"), reverse=True)
+    out["top_videos"] = [
+        {
+            "title": (v.get("snippet", {}).get("title") or "Untitled").strip(),
+            "url": f"https://www.youtube.com/watch?v={v.get('id')}",
+            "thumbnail": (v.get("snippet", {}).get("thumbnails", {}).get("medium", {}) or {}).get("url"),
+            "views": _yt_stat(v, "viewCount"),
+            "likes": _yt_stat(v, "likeCount"),
+            "comments": _yt_stat(v, "commentCount"),
+            "published_at": v.get("snippet", {}).get("publishedAt"),
+        }
+        for v in top_sorted
+        if v.get("id")
+    ]
+    return out
+
+
+def _yt_safe_error(e: Exception) -> str:
+    """httpx error strings embed the full request URL including the API key —
+    never log or persist them raw."""
+    import httpx
+    if isinstance(e, httpx.HTTPStatusError):
+        return f"YouTube API returned HTTP {e.response.status_code}"
+    if isinstance(e, httpx.TimeoutException):
+        return "YouTube API timed out"
+    if isinstance(e, httpx.HTTPError):
+        return "Could not reach the YouTube API"
+    return f"YouTube fetch failed ({type(e).__name__})"
 
 
 async def _run_channel_analysis(channel_id: str, external_id: str) -> None:
     from ..models import SocialChannelAnalysis
     error: str | None = None
     parsed: dict | None = None
+
+    # Kick off the YouTube stats fetch in parallel with the n8n call.
+    yt_task: asyncio.Task | None = None
+    if YOUTUBE_API_KEY:
+        yt_task = asyncio.create_task(_fetch_youtube_stats(external_id))
+    else:
+        print("Socials channel analysis: YOUTUBE_API_KEY not set — skipping YouTube stats")
+
     try:
         import httpx
         async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=15.0)) as client:
@@ -692,6 +856,27 @@ async def _run_channel_analysis(channel_id: str, external_id: str) -> None:
         else:
             error = "Analysis failed — check api logs"
         print(f"Socials channel analysis failed for {channel_id}: {type(e).__name__}: {str(e)[:300]}")
+
+    yt_data: dict | None = None
+    if yt_task is not None:
+        try:
+            yt_data = await yt_task
+        except Exception as e:
+            print(f"Socials channel analysis: {_yt_safe_error(e)} for {channel_id}")
+
+    # Ready if either source produced data; error only when both failed.
+    if yt_data:
+        merged = dict(parsed or {})
+        merged.update({k: v for k, v in yt_data.items() if k != "top_videos"})
+        # YouTube's top-5 by viewCount wins over anything n8n reported.
+        if yt_data.get("top_videos"):
+            merged["top_videos"] = yt_data["top_videos"]
+        elif parsed:
+            merged["top_videos"] = parsed.get("top_videos") or []
+        parsed = merged
+        error = None
+    elif parsed is None:
+        error = error or "Analysis failed — check api logs"
 
     try:
         async with AsyncSessionLocal() as db:

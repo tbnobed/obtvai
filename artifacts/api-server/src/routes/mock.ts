@@ -3542,6 +3542,7 @@ router.post("/socials/channels/:id/analyze", (req, res) => {
     channel_id: c.id, status: "running", error: null, analyzed_at: new Date().toISOString(),
     subs3: null, subs6: null, subs12: null, ai_summary: null, ai_recommendations: [],
     est_monthly_revenue: 0, margin_percent: 0, mcn_share_percent: 0, risk_level: "unknown",
+    top_videos: [], avg_views: null, avg_likes: null, avg_comments: null, engagement_rate: null,
   };
   res.json(channelAnalyses[c.id]);
 });
@@ -3569,6 +3570,19 @@ router.get("/socials/channels/:id/analysis", (req, res) => {
       margin_percent: 62.5,
       mcn_share_percent: 30,
       risk_level: "low",
+      avg_views: 14830.4,
+      avg_likes: 902.1,
+      avg_comments: 118.6,
+      engagement_rate: 6.9,
+      top_videos: (socialPosts[req.params.id] ?? [])
+        .slice()
+        .sort((x: any, y: any) => (y.views ?? 0) - (x.views ?? 0))
+        .slice(0, 5)
+        .map((p: any) => ({
+          title: p.title, url: p.url ?? null, thumbnail: p.thumbnail_url ?? null,
+          views: p.views ?? null, likes: p.likes ?? null, comments: p.comments ?? null,
+          published_at: p.published_at ?? null,
+        })),
     });
   }
   res.json(a);

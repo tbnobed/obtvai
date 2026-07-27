@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SocialChannelAnalysisStatus } from './socialChannelAnalysisStatus';
+import type { SocialTopVideo } from './socialTopVideo';
 
 export interface SocialChannelAnalysis {
   channel_id: string;
@@ -26,4 +27,12 @@ export interface SocialChannelAnalysis {
   mcn_share_percent: number;
   /** lowercased risk level from n8n (low/medium/high), "unknown" if absent */
   risk_level: string;
+  /** Top-5 videos by view count (YouTube Data API v3; n8n fallback) */
+  top_videos: SocialTopVideo[];
+  /** Average views over the 10 most recent uploads */
+  avg_views?: number | null;
+  avg_likes?: number | null;
+  avg_comments?: number | null;
+  /** (likes+comments)/views over the 10 most recent uploads, as a percentage */
+  engagement_rate?: number | null;
 }

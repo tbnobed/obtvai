@@ -921,6 +921,16 @@ class SocialsOverviewOut(BaseModel):
     tiktok_configured: bool
 
 
+class SocialTopVideoOut(BaseModel):
+    title: str
+    url: Optional[str] = None
+    thumbnail: Optional[str] = None
+    views: Optional[int] = None
+    likes: Optional[int] = None
+    comments: Optional[int] = None
+    published_at: Optional[str] = None
+
+
 class SocialChannelAnalysisOut(BaseModel):
     channel_id: str
     status: Literal["running", "ready", "error"] = "running"
@@ -935,6 +945,11 @@ class SocialChannelAnalysisOut(BaseModel):
     margin_percent: float = 0
     mcn_share_percent: int = 0
     risk_level: str = "unknown"
+    top_videos: List[SocialTopVideoOut] = []
+    avg_views: Optional[float] = None
+    avg_likes: Optional[float] = None
+    avg_comments: Optional[float] = None
+    engagement_rate: Optional[float] = None
 
 
 class SocialsInsightsOut(BaseModel):

@@ -215,6 +215,56 @@ function ChannelAnalysis({ channel }: { channel: SocialChannelOverview }) {
             </div>
           )}
 
+          {/* Recent performance — averages over the last 10 uploads (YouTube API) */}
+          {(ready.avg_views != null || ready.engagement_rate != null) && (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Last 10 uploads (avg)</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {([
+                  ["Views", ready.avg_views, (v: number) => fmt(Math.round(v))],
+                  ["Likes", ready.avg_likes, (v: number) => fmt(Math.round(v))],
+                  ["Comments", ready.avg_comments, (v: number) => fmt(Math.round(v))],
+                  ["Engagement", ready.engagement_rate, (v: number) => `${v.toFixed(2)}%`],
+                ] as const).map(([label, v, f]) => (
+                  <div key={label} className="border border-border rounded-md px-3 py-2 bg-background/40">
+                    <div className="text-[11px] text-muted-foreground">{label}</div>
+                    <div className="text-base font-semibold tabular-nums">{v != null ? f(v) : "—"}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top performing content */}
+          {ready.top_videos.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Top performing content</div>
+              <div className="space-y-1">
+                {ready.top_videos.map((v, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm border border-border rounded-md px-2 py-1.5 bg-background/40" data-testid={`row-top-video-${channel.id}-${i}`}>
+                    <span className="text-xs text-muted-foreground tabular-nums w-4 shrink-0">{i + 1}.</span>
+                    {v.thumbnail && (
+                      <img src={v.thumbnail} alt="" className="w-12 h-7 rounded object-cover shrink-0" loading="lazy" />
+                    )}
+                    <span className="truncate flex-1">
+                      {v.url && /^https?:\/\//.test(v.url) ? (
+                        <a href={v.url} target="_blank" rel="noreferrer" className="hover:underline">{v.title}</a>
+                      ) : (
+                        v.title
+                      )}
+                    </span>
+                    {v.views != null && (
+                      <span className="text-xs text-muted-foreground tabular-nums shrink-0">{fmt(v.views)} views</span>
+                    )}
+                    {v.likes != null && (
+                      <span className="text-xs text-muted-foreground tabular-nums shrink-0 hidden sm:inline">{fmt(v.likes)} likes</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Profitability */}
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm border-t border-border pt-3">
             <div>

@@ -180,6 +180,7 @@ export * from './socialsInsights';
 export * from './socialsInsightsStatus';
 export * from './socialSnapshot';
 export * from './socialsOverview';
+export * from './socialTopVideo';
 export * from './speakingMoment';
 export * from './storyBeat';
 export * from './storyJob';

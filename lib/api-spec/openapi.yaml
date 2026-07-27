@@ -4921,7 +4921,7 @@ components:
 
     SocialChannelAnalysis:
       type: object
-      required: [channel_id, status, analyzed_at, ai_recommendations, est_monthly_revenue, margin_percent, mcn_share_percent, risk_level]
+      required: [channel_id, status, analyzed_at, ai_recommendations, est_monthly_revenue, margin_percent, mcn_share_percent, risk_level, top_videos]
       properties:
         channel_id:
           type: string
@@ -4962,6 +4962,49 @@ components:
         risk_level:
           type: string
           description: lowercased risk level from n8n (low/medium/high), "unknown" if absent
+        top_videos:
+          type: array
+          description: Top-5 videos by view count (YouTube Data API v3; n8n fallback)
+          items:
+            $ref: "#/components/schemas/SocialTopVideo"
+        avg_views:
+          type: number
+          nullable: true
+          description: Average views over the 10 most recent uploads
+        avg_likes:
+          type: number
+          nullable: true
+        avg_comments:
+          type: number
+          nullable: true
+        engagement_rate:
+          type: number
+          nullable: true
+          description: (likes+comments)/views over the 10 most recent uploads, as a percentage
+    SocialTopVideo:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+          nullable: true
+        thumbnail:
+          type: string
+          nullable: true
+        views:
+          type: integer
+          nullable: true
+        likes:
+          type: integer
+          nullable: true
+        comments:
+          type: integer
+          nullable: true
+        published_at:
+          type: string
+          nullable: true
     SocialsInsights:
       type: object
       required: [status, generated_at, working, not_working, recommendations, model_used]
