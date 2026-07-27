@@ -47,7 +47,7 @@ _turn_locks: dict[str, asyncio.Lock] = {}
 _MAX_HISTORY = 16
 _MAX_CANDIDATES = 40
 _MAX_CUT_LINES = 80
-_SNIPPET_CHARS = 110
+_SNIPPET_CHARS = 220
 
 
 # ---------------------------------------------------------------- helpers
@@ -261,7 +261,12 @@ _SELECT_SYSTEM = (
     "speak about God loving, grace, mercy — not merely mention God). A cut "
     "that comes in under the target with strong clips is better than one "
     "padded to length with off-topic material; the tool will widen strong "
-    "clips to reach the runtime. Respond ONLY "
+    "clips to reach the runtime.\n"
+    "PICK COMPLETE THOUGHTS THAT FLOW. Prefer snippets that read as "
+    "self-contained statements with a clear beginning and end; reject "
+    "fragments that start or trail off mid-sentence. Order the clips so one "
+    "idea leads into the next like a story — setup, development, payoff — "
+    "not a random pile of soundbites. Respond ONLY "
     "with a JSON object, no other text:\n"
     '{"cut": ["C1", "S3", ...], "reply": "2-4 conversational sentences telling '
     'the user what you changed and why, in a warm collaborative tone — mention '

@@ -60,6 +60,49 @@ def _to_out(r: ReelJob) -> ReelJobOut:
     )
 
 
+_SENT_END = re.compile(r"[.!?\u2026][\"')\]]*\s*$")
+
+
+async def _expand_to_sentence(
+    db: AsyncSession, seg: TranscriptSegment,
+    max_back: float = 12.0, max_fwd: float = 20.0,
+) -> tuple[float, float, str]:
+    """Snap a transcript hit to complete-thought boundaries: walk backwards
+    to the start of the sentence and forwards to its end, so clips don't
+    start or stop mid-sentence. Extension is capped and stops at gaps
+    (speaker pauses / different takes)."""
+    rows = (await db.execute(
+        select(TranscriptSegment)
+        .where(
+            TranscriptSegment.media_id == seg.media_id,
+            TranscriptSegment.end_time >= seg.start_time - (max_back + 5.0),
+            TranscriptSegment.start_time <= seg.end_time + (max_fwd + 5.0),
+        )
+        .order_by(TranscriptSegment.start_time)
+    )).scalars().all()
+    idx = next((i for i, r in enumerate(rows) if r.id == seg.id), None)
+    if idx is None:
+        return seg.start_time, seg.end_time, seg.text or ""
+    start_i = idx
+    while start_i > 0:
+        prev = rows[start_i - 1]
+        if _SENT_END.search((prev.text or "").strip()):
+            break  # previous segment ends a sentence — ours starts one
+        if (seg.start_time - prev.start_time > max_back
+                or rows[start_i].start_time - prev.end_time > 2.0):
+            break
+        start_i -= 1
+    end_i = idx
+    while not _SENT_END.search((rows[end_i].text or "").strip()) and end_i + 1 < len(rows):
+        nxt = rows[end_i + 1]
+        if (nxt.end_time - seg.end_time > max_fwd
+                or nxt.start_time - rows[end_i].end_time > 2.0):
+            break
+        end_i += 1
+    text = " ".join((r.text or "").strip() for r in rows[start_i:end_i + 1] if r.text)
+    return float(rows[start_i].start_time), float(rows[end_i].end_time), text
+
+
 def _window(
     start: float, end: float, duration: float,
     max_clip_seconds: float = _MAX_CLIP_SECONDS,
@@ -161,13 +204,14 @@ async def _select_clips(
             if not row:
                 continue
             seg, asset = row
-            s, e = _window(seg.start_time, seg.end_time, float(asset.duration_seconds or 0), max_clip_seconds)
+            xs, xe, xtext = await _expand_to_sentence(db, seg)
+            s, e = _window(xs, xe, float(asset.duration_seconds or 0), max_clip_seconds)
             clips.append({
                 "media_id": asset.id,
                 "filename": asset.filename,
                 "start_time": s,
                 "end_time": e,
-                "snippet": seg.text,
+                "snippet": xtext or seg.text,
                 "_score": float(hit.score),
                 "_dur": float(asset.duration_seconds or 0),
             })
