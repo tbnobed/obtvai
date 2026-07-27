@@ -705,7 +705,7 @@ export default function Socials() {
               <p className="text-sm text-muted-foreground px-4 py-6">No channels yet.</p>
             ) : (
               <>
-                <div className="p-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="p-4 grid gap-3 grid-cols-2 sm:grid-cols-4 xl:grid-cols-6">
                   {program.channels.map((c) => {
                     const meta = PLATFORM_META[c.platform] ?? PLATFORM_META.youtube;
                     const Icon = meta.icon;
