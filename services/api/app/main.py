@@ -39,6 +39,7 @@ _COLUMN_MIGRATIONS = [
     ("story_jobs", "project_id", "TEXT"),
     ("story_jobs", "target_duration_seconds", "DOUBLE PRECISION"),
     ("processing_jobs", "heartbeat_at", "TIMESTAMP"),
+    ("processing_jobs", "cleared_at", "TIMESTAMP"),
     ("media_assets", "folder_id", "TEXT"),
     ("media_folders", "parent_id", "TEXT"),
     ("projects", "status", "TEXT NOT NULL DEFAULT 'active'"),
@@ -141,6 +142,16 @@ async def _run_startup_migrations():
             CREATE UNIQUE INDEX IF NOT EXISTS uq_processing_jobs_active_insights
             ON processing_jobs (job_type)
             WHERE job_type = 'insights' AND status IN ('pending', 'running')
+            """
+        ))
+
+        # Queue-view queries filter on cleared_at IS NULL; keep them fast as
+        # soft-cleared history accumulates.
+        await conn.execute(text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_processing_jobs_active_queue
+            ON processing_jobs (created_at DESC)
+            WHERE cleared_at IS NULL
             """
         ))
 

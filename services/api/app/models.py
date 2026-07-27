@@ -260,6 +260,9 @@ class ProcessingJob(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Soft-clear: "Clear finished" hides jobs from the global queue view but
+    # keeps them for the per-asset Pipeline Jobs history.
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     asset: Mapped["MediaAsset"] = relationship("MediaAsset", back_populates="jobs")
 

@@ -45,7 +45,11 @@ async def list_jobs(
         .order_by(desc(ProcessingJob.created_at))
     )
     if media_id:
+        # Per-asset Pipeline Jobs history: show everything, cleared or not.
         q = q.where(ProcessingJob.media_id == media_id)
+    else:
+        # Global queue view: hide soft-cleared jobs.
+        q = q.where(ProcessingJob.cleared_at.is_(None))
     if status:
         q = q.where(ProcessingJob.status == status)
     q = q.limit(limit)
@@ -62,8 +66,14 @@ async def cleanup_jobs(body: JobCleanupIn | None = None, db: AsyncSession = Depe
             status_code=422,
             detail=f"Only finished statuses can be cleaned up: {', '.join(FINISHED_STATUSES)}",
         )
+    # Soft-clear: hide from the queue view but keep the rows so the
+    # per-asset Pipeline Jobs history survives.
+    from sqlalchemy import update
+    from datetime import datetime
     result = await db.execute(
-        delete(ProcessingJob).where(ProcessingJob.status.in_(statuses))
+        update(ProcessingJob)
+        .where(ProcessingJob.status.in_(statuses), ProcessingJob.cleared_at.is_(None))
+        .values(cleared_at=datetime.utcnow())
     )
     await db.commit()
     return JobCleanupOut(deleted=result.rowcount or 0)
@@ -82,6 +92,7 @@ async def get_job_stats(db: AsyncSession = Depends(get_db)):
 
     stage_q = await db.execute(
         select(ProcessingJob.job_type, ProcessingJob.status, func.count(ProcessingJob.id))
+        .where(ProcessingJob.cleared_at.is_(None))
         .group_by(ProcessingJob.job_type, ProcessingJob.status)
     )
     stages: dict[str, dict[str, int]] = {}
@@ -132,7 +143,7 @@ async def retry_failed_jobs(db: AsyncSession = Depends(get_db)):
     claimed = (
         await db.execute(
             update(ProcessingJob)
-            .where(ProcessingJob.status == "error")
+            .where(ProcessingJob.status == "error", ProcessingJob.cleared_at.is_(None))
             .values(
                 status="pending",
                 error_message=None,
@@ -199,6 +210,7 @@ async def retry_job(id: str, db: AsyncSession = Depends(get_db)):
     job.retry_count += 1
     job.started_at = None
     job.finished_at = None
+    job.cleared_at = None  # rerun makes it visible in the queue again
     await db.commit()
     await db.refresh(job)
 
