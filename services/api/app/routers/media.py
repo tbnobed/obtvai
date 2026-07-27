@@ -991,7 +991,8 @@ async def get_captions(
         if not vtt:
             lines.append(str(i))
         lines.append(f"{_caption_ts(s.start_time, vtt)} --> {_caption_ts(s.end_time, vtt)}")
-        lines.append(f"{s.speaker}: {text}" if s.speaker else text)
+        # Speaker labels are internal metadata — captions carry dialogue only.
+        lines.append(text)
         lines.append("")
 
     stem = os.path.splitext(asset.filename)[0]

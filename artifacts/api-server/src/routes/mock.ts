@@ -2084,7 +2084,8 @@ router.get("/media/:id/captions", (req, res) => {
     const text = lang && s.translations?.[lang] ? s.translations[lang] : s.text;
     if (!vtt) lines.push(String(i + 1));
     lines.push(`${captionTs(s.start_time, vtt)} --> ${captionTs(s.end_time, vtt)}`);
-    lines.push(s.speaker ? `${s.speaker}: ${text}` : text);
+    // Speaker labels are internal metadata — captions carry dialogue only.
+    lines.push(text);
     lines.push("");
   });
   const stem = asset.filename.replace(/\.[^.]+$/, "");
