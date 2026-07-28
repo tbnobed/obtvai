@@ -462,6 +462,19 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 # never save an empty revision; fall through to the edit path
                 # so replacement material gets searched for instead.
                 mode = "edit"
+            elif [
+                (c["media_id"], round(c["start_time"], 2), round(c["end_time"], 2))
+                for c in new_cut
+            ] == [
+                (c["media_id"], round(c["start_time"], 2), round(c["end_time"], 2))
+                for c in cut
+            ]:
+                # Nothing actually changed — reply without saving a revision.
+                reply = (plan.get("reply") or "").strip() or (
+                    "That leaves the cut as it is — tell me what you'd like different."
+                )
+                await _finish(db, assistant_id, reply, None)
+                return
             else:
                 adj_stats = (
                     f"{len(new_cut)} clips · "
