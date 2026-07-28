@@ -45,22 +45,19 @@ def _fmt_ts(seconds: float) -> str:
     return f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
 
 
-async def _visual_research(
+async def _visual_segments(
     queries: list[str], media_ids: list[str] | None, db: AsyncSession,
-) -> list[str]:
-    """Search scene keyframes (vision-embedding space) for the answer-mode
-    research queries and merge contiguous matching scenes into countable
-    segments. This gives the chat VISUAL context: footage that LOOKS like the
-    query (a performance, a crowd, a location) even when nobody talks about it
-    in the transcript.
+) -> list[tuple[str, str, str, list[list[float]]]]:
+    """Search scene keyframes (vision-embedding space) and merge contiguous
+    matching scenes into segments. Returns (query, media_id, filename,
+    segments) tuples. Vision matches APPEARANCE, not identity or speech — this
+    finds footage that LOOKS like the query even when nobody talks about it.
     """
     from ..services.embedding import get_clip_text_embedding
     from ..services.qdrant_client import search_vectors
     from .search import _rescale_clip_score, _MIN_VISUAL_SCORE, _is_black_thumbnail
 
-    lines: list[str] = []
-    union_by_media: dict[str, list[list[float]]] = {}
-    union_fnames: dict[str, str] = {}
+    out: list[tuple[str, str, str, list[list[float]]]] = []
     for q in queries[:3]:
         scene_ids: list[str] = []
         try:
@@ -105,14 +102,37 @@ async def _visual_research(
                     segs[-1][1] = max(segs[-1][1], sc.end_time)
                 else:
                     segs.append([sc.start_time, sc.end_time])
-            span = ", ".join(f"{_fmt_ts(a)}-{_fmt_ts(b)}" for a, b in segs[:12])
-            q_clean = re.sub(r'[\r\n"]+', " ", q).strip()[:80]
-            lines.append(
-                f"- [{fnames[mid]}] looks like \"{q_clean}\": "
-                f"{len(segs)} distinct segment(s) at {span}"
-            )
-            union_by_media.setdefault(mid, []).extend(segs)
-            union_fnames[mid] = fnames[mid]
+            out.append((q, mid, fnames[mid], segs))
+    return out
+
+
+def _merge_segments(segs: list[list[float]], gap: float = 30.0) -> list[list[float]]:
+    segs = sorted(segs, key=lambda ab: ab[0])
+    merged: list[list[float]] = []
+    for a, b in segs:
+        if merged and a - merged[-1][1] <= gap:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    return merged
+
+
+async def _visual_research(
+    queries: list[str], media_ids: list[str] | None, db: AsyncSession,
+) -> list[str]:
+    """Answer-mode evidence lines built from _visual_segments."""
+    lines: list[str] = []
+    union_by_media: dict[str, list[list[float]]] = {}
+    union_fnames: dict[str, str] = {}
+    for q, mid, fname, segs in await _visual_segments(queries, media_ids, db):
+        span = ", ".join(f"{_fmt_ts(a)}-{_fmt_ts(b)}" for a, b in segs[:12])
+        q_clean = re.sub(r'[\r\n"]+', " ", q).strip()[:80]
+        lines.append(
+            f"- [{fname}] looks like \"{q_clean}\": "
+            f"{len(segs)} distinct segment(s) at {span}"
+        )
+        union_by_media.setdefault(mid, []).extend(segs)
+        union_fnames[mid] = fname
 
     # The vision model matches APPEARANCE, not identity — name-specific queries
     # ("<artist> performing") all hit the same stage footage, so per-query
@@ -120,19 +140,49 @@ async def _visual_research(
     # honest per-file count; tell the answer model to use it.
     if len(queries) > 1:
         for mid, segs in union_by_media.items():
-            segs.sort(key=lambda ab: ab[0])
-            merged: list[list[float]] = []
-            for a, b in segs:
-                if merged and a - merged[-1][1] <= 30.0:
-                    merged[-1][1] = max(merged[-1][1], b)
-                else:
-                    merged.append([a, b])
+            merged = _merge_segments(segs)
             span = ", ".join(f"{_fmt_ts(a)}-{_fmt_ts(b)}" for a, b in merged[:16])
             lines.append(
                 f"- [{union_fnames[mid]}] ALL queries COMBINED (use this for "
                 f"counting): {len(merged)} distinct segment(s) at {span}"
             )
     return lines
+
+
+_MAX_VISUAL_CANDIDATES = 24
+_VISUAL_CLIP_MAX_SECONDS = 45.0
+
+
+async def _visual_candidates(
+    queries: list[str], media_ids: list[str] | None, db: AsyncSession,
+) -> list[dict]:
+    """Edit-mode clip candidates from visual segments. Transcript search can
+    only find moments people TALK about; this admits footage that merely LOOKS
+    right (a performance, a location) so cuts can include unspoken moments.
+    """
+    union_by_media: dict[str, list[list[float]]] = {}
+    fnames: dict[str, str] = {}
+    q_by_media: dict[str, str] = {}
+    for q, mid, fname, segs in await _visual_segments(queries, media_ids, db):
+        union_by_media.setdefault(mid, []).extend(segs)
+        fnames[mid] = fname
+        q_by_media.setdefault(mid, q)
+    clips: list[dict] = []
+    for mid, segs in union_by_media.items():
+        for a, b in _merge_segments(segs):
+            if b - a < 3.0:
+                continue
+            q_clean = re.sub(r'[\r\n"]+', " ", q_by_media[mid]).strip()[:60]
+            clips.append({
+                "media_id": mid,
+                "filename": fnames[mid],
+                "start_time": round(a, 2),
+                "end_time": round(min(b, a + _VISUAL_CLIP_MAX_SECONDS), 2),
+                "snippet": f"[visual match — looks like \"{q_clean}\"; no dialog indexed here]",
+                "thumbnail_url": None,
+            })
+    clips.sort(key=lambda c: (c["media_id"], c["start_time"]))
+    return clips[:_MAX_VISUAL_CANDIDATES]
 
 
 router = APIRouter(prefix="/projects/{project_id}/chat", tags=["project-chat"])
@@ -393,6 +443,12 @@ _SELECT_SYSTEM = (
     "that comes in under the target with strong clips is better than one "
     "padded to length with off-topic material; the tool will widen strong "
     "clips to reach the runtime.\n"
+    "VISUAL CANDIDATES: some candidates are marked [visual match — ...]. They "
+    "come from keyframe analysis, not the transcript — footage that LOOKS like "
+    "the request (a performance, a location) with no indexed dialog. For "
+    "requests about what is SHOWN (performances, b-roll, montages) they are "
+    "first-class picks; the relevance rule about snippet WORDS does not apply "
+    "to them. Do not reject them for lacking dialog.\n"
     "PICK COMPLETE THOUGHTS THAT FLOW. Prefer snippets that read as "
     "self-contained statements with a clear beginning and end; reject "
     "fragments that start or trail off mid-sentence. Order the clips so one "
@@ -773,6 +829,14 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 _admit(await _select_clips(q.strip(), 30, db, media_ids=media_ids))
                 if len(candidates) >= _MAX_CANDIDATES:
                     break
+
+        # Visual candidates: transcript search only finds moments people TALK
+        # about — performances, b-roll and locations that are merely SHOWN
+        # would never make the cut without this channel.
+        try:
+            _admit(await _visual_candidates(searches, media_ids, db))
+        except Exception:
+            logger.exception("visual candidate search failed — transcript candidates only")
 
         # Round-robin across source files so every episode stays visible even
         # after the cap, instead of the top-scoring file eating the whole list.
