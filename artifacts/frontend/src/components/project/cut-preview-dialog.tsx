@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { CutClip } from "@workspace/api-client-react";
-import { Pause, Play, SkipBack, SkipForward, X } from "lucide-react";
+import { Maximize2, Minimize2, Pause, Play, SkipBack, SkipForward, X } from "lucide-react";
 import { formatTC } from "@/lib/timecode";
 
 /**
@@ -15,6 +15,8 @@ export function CutPreviewPlayer({
   onClose,
   initialIndex = 0,
   compact = false,
+  onToggleExpand,
+  expanded = false,
 }: {
   clips: CutClip[];
   open: boolean;
@@ -23,6 +25,9 @@ export function CutPreviewPlayer({
   initialIndex?: number;
   /** Docked mode: smaller video, no filmstrip/footer — leaves room for the clip list below. */
   compact?: boolean;
+  /** When set, shows an expand/shrink button in the header. */
+  onToggleExpand?: () => void;
+  expanded?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -175,15 +180,27 @@ export function CutPreviewPlayer({
           <span className="text-sm font-medium">
             Preview draft cut — clip {index + 1} of {clips.length}
           </span>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClose} title="Close preview" data-testid="button-close-preview">
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {onToggleExpand && (
+              <Button
+                size="icon" variant="ghost" className="h-7 w-7"
+                onClick={onToggleExpand}
+                title={expanded ? "Back to docked view" : "Open in larger window"}
+                data-testid="button-toggle-preview-size"
+              >
+                {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
+            )}
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClose} title="Close preview" data-testid="button-close-preview">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <video
           key={clip.media_id}
           ref={videoRef}
           src={`/api/media/${clip.media_id}/stream#t=${clip.start_time},${clip.end_time}`}
-          className={`w-full aspect-video ${compact ? "max-h-[30vh]" : "max-h-[48vh]"} rounded bg-black object-contain`}
+          className={`w-full aspect-video ${compact ? "max-h-[30vh]" : expanded ? "max-h-[62vh]" : "max-h-[48vh]"} rounded bg-black object-contain`}
           onClick={togglePlay}
           playsInline
         />

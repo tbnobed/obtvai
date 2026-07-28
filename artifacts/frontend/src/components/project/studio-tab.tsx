@@ -51,6 +51,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewLarge, setPreviewLarge] = useState(false);
   // Per-clip trim editor: index into `clips` plus a draft in/out.
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ in: number; out: number } | null>(null);
@@ -400,7 +401,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
               </Button>
             </div>
           )}
-          {previewOpen && clips.length > 0 && (
+          {previewOpen && clips.length > 0 && !previewLarge && (
             // Sticky: the player stays pinned while the clip list scrolls under it.
             <div className="sticky -top-4 z-20 -mx-4 -mt-3 bg-background px-4 pt-3 pb-3 shadow-lg shadow-black/40">
               <CutPreviewPlayer
@@ -408,9 +409,27 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
                 open={previewOpen}
                 initialIndex={previewIndex}
                 compact
+                onToggleExpand={() => setPreviewLarge(true)}
                 onClose={() => setPreviewOpen(false)}
               />
             </div>
+          )}
+          {previewOpen && clips.length > 0 && previewLarge && (
+            <Dialog open onOpenChange={(o) => { if (!o) setPreviewLarge(false); }}>
+              <DialogContent className="max-w-[92vw] w-[92vw] sm:max-w-6xl p-4" aria-describedby={undefined}>
+                <DialogHeader className="sr-only">
+                  <DialogTitle>Preview draft cut</DialogTitle>
+                </DialogHeader>
+                <CutPreviewPlayer
+                  clips={clips}
+                  open={previewOpen}
+                  initialIndex={previewIndex}
+                  expanded
+                  onToggleExpand={() => setPreviewLarge(false)}
+                  onClose={() => { setPreviewLarge(false); setPreviewOpen(false); }}
+                />
+              </DialogContent>
+            </Dialog>
           )}
           {!clips.length ? (
             <p className="text-sm text-muted-foreground pt-6 text-center">
