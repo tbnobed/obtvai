@@ -173,7 +173,7 @@ _ALL_SOURCES_RE = re.compile(
 )
 
 _UNIFORM_LEN_RE = re.compile(
-    r"\b(?:same|equal|uniform|consistent)\b.{0,20}\b(?:leng?th|lenght|duration|size|time)\b",
+    r"(?:\b(?:same|equal|uniform|consistent)\b.{0,20}|\bmatch\b.{0,30})\b(?:leng?th|lenght|duration|size|time)\b",
     re.IGNORECASE,
 )
 
@@ -463,7 +463,9 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
 
         if mode == "adjust":
             # Reshape the existing cut — runtime, removals, per-clip resize.
-            new_cut = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
+            # COPY the clip dicts: resizing must not mutate `cut`, which the
+            # no-op comparison below uses as its baseline.
+            new_cut = [dict(c) for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
             if clip_seconds is not None:
                 # First choice: shorten long clips to the asked length — this
                 # keeps the story (one moment per clip). Splitting a long clip
