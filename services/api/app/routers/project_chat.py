@@ -45,6 +45,22 @@ def _fmt_ts(seconds: float) -> str:
     return f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
 
 
+# Contrastive negatives: broadcast masters are full of promo bumpers and
+# title cards that PICTURE performers ("COMING UP" cards, show-title
+# graphics), so they score high against "musician performing on stage".
+# Each scene's positive score must beat its best negative score to count.
+_VISUAL_NEGATIVE_PROMPTS = [
+    "a television broadcast graphic with large text overlaid on the screen",
+    "a promotional title card announcing an upcoming segment of a show",
+    "a logo or show title graphic on a stylized decorated background",
+]
+# Suppress a positive match only when the negative is confident AND clearly
+# beats it — real performances have lower-thirds/logo bugs that score mildly
+# against graphic prompts, and near-ties in SigLIP space are noise.
+_VISUAL_NEG_MARGIN = 0.05
+_neg_vec_cache: dict[str, list[float]] = {}
+
+
 async def _visual_segments(
     queries: list[str], media_ids: list[str] | None, db: AsyncSession,
 ) -> list[tuple[str, str, str, list[list[float]]]]:
@@ -56,6 +72,34 @@ async def _visual_segments(
     from ..services.embedding import get_clip_text_embedding
     from ..services.qdrant_client import search_vectors
     from .search import _rescale_clip_score, _MIN_VISUAL_SCORE, _is_black_thumbnail
+
+    async def _neg_search(np: str):
+        vec = _neg_vec_cache.get(np)
+        if vec is None:
+            vec = await get_clip_text_embedding(f"a photo of {np}")
+            _neg_vec_cache[np] = vec
+        return await search_vectors(
+            collection="scenes", vector=vec, limit=96, media_ids=media_ids,
+        )
+
+    neg_scores: dict[str, float] = {}
+    neg_results = await asyncio.gather(
+        *(_neg_search(np) for np in _VISUAL_NEGATIVE_PROMPTS),
+        return_exceptions=True,
+    )
+    for np, res in zip(_VISUAL_NEGATIVE_PROMPTS, neg_results):
+        if isinstance(res, BaseException):
+            logger.warning("visual negative search failed for %r: %s", np, res)
+            continue
+        for h in res:
+            try:
+                payload = h.payload if isinstance(h.payload, dict) else {}
+                sid = payload.get("scene_id")
+                score = _rescale_clip_score(h.score)
+            except Exception:
+                continue
+            if isinstance(sid, str) and sid:
+                neg_scores[sid] = max(neg_scores.get(sid, 0.0), score)
 
     out: list[tuple[str, str, str, list[list[float]]]] = []
     for q in queries[:3]:
@@ -70,14 +114,19 @@ async def _visual_segments(
             continue
         for h in hits:
             try:
-                if _rescale_clip_score(h.score) < _MIN_VISUAL_SCORE:
+                pos = _rescale_clip_score(h.score)
+                if pos < _MIN_VISUAL_SCORE:
                     continue
                 payload = h.payload if isinstance(h.payload, dict) else {}
                 sid = payload.get("scene_id")
             except Exception:
                 continue
-            if isinstance(sid, str) and sid:
-                scene_ids.append(sid)
+            if not (isinstance(sid, str) and sid):
+                continue
+            neg = neg_scores.get(sid, 0.0)
+            if neg >= _MIN_VISUAL_SCORE and neg > pos + _VISUAL_NEG_MARGIN:
+                continue  # looks more like a promo/title graphic than the query
+            scene_ids.append(sid)
         if not scene_ids:
             continue
         rows = (await db.execute(
