@@ -85,7 +85,7 @@ export default function Projects() {
           setName("");
           setDescription("");
           setRuntime("");
-          navigate(`/projects/${p.id}`);
+          navigate(`/studio/${p.id}`);
         },
       },
     );
@@ -128,7 +128,7 @@ export default function Projects() {
     <Card
       key={p.id}
       className={`cursor-pointer hover:border-primary/50 transition-colors ${p.status === "archived" ? "opacity-70" : ""}`}
-      onClick={() => navigate(`/projects/${p.id}`)}
+      onClick={() => navigate(`/studio/${p.id}`)}
     >
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div className="min-w-0">

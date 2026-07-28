@@ -59,8 +59,11 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Dashboard} />
-        <Route path="/projects" component={Projects} />
-        <Route path="/projects/:id" component={ProjectDetail} />
+        <Route path="/studio" component={Projects} />
+        <Route path="/studio/:id" component={ProjectDetail} />
+        {/* Old /projects URLs keep working */}
+        <Route path="/projects/:id">{(p) => <Redirect to={`/studio/${p.id}`} />}</Route>
+        <Route path="/projects"><Redirect to="/studio" /></Route>
         <Route path="/library" component={Library} />
         <Route path="/library/:id" component={AssetDetail} />
         <Route path="/people" component={People} />
@@ -79,11 +82,11 @@ function Router() {
           <AdminRoute component={AuditLogPage} />
         </Route>
         {/* Old workflow pages now live inside Projects */}
-        <Route path="/clips"><Redirect to="/projects" /></Route>
-        <Route path="/reels"><Redirect to="/projects" /></Route>
-        <Route path="/stories" nest><Redirect to="/projects" /></Route>
-        <Route path="/exports"><Redirect to="/projects" /></Route>
-        <Route path="/script-match"><Redirect to="/projects" /></Route>
+        <Route path="/clips"><Redirect to="/studio" /></Route>
+        <Route path="/reels"><Redirect to="/studio" /></Route>
+        <Route path="/stories" nest><Redirect to="/studio" /></Route>
+        <Route path="/exports"><Redirect to="/studio" /></Route>
+        <Route path="/script-match"><Redirect to="/studio" /></Route>
         <Route component={NotFound} />
       </Switch>
     </Layout>

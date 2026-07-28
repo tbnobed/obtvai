@@ -121,7 +121,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutGrid },
     { href: "/library", label: "Media Library", icon: Film },
-    { href: "/projects", label: "Projects", icon: FolderKanban },
+    { href: "/studio", label: "Studio", icon: FolderKanban },
+    { href: "/insights", label: "Insights", icon: Sparkles },
     { href: "/search", label: "Search", icon: Search },
     { href: "/people", label: "People", icon: Users },
     { href: "/ai", label: "AI Q&A", icon: MessageSquare },
@@ -129,9 +130,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     // media workers for GPU. Restore this entry (and the route in App.tsx) to
     // re-enable.
     // { href: "/graphics", label: "Graphics", icon: Wand2 },
-    { href: "/insights", label: "Insights", icon: Sparkles },
-    { href: "/ratings", label: "Ratings", icon: BarChart3 },
     { href: "/socials", label: "Socials", icon: Share2 },
+    { href: "/ratings", label: "Ratings", icon: BarChart3 },
     { href: "/jobs", label: "Processing Pipeline", icon: Activity },
     ...(isAdmin ? [
       { href: "/users", label: "Users", icon: UserCog },

@@ -120,7 +120,7 @@ export default function Insights() {
       { data: { name: opp.title, description: opp.rationale, media_ids: opp.asset_ids } },
       {
         onSuccess: (created: any) => {
-          navigate(`/projects/${created.id}`);
+          navigate(`/studio/${created.id}`);
         },
         onError: () => setStartingStory(null),
       },

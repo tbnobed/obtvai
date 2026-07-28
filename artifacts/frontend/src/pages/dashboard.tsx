@@ -92,7 +92,7 @@ export default function Dashboard() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
         <Button asChild variant="outline">
-          <Link href="/projects" className="gap-2">
+          <Link href="/studio" className="gap-2">
             <FolderKanban className="h-4 w-4" />
             Projects
           </Link>
@@ -181,13 +181,13 @@ export default function Dashboard() {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold tracking-tight">Active Projects</h2>
-            <Link href="/projects" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <Link href="/studio" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
               All projects <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {activeProjects.map((p) => (
-              <Link key={p.id} href={`/projects/${p.id}`}>
+              <Link key={p.id} href={`/studio/${p.id}`}>
                 <Card className="hover:border-primary transition-colors cursor-pointer h-full">
                   <CardContent className="p-4">
                     <p className="text-sm font-medium truncate" title={p.name}>{p.name}</p>

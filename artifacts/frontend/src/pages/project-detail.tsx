@@ -550,7 +550,7 @@ export default function ProjectDetail() {
       <div className="flex-1 p-8 text-center text-muted-foreground py-20">
         Project not found.
         <div className="mt-4">
-          <Button variant="outline" onClick={() => navigate("/projects")}>
+          <Button variant="outline" onClick={() => navigate("/studio")}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
           </Button>
         </div>
@@ -655,7 +655,7 @@ export default function ProjectDetail() {
     <div className="flex-1 p-8 overflow-y-auto">
       <div className="flex items-start justify-between mb-4 gap-4">
         <div className="min-w-0">
-          <Button variant="ghost" size="sm" className="mb-2 -ml-2 text-muted-foreground" onClick={() => navigate("/projects")}>
+          <Button variant="ghost" size="sm" className="mb-2 -ml-2 text-muted-foreground" onClick={() => navigate("/studio")}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Projects
           </Button>
           <div className="flex items-center gap-3">
