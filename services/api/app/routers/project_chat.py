@@ -188,34 +188,41 @@ def _requested_runtime(text: str) -> float | None:
     return secs if 10.0 <= secs <= 7200.0 else None
 
 
+_MIN_TRIMMED_CLIP = 5.0
+
+
 def _trim_to_target(clips: list[dict], target: float) -> None:
-    """The inverse of _fill_to_target: when the cut runs long, drop unlocked
-    clips from the end (never below the target), then shorten the last
-    unlocked clip to land close to the target."""
+    """The inverse of _fill_to_target: when the cut runs long, first shorten
+    all unlocked clips proportionally (preserving the cut's shape and every
+    clip in it), and only drop clips from the end as a last resort."""
     def total() -> float:
         return sum(_clip_duration(c) for c in clips)
 
     tol = max(5.0, target * 0.05)
-    # Drop whole unlocked clips from the end while doing so keeps us >= target.
+    excess = total() - target
+    if excess <= tol:
+        return
+    # Phase 1: proportional shortening, never below _MIN_TRIMMED_CLIP.
+    shrinkable = sum(
+        max(0.0, _clip_duration(c) - _MIN_TRIMMED_CLIP)
+        for c in clips if not c.get("locked")
+    )
+    if shrinkable > 0:
+        factor = min(1.0, excess / shrinkable)
+        for c in clips:
+            if c.get("locked"):
+                continue
+            room = max(0.0, _clip_duration(c) - _MIN_TRIMMED_CLIP)
+            if room > 0:
+                c["end_time"] -= room * factor
+    # Phase 2: still long (locks or min-lengths in the way) — drop from the end.
     while total() > target + tol:
         idx = next((i for i in range(len(clips) - 1, -1, -1) if not clips[i].get("locked")), None)
-        if idx is None:
+        if idx is None or len(clips) <= 1:
             return
         if total() - _clip_duration(clips[idx]) < target - tol:
             break
         clips.pop(idx)
-    # Shorten the last unlocked clip to close the remaining overshoot.
-    over = total() - target
-    if over > tol:
-        for i in range(len(clips) - 1, -1, -1):
-            c = clips[i]
-            if c.get("locked"):
-                continue
-            dur = _clip_duration(c)
-            cut = min(over, dur - 4.0)
-            if cut > 0:
-                c["end_time"] -= cut
-            break
 
 
 # ---------------------------------------------------------------- agent loop
@@ -228,6 +235,8 @@ _PLAN_SYSTEM = (
     '"reply": "conversational reply to the user (always fill this in)", '
     '"searches": ["up to 3 transcript search queries to find new material"], '
     '"remove": [clip numbers to drop from the current cut], '
+    '"clip_seconds": desired per-clip length in seconds if the user asked '
+    'for uniform or specific clip lengths (e.g. \'same length\' -> total/count), else null, '
     '"all_sources": true if the user wants every episode/source file '
     'represented in the cut, else false, '
     '"target_seconds": runtime in seconds if the user asked for a specific '
@@ -428,9 +437,21 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             await _finish(db, assistant_id, reply, None)
             return
 
+        clip_seconds = None
+        try:
+            v = plan.get("clip_seconds")
+            if isinstance(v, (int, float)) and 3.0 <= float(v) <= 600.0:
+                clip_seconds = float(v)
+        except (TypeError, ValueError):
+            clip_seconds = None
+
         if mode == "adjust":
-            # Reshape the existing cut — runtime and removals only, no search.
+            # Reshape the existing cut — runtime, removals, per-clip resize.
             new_cut = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
+            if clip_seconds is not None:
+                for c in new_cut:
+                    if not c.get("locked"):
+                        c["end_time"] = c["start_time"] + clip_seconds
             if target is not None:
                 _fill_to_target(new_cut, target)
                 _trim_to_target(new_cut, target)
@@ -442,9 +463,14 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 # so replacement material gets searched for instead.
                 mode = "edit"
             else:
-                reply = (plan.get("reply") or "").strip() or (
-                    f"Reworked the cut to {_fmt_tc(sum(_clip_duration(c) for c in new_cut))} "
-                    f"across {len(new_cut)} clips — tell me if you want it tighter or looser."
+                adj_stats = (
+                    f"{len(new_cut)} clips · "
+                    f"{_fmt_tc(sum(_clip_duration(c) for c in new_cut))}"
+                )
+                reply = (plan.get("reply") or "").strip()
+                reply = (
+                    f"{reply}\n\n({adj_stats})" if reply
+                    else f"Reworked the cut — {adj_stats}. Tell me if you want it tighter or looser."
                 )
                 await _lock_project_writes(db, project_id)
                 rev = await _save_revision(db, project_id, [
