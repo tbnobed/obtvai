@@ -504,6 +504,17 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                     f"{len(new_cut)} clips · "
                     f"{_fmt_tc(sum(_clip_duration(c) for c in new_cut))}"
                 )
+                if clip_seconds is not None:
+                    stuck = [
+                        i + 1 for i, c in enumerate(new_cut)
+                        if c.get("locked") and abs(_clip_duration(c) - clip_seconds) > clip_seconds * 0.25
+                    ]
+                    if stuck:
+                        adj_stats += (
+                            " — clip" + ("s" if len(stuck) > 1 else "")
+                            + " " + ", ".join(str(i) for i in stuck)
+                            + " left untouched because they're locked; unlock them if you want them resized"
+                        )
                 reply = (plan.get("reply") or "").strip()
                 reply = (
                     f"{reply}\n\n({adj_stats})" if reply
