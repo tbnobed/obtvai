@@ -297,6 +297,27 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {viewingOld && (
+            <div className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 flex items-center justify-between gap-3">
+              <span>
+                You're viewing v{viewVersion} — the chat still edits the latest version (v{latestVersion}).
+                Restore v{viewVersion} to keep working from it.
+              </span>
+              <Button
+                size="sm" variant="outline" className="h-7 shrink-0 border-amber-500/50"
+                onClick={() =>
+                  revertMutation.mutate(
+                    { id: projectId, data: { version: viewVersion! } },
+                    { onSuccess: refreshCut },
+                  )
+                }
+                disabled={revertMutation.isPending}
+                data-testid="button-restore-version-banner"
+              >
+                Restore v{viewVersion}
+              </Button>
+            </div>
+          )}
           {previewOpen && clips.length > 0 && (
             <CutPreviewPlayer clips={clips} open={previewOpen} onClose={() => setPreviewOpen(false)} />
           )}
