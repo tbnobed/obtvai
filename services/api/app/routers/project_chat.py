@@ -53,6 +53,10 @@ _VISUAL_NEGATIVE_PROMPTS = [
     "a television broadcast graphic with large text overlaid on the screen",
     "a promotional title card announcing an upcoming segment of a show",
     "a logo or show title graphic on a stylized decorated background",
+    "a nominee introduction video with a person's name written across the screen",
+    "two hosts standing on a stage talking to the audience between segments",
+    "a presenter giving a speech at an awards podium",
+    "an interview of a person speaking to the camera with a name caption",
 ]
 # Suppress a positive match only when the negative is confident AND clearly
 # beats it — real performances have lower-thirds/logo bugs that score mildly
@@ -63,6 +67,7 @@ _neg_vec_cache: dict[str, list[float]] = {}
 
 async def _visual_segments(
     queries: list[str], media_ids: list[str] | None, db: AsyncSession,
+    avoid: list[str] | None = None,
 ) -> list[tuple[str, str, str, list[list[float]]]]:
     """Search scene keyframes (vision-embedding space) and merge contiguous
     matching scenes into segments. Returns (query, media_id, filename,
@@ -82,12 +87,17 @@ async def _visual_segments(
             collection="scenes", vector=vec, limit=96, media_ids=media_ids,
         )
 
+    neg_prompts = list(_VISUAL_NEGATIVE_PROMPTS)
+    for a in (avoid or [])[:4]:
+        if isinstance(a, str) and a.strip():
+            neg_prompts.append(a.strip()[:120])
+
     neg_scores: dict[str, float] = {}
     neg_results = await asyncio.gather(
-        *(_neg_search(np) for np in _VISUAL_NEGATIVE_PROMPTS),
+        *(_neg_search(np) for np in neg_prompts),
         return_exceptions=True,
     )
-    for np, res in zip(_VISUAL_NEGATIVE_PROMPTS, neg_results):
+    for np, res in zip(neg_prompts, neg_results):
         if isinstance(res, BaseException):
             logger.warning("visual negative search failed for %r: %s", np, res)
             continue
@@ -210,6 +220,7 @@ _VISUAL_CLIP_MAX_SECONDS = 45.0
 
 async def _visual_candidates(
     queries: list[str], media_ids: list[str] | None, db: AsyncSession,
+    avoid: list[str] | None = None,
 ) -> list[dict]:
     """Edit-mode clip candidates from visual segments. Transcript search can
     only find moments people TALK about; this admits footage that merely LOOKS
@@ -218,7 +229,7 @@ async def _visual_candidates(
     union_by_media: dict[str, list[list[float]]] = {}
     fnames: dict[str, str] = {}
     q_by_media: dict[str, str] = {}
-    for q, mid, fname, segs in await _visual_segments(queries, media_ids, db):
+    for q, mid, fname, segs in await _visual_segments(queries, media_ids, db, avoid=avoid):
         union_by_media.setdefault(mid, []).extend(segs)
         fnames[mid] = fname
         q_by_media.setdefault(mid, q)
@@ -447,6 +458,9 @@ _PLAN_SYSTEM = (
     'identity: for questions about what is shown, include one generic '
     'appearance query like \'musician performing on stage\' instead of '
     'people\'s names"], '
+    '"avoid": ["up to 4 short VISUAL descriptions of footage the user wants '
+    'EXCLUDED (e.g. \'a presenter giving a speech at a podium\', \'a nominee '
+    'title card\') — used to filter the keyframe matches; empty if none"], '
     '"remove": [clip numbers to drop from the current cut], '
     '"clip_seconds": desired per-clip length in seconds if the user asked '
     'for uniform or specific clip lengths (e.g. \'same length\' -> total/count), else null, '
@@ -904,8 +918,12 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         # that overlap would leave only the intros. Duplicate coverage is fine
         # — the SELECT model picks one.
         vis_cands: list[dict] = []
+        avoid = [
+            a for a in (plan.get("avoid") or [])
+            if isinstance(a, str) and a.strip()
+        ][:4]
         try:
-            for c in await _visual_candidates(searches, media_ids, db):
+            for c in await _visual_candidates(searches, media_ids, db, avoid=avoid):
                 c["locked"] = False
                 if not _clamp_to_range(c, ranges):
                     continue
