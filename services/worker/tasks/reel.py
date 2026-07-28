@@ -476,12 +476,12 @@ def build_reel(self, reel_id: str):
     try:
         from sqlalchemy import text
         row = db.execute(
-            text("SELECT clips, preset, burn_captions, prompt, target_duration_seconds, pace FROM reel_jobs WHERE id = :rid"),
+            text("SELECT clips, preset, burn_captions, prompt, target_duration_seconds, pace, cut_version FROM reel_jobs WHERE id = :rid"),
             {"rid": reel_id},
         ).fetchone()
         if not row:
             raise RuntimeError(f"Reel job {reel_id} not found")
-        clips, preset, burn_captions, reel_prompt, target_duration, pace = row
+        clips, preset, burn_captions, reel_prompt, target_duration, pace, cut_version = row
         target_duration = float(target_duration) if target_duration else None
         if isinstance(clips, str):
             clips = json.loads(clips)
@@ -495,7 +495,10 @@ def build_reel(self, reel_id: str):
         # this pass the reel is a pile of mid-sentence shards. The LLM sees
         # each candidate with surrounding transcript context and trims to
         # complete thoughts, drops weak moments, and orders for a real arc.
-        if reel_prompt and (reel_prompt or "").strip():
+        # Chat draft-cut renders (cut_version set) are already human-approved,
+        # clip by clip — render them VERBATIM. Curation is only for reels
+        # generated from a prompt, where clips are raw search candidates.
+        if cut_version is None and reel_prompt and (reel_prompt or "").strip():
             try:
                 curated = _curate_clips(
                     db, reel_prompt.strip(), clips, target_duration,
