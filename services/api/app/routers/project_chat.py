@@ -49,14 +49,15 @@ def _fmt_ts(seconds: float) -> str:
 # title cards that PICTURE performers ("COMING UP" cards, show-title
 # graphics), so they score high against "musician performing on stage".
 # Each scene's positive score must beat its best negative score to count.
+# Stock negatives are GRAPHICS-ONLY — looks that no content query ever means
+# (text cards, logos, bumpers). Content-specific exclusions (hosts talking,
+# podium speeches, interviews...) must NOT live here: they are legitimate
+# matches for other media/searches. Those come per-request via the planner's
+# "avoid" list, derived from what the user actually asked to exclude.
 _VISUAL_NEGATIVE_PROMPTS = [
     "a television broadcast graphic with large text overlaid on the screen",
     "a promotional title card announcing an upcoming segment of a show",
     "a logo or show title graphic on a stylized decorated background",
-    "a nominee introduction video with a person's name written across the screen",
-    "two hosts standing on a stage talking to the audience between segments",
-    "a presenter giving a speech at an awards podium",
-    "an interview of a person speaking to the camera with a name caption",
 ]
 # Suppress a positive match only when the negative is confident AND clearly
 # beats it — real performances have lower-thirds/logo bugs that score mildly

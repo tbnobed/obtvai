@@ -14,3 +14,8 @@ description: Why visual (CLIP) search returns uniform noise scores and how to ke
 ## Score bands differ across embedding families
 **Why:** CLIP text->image cosine (~0.15-0.35) vs sentence-transformer text-text (~0.3-0.6). Merging raw scores buries all visual hits below the top-N cut.
 **How to apply:** Rescale CLIP scores into a comparable 0-1 band before merging, and reserve result slots for visual hits in combined mode. Use "a photo of {query}" prompt template for CLIP text queries.
+
+## Contrastive negatives for zero-shot scene search
+- Broadcast masters are full of promo bumpers/title cards that PICTURE performers — they outscore real footage on queries like "musician performing on stage". Filter by scoring scenes against negative prompts and suppressing only when neg is confident AND beats pos by a margin (~0.05 rescaled); hard ties are noise, and lower-thirds on real footage score mildly against graphic prompts.
+- Keep hardcoded negatives GRAPHICS-ONLY (text cards, logos). Content negatives (hosts talking, podium speeches, interviews) are legitimate matches for other media — they must come per-request (planner-derived "avoid" list), never baked in.
+- A single keyframe cannot distinguish singing from speaking on stage; if per-request negatives aren't enough, the next step is VLM scene captioning.
