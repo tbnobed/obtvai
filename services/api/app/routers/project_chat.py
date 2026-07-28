@@ -250,6 +250,10 @@ _PLAN_SYSTEM = (
     "Modes:\n"
     "- answer: the user asked a question or is chatting — no change to the cut. "
     "Answer warmly and concretely, referencing the current cut when relevant. "
+    "If the question is about the CONTENT of the footage (topics, themes, who "
+    "says what, what the episodes cover), stay in answer mode but FILL IN "
+    "searches with queries for the relevant material — the transcripts will be "
+    "searched and you will answer from what is found. "
     "NEVER promise future work in answer mode ('I will remove...', 'let me "
     "double-check...') — you cannot act later. If the message implies the cut "
     "should change (complaints about clips included), pick edit or adjust and "
@@ -428,12 +432,44 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
 
         _acts = bool(
             plan.get("remove") or plan.get("clip_seconds")
-            or plan.get("all_sources") or plan.get("searches")
+            or plan.get("all_sources")
         )
         if mode == "answer" and (_acts or _UNIFORM_LEN_RE.search(user_text)):
             # The model wants to talk while the request needs work — force it.
             mode = "adjust" if not plan.get("searches") else "edit"
         if mode == "answer":
+            a_searches = [
+                q for q in (plan.get("searches") or [])
+                if isinstance(q, str) and q.strip()
+            ][:3]
+            if a_searches and media_ids:
+                found: list[dict] = []
+                seen: set[tuple] = set()
+                for q in a_searches:
+                    for c in await _select_clips(q.strip(), 12, db, media_ids=media_ids):
+                        key = (c["media_id"], round(c["start_time"], 1))
+                        if key not in seen and c.get("snippet"):
+                            seen.add(key)
+                            found.append(c)
+                if found:
+                    lines = "\n".join(
+                        f"- [{c['filename']}] {c['snippet'][:300]}"
+                        for c in found[:24]
+                    )
+                    reply = (await generate_response(
+                        "The user asked about the footage in their media pool "
+                        f"({len(media_ids)} files). QUESTION:\n{user_text}\n\n"
+                        f"TRANSCRIPT EXCERPTS found for it:\n{lines}\n\n"
+                        "Answer the question concretely from these excerpts, "
+                        "citing episode filenames where useful. If the excerpts "
+                        "don't cover it, say what IS there instead. Plain "
+                        "conversational text, no JSON, no promises of future work.",
+                        history=history,
+                        system="You are a friendly, sharp video editor who knows this footage well.",
+                        max_new_tokens=500,
+                    )).strip()
+                    await _finish(db, assistant_id, reply or "I couldn't pull anything useful from the transcripts for that.", None)
+                    return
             reply = (plan.get("reply") or "").strip() or plan_raw.strip()[:1500]
             await _finish(db, assistant_id, reply, None)
             return
