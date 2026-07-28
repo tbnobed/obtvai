@@ -449,23 +449,33 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             # Reshape the existing cut — runtime, removals, per-clip resize.
             new_cut = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
             if clip_seconds is not None:
-                resized: list[dict] = []
+                # First choice: shorten long clips to the asked length — this
+                # keeps the story (one moment per clip). Splitting a long clip
+                # into consecutive chunks is a fallback ONLY when shortening
+                # would leave the cut far under the runtime target (e.g. a
+                # single 60s clip at a 60s target).
+                orig_durs = {id(c): _clip_duration(c) for c in new_cut}
                 for c in new_cut:
-                    dur = _clip_duration(c)
-                    if c.get("locked") or dur <= clip_seconds * 1.5:
-                        if not c.get("locked") and dur > clip_seconds:
-                            c["end_time"] = c["start_time"] + clip_seconds
-                        resized.append(c)
-                        continue
-                    # Long clip: split into consecutive equal chunks.
-                    n = max(1, round(dur / clip_seconds))
-                    chunk = dur / n
-                    for k in range(n):
-                        piece = dict(c)
-                        piece["start_time"] = c["start_time"] + k * chunk
-                        piece["end_time"] = c["start_time"] + (k + 1) * chunk
-                        resized.append(piece)
-                new_cut = resized
+                    if not c.get("locked") and _clip_duration(c) > clip_seconds:
+                        c["end_time"] = c["start_time"] + clip_seconds
+                short_total = sum(_clip_duration(c) for c in new_cut)
+                if target is not None and short_total < target * 0.75:
+                    resized: list[dict] = []
+                    for c in new_cut:
+                        dur = orig_durs[id(c)]
+                        if c.get("locked") or dur <= clip_seconds * 1.5:
+                            resized.append(c)
+                            continue
+                        n = max(1, round(dur / clip_seconds))
+                        chunk = dur / n
+                        for k in range(n):
+                            piece = dict(c)
+                            piece["start_time"] = c["start_time"] + k * chunk
+                            piece["end_time"] = c["start_time"] + (k + 1) * chunk
+                            if k > 0:
+                                piece["snippet"] = None  # chunk text unknown — don't repeat the same line
+                            resized.append(piece)
+                    new_cut = resized
             if target is not None:
                 _fill_to_target(new_cut, target)
                 _trim_to_target(new_cut, target)
