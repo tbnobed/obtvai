@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db, AsyncSessionLocal
 from ..models import (
-    Project, ProjectChatMessage, ProjectCutRevision, ReelJob, MediaAsset,
+    Project, ProjectChatMessage, ProjectCutRevision, ReelJob, MediaAsset, Scene,
 )
 from types import SimpleNamespace
 
@@ -37,6 +37,80 @@ from ..schemas import (
 from ..worker_client import enqueue_reel
 from .projects import touch_project
 from .reels import _select_clips, _fill_to_target, _merge_overlaps, _to_out as _reel_to_out
+
+
+def _fmt_ts(seconds: float) -> str:
+    m, sec = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
+
+
+async def _visual_research(
+    queries: list[str], media_ids: list[str] | None, db: AsyncSession,
+) -> list[str]:
+    """Search scene keyframes (vision-embedding space) for the answer-mode
+    research queries and merge contiguous matching scenes into countable
+    segments. This gives the chat VISUAL context: footage that LOOKS like the
+    query (a performance, a crowd, a location) even when nobody talks about it
+    in the transcript.
+    """
+    from ..services.embedding import get_clip_text_embedding
+    from ..services.qdrant_client import search_vectors
+    from .search import _rescale_clip_score, _MIN_VISUAL_SCORE, _is_black_thumbnail
+
+    lines: list[str] = []
+    for q in queries[:3]:
+        scene_ids: list[str] = []
+        try:
+            vec = await get_clip_text_embedding(f"a photo of {q}")
+            hits = await search_vectors(
+                collection="scenes", vector=vec, limit=48, media_ids=media_ids,
+            )
+        except Exception:
+            logger.exception("visual research failed for query %r", q)
+            continue
+        for h in hits:
+            try:
+                if _rescale_clip_score(h.score) < _MIN_VISUAL_SCORE:
+                    continue
+                payload = h.payload if isinstance(h.payload, dict) else {}
+                sid = payload.get("scene_id")
+            except Exception:
+                continue
+            if isinstance(sid, str) and sid:
+                scene_ids.append(sid)
+        if not scene_ids:
+            continue
+        rows = (await db.execute(
+            select(Scene, MediaAsset.filename)
+            .join(MediaAsset, Scene.media_id == MediaAsset.id)
+            .where(Scene.id.in_(scene_ids))
+        )).all()
+        by_media: dict[str, list] = {}
+        fnames: dict[str, str] = {}
+        for scene, fname in rows:
+            if _is_black_thumbnail(scene.thumbnail_url):
+                continue
+            by_media.setdefault(scene.media_id, []).append(scene)
+            fnames[scene.media_id] = fname
+        for mid, scenes in by_media.items():
+            scenes.sort(key=lambda sc: sc.start_time)
+            # Merge scenes separated by <30s into one countable segment — a
+            # performance is many consecutive shots, not many performances.
+            segs: list[list[float]] = []
+            for sc in scenes:
+                if segs and sc.start_time - segs[-1][1] <= 30.0:
+                    segs[-1][1] = max(segs[-1][1], sc.end_time)
+                else:
+                    segs.append([sc.start_time, sc.end_time])
+            span = ", ".join(f"{_fmt_ts(a)}-{_fmt_ts(b)}" for a, b in segs[:12])
+            q_clean = re.sub(r'[\r\n"]+', " ", q).strip()[:80]
+            lines.append(
+                f"- [{fnames[mid]}] looks like \"{q_clean}\": "
+                f"{len(segs)} distinct segment(s) at {span}"
+            )
+    return lines
+
 
 router = APIRouter(prefix="/projects/{project_id}/chat", tags=["project-chat"])
 cut_router = APIRouter(prefix="/projects/{project_id}/cut", tags=["project-cut"])
@@ -486,24 +560,48 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                         if key not in seen and c.get("snippet"):
                             seen.add(key)
                             found.append(c)
-                if found:
-                    lines = "\n".join(
-                        f"- [{c['filename']}] {c['snippet'][:300]}"
-                        for c in found[:24]
-                    )
+                try:
+                    vis_lines = await _visual_research(a_searches, media_ids, db)
+                except Exception:
+                    logger.exception("visual research failed — answering from transcripts only")
+                    vis_lines = []
+                if found or vis_lines:
+                    sections = []
+                    if found:
+                        lines = "\n".join(
+                            "- [{}] {}".format(
+                                c["filename"],
+                                re.sub(r"\s+", " ", c["snippet"])[:300],
+                            )
+                            for c in found[:24]
+                        )
+                        sections.append(f"TRANSCRIPT EXCERPTS found for it:\n{lines}")
+                    if vis_lines:
+                        sections.append(
+                            "VISUAL SCENE MATCHES (keyframe analysis — footage that "
+                            "LOOKS like the query even when nobody talks about it; "
+                            "each segment merges matching shots within ~30s of each "
+                            "other, so segment counts closely estimate distinct "
+                            "occurrences):\n"
+                            + "\n".join(vis_lines[:12])
+                        )
+                    context = "\n\n".join(sections)
                     reply = (await generate_response(
                         "The user asked about the footage in their media pool "
                         f"({len(media_ids)} files). QUESTION:\n{user_text}\n\n"
-                        f"TRANSCRIPT EXCERPTS found for it:\n{lines}\n\n"
-                        "Answer the question concretely from these excerpts, "
-                        "citing episode filenames where useful. If the excerpts "
-                        "don't cover it, say what IS there instead. Plain "
+                        f"{context}\n\n"
+                        "Answer the question concretely from this evidence, "
+                        "citing episode filenames and timestamps where useful. "
+                        "Transcripts only cover what is SAID — for questions about "
+                        "what is SHOWN (performances, locations, visuals), trust "
+                        "the visual scene matches and count their segments. If the "
+                        "evidence doesn't cover it, say what IS there instead. Plain "
                         "conversational text, no JSON, no promises of future work.",
                         history=history,
                         system="You are a friendly, sharp video editor who knows this footage well.",
                         max_new_tokens=500,
                     )).strip()
-                    await _finish(db, assistant_id, reply or "I couldn't pull anything useful from the transcripts for that.", None)
+                    await _finish(db, assistant_id, reply or "I couldn't pull anything useful from the footage for that.", None)
                     return
             reply = (plan.get("reply") or "").strip() or plan_raw.strip()[:1500]
             await _finish(db, assistant_id, reply, None)

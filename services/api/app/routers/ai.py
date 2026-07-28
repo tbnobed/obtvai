@@ -130,6 +130,7 @@ async def _run_qa(
     db: AsyncSession,
     single_asset: bool = False,
     history: list[dict] | None = None,
+    visual_lines: list[str] | None = None,
 ) -> tuple[str, list[AICitationOut]]:
     """Run local LLM QA over retrieved context segments.
 
@@ -160,7 +161,7 @@ async def _run_qa(
             snippet=seg.text[:200],
         ))
 
-    if not context_parts:
+    if not context_parts and not visual_lines:
         if history:
             # Follow-up with no new retrievable context (e.g. "summarize what we
             # discussed") — let the LLM answer from the conversation itself.
@@ -174,10 +175,19 @@ async def _run_qa(
                 pass
         return "No indexed media content found that matches your question. Make sure videos have been processed and indexed.", []
 
-    context_text = "\n".join(context_parts[:12])
+    context_text = "\n".join(context_parts[:12]) or "(none found)"
+    visual_text = ""
+    if visual_lines:
+        visual_text = (
+            "\n\nVISUAL SCENE MATCHES (keyframe analysis — footage that LOOKS "
+            "like the query even when nobody talks about it; each segment merges "
+            "matching shots within ~30s, so segment counts closely estimate "
+            "distinct occurrences):\n" + "\n".join(visual_lines[:12])
+        )
     if single_asset:
         prompt = (
-            f"Transcript excerpts from a single video (format: [timecode] speaker: text):\n{context_text}\n\n"
+            f"Transcript excerpts from a single video (format: [timecode] speaker: text):\n{context_text}"
+            f"{visual_text}\n\n"
             f"Question: {question}\n\n"
             f"Answer the question using these excerpts as evidence. Statements are "
             f"first-person: when a line is labeled with a speaker's name, facts they "
@@ -187,11 +197,15 @@ async def _run_qa(
             f"content as \"this video\". Synthesize and interpret: if the excerpts "
             f"only imply an answer, give your best analytical reading and label it as "
             f"interpretation. Only say the excerpts don't answer the question if "
-            f"nothing here is relevant. Do not invent quotes or timecodes."
+            f"nothing here is relevant. Transcripts only cover what is SAID — "
+            f"for questions about what is SHOWN (performances, locations, "
+            f"visuals), trust the visual scene matches and count their "
+            f"segments. Do not invent quotes or timecodes."
         )
     else:
         prompt = (
-            f"Transcript excerpts (format: [filename @ timecode] speaker: text):\n{context_text}\n\n"
+            f"Transcript excerpts (format: [filename @ timecode] speaker: text):\n{context_text}"
+            f"{visual_text}\n\n"
             f"Question: {question}\n\n"
             f"Answer the question using these excerpts as evidence. Statements are "
             f"first-person: when a line is labeled with a speaker's name, facts they "
@@ -201,6 +215,9 @@ async def _run_qa(
             f"and different videos, and if the excerpts only imply an answer, give "
             f"your best analytical reading and label it as interpretation. Only say "
             f"the excerpts don't answer the question if nothing here is relevant. "
+            f"Transcripts only cover what is SAID — for questions about what is "
+            f"SHOWN (performances, locations, visuals), trust the visual scene "
+            f"matches and count their segments. "
             f"Do not invent quotes or timecodes."
         )
 
@@ -306,9 +323,21 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
 
     context_segments = context_segments[:12]
 
+    visual_lines: list[str] = []
+    try:
+        from .project_chat import _visual_research
+        visual_lines = await _visual_research(
+            [retrieval_question],
+            [body.media_id] if body.media_id else None,
+            db,
+        )
+    except Exception:
+        pass  # visual retrieval unavailable — transcript answer still works
+
     answer_text, citations = await _run_qa(
         body.question, context_segments, db,
         single_asset=bool(body.media_id), history=history,
+        visual_lines=visual_lines,
     )
 
     assistant_msg = AIMessage(
