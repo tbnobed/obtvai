@@ -4,6 +4,7 @@ import {
   usePostProjectChatMessage,
   useGetProjectCut, getGetProjectCutQueryKey,
   useUpdateProjectCut, useRevertProjectCut, useRenderProjectCut,
+  useExportProjectCut,
 } from "@workspace/api-client-react";
 import type { ProjectChatMessage, ProjectCut, CutClip, Project } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,7 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors } from "lucide-react";
+import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors, Download } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TrimPlayer } from "./trim-player";
 import { CutPreviewPlayer } from "./cut-preview-dialog";
@@ -90,6 +94,24 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
   const postMutation = usePostProjectChatMessage();
   const updateMutation = useUpdateProjectCut();
   const revertMutation = useRevertProjectCut();
+  const exportMutation = useExportProjectCut();
+
+  const exportCut = (format: "fcpxml" | "otio" | "edl") =>
+    exportMutation.mutate(
+      { id: projectId, data: { format } },
+      {
+        onSuccess: (r) => {
+          const blob = new Blob([r.content ?? ""], { type: "text/plain" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = r.filename ?? "cut-export.txt";
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        onError: () => toast({ title: "Export failed", variant: "destructive" }),
+      },
+    );
   const renderMutation = useRenderProjectCut();
 
   const refreshCut = () => {
@@ -268,6 +290,28 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
                 Restore v{viewVersion}
               </Button>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm" variant="outline"
+                  disabled={!clips.length || viewingOld || exportMutation.isPending}
+                  data-testid="button-export-cut"
+                >
+                  <Download className="w-4 h-4 mr-1.5" /> Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportCut("fcpxml")} data-testid="menu-export-fcpxml">
+                  Premiere (FCPXML)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportCut("otio")} data-testid="menu-export-otio">
+                  Resolve (OTIO)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportCut("edl")} data-testid="menu-export-edl">
+                  EDL (CMX 3600)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               size="sm"
               variant="outline"

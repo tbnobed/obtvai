@@ -1676,6 +1676,24 @@ router.post("/projects/:id/cut/revert", (req, res) => {
   res.json(cutOut(req.params.id, rev));
 });
 
+router.post("/projects/:id/cut/export", (req, res) => {
+  const p = projects.find((x) => x.id === req.params.id);
+  if (!p) { res.status(404).json({ detail: "Project not found" }); return; }
+  const fmt = String(req.body?.format || "").toLowerCase();
+  if (!["edl", "fcpxml", "otio"].includes(fmt)) { res.status(400).json({ detail: "Format must be edl, fcpxml, or otio" }); return; }
+  const revs = projectCuts[p.id] || [];
+  const rev = revs[revs.length - 1];
+  if (!rev || !rev.clips.length) { res.status(400).json({ detail: "The cut is empty — nothing to export" }); return; }
+  const name = `${p.name || "Project"} cut v${rev.version}`;
+  const safe = name.replace(/[^A-Za-z0-9._-]+/g, "_");
+  const content = fmt === "otio"
+    ? JSON.stringify({ OTIO_SCHEMA: "Timeline.1", name, clips: rev.clips.length }, null, 2)
+    : fmt === "fcpxml"
+      ? `<?xml version="1.0"?><!-- mock fcpxml: ${name}, ${rev.clips.length} clips -->`
+      : `TITLE: ${name}\nFCM: NON-DROP FRAME\n`;
+  res.json({ format: fmt, content, filename: `${safe}.${fmt}` });
+});
+
 router.post("/projects/:id/cut/render", (req, res) => {
   const p = projects.find((x) => x.id === req.params.id);
   if (!p) { res.status(404).json({ detail: "Project not found" }); return; }

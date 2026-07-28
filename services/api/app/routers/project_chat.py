@@ -28,6 +28,8 @@ from ..database import get_db, AsyncSessionLocal
 from ..models import (
     Project, ProjectChatMessage, ProjectCutRevision, ReelJob, MediaAsset,
 )
+from types import SimpleNamespace
+
 from ..schemas import (
     ProjectChatMessageOut, ProjectChatMessageIn, ProjectCutOut, CutClip,
     CutUpdateIn, CutRevertIn, CutRenderIn, ReelJobOut,
@@ -942,6 +944,80 @@ async def revert_cut(project_id: str, body: CutRevertIn, db: AsyncSession = Depe
     await touch_project(db, project_id)
     await db.commit()
     return _cut_out(rev, await _versions(db, project_id))
+
+
+@cut_router.post("/export")
+async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get_db)):
+    """Export the current draft cut as an NLE timeline (Premiere/Resolve).
+
+    Reuses the clip-list exporters, including Curator relinking: each clip's
+    source_path (hi-res original from the Curator sidecar) wins over the
+    ingested proxy path, so the timeline relinks to facility originals.
+    """
+    from .clips import _fcpxml, _otio
+
+    fmt = (body.get("format") or "").lower()
+    if fmt not in ("edl", "fcpxml", "otio"):
+        raise HTTPException(status_code=400, detail="Format must be edl, fcpxml, or otio")
+    rev = await _latest_revision(db, project_id)
+    clips = _sanitize_clips(rev.clips) if rev is not None else []
+    if not clips:
+        raise HTTPException(status_code=400, detail="The cut is empty — nothing to export")
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id)
+    )).scalar_one_or_none()
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    media_ids = {c["media_id"] for c in clips}
+    rows = await db.execute(
+        select(MediaAsset.id, MediaAsset.filename, MediaAsset.original_path, MediaAsset.source_path)
+        .where(MediaAsset.id.in_(media_ids))
+    )
+    fnames: dict[str, str] = {}
+    paths: dict[str, str] = {}
+    for mid, fname, op, sp in rows.all():
+        fnames[mid] = fname
+        if sp or op:
+            paths[mid] = sp or op
+
+    ns_clips = [
+        SimpleNamespace(
+            media_id=c["media_id"],
+            filename=c.get("filename") or fnames.get(c["media_id"]) or c["media_id"],
+            start_time=float(c["start_time"]),
+            end_time=float(c["end_time"]),
+            label=(c.get("snippet") or "")[:60] or None,
+        )
+        for c in clips
+    ]
+    name = f"{project.name or 'Project'} cut v{rev.version}"
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", name)
+    if fmt == "fcpxml":
+        content, filename = _fcpxml(name, ns_clips, paths), f"{safe}.fcpxml"
+    elif fmt == "otio":
+        content, filename = _otio(name, ns_clips, paths), f"{safe}.otio"
+    else:
+        lines = ["TITLE: " + name, "FCM: NON-DROP FRAME", ""]
+        rec = 0.0
+        for i, c in enumerate(ns_clips, 1):
+            def tc(secs: float) -> str:
+                h = int(secs // 3600); m = int((secs % 3600) // 60)
+                sec = int(secs % 60); f = int((secs % 1) * 25)
+                return f"{h:02d}:{m:02d}:{sec:02d}:{f:02d}"
+            dur = c.end_time - c.start_time
+            lines.append(
+                f"{i:03d}  AX       V     C        "
+                f"{tc(c.start_time)} {tc(c.end_time)} {tc(rec)} {tc(rec + dur)}"
+            )
+            lines.append(f"* FROM CLIP NAME: {c.filename}")
+            src = paths.get(c.media_id)
+            if src:
+                lines.append(f"* SOURCE FILE: {src}")
+            lines.append("")
+            rec += dur
+        content, filename = "\n".join(lines), f"{safe}.edl"
+    return {"format": fmt, "content": content, "filename": filename}
 
 
 @cut_router.post("/render", response_model=ReelJobOut, status_code=202)

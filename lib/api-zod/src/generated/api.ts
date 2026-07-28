@@ -3398,6 +3398,24 @@ export const RevertProjectCutResponse = zod.object({
 
 
 /**
+ * @summary Export the current draft cut as an NLE timeline (EDL/FCPXML/OTIO)
+ */
+export const ExportProjectCutParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ExportProjectCutBody = zod.object({
+  "format": zod.enum(['edl', 'fcpxml', 'otio'])
+})
+
+export const ExportProjectCutResponse = zod.object({
+  "format": zod.string(),
+  "content": zod.string(),
+  "filename": zod.string().optional()
+})
+
+
+/**
  * @summary Render the current draft cut as a reel
  */
 export const RenderProjectCutParams = zod.object({

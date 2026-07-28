@@ -2654,6 +2654,19 @@ export type RevertProjectCutBody = {
   version: number;
 };
 
+export type ExportProjectCutBodyFormat = typeof ExportProjectCutBodyFormat[keyof typeof ExportProjectCutBodyFormat];
+
+
+export const ExportProjectCutBodyFormat = {
+  edl: 'edl',
+  fcpxml: 'fcpxml',
+  otio: 'otio',
+} as const;
+
+export type ExportProjectCutBody = {
+  format: ExportProjectCutBodyFormat;
+};
+
 export type RenderProjectCutBodyPreset = typeof RenderProjectCutBodyPreset[keyof typeof RenderProjectCutBodyPreset];
 
 

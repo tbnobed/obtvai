@@ -33,6 +33,7 @@ import type {
   CoAppearanceGraph,
   Conversation,
   DubRequest,
+  ExportProjectCutBody,
   FaceCluster,
   GetCaptionsParams,
   GetCoAppearancesParams,
@@ -9195,6 +9196,78 @@ export const useRevertProjectCut = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRevertProjectCutMutationOptions(options));
+    }
+
+export const getExportProjectCutUrl = (id: string,) => {
+
+
+
+
+  return `/api/projects/${id}/cut/export`
+}
+
+/**
+ * @summary Export the current draft cut as an NLE timeline (EDL/FCPXML/OTIO)
+ */
+export const exportProjectCut = async (id: string,
+    exportProjectCutBody: ExportProjectCutBody, options?: RequestInit): Promise<ClipExportResult> => {
+
+  return customFetch<ClipExportResult>(getExportProjectCutUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(exportProjectCutBody)
+  }
+);}
+
+
+
+
+
+export const getExportProjectCutMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportProjectCut>>, TError,{id: string;data: BodyType<ExportProjectCutBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exportProjectCut>>, TError,{id: string;data: BodyType<ExportProjectCutBody>}, TContext> => {
+
+const mutationKey = ['exportProjectCut'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exportProjectCut>>, {id: string;data: BodyType<ExportProjectCutBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  exportProjectCut(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExportProjectCutMutationResult = NonNullable<Awaited<ReturnType<typeof exportProjectCut>>>
+    export type ExportProjectCutMutationBody = BodyType<ExportProjectCutBody>
+    export type ExportProjectCutMutationError = ErrorType<void>
+
+    /**
+ * @summary Export the current draft cut as an NLE timeline (EDL/FCPXML/OTIO)
+ */
+export const useExportProjectCut = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportProjectCut>>, TError,{id: string;data: BodyType<ExportProjectCutBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof exportProjectCut>>,
+        TError,
+        {id: string;data: BodyType<ExportProjectCutBody>},
+        TContext
+      > => {
+      return useMutation(getExportProjectCutMutationOptions(options));
     }
 
 export const getRenderProjectCutUrl = (id: string,) => {

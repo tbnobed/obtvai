@@ -2719,6 +2719,40 @@ paths:
         "404":
           description: Cut version not found
 
+  /projects/{id}/cut/export:
+    post:
+      operationId: exportProjectCut
+      tags: [projects]
+      summary: Export the current draft cut as an NLE timeline (EDL/FCPXML/OTIO)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [format]
+              properties:
+                format:
+                  type: string
+                  enum: [edl, fcpxml, otio]
+      responses:
+        "200":
+          description: Exported timeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipExportResult"
+        "400":
+          description: The cut is empty or format invalid
+        "404":
+          description: Project not found
+
   /projects/{id}/cut/render:
     post:
       operationId: renderProjectCut

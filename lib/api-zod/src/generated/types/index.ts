@@ -31,6 +31,8 @@ export * from './creativeAnalysis';
 export * from './cutClip';
 export * from './dubRequest';
 export * from './editorialNote';
+export * from './exportProjectCutBody';
+export * from './exportProjectCutBodyFormat';
 export * from './faceCluster';
 export * from './faceClusterAppearancesItem';
 export * from './faceSearchCandidate';
