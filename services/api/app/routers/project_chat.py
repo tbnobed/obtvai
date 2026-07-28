@@ -579,7 +579,9 @@ _PLAN_SYSTEM = (
     'title card\') — used to filter the keyframe matches; empty if none"], '
     '"remove": [clip numbers to drop from the current cut], '
     '"clip_seconds": desired per-clip length in seconds if the user asked '
-    'for uniform or specific clip lengths (e.g. \'same length\' -> total/count), else null, '
+    'for uniform or specific clip lengths (e.g. \'same length\' -> total/count). '
+    'ALSO set this when the user asks for a fast-paced / quick-cut / montage '
+    'feel without a number — fast paced means SHORT clips, use 4-8. Else null, '
     '"all_sources": true if the user wants every episode/source file '
     'represented in the cut, else false, '
     '"target_seconds": runtime in seconds if the user asked for a specific '
@@ -1130,11 +1132,70 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             )
             return
 
+        # Fast pace: enforce the per-clip length on the freshly selected cut —
+        # shorten long picks, and split them into consecutive chunks when
+        # shortening alone would fall far under the runtime target.
+        if clip_seconds is not None:
+            orig_durs = {id(c): _clip_duration(c) for c in new_cut}
+            for c in new_cut:
+                if not c.get("locked") and _clip_duration(c) > clip_seconds:
+                    c["end_time"] = c["start_time"] + clip_seconds
+            short_total = sum(_clip_duration(c) for c in new_cut)
+            if target is not None and short_total < target * 0.75:
+                resized: list[dict] = []
+                for c in new_cut:
+                    dur = orig_durs.get(id(c), _clip_duration(c))
+                    if c.get("locked") or dur <= clip_seconds * 1.5:
+                        resized.append(c)
+                        continue
+                    n = max(1, round(dur / clip_seconds))
+                    chunk = dur / n
+                    for k in range(n):
+                        piece = dict(c)
+                        piece["start_time"] = c["start_time"] + k * chunk
+                        piece["end_time"] = c["start_time"] + (k + 1) * chunk
+                        if k > 0:
+                            piece["snippet"] = None
+                        resized.append(piece)
+                new_cut = resized
+
         # Meet the runtime target the same way reels do, then re-clamp —
         # widening must not push clips past their Media Pool trim ranges.
+        # When a per-clip length is set (fast pace), the stock widener is
+        # OFF-LIMITS: it would happily stretch four 7s picks into 75s slabs
+        # to hit the runtime. Instead, close the gap with MORE short clips
+        # from unused candidates, then cap any widening at the clip length.
         if target is not None:
-            _fill_to_target(new_cut, target)
-            _trim_to_target(new_cut, target)
+            if clip_seconds is not None:
+                deficit = target - sum(_clip_duration(c) for c in new_cut)
+                if deficit > clip_seconds:
+                    used_keys = {
+                        (c["media_id"], round(c["start_time"], 1)) for c in new_cut
+                    }
+                    for cand in candidates + vis_cands:
+                        if deficit <= clip_seconds:
+                            break
+                        a, b = float(cand["start_time"]), float(cand["end_time"])
+                        # Chop the candidate span into clip_seconds pieces.
+                        t = a
+                        while t + 3.0 <= b and deficit > clip_seconds * 0.5:
+                            piece = dict(cand)
+                            piece["locked"] = False
+                            piece["start_time"] = round(t, 2)
+                            piece["end_time"] = round(min(t + clip_seconds, b), 2)
+                            if t > a:
+                                piece["snippet"] = None
+                            key = (piece["media_id"], round(piece["start_time"], 1))
+                            t += clip_seconds
+                            if key in used_keys or _overlaps_existing(piece, new_cut):
+                                continue
+                            used_keys.add(key)
+                            new_cut.append(piece)
+                            deficit -= _clip_duration(piece)
+                _trim_to_target(new_cut, target)
+            else:
+                _fill_to_target(new_cut, target)
+                _trim_to_target(new_cut, target)
         if ranges:
             new_cut = [c for c in new_cut if _clamp_to_range(c, ranges)]
         if not new_cut:
