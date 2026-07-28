@@ -666,29 +666,27 @@ export default function ProjectDetail() {
             <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={toggleArchive} disabled={updateMutation.isPending}>
-          {project.status === "archived"
-            ? <><ArchiveRestore className="h-4 w-4 mr-2" /> Unarchive</>
-            : <><Archive className="h-4 w-4 mr-2" /> Archive</>}
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground mb-6">
-        <span className="flex items-center gap-1.5"><Clapperboard className="h-3.5 w-3.5" /> {stageCounts.delivered}/{stageCounts.renders} renders done</span>
-        <button
-          type="button"
-          className="flex items-center gap-1.5 hover:text-foreground transition-colors"
-          title="Target run time — click to change"
-          onClick={() => {
-            setRuntimeValue(project.target_runtime_seconds != null ? formatRuntime(project.target_runtime_seconds) : "");
-            setRuntimeOpen(true);
-          }}
-        >
-          <Clock className="h-3.5 w-3.5" />
-          {project.target_runtime_seconds != null
-            ? <>Target {formatRuntime(project.target_runtime_seconds)}</>
-            : <span className="underline decoration-dotted underline-offset-2">Set run time</span>}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            title="Target run time — click to change"
+            onClick={() => {
+              setRuntimeValue(project.target_runtime_seconds != null ? formatRuntime(project.target_runtime_seconds) : "");
+              setRuntimeOpen(true);
+            }}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            {project.target_runtime_seconds != null
+              ? <>Target {formatRuntime(project.target_runtime_seconds)}</>
+              : <span className="underline decoration-dotted underline-offset-2">Set run time</span>}
+          </button>
+          <Button variant="outline" size="sm" onClick={toggleArchive} disabled={updateMutation.isPending}>
+            {project.status === "archived"
+              ? <><ArchiveRestore className="h-4 w-4 mr-2" /> Unarchive</>
+              : <><Archive className="h-4 w-4 mr-2" /> Archive</>}
+          </Button>
+        </div>
       </div>
 
       <Dialog open={runtimeOpen} onOpenChange={setRuntimeOpen}>
