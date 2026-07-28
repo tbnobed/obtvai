@@ -407,6 +407,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
                 clips={clips}
                 open={previewOpen}
                 initialIndex={previewIndex}
+                compact
                 onClose={() => setPreviewOpen(false)}
               />
             </div>

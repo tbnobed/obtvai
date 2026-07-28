@@ -14,12 +14,15 @@ export function CutPreviewPlayer({
   open,
   onClose,
   initialIndex = 0,
+  compact = false,
 }: {
   clips: CutClip[];
   open: boolean;
   onClose: () => void;
   /** Clip to start playback from (e.g. the row the user clicked). */
   initialIndex?: number;
+  /** Docked mode: smaller video, no filmstrip/footer — leaves room for the clip list below. */
+  compact?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -180,7 +183,7 @@ export function CutPreviewPlayer({
           key={clip.media_id}
           ref={videoRef}
           src={`/api/media/${clip.media_id}/stream#t=${clip.start_time},${clip.end_time}`}
-          className="w-full aspect-video max-h-[48vh] rounded bg-black object-contain"
+          className={`w-full aspect-video ${compact ? "max-h-[30vh]" : "max-h-[48vh]"} rounded bg-black object-contain`}
           onClick={togglePlay}
           playsInline
         />
@@ -214,7 +217,7 @@ export function CutPreviewPlayer({
         <div className="space-y-1.5 select-none">
           {/* Scrubbable timeline: each segment shows a frame thumbnail */}
           <div
-            className="relative flex h-14 w-full cursor-ew-resize gap-px overflow-hidden rounded touch-none"
+            className={`relative flex ${compact ? "h-8" : "h-14"} w-full cursor-ew-resize gap-px overflow-hidden rounded touch-none`}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -255,20 +258,24 @@ export function CutPreviewPlayer({
             </span>
           </div>
         </div>
-        <div className="flex items-center justify-center gap-2">
-          <Button size="icon" variant="outline" onClick={() => goToClip(index - 1)} disabled={index === 0} data-testid="button-preview-prev">
-            <SkipBack className="h-4 w-4" />
-          </Button>
-          <Button size="icon" onClick={togglePlay} data-testid="button-preview-playpause">
-            {playing && !scrubbing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </Button>
-          <Button size="icon" variant="outline" onClick={() => goToClip(index + 1)} disabled={index >= clips.length - 1} data-testid="button-preview-next">
-            <SkipForward className="h-4 w-4" />
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground text-center">
-          Rough preview straight from the source files — transitions between different files may pause briefly to buffer. Render for the real thing.
-        </p>
+        {!compact && (
+          <>
+            <div className="flex items-center justify-center gap-2">
+              <Button size="icon" variant="outline" onClick={() => goToClip(index - 1)} disabled={index === 0} data-testid="button-preview-prev">
+                <SkipBack className="h-4 w-4" />
+              </Button>
+              <Button size="icon" onClick={togglePlay} data-testid="button-preview-playpause">
+                {playing && !scrubbing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              </Button>
+              <Button size="icon" variant="outline" onClick={() => goToClip(index + 1)} disabled={index >= clips.length - 1} data-testid="button-preview-next">
+                <SkipForward className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Rough preview straight from the source files — transitions between different files may pause briefly to buffer. Render for the real thing.
+            </p>
+          </>
+        )}
     </div>
   );
 }
