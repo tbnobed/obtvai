@@ -47,7 +47,7 @@ _turn_locks: dict[str, asyncio.Lock] = {}
 _MAX_HISTORY = 16
 _MAX_CANDIDATES = 40
 _MAX_CUT_LINES = 80
-_SNIPPET_CHARS = 220
+_SNIPPET_CHARS = 400
 
 
 # ---------------------------------------------------------------- helpers
@@ -402,7 +402,18 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             if target is not None else
             "Target runtime: none set — size the cut to the user's request."
         )
+        pool_line = ""
+        if media_ids:
+            pool_names = (await db.execute(
+                select(MediaAsset.filename).where(MediaAsset.id.in_(media_ids))
+            )).scalars().all()
+            if pool_names:
+                pool_line = (
+                    f"Media pool ({len(pool_names)} files): "
+                    + ", ".join(sorted(pool_names)) + "\n"
+                )
         plan_prompt = (
+            f"{pool_line}"
             f"{target_line}\n"
             f"Current cut: {len(cut)} clips, {_fmt_tc(total)} total.\n"
             f"{_cut_lines(cut)}\n\n"
