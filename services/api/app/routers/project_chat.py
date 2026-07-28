@@ -832,11 +832,26 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
 
         # Visual candidates: transcript search only finds moments people TALK
         # about — performances, b-roll and locations that are merely SHOWN
-        # would never make the cut without this channel.
+        # would never make the cut without this channel. They deliberately
+        # bypass the overlap check against transcript candidates: intro
+        # snippets ("please welcome...") sit right at the start of the very
+        # footage the visual segment covers, and dropping the visual clip for
+        # that overlap would leave only the intros. Duplicate coverage is fine
+        # — the SELECT model picks one.
+        vis_cands: list[dict] = []
         try:
-            _admit(await _visual_candidates(searches, media_ids, db))
+            for c in await _visual_candidates(searches, media_ids, db):
+                c["locked"] = False
+                if not _clamp_to_range(c, ranges):
+                    continue
+                if not _overlaps_existing(c, kept):
+                    vis_cands.append(c)
         except Exception:
             logger.exception("visual candidate search failed — transcript candidates only")
+        logger.info(
+            "edit-mode candidates: %d transcript, %d visual (searches=%r)",
+            len(candidates), len(vis_cands), searches,
+        )
 
         # Round-robin across source files so every episode stays visible even
         # after the cap, instead of the top-scoring file eating the whole list.
@@ -844,11 +859,13 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         for c in candidates:
             by_file.setdefault(c["media_id"], []).append(c)
         interleaved: list[dict] = []
-        while len(interleaved) < _MAX_CANDIDATES and any(by_file.values()):
+        transcript_cap = max(_MAX_CANDIDATES - len(vis_cands), _MAX_CANDIDATES // 2)
+        while len(interleaved) < transcript_cap and any(by_file.values()):
             for lst in by_file.values():
                 if lst:
                     interleaved.append(lst.pop(0))
-        candidates = interleaved[:_MAX_CANDIDATES]
+        candidates = interleaved[:transcript_cap]
+        candidates.extend(vis_cands[: _MAX_CANDIDATES - len(candidates)])
 
         # ---- SELECT
         target_line = (
