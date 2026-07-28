@@ -609,7 +609,11 @@ _PLAN_SYSTEM = (
     "requires edit with searches.\n"
     "- edit: the user wants new or different content, so new material must be "
     "found. Search queries should describe the CONTENT to find (topics, "
-    "phrases, speakers), not editing instructions. Use the MEDIA POOL "
+    "phrases, speakers), not editing instructions. In edit mode searches must "
+    "NEVER be empty: even when the request is only about pacing, length, or "
+    "energy ('fast paced 5 min reel'), write queries describing the footage "
+    "that fits ('live music performance on stage', 'crowd cheering'), never "
+    "the user's instruction itself. Use the MEDIA POOL "
     "descriptions to write informed queries — target the themes and moments "
     "the files actually contain, and tailor different queries to different "
     "files when the pool covers distinct ground.\n"
@@ -1002,11 +1006,12 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         if not searches:
             # Never search for a bare acknowledgment ("ok do it") — fall back
             # to the plan's stated intent, which carries the real request.
+            # Raw chat text is a last resort: it's usually an editing
+            # instruction ("fast paced 5 min reel"), which is a terrible
+            # similarity query and a misleading clip label.
             notes = (plan.get("notes") or "").strip()
-            if notes and _ACK_RE.match(user_text.strip()):
-                searches = [notes]
-            else:
-                searches = [user_text]
+            searches = [notes] if notes else [user_text]
+            logger.warning("planner returned no searches — falling back to %r", searches[0])
         kept = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
 
         candidates: list[dict] = []
