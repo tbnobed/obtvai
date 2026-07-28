@@ -333,19 +333,28 @@ async def _visual_candidates(
     """
     union_by_media: dict[str, list[list[float]]] = {}
     fnames: dict[str, str] = {}
-    q_by_media: dict[str, str] = {}
+    # Query per segment so each clip is labeled with what it actually matched,
+    # not whichever query happened to hit this file first.
+    seg_queries: dict[str, list[tuple[float, float, str]]] = {}
     for q, mid, fname, segs in await _visual_segments(
         queries, media_ids, db, avoid=avoid, neg_vectors=neg_vectors,
     ):
         union_by_media.setdefault(mid, []).extend(segs)
         fnames[mid] = fname
-        q_by_media.setdefault(mid, q)
+        seg_queries.setdefault(mid, []).extend((s[0], s[1], q) for s in segs)
     clips: list[dict] = []
     for mid, segs in union_by_media.items():
         for a, b in _merge_segments(segs):
             if b - a < 3.0:
                 continue
-            q_clean = re.sub(r'[\r\n"]+', " ", q_by_media[mid]).strip()[:60]
+            # Label with the query whose segments cover the most of this span.
+            coverage: dict[str, float] = {}
+            for sa, sb, sq in seg_queries.get(mid, []):
+                ov = min(b, sb) - max(a, sa)
+                if ov > 0:
+                    coverage[sq] = coverage.get(sq, 0.0) + ov
+            label = max(coverage, key=coverage.get) if coverage else ""
+            q_clean = re.sub(r'[\r\n"]+', " ", label).strip()[:60]
             clips.append({
                 "media_id": mid,
                 "filename": fnames[mid],
