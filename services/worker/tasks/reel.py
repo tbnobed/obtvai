@@ -516,10 +516,11 @@ def build_reel(self, reel_id: str):
         # ── Pace enforcement: hard constraint, not a vibe ────────────────────
         # The LLM suggests; the assembler enforces. Anything longer than the
         # pace's max clip length is split at scene boundaries or sentence gaps.
-        paced = _enforce_pace(db, clips, pace)
-        if paced != clips:
-            clips = paced
-            _update_reel(db, reel_id, clips=json.dumps(clips))
+        if cut_version is None:
+            paced = _enforce_pace(db, clips, pace)
+            if paced != clips:
+                clips = paced
+                _update_reel(db, reel_id, clips=json.dumps(clips))
         _update_reel(db, reel_id, progress=10.0)
 
         vertical = preset == "vertical"
