@@ -401,12 +401,15 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
             </div>
           )}
           {previewOpen && clips.length > 0 && (
-            <CutPreviewPlayer
-              clips={clips}
-              open={previewOpen}
-              initialIndex={previewIndex}
-              onClose={() => setPreviewOpen(false)}
-            />
+            // Sticky: the player stays pinned while the clip list scrolls under it.
+            <div className="sticky -top-4 z-20 -mx-4 -mt-3 bg-background px-4 pt-3 pb-3 shadow-lg shadow-black/40">
+              <CutPreviewPlayer
+                clips={clips}
+                open={previewOpen}
+                initialIndex={previewIndex}
+                onClose={() => setPreviewOpen(false)}
+              />
+            </div>
           )}
           {!clips.length ? (
             <p className="text-sm text-muted-foreground pt-6 text-center">
