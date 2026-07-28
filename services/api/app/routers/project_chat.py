@@ -172,6 +172,11 @@ _ALL_SOURCES_RE = re.compile(
     re.IGNORECASE,
 )
 
+_UNIFORM_LEN_RE = re.compile(
+    r"\b(?:same|equal|uniform|consistent)\b.{0,20}\b(?:leng?th|lenght|duration|size|time)\b",
+    re.IGNORECASE,
+)
+
 _RUNTIME_RE = re.compile(
     r"(?<![\w./-])(\d+(?:\.\d+)?)[ \t]*(minutes?|mins?|seconds?|secs?)\b(?![\w./-])",
     re.IGNORECASE,
@@ -421,6 +426,13 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             project.target_runtime_seconds = int(req_target)
             db.add(project)
 
+        _acts = bool(
+            plan.get("remove") or plan.get("clip_seconds")
+            or plan.get("all_sources") or plan.get("searches")
+        )
+        if mode == "answer" and (_acts or _UNIFORM_LEN_RE.search(user_text)):
+            # The model wants to talk while the request needs work — force it.
+            mode = "adjust" if not plan.get("searches") else "edit"
         if mode == "answer":
             reply = (plan.get("reply") or "").strip() or plan_raw.strip()[:1500]
             await _finish(db, assistant_id, reply, None)
@@ -444,6 +456,10 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 clip_seconds = float(v)
         except (TypeError, ValueError):
             clip_seconds = None
+        if clip_seconds is None and cut and _UNIFORM_LEN_RE.search(user_text):
+            # "make each clip the same length" — derive it: runtime / clips.
+            basis = target if target is not None else sum(_clip_duration(c) for c in cut)
+            clip_seconds = max(3.0, min(600.0, basis / len(cut)))
 
         if mode == "adjust":
             # Reshape the existing cut — runtime, removals, per-clip resize.
@@ -493,9 +509,13 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 (c["media_id"], round(c["start_time"], 2), round(c["end_time"], 2))
                 for c in cut
             ]:
-                # Nothing actually changed — reply without saving a revision.
-                reply = (plan.get("reply") or "").strip() or (
-                    "That leaves the cut as it is — tell me what you'd like different."
+                # Nothing actually changed — say so honestly; never echo the
+                # model's promise-text as if work was done.
+                reply = (
+                    "That request didn't change the cut — it's already "
+                    f"{len(cut)} clips · "
+                    f"{_fmt_tc(sum(_clip_duration(c) for c in cut))}. "
+                    "Tell me what you'd like different."
                 )
                 await _finish(db, assistant_id, reply, None)
                 return
