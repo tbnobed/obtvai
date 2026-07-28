@@ -65,6 +65,15 @@ _VISUAL_NEGATIVE_PROMPTS = [
 _VISUAL_NEG_MARGIN = 0.05
 _neg_vec_cache: dict[str, list[float]] = {}
 
+# When the query itself asks for graphics (QC passes: "find the show logo",
+# "title cards", "lower thirds"), the stock graphic negatives would suppress
+# exactly what the user wants — skip them for that query.
+_GRAPHIC_QUERY_RE = re.compile(
+    r"logo|graphic|title\s*card|bumper|lower[\s-]*third|overlay|caption|"
+    r"credits|on[\s-]*screen\s*text|text\s*on\s*screen|watermark|chyron",
+    re.IGNORECASE,
+)
+
 
 async def _visual_segments(
     queries: list[str], media_ids: list[str] | None, db: AsyncSession,
@@ -114,6 +123,7 @@ async def _visual_segments(
 
     out: list[tuple[str, str, str, list[list[float]]]] = []
     for q in queries[:3]:
+        filter_negs = not _GRAPHIC_QUERY_RE.search(q)
         scene_ids: list[str] = []
         try:
             vec = await get_clip_text_embedding(f"a photo of {q}")
@@ -135,7 +145,7 @@ async def _visual_segments(
             if not (isinstance(sid, str) and sid):
                 continue
             neg = neg_scores.get(sid, 0.0)
-            if neg >= _MIN_VISUAL_SCORE and neg > pos + _VISUAL_NEG_MARGIN:
+            if filter_negs and neg >= _MIN_VISUAL_SCORE and neg > pos + _VISUAL_NEG_MARGIN:
                 continue  # looks more like a promo/title graphic than the query
             scene_ids.append(sid)
         if not scene_ids:
