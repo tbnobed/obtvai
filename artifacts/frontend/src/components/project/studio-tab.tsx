@@ -156,7 +156,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(320px,1fr)_2fr]">
       {/* ── Chat pane ── */}
-      <div className="flex flex-col border border-border rounded-lg bg-card/50 h-[calc(100vh-260px)] min-h-[420px]">
+      <div className="min-w-0 flex flex-col border border-border rounded-lg bg-card/50 h-[calc(100vh-260px)] min-h-[420px]">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">Editorial assistant</span>
@@ -225,7 +225,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
       </div>
 
       {/* ── Living cut pane ── */}
-      <div className="border border-border rounded-lg bg-card/50 flex flex-col h-[calc(100vh-260px)] min-h-[420px]">
+      <div className="min-w-0 border border-border rounded-lg bg-card/50 flex flex-col h-[calc(100vh-260px)] min-h-[420px]">
         <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium">Draft cut</span>
           {latestVersion > 0 && (
