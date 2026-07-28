@@ -674,9 +674,6 @@ export default function ProjectDetail() {
       </div>
 
       <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground mb-6">
-        <span className="flex items-center gap-1.5"><Scissors className="h-3.5 w-3.5" /> {stageCounts.clips} clips in {stageCounts.lists} lists</span>
-        <span className="flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> {stageCounts.stories} stories</span>
-        <span className="flex items-center gap-1.5"><Wand2 className="h-3.5 w-3.5" /> {stageCounts.reels} reels</span>
         <span className="flex items-center gap-1.5"><Clapperboard className="h-3.5 w-3.5" /> {stageCounts.delivered}/{stageCounts.renders} renders done</span>
         <button
           type="button"
