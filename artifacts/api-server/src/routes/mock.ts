@@ -1694,6 +1694,36 @@ router.post("/projects/:id/cut/export", (req, res) => {
   res.json({ format: fmt, content, filename: `${safe}.${fmt}` });
 });
 
+// Thumbs up/down feedback on cut clips (in-memory).
+const projectClipFeedback: Record<string, { id: string; media_id: string; start_time: number; end_time: number; rating: number; created_at: string }[]> = {};
+
+router.get("/projects/:id/cut/feedback", (req, res) => {
+  res.json({ items: projectClipFeedback[req.params.id] || [] });
+});
+
+router.post("/projects/:id/cut/feedback", (req, res) => {
+  const { media_id, start_time, end_time, rating } = req.body || {};
+  if (!media_id || !(Number(end_time) > Number(start_time)) || ![1, -1].includes(Number(rating))) {
+    res.status(400).json({ detail: "Invalid feedback" });
+    return;
+  }
+  const items = (projectClipFeedback[req.params.id] ||= []);
+  const matchIdx = items.findIndex(
+    (fb) => fb.media_id === media_id &&
+      Math.abs(fb.start_time - Number(start_time)) < 0.5 &&
+      Math.abs(fb.end_time - Number(end_time)) < 0.5,
+  );
+  const toggleOff = matchIdx >= 0 && items[matchIdx].rating === Number(rating);
+  if (matchIdx >= 0) items.splice(matchIdx, 1);
+  if (!toggleOff) {
+    items.unshift({
+      id: `fb-${Date.now()}`, media_id, start_time: Number(start_time),
+      end_time: Number(end_time), rating: Number(rating), created_at: new Date().toISOString(),
+    });
+  }
+  res.json({ items });
+});
+
 router.post("/projects/:id/cut/render", (req, res) => {
   const p = projects.find((x) => x.id === req.params.id);
   if (!p) { res.status(404).json({ detail: "Project not found" }); return; }

@@ -13,10 +13,13 @@ export function CutPreviewPlayer({
   clips,
   open,
   onClose,
+  initialIndex = 0,
 }: {
   clips: CutClip[];
   open: boolean;
   onClose: () => void;
+  /** Clip to start playback from (e.g. the row the user clicked). */
+  initialIndex?: number;
 }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -38,13 +41,14 @@ export function CutPreviewPlayer({
 
   useEffect(() => {
     if (open) {
-      setIndex(0);
+      setIndex(Math.max(0, Math.min(clips.length - 1, initialIndex)));
       pendingOffset.current = 0;
       seekedFor.current = -1;
       setClipElapsed(0);
       setPlaying(true);
     }
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialIndex]);
 
   // Tracks which clip index we've already seeked for — the effect re-runs on
   // play/pause/scrub changes too, and must not re-seek (it would snap the

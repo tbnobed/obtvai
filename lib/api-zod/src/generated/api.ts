@@ -3416,6 +3416,52 @@ export const ExportProjectCutResponse = zod.object({
 
 
 /**
+ * @summary Thumbs up/down feedback recorded for this project's cut clips
+ */
+export const GetProjectCutFeedbackParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetProjectCutFeedbackResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "rating": zod.number(),
+  "created_at": zod.coerce.date().nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Rate a cut clip (posting the same rating again removes it)
+ */
+export const PostProjectCutFeedbackParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const PostProjectCutFeedbackBody = zod.object({
+  "media_id": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "rating": zod.union([zod.literal(1),zod.literal(-1)]),
+  "snippet": zod.string().nullish()
+})
+
+export const PostProjectCutFeedbackResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "rating": zod.number(),
+  "created_at": zod.coerce.date().nullish()
+})).optional()
+})
+
+
+/**
  * @summary Render the current draft cut as a reel
  */
 export const RenderProjectCutParams = zod.object({

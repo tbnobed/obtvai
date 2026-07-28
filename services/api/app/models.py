@@ -414,6 +414,22 @@ class ProjectCutRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class ClipFeedback(Base):
+    """Thumbs up/down on draft-cut clips. Downvoted spans become visual
+    negative exemplars (their keyframe embeddings suppress similar footage in
+    later searches) and are excluded from future candidates in the project."""
+    __tablename__ = "clip_feedback"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    media_id: Mapped[str] = mapped_column(String, ForeignKey("media_assets.id", ondelete="CASCADE"), nullable=False)
+    start_time: Mapped[float] = mapped_column(Float, nullable=False)
+    end_time: Mapped[float] = mapped_column(Float, nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1 = up, -1 = down
+    snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class TrendTopic(Base):
     """External trend signals (YouTube trending, SearXNG news momentum).
 

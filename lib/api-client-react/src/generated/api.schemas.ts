@@ -2127,6 +2127,37 @@ export interface CutClip {
   locked?: boolean;
 }
 
+export type ClipFeedbackCreateRating = typeof ClipFeedbackCreateRating[keyof typeof ClipFeedbackCreateRating];
+
+
+export const ClipFeedbackCreateRating = {
+  NUMBER_1: 1,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export interface ClipFeedbackCreate {
+  media_id: string;
+  start_time: number;
+  end_time: number;
+  rating: ClipFeedbackCreateRating;
+  /** @nullable */
+  snippet?: string | null;
+}
+
+export interface ClipFeedbackItem {
+  id: string;
+  media_id: string;
+  start_time: number;
+  end_time: number;
+  rating: number;
+  /** @nullable */
+  created_at?: string | null;
+}
+
+export interface ClipFeedbackList {
+  items?: ClipFeedbackItem[];
+}
+
 export type ProjectCutSource = typeof ProjectCutSource[keyof typeof ProjectCutSource];
 
 

@@ -5,6 +5,8 @@ import {
   useGetProjectCut, getGetProjectCutQueryKey,
   useUpdateProjectCut, useRevertProjectCut, useRenderProjectCut,
   useExportProjectCut,
+  useGetProjectCutFeedback, getGetProjectCutFeedbackQueryKey,
+  usePostProjectCutFeedback,
 } from "@workspace/api-client-react";
 import type { ProjectChatMessage, ProjectCut, CutClip, Project } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors, Download } from "lucide-react";
+import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors, Download, ThumbsUp, ThumbsDown } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -48,6 +50,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
   const [input, setInput] = useState("");
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
   // Per-clip trim editor: index into `clips` plus a draft in/out.
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ in: number; out: number } | null>(null);
@@ -113,6 +116,41 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
       },
     );
   const renderMutation = useRenderProjectCut();
+
+  // Thumbs up/down on clips — downvotes teach the assistant what footage to
+  // avoid in future searches (visual negative exemplars).
+  const { data: feedback } = useGetProjectCutFeedback(projectId, {
+    query: { queryKey: getGetProjectCutFeedbackQueryKey(projectId) },
+  });
+  const feedbackMutation = usePostProjectCutFeedback();
+  const ratingFor = (c: CutClip): number => {
+    for (const fb of feedback?.items ?? []) {
+      if (
+        fb.media_id === c.media_id &&
+        Math.abs(fb.start_time - c.start_time) < 0.5 &&
+        Math.abs(fb.end_time - c.end_time) < 0.5
+      ) return fb.rating;
+    }
+    return 0;
+  };
+  const rateClip = (c: CutClip, rating: 1 | -1) =>
+    feedbackMutation.mutate(
+      {
+        id: projectId,
+        data: {
+          media_id: c.media_id,
+          start_time: c.start_time,
+          end_time: c.end_time,
+          rating,
+          snippet: c.snippet ?? null,
+        },
+      },
+      {
+        onSuccess: (r) =>
+          queryClient.setQueryData(getGetProjectCutFeedbackQueryKey(projectId), r),
+        onError: () => toast({ title: "Couldn't save rating", variant: "destructive" }),
+      },
+    );
 
   const refreshCut = () => {
     queryClient.invalidateQueries({ queryKey: getGetProjectCutQueryKey(projectId) });
@@ -315,7 +353,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setPreviewOpen(true)}
+              onClick={() => { setPreviewIndex(0); setPreviewOpen(true); }}
               disabled={!clips.length}
               data-testid="button-preview-cut"
             >
@@ -363,7 +401,12 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
             </div>
           )}
           {previewOpen && clips.length > 0 && (
-            <CutPreviewPlayer clips={clips} open={previewOpen} onClose={() => setPreviewOpen(false)} />
+            <CutPreviewPlayer
+              clips={clips}
+              open={previewOpen}
+              initialIndex={previewIndex}
+              onClose={() => setPreviewOpen(false)}
+            />
           )}
           {!clips.length ? (
             <p className="text-sm text-muted-foreground pt-6 text-center">
@@ -390,10 +433,33 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
                   <div key={ev.n} className="flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-muted/30" data-testid={`cut-clip-${i}`}>
                     <span className={`inline-block h-2.5 w-2.5 rounded-sm shrink-0 ${ev.color}`} />
                     <span className="w-6 tabular-nums text-muted-foreground">{ev.n}</span>
-                    <div className="min-w-0 flex-1">
+                    <div
+                      className="min-w-0 flex-1 cursor-pointer"
+                      title="Click to preview this clip"
+                      onClick={() => { setPreviewIndex(i); setPreviewOpen(true); }}
+                      data-testid={`clip-row-preview-${i}`}
+                    >
                       <div className="truncate font-medium">{ev.clip.filename}</div>
                       {ev.clip.snippet && <div className="truncate text-muted-foreground">{ev.clip.snippet}</div>}
                     </div>
+                    <Button
+                      size="icon" variant="ghost" className="h-6 w-6 shrink-0"
+                      title="Good clip — more like this"
+                      onClick={() => rateClip(ev.clip, 1)}
+                      disabled={feedbackMutation.isPending}
+                      data-testid={`button-thumbs-up-${i}`}
+                    >
+                      <ThumbsUp className={`w-3.5 h-3.5 ${ratingFor(ev.clip) === 1 ? "text-emerald-400" : "text-muted-foreground"}`} />
+                    </Button>
+                    <Button
+                      size="icon" variant="ghost" className="h-6 w-6 shrink-0"
+                      title="Bad clip — avoid footage like this"
+                      onClick={() => rateClip(ev.clip, -1)}
+                      disabled={feedbackMutation.isPending}
+                      data-testid={`button-thumbs-down-${i}`}
+                    >
+                      <ThumbsDown className={`w-3.5 h-3.5 ${ratingFor(ev.clip) === -1 ? "text-rose-400" : "text-muted-foreground"}`} />
+                    </Button>
                     <span className="tabular-nums text-muted-foreground shrink-0">
                       {fmtTime(ev.clip.start_time)}–{fmtTime(ev.clip.end_time)}
                     </span>

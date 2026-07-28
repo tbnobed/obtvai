@@ -27,6 +27,8 @@ import type {
   AuditLogList,
   ClipExportInput,
   ClipExportResult,
+  ClipFeedbackCreate,
+  ClipFeedbackList,
   ClipList,
   ClipListInput,
   ClipListUpdate,
@@ -9268,6 +9270,155 @@ export const useExportProjectCut = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getExportProjectCutMutationOptions(options));
+    }
+
+export const getGetProjectCutFeedbackUrl = (id: string,) => {
+
+
+
+
+  return `/api/projects/${id}/cut/feedback`
+}
+
+/**
+ * @summary Thumbs up/down feedback recorded for this project's cut clips
+ */
+export const getProjectCutFeedback = async (id: string, options?: RequestInit): Promise<ClipFeedbackList> => {
+
+  return customFetch<ClipFeedbackList>(getGetProjectCutFeedbackUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProjectCutFeedbackQueryKey = (id: string,) => {
+    return [
+    `/api/projects/${id}/cut/feedback`
+    ] as const;
+    }
+
+
+export const getGetProjectCutFeedbackQueryOptions = <TData = Awaited<ReturnType<typeof getProjectCutFeedback>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectCutFeedback>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProjectCutFeedbackQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjectCutFeedback>>> = ({ signal }) => getProjectCutFeedback(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProjectCutFeedback>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProjectCutFeedbackQueryResult = NonNullable<Awaited<ReturnType<typeof getProjectCutFeedback>>>
+export type GetProjectCutFeedbackQueryError = ErrorType<void>
+
+
+/**
+ * @summary Thumbs up/down feedback recorded for this project's cut clips
+ */
+
+export function useGetProjectCutFeedback<TData = Awaited<ReturnType<typeof getProjectCutFeedback>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectCutFeedback>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProjectCutFeedbackQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPostProjectCutFeedbackUrl = (id: string,) => {
+
+
+
+
+  return `/api/projects/${id}/cut/feedback`
+}
+
+/**
+ * @summary Rate a cut clip (posting the same rating again removes it)
+ */
+export const postProjectCutFeedback = async (id: string,
+    clipFeedbackCreate: ClipFeedbackCreate, options?: RequestInit): Promise<ClipFeedbackList> => {
+
+  return customFetch<ClipFeedbackList>(getPostProjectCutFeedbackUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clipFeedbackCreate)
+  }
+);}
+
+
+
+
+
+export const getPostProjectCutFeedbackMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProjectCutFeedback>>, TError,{id: string;data: BodyType<ClipFeedbackCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postProjectCutFeedback>>, TError,{id: string;data: BodyType<ClipFeedbackCreate>}, TContext> => {
+
+const mutationKey = ['postProjectCutFeedback'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProjectCutFeedback>>, {id: string;data: BodyType<ClipFeedbackCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  postProjectCutFeedback(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostProjectCutFeedbackMutationResult = NonNullable<Awaited<ReturnType<typeof postProjectCutFeedback>>>
+    export type PostProjectCutFeedbackMutationBody = BodyType<ClipFeedbackCreate>
+    export type PostProjectCutFeedbackMutationError = ErrorType<void>
+
+    /**
+ * @summary Rate a cut clip (posting the same rating again removes it)
+ */
+export const usePostProjectCutFeedback = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProjectCutFeedback>>, TError,{id: string;data: BodyType<ClipFeedbackCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof postProjectCutFeedback>>,
+        TError,
+        {id: string;data: BodyType<ClipFeedbackCreate>},
+        TContext
+      > => {
+      return useMutation(getPostProjectCutFeedbackMutationOptions(options));
     }
 
 export const getRenderProjectCutUrl = (id: string,) => {

@@ -90,6 +90,19 @@ async def search_vectors(
     return results
 
 
+async def retrieve_vectors(collection: str, ids: list[str]) -> dict[str, list[float]]:
+    """Fetch stored vectors for the given point ids. Missing ids are skipped."""
+    client = get_client()
+    points = await client.retrieve(
+        collection_name=collection, ids=ids, with_vectors=True, with_payload=False,
+    )
+    out: dict[str, list[float]] = {}
+    for p in points:
+        if p.vector is not None:
+            out[str(p.id)] = list(p.vector)
+    return out
+
+
 async def delete_by_media_id(collection: str, media_id: str):
     client = get_client()
     from qdrant_client.models import FilterSelector

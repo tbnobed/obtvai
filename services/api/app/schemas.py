@@ -1051,6 +1051,27 @@ class CutRevertIn(BaseModel):
     version: int
 
 
+class ClipFeedbackIn(BaseModel):
+    media_id: str
+    start_time: float
+    end_time: float
+    rating: Literal[1, -1]
+    snippet: Optional[str] = None
+
+
+class ClipFeedbackOut(BaseModel):
+    id: str
+    media_id: str
+    start_time: float
+    end_time: float
+    rating: int
+    created_at: Optional[datetime] = None
+
+
+class ClipFeedbackListOut(BaseModel):
+    items: List[ClipFeedbackOut] = []
+
+
 class CutRenderIn(BaseModel):
     preset: Literal["original", "vertical"] = "original"
     burn_captions: bool = False

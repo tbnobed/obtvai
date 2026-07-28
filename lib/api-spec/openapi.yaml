@@ -2753,6 +2753,54 @@ paths:
         "404":
           description: Project not found
 
+  /projects/{id}/cut/feedback:
+    get:
+      operationId: getProjectCutFeedback
+      tags: [projects]
+      summary: Thumbs up/down feedback recorded for this project's cut clips
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipFeedbackList"
+        "404":
+          description: Project not found
+    post:
+      operationId: postProjectCutFeedback
+      tags: [projects]
+      summary: Rate a cut clip (posting the same rating again removes it)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClipFeedbackCreate"
+      responses:
+        "200":
+          description: Updated feedback list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipFeedbackList"
+        "400":
+          description: Invalid span
+        "404":
+          description: Project not found
+
   /projects/{id}/cut/render:
     post:
       operationId: renderProjectCut
@@ -6246,6 +6294,48 @@ components:
           type: boolean
           default: false
           description: Locked clips are never removed or reordered by the assistant
+
+    ClipFeedbackCreate:
+      type: object
+      required: [media_id, start_time, end_time, rating]
+      properties:
+        media_id:
+          type: string
+        start_time:
+          type: number
+        end_time:
+          type: number
+        rating:
+          type: integer
+          enum: [1, -1]
+        snippet:
+          type: ["string", "null"]
+
+    ClipFeedbackItem:
+      type: object
+      required: [id, media_id, start_time, end_time, rating]
+      properties:
+        id:
+          type: string
+        media_id:
+          type: string
+        start_time:
+          type: number
+        end_time:
+          type: number
+        rating:
+          type: integer
+        created_at:
+          type: ["string", "null"]
+          format: date-time
+
+    ClipFeedbackList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClipFeedbackItem"
 
     ProjectCut:
       type: object

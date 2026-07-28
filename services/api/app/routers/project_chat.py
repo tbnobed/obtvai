@@ -27,12 +27,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db, AsyncSessionLocal
 from ..models import (
     Project, ProjectChatMessage, ProjectCutRevision, ReelJob, MediaAsset, Scene,
+    ClipFeedback,
 )
 from types import SimpleNamespace
 
 from ..schemas import (
     ProjectChatMessageOut, ProjectChatMessageIn, ProjectCutOut, CutClip,
     CutUpdateIn, CutRevertIn, CutRenderIn, ReelJobOut,
+    ClipFeedbackIn, ClipFeedbackOut, ClipFeedbackListOut,
 )
 from ..worker_client import enqueue_reel
 from .projects import touch_project
@@ -75,9 +77,16 @@ _GRAPHIC_QUERY_RE = re.compile(
 )
 
 
+# Downvoted-clip keyframes are image-space exemplars: image-image cosines run
+# much higher than text-image scores, so they get their own suppression
+# threshold — a scene must look nearly identical to rejected footage to drop.
+_EXEMPLAR_SIM_THRESHOLD = 0.90
+
+
 async def _visual_segments(
     queries: list[str], media_ids: list[str] | None, db: AsyncSession,
     avoid: list[str] | None = None,
+    neg_vectors: list[list[float]] | None = None,
 ) -> list[tuple[str, str, str, list[list[float]]]]:
     """Search scene keyframes (vision-embedding space) and merge contiguous
     matching scenes into segments. Returns (query, media_id, filename,
@@ -121,6 +130,33 @@ async def _visual_segments(
             if isinstance(sid, str) and sid:
                 neg_scores[sid] = max(neg_scores.get(sid, 0.0), score)
 
+    # Exemplar negatives: keyframe embeddings of clips the user thumbed down.
+    # Scenes that look nearly identical to rejected footage are excluded
+    # outright (raw image-image cosine, separate scale from text scores).
+    exemplar_block: set[str] = set()
+    if neg_vectors:
+        ex_results = await asyncio.gather(
+            *(search_vectors(collection="scenes", vector=v, limit=96, media_ids=media_ids)
+              for v in neg_vectors[:8]),
+            return_exceptions=True,
+        )
+        for res in ex_results:
+            if isinstance(res, BaseException):
+                logger.warning("exemplar negative search failed: %s", res)
+                continue
+            for h in res:
+                try:
+                    if float(h.score) < _EXEMPLAR_SIM_THRESHOLD:
+                        continue
+                    payload = h.payload if isinstance(h.payload, dict) else {}
+                    sid = payload.get("scene_id")
+                except Exception:
+                    continue
+                if isinstance(sid, str) and sid:
+                    exemplar_block.add(sid)
+        if exemplar_block:
+            logger.info("visual feedback: %d scenes blocked by downvoted exemplars", len(exemplar_block))
+
     out: list[tuple[str, str, str, list[list[float]]]] = []
     for q in queries[:3]:
         filter_negs = not _GRAPHIC_QUERY_RE.search(q)
@@ -144,6 +180,8 @@ async def _visual_segments(
                 continue
             if not (isinstance(sid, str) and sid):
                 continue
+            if sid in exemplar_block:
+                continue  # looks like footage the user already rejected
             neg = neg_scores.get(sid, 0.0)
             if filter_negs and neg >= _MIN_VISUAL_SCORE and neg > pos + _VISUAL_NEG_MARGIN:
                 continue  # looks more like a promo/title graphic than the query
@@ -229,9 +267,65 @@ _MAX_VISUAL_CANDIDATES = 24
 _VISUAL_CLIP_MAX_SECONDS = 45.0
 
 
+async def _feedback_context(
+    project_id: str, db: AsyncSession,
+) -> tuple[dict[str, list[tuple[float, float]]], list[list[float]]]:
+    """Load thumbs-down feedback for a project: (downvoted spans by media_id,
+    exemplar keyframe vectors of the rejected footage)."""
+    from ..services.qdrant_client import retrieve_vectors
+
+    rows = (await db.execute(
+        select(ClipFeedback)
+        .where(ClipFeedback.project_id == project_id, ClipFeedback.rating < 0)
+        .order_by(desc(ClipFeedback.created_at))
+        .limit(24)
+    )).scalars().all()
+    spans: dict[str, list[tuple[float, float]]] = {}
+    scene_ids: list[str] = []
+    for fb in rows:
+        spans.setdefault(fb.media_id, []).append((fb.start_time, fb.end_time))
+    if rows:
+        # Up to 2 representative scenes per downvoted span (most recent first).
+        for fb in rows[:8]:
+            scs = (await db.execute(
+                select(Scene.id)
+                .where(
+                    Scene.media_id == fb.media_id,
+                    Scene.start_time < fb.end_time,
+                    Scene.end_time > fb.start_time,
+                )
+                .order_by(Scene.start_time)
+                .limit(2)
+            )).scalars().all()
+            scene_ids.extend(scs)
+    vectors: list[list[float]] = []
+    if scene_ids:
+        try:
+            # Scene vectors are stored under uuid5(scene_id) point ids (the
+            # raw scene id lives only in the payload) — see visual_embed.py.
+            point_ids = [
+                str(uuid.uuid5(uuid.NAMESPACE_DNS, sid)) for sid in scene_ids[:16]
+            ]
+            vecs = await retrieve_vectors("scenes", point_ids)
+            vectors = list(vecs.values())[:8]
+        except Exception:
+            logger.exception("failed to load exemplar vectors for feedback")
+    return spans, vectors
+
+
+def _in_downvoted_span(
+    c: dict, spans: dict[str, list[tuple[float, float]]],
+) -> bool:
+    for a, b in spans.get(c.get("media_id") or "", []):
+        if c["start_time"] < b and c["end_time"] > a:
+            return True
+    return False
+
+
 async def _visual_candidates(
     queries: list[str], media_ids: list[str] | None, db: AsyncSession,
     avoid: list[str] | None = None,
+    neg_vectors: list[list[float]] | None = None,
 ) -> list[dict]:
     """Edit-mode clip candidates from visual segments. Transcript search can
     only find moments people TALK about; this admits footage that merely LOOKS
@@ -240,7 +334,9 @@ async def _visual_candidates(
     union_by_media: dict[str, list[list[float]]] = {}
     fnames: dict[str, str] = {}
     q_by_media: dict[str, str] = {}
-    for q, mid, fname, segs in await _visual_segments(queries, media_ids, db, avoid=avoid):
+    for q, mid, fname, segs in await _visual_segments(
+        queries, media_ids, db, avoid=avoid, neg_vectors=neg_vectors,
+    ):
         union_by_media.setdefault(mid, []).extend(segs)
         fnames[mid] = fname
         q_by_media.setdefault(mid, q)
@@ -933,8 +1029,22 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             a for a in (plan.get("avoid") or [])
             if isinstance(a, str) and a.strip()
         ][:4]
+        # Thumbs-down feedback: rejected spans never come back as candidates,
+        # and their keyframe embeddings suppress visually similar footage.
+        fb_spans: dict[str, list[tuple[float, float]]] = {}
+        fb_vectors: list[list[float]] = []
         try:
-            for c in await _visual_candidates(searches, media_ids, db, avoid=avoid):
+            fb_spans, fb_vectors = await _feedback_context(project_id, db)
+        except Exception:
+            logger.exception("failed to load clip feedback — proceeding without it")
+        if fb_spans:
+            candidates = [c for c in candidates if not _in_downvoted_span(c, fb_spans)]
+        try:
+            for c in await _visual_candidates(
+                searches, media_ids, db, avoid=avoid, neg_vectors=fb_vectors or None,
+            ):
+                if _in_downvoted_span(c, fb_spans):
+                    continue
                 c["locked"] = False
                 if not _clamp_to_range(c, ranges):
                     continue
@@ -1318,6 +1428,56 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
             rec += dur
         content, filename = "\n".join(lines), f"{safe}.edl"
     return {"format": fmt, "content": content, "filename": filename}
+
+
+@cut_router.get("/feedback", response_model=ClipFeedbackListOut)
+async def list_clip_feedback(project_id: str, db: AsyncSession = Depends(get_db)):
+    await _require_project(db, project_id)
+    rows = (await db.execute(
+        select(ClipFeedback)
+        .where(ClipFeedback.project_id == project_id)
+        .order_by(desc(ClipFeedback.created_at))
+        .limit(200)
+    )).scalars().all()
+    return ClipFeedbackListOut(items=[
+        ClipFeedbackOut(
+            id=fb.id, media_id=fb.media_id, start_time=fb.start_time,
+            end_time=fb.end_time, rating=fb.rating, created_at=fb.created_at,
+        ) for fb in rows
+    ])
+
+
+@cut_router.post("/feedback", response_model=ClipFeedbackListOut)
+async def post_clip_feedback(project_id: str, body: ClipFeedbackIn, db: AsyncSession = Depends(get_db)):
+    """Thumbs up/down on a cut clip. Posting the same rating for the same span
+    again removes it (toggle); a different rating replaces it."""
+    await _require_project(db, project_id)
+    if body.end_time <= body.start_time:
+        raise HTTPException(status_code=400, detail="end_time must be after start_time")
+    # Serialize per-project so concurrent identical toggles can't duplicate.
+    await _lock_project_writes(db, project_id)
+    existing = (await db.execute(
+        select(ClipFeedback).where(
+            ClipFeedback.project_id == project_id,
+            ClipFeedback.media_id == body.media_id,
+            func.abs(ClipFeedback.start_time - body.start_time) < 0.5,
+            func.abs(ClipFeedback.end_time - body.end_time) < 0.5,
+        )
+    )).scalars().all()
+    toggle_off = any(fb.rating == body.rating for fb in existing)
+    for fb in existing:
+        await db.delete(fb)
+    if not toggle_off:
+        db.add(ClipFeedback(
+            project_id=project_id,
+            media_id=body.media_id,
+            start_time=float(body.start_time),
+            end_time=float(body.end_time),
+            rating=int(body.rating),
+            snippet=(body.snippet or None),
+        ))
+    await db.commit()
+    return await list_clip_feedback(project_id, db)
 
 
 @cut_router.post("/render", response_model=ReelJobOut, status_code=202)
