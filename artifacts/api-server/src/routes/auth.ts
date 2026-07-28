@@ -179,7 +179,7 @@ router.get("/audit", (req, res) => {
   const limit = Math.min(500, Math.max(1, Number(req.query.limit ?? 100) || 100));
   const offset = Math.max(0, Number(req.query.offset ?? 0) || 0);
   let rows = auditLog;
-  if (q) rows = rows.filter((r) => r.path.toLowerCase().includes(q));
+  if (q) rows = rows.filter((r) => r.path.toLowerCase().includes(q) || (r.username ?? "").toLowerCase().includes(q));
   if (username) rows = rows.filter((r) => r.username === username);
   if (method) rows = rows.filter((r) => r.method === method);
   res.json({ total: rows.length, items: rows.slice(offset, offset + limit) });

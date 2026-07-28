@@ -47,7 +47,8 @@ export default function AuditLogPage() {
   const total = data?.total ?? 0;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-2 mb-1">
         <ScrollText className="h-5 w-5 text-muted-foreground" />
         <h1 className="text-xl font-semibold">Audit Log</h1>
@@ -58,7 +59,7 @@ export default function AuditLogPage() {
 
       <div className="flex gap-2 mb-4">
         <Input
-          placeholder="Filter by path (e.g. /media, /users)…"
+          placeholder="Filter by user or path (e.g. obtv-admin, /media)…"
           value={q}
           onChange={(e) => resetAnd(() => setQ(e.target.value))}
           className="max-w-sm"
@@ -130,6 +131,7 @@ export default function AuditLogPage() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

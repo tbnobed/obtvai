@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import require_admin
@@ -23,7 +23,8 @@ async def list_audit_log(
     require_admin(request)
     conds = []
     if q:
-        conds.append(AuditLog.path.ilike(f"%{q}%"))
+        like = f"%{q}%"
+        conds.append(or_(AuditLog.path.ilike(like), AuditLog.username.ilike(like)))
     if username:
         conds.append(AuditLog.username == username.strip().lower())
     if method:
