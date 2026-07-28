@@ -198,6 +198,12 @@ async def _visual_research(
     return lines
 
 
+_ACK_RE = re.compile(
+    r"^(ok(ay)?|yes+|yeah|yep|sure|go ahead|do it|please do|sounds good|perfect|great)"
+    r"[\s,!.]*(ok(ay)?|yes+|yeah|yep|sure|go ahead|do it|please|that|thanks?)*[\s,!.]*$",
+    re.IGNORECASE,
+)
+
 _MAX_VISUAL_CANDIDATES = 24
 _VISUAL_CLIP_MAX_SECONDS = 45.0
 
@@ -449,6 +455,10 @@ _PLAN_SYSTEM = (
     '"target_seconds": runtime in seconds if the user asked for a specific '
     'length (e.g. \'3 minutes\' -> 180, \'a bit shorter\' -> ~80% of current), else null, '
     '"notes": "one sentence of editing intent"}\n'
+    "If the user's message is a short acknowledgment ('ok', 'do it', 'yes', "
+    "'go ahead'), it approves the most recent plan YOU proposed in the "
+    "conversation — carry out THAT work: fill searches/remove from your own "
+    "earlier proposal. The acknowledgment itself is never search material.\n"
     "Modes:\n"
     "- answer: the user asked a question or is chatting — no change to the cut. "
     "Answer warmly and concretely, referencing the current cut when relevant. "
@@ -854,7 +864,13 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         # ---- gather candidates
         searches = [s for s in (plan.get("searches") or []) if isinstance(s, str) and s.strip()][:3]
         if not searches:
-            searches = [user_text]
+            # Never search for a bare acknowledgment ("ok do it") — fall back
+            # to the plan's stated intent, which carries the real request.
+            notes = (plan.get("notes") or "").strip()
+            if notes and _ACK_RE.match(user_text.strip()):
+                searches = [notes]
+            else:
+                searches = [user_text]
         kept = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
 
         candidates: list[dict] = []
