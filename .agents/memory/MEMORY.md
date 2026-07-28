@@ -30,4 +30,5 @@
 - [DGX Spark vLLM serving](dgx-spark-vllm.md) — no :latest tag, match container tag to driver branch (R580→25.12), unified memory needs gpu-memory-utilization ~0.65.
 - [Whisper silence hallucination](whisper-hallucination.md) — 30s-boundary "You"/"Thank you." cues on silent audio; always transcribe with vad_filter=True + condition_on_previous_text=False.
 - [No-op guards need copied baselines](noop-guard-aliasing.md) — building "new" state from the same dicts as the baseline makes every change compare as unchanged; snapshot copies first.
+- [Upload spool fills container /tmp](upload-spool-tmp.md) — Starlette spools whole multipart upload to /tmp before the handler runs; unmounted /tmp → ERR_CONNECTION_RESET on large files.
 - [Postgres startup DDL locks](postgres-startup-ddl.md) — ADD COLUMN IF NOT EXISTS locks before checking; gate boot migrations on information_schema or busy workers make the API unhealthy.

@@ -1,4 +1,24 @@
 import os
+import tempfile
+
+# Starlette's multipart parser spools incoming uploads to a temp file BEFORE
+# the endpoint handler runs. The container's /tmp lives on the Docker overlay
+# filesystem, so multi-GB uploads fill the Docker root partition and kill the
+# request mid-stream (browser sees ERR_CONNECTION_RESET). Spool onto the
+# uploads volume instead — it is host storage sized for media.
+_spool_dir = os.environ.get("UPLOAD_SPOOL_DIR", "/uploads/.tmp")
+try:
+    os.makedirs(_spool_dir, exist_ok=True)
+    tempfile.tempdir = _spool_dir
+    # Clear spool files orphaned by a previous crash/restart mid-upload.
+    for _f in os.listdir(_spool_dir):
+        try:
+            os.remove(os.path.join(_spool_dir, _f))
+        except OSError:
+            pass
+except OSError:
+    pass  # volume not mounted (e.g. local dev) — fall back to default /tmp
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
