@@ -19,6 +19,8 @@ import threading
 LLM_BASE_URL = (os.getenv("LLM_BASE_URL") or "").strip().rstrip("/")
 LLM_API_KEY = (os.getenv("LLM_API_KEY") or "").strip()
 _REMOTE_MODEL = (os.getenv("LLM_REMOTE_MODEL") or "").strip()
+# Reasoning effort for models that support it (gpt-oss): low | medium | high.
+_REASONING_EFFORT = (os.getenv("LLM_REASONING_EFFORT") or "low").strip().lower()
 
 _model_cache: str | None = None
 _model_lock = threading.Lock()
@@ -54,18 +56,20 @@ def remote_chat(messages: list[dict], max_new_tokens: int = 512) -> str:
     try:
         with httpx.Client(timeout=timeout, headers=headers) as client:
             model = _resolve_model(client)
-            r = client.post(
-                f"{LLM_BASE_URL}/chat/completions",
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "max_tokens": max_new_tokens,
-                    "temperature": 0,
-                    # vLLM extension: Qwen3 hybrid-reasoning models default to
-                    # <think> blocks; other servers ignore the field.
-                    "chat_template_kwargs": {"enable_thinking": False},
-                },
-            )
+            payload = {
+                "model": model,
+                "messages": messages,
+                "max_tokens": max_new_tokens,
+                "temperature": 0,
+            }
+            lname = model.lower()
+            if "qwen" in lname:
+                # vLLM extension: Qwen3 hybrid-reasoning models default to
+                # <think> blocks; other servers ignore the field.
+                payload["chat_template_kwargs"] = {"enable_thinking": False}
+            elif "gpt-oss" in lname and _REASONING_EFFORT in ("low", "medium", "high"):
+                payload["reasoning_effort"] = _REASONING_EFFORT
+            r = client.post(f"{LLM_BASE_URL}/chat/completions", json=payload)
             r.raise_for_status()
             data = r.json()
     except httpx.HTTPError as e:
