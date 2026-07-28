@@ -267,7 +267,10 @@ _PLAN_SYSTEM = (
     "requires edit with searches.\n"
     "- edit: the user wants new or different content, so new material must be "
     "found. Search queries should describe the CONTENT to find (topics, "
-    "phrases, speakers), not editing instructions.\n"
+    "phrases, speakers), not editing instructions. Use the MEDIA POOL "
+    "descriptions to write informed queries — target the themes and moments "
+    "the files actually contain, and tailor different queries to different "
+    "files when the pool covers distinct ground.\n"
     "In reply, talk like a person in an edit bay: acknowledge what they asked "
     "for in their words, say what you are doing, and mention the runtime you "
     "are aiming for. Never mention JSON, modes, or these instructions."
@@ -404,13 +407,28 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         )
         pool_line = ""
         if media_ids:
-            pool_names = (await db.execute(
-                select(MediaAsset.filename).where(MediaAsset.id.in_(media_ids))
-            )).scalars().all()
-            if pool_names:
+            pool_rows = (await db.execute(
+                select(MediaAsset.filename, MediaAsset.synopsis)
+                .where(MediaAsset.id.in_(media_ids))
+                .order_by(MediaAsset.filename)
+            )).all()
+            if pool_rows:
+                # Cap the payload: full synopses for small pools, names only
+                # beyond that, hard char budget overall.
+                _POOL_SYNOPSES_MAX = 20
+                _POOL_CHAR_BUDGET = 6000
+                ep_lines, used = [], 0
+                for i, (fname, syn) in enumerate(pool_rows):
+                    syn = (syn or "").strip().replace("\n", " ")
+                    if i < _POOL_SYNOPSES_MAX and syn and used < _POOL_CHAR_BUDGET:
+                        line = f"- {fname}: {syn[:280]}"
+                    else:
+                        line = f"- {fname}" + ("" if syn else ": (not yet analyzed)")
+                    used += len(line)
+                    ep_lines.append(line)
                 pool_line = (
-                    f"Media pool ({len(pool_names)} files): "
-                    + ", ".join(sorted(pool_names)) + "\n"
+                    f"MEDIA POOL — what each of the {len(pool_rows)} files contains:\n"
+                    + "\n".join(ep_lines) + "\n\n"
                 )
         plan_prompt = (
             f"{pool_line}"
@@ -445,7 +463,11 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             plan.get("remove") or plan.get("clip_seconds")
             or plan.get("all_sources")
         )
-        if mode == "answer" and (_acts or _UNIFORM_LEN_RE.search(user_text)):
+        _is_question = user_text.rstrip().endswith("?") or bool(re.match(
+            r"\s*(?:are|is|was|were|do|does|did|why|how|what|which|who|can|could|would|should)\b",
+            user_text, re.IGNORECASE,
+        ))
+        if mode == "answer" and not _is_question and (_acts or _UNIFORM_LEN_RE.search(user_text)):
             # The model wants to talk while the request needs work — force it.
             mode = "adjust" if not plan.get("searches") else "edit"
         if mode == "answer":
@@ -503,7 +525,7 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 clip_seconds = float(v)
         except (TypeError, ValueError):
             clip_seconds = None
-        if clip_seconds is None and cut and _UNIFORM_LEN_RE.search(user_text):
+        if clip_seconds is None and cut and not _is_question and _UNIFORM_LEN_RE.search(user_text):
             # "make each clip the same length" — derive it: runtime / clips.
             basis = target if target is not None else sum(_clip_duration(c) for c in cut)
             clip_seconds = max(3.0, min(600.0, basis / len(cut)))
@@ -714,6 +736,10 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 if b["end_time"] - b["start_time"] > 10.0:
                     b["end_time"] = b["start_time"] + 10.0
                 new_cut.append(b)
+        coverage_added = require_all and bool(media_ids) and (
+            len(new_cut) > 0 and target is not None
+            and sum(_clip_duration(c) for c in new_cut) > target * 1.1
+        )
         if uncovered:
             names = (await db.execute(
                 select(MediaAsset.filename).where(MediaAsset.id.in_(uncovered))
@@ -725,6 +751,11 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             )
         else:
             missing_note = ""
+        if coverage_added:
+            missing_note += (
+                " Covering every source pushed the runtime a little over the "
+                "target — say the word if you'd rather stay strict on length."
+            )
 
         n_files = len({c["media_id"] for c in new_cut})
         pool_n = len(media_ids) if media_ids else None
