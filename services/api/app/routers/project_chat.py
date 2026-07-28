@@ -59,6 +59,8 @@ async def _visual_research(
     from .search import _rescale_clip_score, _MIN_VISUAL_SCORE, _is_black_thumbnail
 
     lines: list[str] = []
+    union_by_media: dict[str, list[list[float]]] = {}
+    union_fnames: dict[str, str] = {}
     for q in queries[:3]:
         scene_ids: list[str] = []
         try:
@@ -108,6 +110,27 @@ async def _visual_research(
             lines.append(
                 f"- [{fnames[mid]}] looks like \"{q_clean}\": "
                 f"{len(segs)} distinct segment(s) at {span}"
+            )
+            union_by_media.setdefault(mid, []).extend(segs)
+            union_fnames[mid] = fnames[mid]
+
+    # The vision model matches APPEARANCE, not identity — name-specific queries
+    # ("<artist> performing") all hit the same stage footage, so per-query
+    # counts double-count or under-split. The union across queries is the
+    # honest per-file count; tell the answer model to use it.
+    if len(queries) > 1:
+        for mid, segs in union_by_media.items():
+            segs.sort(key=lambda ab: ab[0])
+            merged: list[list[float]] = []
+            for a, b in segs:
+                if merged and a - merged[-1][1] <= 30.0:
+                    merged[-1][1] = max(merged[-1][1], b)
+                else:
+                    merged.append([a, b])
+            span = ", ".join(f"{_fmt_ts(a)}-{_fmt_ts(b)}" for a, b in merged[:16])
+            lines.append(
+                f"- [{union_fnames[mid]}] ALL queries COMBINED (use this for "
+                f"counting): {len(merged)} distinct segment(s) at {span}"
             )
     return lines
 
@@ -314,7 +337,11 @@ _PLAN_SYSTEM = (
     "what this turn needs and respond ONLY with a JSON object, no other text:\n"
     '{"mode": "edit" | "adjust" | "answer", '
     '"reply": "conversational reply to the user (always fill this in)", '
-    '"searches": ["up to 3 transcript search queries to find new material"], '
+    '"searches": ["up to 3 search queries to find material — each also runs '
+    'against the VISUALS (keyframes), which match appearance only, never '
+    'identity: for questions about what is shown, include one generic '
+    'appearance query like \'musician performing on stage\' instead of '
+    'people\'s names"], '
     '"remove": [clip numbers to drop from the current cut], '
     '"clip_seconds": desired per-clip length in seconds if the user asked '
     'for uniform or specific clip lengths (e.g. \'same length\' -> total/count), else null, '
