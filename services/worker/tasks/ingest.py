@@ -157,6 +157,20 @@ def import_from_link(self, media_id: str, url: str, title: str = None):
         size = os.path.getsize(tmp_path)
         if size == 0:
             raise RuntimeError("Downloaded file is empty — is the link public?")
+        # Dropbox (and others) can answer 200 with an HTML page (login /
+        # virus-scan interstitial / error) or cut the stream short — both
+        # used to get saved as a ".mov" and surface later as corrupt media.
+        ctype = (resp.headers.get("content-type") or "").lower()
+        if "text/html" in ctype or "application/xhtml" in ctype:
+            raise RuntimeError(
+                "The link returned a web page, not a file — make sure the "
+                "share link is public and points at a file or folder."
+            )
+        if total and size < total:
+            raise RuntimeError(
+                f"Download truncated ({size / 1e6:.1f} of {total / 1e6:.1f} MB) — "
+                "please retry the import."
+            )
         append_log(db, job_id, f"Downloaded {size / 1e6:.1f} MB ({fname})")
 
         # Zip (Dropbox folder link) vs single file
@@ -180,6 +194,17 @@ def import_from_link(self, media_id: str, url: str, title: str = None):
                     dest = os.path.join(UPLOAD_DIR, f"{vid}_{base}")
                     with zf.open(info) as src, open(dest, "wb") as out:
                         shutil.copyfileobj(src, out, 8 * 1024 * 1024)
+                    try:
+                        _ffprobe(dest)
+                    except Exception as probe_err:
+                        os.remove(dest)
+                        append_log(db, job_id, f"Skipping {base}: not a playable video ({probe_err})")
+                        if i == 0:
+                            raise RuntimeError(
+                                f"'{base}' in the folder is not a playable video — "
+                                "the download may be incomplete or the file damaged."
+                            ) from probe_err
+                        continue
                     if i == 0:
                         update_asset(db, media_id,
                                      filename=(title or base)[:255],
@@ -205,6 +230,16 @@ def import_from_link(self, media_id: str, url: str, title: str = None):
                     f"Link is not a video file (got '{fname}'). "
                     "For Dropbox, share a video file or a folder of videos."
                 )
+            # Verify it's a decodable video BEFORE accepting it — extension
+            # alone proved worthless (HTML pages arrived named "*.mov").
+            try:
+                _ffprobe(tmp_path)
+            except Exception as probe_err:
+                raise RuntimeError(
+                    f"Downloaded file is not a playable video ({probe_err}). "
+                    "The share link may have returned an error page or a "
+                    "partial file — check the link and retry."
+                ) from probe_err
             dest = os.path.join(UPLOAD_DIR, f"{media_id}_{fname}")
             shutil.move(tmp_path, dest)
             update_asset(db, media_id,
