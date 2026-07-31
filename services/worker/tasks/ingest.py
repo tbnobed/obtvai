@@ -267,6 +267,73 @@ def import_from_link(self, media_id: str, url: str, title: str = None):
         db.close()
 
 
+@celery_app.task(bind=True, name="tasks.ingest.repair_link_imports", queue="ingest")
+def repair_link_imports(self):
+    """Find link-imported assets whose file on disk is not a playable video
+    (HTML error pages / truncated downloads saved before validation existed)
+    and re-download each one from its original URL, then re-run the pipeline.
+
+    The source URL is recovered from the asset's link_import job log
+    ("Downloading: <url>"), so no re-ingest by the user is needed.
+    """
+    from sqlalchemy import text
+
+    db = get_session()
+    try:
+        rows = db.execute(text("""
+            SELECT m.id, m.original_path, m.filename, j.logs
+            FROM media_assets m
+            JOIN processing_jobs j ON j.media_id = m.id AND j.job_type = 'link_import'
+        """)).fetchall()
+
+        checked = repaired = healthy = no_url = 0
+        for media_id, original_path, filename, logs in rows:
+            checked += 1
+            broken = False
+            if not original_path or original_path.startswith("pending-download:") \
+                    or not os.path.exists(original_path):
+                broken = True
+            else:
+                try:
+                    _ffprobe(original_path)
+                except Exception:
+                    broken = True
+            if not broken:
+                healthy += 1
+                continue
+
+            url = None
+            for line in (logs or []):
+                if isinstance(line, str) and line.startswith("Downloading: "):
+                    url = line[len("Downloading: "):].strip()
+                    break
+            if not url:
+                no_url += 1
+                print(f"[repair_link_imports] {media_id} ({filename}): broken but no source URL in job log — skipping")
+                continue
+
+            # Drop the junk file so nothing else trips over it, then re-run
+            # the original import into the SAME asset id (import_from_link
+            # updates the asset row and queues the full pipeline itself).
+            try:
+                if original_path and os.path.exists(original_path):
+                    os.remove(original_path)
+            except OSError:
+                pass
+            update_asset(db, media_id, status="processing",
+                         processing_stage="downloading", processing_progress=0.0)
+            import_from_link.apply_async(kwargs={"media_id": media_id, "url": url})
+            repaired += 1
+            print(f"[repair_link_imports] re-downloading {filename} ({media_id}) from {url}")
+
+        summary = (f"link-import repair: {checked} checked, {healthy} healthy, "
+                   f"{repaired} re-queued, {no_url} broken without a recoverable URL")
+        print(f"[repair_link_imports] {summary}")
+        return summary
+    finally:
+        db.close()
+
+
 def _ffprobe(path: str) -> dict:
     cmd = [
         "ffprobe", "-v", "quiet", "-print_format", "json",

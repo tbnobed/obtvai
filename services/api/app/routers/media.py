@@ -561,6 +561,17 @@ async def import_media_from_link(body: MediaLinkImportInput, db: AsyncSession = 
     return MediaAssetOut.model_validate(asset)
 
 
+@router.post("/repair-link-imports", status_code=202)
+async def repair_link_imports():
+    """Scan link-imported assets and re-download any whose file on disk is
+    broken (HTML error pages / truncated downloads saved before validation
+    existed). Runs in a worker; each broken asset is re-imported from its
+    original URL and re-processed under the same asset id."""
+    from ..worker_client import _publish
+    await _publish("ingest", "tasks.ingest.repair_link_imports", {}, str(uuid.uuid4()))
+    return {"status": "queued", "detail": "Repair scan started — broken link imports will re-download and re-process automatically."}
+
+
 @router.get("/{id}", response_model=MediaAssetOut)
 async def get_media(id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
