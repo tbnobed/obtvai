@@ -114,7 +114,7 @@ def create_proxy(self, media_id: str, job_id: str):
                 mux += ["-c:v", "copy", "-c:a", "aac", "-b:a", "192k"]
             else:
                 append_log(db, job_id, f"Reusing Curator proxy (local remux): {external}")
-                mux += ["-c", "copy"]
+                mux += ["-c", "copy", "-dn", "-sn"]
             mux += ["-movflags", "+faststart", proxy_path]
             r = subprocess.run(mux, capture_output=True, text=True, timeout=1800)
             if r.returncode == 0:
@@ -129,6 +129,10 @@ def create_proxy(self, media_id: str, job_id: str):
         for label, codec_args in ([] if external else _ENCODERS):
             cmd = [
                 "ffmpeg", "-y", "-i", src,
+                # Only video + first audio — camera .mov files carry tmcd/mebx
+                # timecode/data tracks that, when copied into the proxy MP4,
+                # break Firefox playback (NS_ERROR_DOM_MEDIA_DECODE_ERR).
+                "-map", "0:v:0", "-map", "0:a:0?", "-dn", "-sn",
                 *codec_args,
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart",
