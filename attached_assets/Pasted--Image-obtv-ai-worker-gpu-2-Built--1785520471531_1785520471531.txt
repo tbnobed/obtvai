@@ -1,0 +1,27 @@
+✔ Image obtv-ai-worker-gpu-2       Built                                                                                                                                                                                  1.6s
+ ✔ Image obtv-ai-api                Built                                                                                                                                                                                  1.6s
+ ✔ Image obtv-ai-worker-cpu         Built                                                                                                                                                                                  1.6s
+ ✔ Image obtv-ai-worker-gpu         Built                                                                                                                                                                                  1.6s
+ ✔ Container obtv-ai-postgres-1     Healthy                                                                                                                                                                                3.4s
+ ✔ Container obtv-ai-redis-1        Healthy                                                                                                                                                                                3.4s
+ ✔ Container obtv-ai-qdrant-1       Healthy                                                                                                                                                                                3.4s
+ ✔ Container obtv-ai-worker-gpu-1   Started                                                                                                                                                                                3.7s
+ ✔ Container obtv-ai-worker-cpu-1   Started                                                                                                                                                                                3.7s
+ ✔ Container obtv-ai-api-1          Started                                                                                                                                                                                3.7s
+ ✔ Container obtv-ai-worker-gpu-2-1 Started                                                                                                                                                                                3.7s
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull
+Already up to date.
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose ps
+NAME                        IMAGE                     COMMAND                  SERVICE           CREATED          STATUS                    PORTS
+obtv-ai-api-1               obtv-ai-api               "uvicorn app.main:ap…"   api               20 seconds ago   Up 17 seconds (healthy)   8000/tcp
+obtv-ai-flower-1            obtv-ai-flower            "/opt/nvidia/nvidia_…"   flower            13 days ago      Up 2 days                 0.0.0.0:5555->5555/tcp, [::]:5555->5555/tcp
+obtv-ai-frontend-1          obtv-ai-frontend          "/docker-entrypoint.…"   frontend          2 days ago       Up 2 days                 0.0.0.0:5000->80/tcp, [::]:5000->80/tcp
+obtv-ai-postgres-1          postgres:16-alpine        "docker-entrypoint.s…"   postgres          2 weeks ago      Up 2 days (healthy)       5432/tcp
+obtv-ai-qdrant-1            qdrant/qdrant:v1.12.4     "./entrypoint.sh"        qdrant            13 days ago      Up 2 days (healthy)       0.0.0.0:6333->6333/tcp, [::]:6333->6333/tcp, 6334/tcp
+obtv-ai-redis-1             redis:7-alpine            "docker-entrypoint.s…"   redis             2 weeks ago      Up 2 days (healthy)       6379/tcp
+obtv-ai-searxng-1           searxng/searxng:latest    "/usr/local/searxng/…"   searxng           11 days ago      Up 2 days                 8080/tcp
+obtv-ai-watcher-1           obtv-ai-watcher           "python watcher.py"      watcher           8 days ago       Up 2 days
+obtv-ai-worker-cpu-1        obtv-ai-worker-cpu        "/opt/nvidia/nvidia_…"   worker-cpu        20 seconds ago   Up 17 seconds
+obtv-ai-worker-gpu-1        obtv-ai-worker-gpu        "/opt/nvidia/nvidia_…"   worker-gpu        20 seconds ago   Up 17 seconds
+obtv-ai-worker-gpu-2-1      obtv-ai-worker-gpu-2      "/opt/nvidia/nvidia_…"   worker-gpu-2      20 seconds ago   Up 17 seconds
+obtv-ai-worker-graphics-1   obtv-ai-worker-graphics   "/opt/nvidia/nvidia_…"   worker-graphics   3 days ago       Up 2 days
