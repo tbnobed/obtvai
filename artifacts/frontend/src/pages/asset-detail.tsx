@@ -787,6 +787,14 @@ export default function AssetDetail() {
                 />
               </TabsContent>
               <TabsContent value="highlight" className="mt-4 space-y-6">
+                <AssetReelSection
+                  mediaId={id!}
+                  canHighlight={Boolean(asset.key_moments && asset.key_moments.length > 0)}
+                  highlightBusy={highlightBusy}
+                  highlightProgress={highlightJob?.progress ?? null}
+                  highlightError={highlightMutation.isError}
+                  onGenerateHighlight={() => setHlPreviewOpen(true)}
+                />
                 {asset.key_moments && asset.key_moments.length > 0 ? (
                   <>
                   {hlPreviewOpen && (
@@ -893,43 +901,9 @@ export default function AssetDetail() {
                         </Button>
                       </div>
                     </div>
-                  ) : !hlPreviewOpen ? (
-                    <div className="py-10 flex flex-col items-center text-center gap-3">
-                      <Clapperboard className="h-10 w-10 text-muted-foreground" />
-                      <div className="flex items-center gap-2">
-                        <Button className="gap-2" onClick={() => setHlPreviewOpen(true)} data-testid="button-preview-highlight">
-                          <Clapperboard className="h-4 w-4" />
-                          Preview Reel
-                        </Button>
-                        <Button variant="outline" className="gap-2" onClick={startHighlight} disabled={highlightBusy}>
-                          {highlightBusy ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Building reel{highlightJob?.progress ? ` — ${Math.round(highlightJob.progress)}%` : "..."}
-                            </>
-                          ) : (
-                            <>
-                              <Film className="h-4 w-4" />
-                              Generate Highlight Reel
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground max-w-sm">
-                        Preview shows the exact clips at each AI-detected key moment before anything is rendered — then render and export when it looks right.
-                      </p>
-                      {highlightMutation.isError && (
-                        <p className="text-xs text-destructive">Failed to start highlight job. Check Pipeline Jobs.</p>
-                      )}
-                    </div>
                   ) : null}
                   </>
-                ) : (
-                  <div className="text-sm text-muted-foreground py-8 text-center">
-                    A highlight reel needs AI-detected key moments. Run AI analysis first.
-                  </div>
-                )}
-                <AssetReelSection mediaId={id!} />
+                ) : null}
                 <AssetRendersSection mediaId={id!} />
               </TabsContent>
               <TabsContent value="socials" className="mt-4">
@@ -2163,7 +2137,21 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
   );
 }
 
-function AssetReelSection({ mediaId }: { mediaId: string }) {
+function AssetReelSection({
+  mediaId,
+  canHighlight,
+  highlightBusy,
+  highlightProgress,
+  highlightError,
+  onGenerateHighlight,
+}: {
+  mediaId: string;
+  canHighlight: boolean;
+  highlightBusy: boolean;
+  highlightProgress: number | null;
+  highlightError: boolean;
+  onGenerateHighlight: () => void;
+}) {
   const queryClient = useQueryClient();
   const listParams = { media_id: mediaId };
   const { data: reels } = useListReels(listParams, {
@@ -2205,15 +2193,17 @@ function AssetReelSection({ mediaId }: { mediaId: string }) {
 
   const createError = createMutation.error as { status?: number } | null;
 
+  const hasPrompt = prompt.trim().length >= 3;
+
   return (
-    <div className="border-t border-border pt-5 space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-5xl">
       <div>
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <Wand2 className="h-4 w-4" />
-          Prompt Reel
+          Generate Reel
         </h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Describe what to highlight — the best matching moments from this video get stitched into one reel.
+          Describe what to highlight, or leave it blank and hit Generate to build a reel from the AI-detected key moments.
         </p>
       </div>
       <div className="space-y-3">
@@ -2262,22 +2252,37 @@ function AssetReelSection({ mediaId }: { mediaId: string }) {
           </label>
           <Button
             className="gap-2 ml-auto"
-            onClick={submit}
-            disabled={prompt.trim().length < 3 || createMutation.isPending}
+            onClick={hasPrompt ? submit : onGenerateHighlight}
+            disabled={hasPrompt ? createMutation.isPending : (!canHighlight || highlightBusy)}
+            data-testid="button-generate-reel"
           >
-            {createMutation.isPending ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Finding moments...</>
+            {hasPrompt ? (
+              createMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Finding moments...</>
+              ) : (
+                <><Wand2 className="h-4 w-4" /> Build Reel</>
+              )
+            ) : highlightBusy ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Building reel{highlightProgress ? ` — ${Math.round(highlightProgress)}%` : "..."}</>
             ) : (
-              <><Wand2 className="h-4 w-4" /> Build Reel</>
+              <><Film className="h-4 w-4" /> Generate Highlight Reel</>
             )}
           </Button>
         </div>
+        {!hasPrompt && !canHighlight && (
+          <p className="text-xs text-muted-foreground">
+            Generating from key moments needs AI analysis first — or type a prompt to build a reel from the transcript.
+          </p>
+        )}
         {createMutation.isError && (
           <p className="text-sm text-red-400">
             {createError?.status === 404
               ? "No moments in this video match that prompt — try different wording."
               : "Failed to start the reel. Check that the pipeline is running."}
           </p>
+        )}
+        {highlightError && !hasPrompt && (
+          <p className="text-sm text-red-400">Failed to start highlight job. Check Pipeline Jobs.</p>
         )}
       </div>
 
