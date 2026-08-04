@@ -806,19 +806,46 @@ export default function AssetDetail() {
                       ) : hlClips && hlClips.length > 0 ? (
                         <>
                           <CutPreviewPlayer
-                            key={hlClips.map((c) => `${c.start_time}-${c.end_time}`).join("|")}
+                            key={hlClips.length}
                             clips={hlClips}
                             open={hlPreviewOpen}
                             onClose={() => setHlPreviewOpen(false)}
                           />
                           <div className="rounded border border-border divide-y divide-border">
                             {hlClips.map((c, i) => (
-                              <div key={`${i}-${c.start_time}-${c.end_time}`} className="flex items-center gap-3 px-3 py-2 text-sm group">
+                              <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm group">
                                 <span className="text-muted-foreground w-5 text-right">{i + 1}</span>
                                 <span className="flex-1 truncate">{c.snippet || asset.filename}</span>
-                                <span className="text-xs text-muted-foreground tabular-nums">
-                                  {Math.round(c.start_time)}s–{Math.round(c.end_time)}s · {Math.round(c.end_time - c.start_time)}s
-                                </span>
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <span>In</span>
+                                  <Input
+                                    type="number" min={0} step={0.5}
+                                    className="h-6 w-[4.5rem] px-1.5 text-xs tabular-nums"
+                                    value={c.start_time}
+                                    onChange={(e) => {
+                                      const v = Number(e.target.value);
+                                      if (!Number.isFinite(v)) return;
+                                      setHlDirty(true);
+                                      setHlClips((cs) => cs ? cs.map((cc, j) => j === i ? { ...cc, start_time: Math.max(0, Math.min(v, cc.end_time - 0.5)) } : cc) : cs);
+                                    }}
+                                    data-testid={`input-clip-in-${i}`}
+                                  />
+                                  <span>Out</span>
+                                  <Input
+                                    type="number" min={0} step={0.5}
+                                    className="h-6 w-[4.5rem] px-1.5 text-xs tabular-nums"
+                                    value={c.end_time}
+                                    onChange={(e) => {
+                                      const v = Number(e.target.value);
+                                      if (!Number.isFinite(v)) return;
+                                      const max = asset.duration_seconds || Infinity;
+                                      setHlDirty(true);
+                                      setHlClips((cs) => cs ? cs.map((cc, j) => j === i ? { ...cc, end_time: Math.min(max, Math.max(v, cc.start_time + 0.5)) } : cc) : cs);
+                                    }}
+                                    data-testid={`input-clip-out-${i}`}
+                                  />
+                                  <span className="tabular-nums w-10 text-right">{(c.end_time - c.start_time).toFixed(1)}s</span>
+                                </div>
                                 <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100">
                                   <Button
                                     size="icon" variant="ghost" className="h-6 w-6" title="Move up" disabled={i === 0}
@@ -875,7 +902,7 @@ export default function AssetDetail() {
                       )}
                     </div>
                   )}
-                  {asset.highlight_url && !highlightBusy ? (
+                  {asset.highlight_url && !highlightBusy && !hlPreviewOpen ? (
                     <div className="space-y-3 max-w-5xl">
                       <video
                         src={`/api/media/${id}/highlight/stream`}
