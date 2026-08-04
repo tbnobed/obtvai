@@ -43,4 +43,6 @@ export interface ReelRequest {
   max_clips?: number;
   /** Cutting pace, enforced as a hard max clip length after curation: fast = 2-6 s clips, normal = up to 15 s, cinematic = up to 40 s. Overlong clips are split at scene boundaries or sentence gaps. */
   pace?: ReelRequestPace;
+  /** Select clips and return a draft without rendering; render later via /reels/{id}/render */
+  dry_run?: boolean;
 }

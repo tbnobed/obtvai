@@ -16,7 +16,7 @@ from sqlalchemy import select, desc
 from ..database import get_db
 from .projects import touch_project
 from ..models import ReelJob, MediaAsset, TranscriptSegment, Scene, Project
-from ..schemas import ReelRequestIn, ReelJobOut, ReelClipOut, ReelFeedbackIn
+from ..schemas import ReelRequestIn, ReelJobOut, ReelClipOut, ReelFeedbackIn, HighlightRenderIn
 from ..worker_client import enqueue_reel
 
 router = APIRouter(prefix="/reels", tags=["reels"])
@@ -391,13 +391,16 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         # Snapshot the pre-curation candidates so we can tell what the LLM
         # kept vs re-cut when this reel is rated and used as a reference.
         candidate_clips=clips,
-        status="pending",
+        status="draft" if body.dry_run else "pending",
         progress=0.0,
         created_at=datetime.utcnow(),
     )
     db.add(r)
     await touch_project(db, r.project_id)
     await db.commit()
+
+    if body.dry_run:
+        return _to_out(r)
 
     try:
         await enqueue_reel(r.id)
@@ -432,6 +435,57 @@ async def rate_reel(id: str, body: ReelFeedbackIn, db: AsyncSession = Depends(ge
     db.add(r)
     await db.commit()
     await db.refresh(r)
+    return _to_out(r)
+
+
+@router.post("/{id}/render", response_model=ReelJobOut, status_code=202)
+async def render_reel(id: str, body: HighlightRenderIn | None = None,
+                      db: AsyncSession = Depends(get_db)):
+    """Render a draft reel, optionally with a user-curated clip list."""
+    r = (await db.execute(select(ReelJob).where(ReelJob.id == id))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reel not found")
+    if r.status in ("pending", "running"):
+        raise HTTPException(status_code=409, detail="Reel is already rendering")
+
+    if body and body.clips:
+        import math
+        curated = []
+        existing = {(round(float(c.get("start_time", -1)), 2), round(float(c.get("end_time", -1)), 2), c.get("media_id")): c
+                    for c in (r.clips or [])}
+        for c in body.clips:
+            s, e = float(c.start_time), float(c.end_time)
+            if not (math.isfinite(s) and math.isfinite(e)) or s < 0 or e - s < 0.5:
+                raise HTTPException(status_code=422, detail=f"Invalid clip window {c.start_time}–{c.end_time}")
+            base = existing.get((round(s, 2), round(e, 2), c.media_id))
+            curated.append(dict(base) if base else {
+                "media_id": c.media_id,
+                "filename": c.filename,
+                "start_time": s,
+                "end_time": e,
+                "snippet": c.snippet,
+                "thumbnail_url": c.thumbnail_url,
+            })
+        if not curated:
+            raise HTTPException(status_code=422, detail="Clip list is empty")
+        r.clips = curated
+
+    r.status = "pending"
+    r.progress = 0.0
+    r.error_message = None
+    r.finished_at = None
+    db.add(r)
+    await db.commit()
+
+    try:
+        await enqueue_reel(r.id)
+    except Exception as exc:
+        r.status = "error"
+        r.error_message = f"Failed to enqueue reel task: {exc}"
+        r.finished_at = datetime.utcnow()
+        db.add(r)
+        await db.commit()
+        raise HTTPException(status_code=503, detail="Queue unavailable — reel could not be started")
     return _to_out(r)
 
 

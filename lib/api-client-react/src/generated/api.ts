@@ -10848,6 +10848,78 @@ export const useCreateReel = <TError = ErrorType<void>,
       return useMutation(getCreateReelMutationOptions(options));
     }
 
+export const getRenderReelUrl = (id: string,) => {
+
+
+
+
+  return `/api/reels/${id}/render`
+}
+
+/**
+ * @summary Render a draft reel, optionally with a user-curated clip list
+ */
+export const renderReel = async (id: string,
+    highlightRenderIn?: HighlightRenderIn, options?: RequestInit): Promise<ReelJob> => {
+
+  return customFetch<ReelJob>(getRenderReelUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(highlightRenderIn)
+  }
+);}
+
+
+
+
+
+export const getRenderReelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renderReel>>, TError,{id: string;data?: BodyType<HighlightRenderIn>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renderReel>>, TError,{id: string;data?: BodyType<HighlightRenderIn>}, TContext> => {
+
+const mutationKey = ['renderReel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renderReel>>, {id: string;data?: BodyType<HighlightRenderIn>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  renderReel(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenderReelMutationResult = NonNullable<Awaited<ReturnType<typeof renderReel>>>
+    export type RenderReelMutationBody = BodyType<HighlightRenderIn> | undefined
+    export type RenderReelMutationError = ErrorType<void>
+
+    /**
+ * @summary Render a draft reel, optionally with a user-curated clip list
+ */
+export const useRenderReel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renderReel>>, TError,{id: string;data?: BodyType<HighlightRenderIn>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof renderReel>>,
+        TError,
+        {id: string;data?: BodyType<HighlightRenderIn>},
+        TContext
+      > => {
+      return useMutation(getRenderReelMutationOptions(options));
+    }
+
 export const getGetReelUrl = (id: string,) => {
 
 

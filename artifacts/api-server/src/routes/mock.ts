@@ -2247,17 +2247,42 @@ router.post("/reels", (req, res) => {
     burn_captions: burn,
     unreviewed: false,
     clips,
-    status: "pending",
+    status: req.body.dry_run ? "draft" : "pending",
     progress: 0,
     output_url: null,
     error_message: null,
     created_at: new Date().toISOString(),
     finished_at: null,
-    _startedAt: Date.now(),
+    _startedAt: req.body.dry_run ? 0 : Date.now(),
   };
   reels.unshift(reel);
   touchProject(reel.project_id);
   res.status(202).json(reelOut(reel));
+});
+
+router.post("/reels/:id/render", (req, res) => {
+  const r = reels.find((x) => x.id === req.params.id);
+  if (!r) { res.status(404).json({ detail: "Reel not found" }); return; }
+  if (r.status === "pending" || r.status === "running") {
+    res.status(409).json({ detail: "Reel is already rendering" });
+    return;
+  }
+  if (Array.isArray(req.body?.clips) && req.body.clips.length) {
+    r.clips = req.body.clips.map((c: any) => ({
+      media_id: c.media_id,
+      filename: c.filename,
+      start_time: c.start_time,
+      end_time: c.end_time,
+      snippet: c.snippet ?? null,
+      thumbnail_url: c.thumbnail_url ?? null,
+    }));
+  }
+  r.status = "pending";
+  r.progress = 0;
+  r.error_message = null;
+  r.finished_at = null;
+  r._startedAt = Date.now();
+  res.status(202).json(reelOut(r));
 });
 
 router.get("/reels/:id", (req, res) => {

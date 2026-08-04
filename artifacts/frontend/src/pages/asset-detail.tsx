@@ -21,6 +21,7 @@ import {
   useListRenders, getListRendersQueryKey, useDeleteRender,
   useCreateReel,
   useDeleteReel,
+  useRenderReel,
   useCreateRoughCut,
   useTightenMedia,
   getCaptions,
@@ -811,67 +812,12 @@ export default function AssetDetail() {
                             open={hlPreviewOpen}
                             onClose={() => setHlPreviewOpen(false)}
                           />
-                          <div className="rounded border border-border divide-y divide-border">
-                            {hlClips.map((c, i) => (
-                              <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm group">
-                                <span className="text-muted-foreground w-5 text-right">{i + 1}</span>
-                                <span className="flex-1 truncate">{c.snippet || asset.filename}</span>
-                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                  <span>In</span>
-                                  <Input
-                                    type="number" min={0} step={0.5}
-                                    className="h-6 w-[4.5rem] px-1.5 text-xs tabular-nums"
-                                    value={c.start_time}
-                                    onChange={(e) => {
-                                      const v = Number(e.target.value);
-                                      if (!Number.isFinite(v)) return;
-                                      setHlDirty(true);
-                                      setHlClips((cs) => cs ? cs.map((cc, j) => j === i ? { ...cc, start_time: Math.max(0, Math.min(v, cc.end_time - 0.5)) } : cc) : cs);
-                                    }}
-                                    data-testid={`input-clip-in-${i}`}
-                                  />
-                                  <span>Out</span>
-                                  <Input
-                                    type="number" min={0} step={0.5}
-                                    className="h-6 w-[4.5rem] px-1.5 text-xs tabular-nums"
-                                    value={c.end_time}
-                                    onChange={(e) => {
-                                      const v = Number(e.target.value);
-                                      if (!Number.isFinite(v)) return;
-                                      const max = asset.duration_seconds || Infinity;
-                                      setHlDirty(true);
-                                      setHlClips((cs) => cs ? cs.map((cc, j) => j === i ? { ...cc, end_time: Math.min(max, Math.max(v, cc.start_time + 0.5)) } : cc) : cs);
-                                    }}
-                                    data-testid={`input-clip-out-${i}`}
-                                  />
-                                  <span className="tabular-nums w-10 text-right">{(c.end_time - c.start_time).toFixed(1)}s</span>
-                                </div>
-                                <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100">
-                                  <Button
-                                    size="icon" variant="ghost" className="h-6 w-6" title="Move up" disabled={i === 0}
-                                    onClick={() => { setHlDirty(true); setHlClips((cs) => { if (!cs) return cs; const n = [...cs]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); }}
-                                    data-testid={`button-clip-up-${i}`}
-                                  >
-                                    <ChevronUp className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    size="icon" variant="ghost" className="h-6 w-6" title="Move down" disabled={i === hlClips.length - 1}
-                                    onClick={() => { setHlDirty(true); setHlClips((cs) => { if (!cs) return cs; const n = [...cs]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; }); }}
-                                    data-testid={`button-clip-down-${i}`}
-                                  >
-                                    <ChevronDown className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    size="icon" variant="ghost" className="h-6 w-6 text-destructive" title="Remove clip"
-                                    onClick={() => { setHlDirty(true); setHlClips((cs) => cs ? cs.filter((_, j) => j !== i) : cs); }}
-                                    data-testid={`button-clip-remove-${i}`}
-                                  >
-                                    <X className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                          <ClipWindowEditor
+                            clips={hlClips}
+                            onChange={(next) => { setHlDirty(true); setHlClips(next); }}
+                            fallbackLabel={asset.filename}
+                            maxDuration={asset.duration_seconds}
+                          />
                           <div className="flex items-center gap-2">
                             <Button className="gap-2" onClick={startHighlight} disabled={highlightBusy} data-testid="button-render-highlight">
                               {highlightBusy ? (
@@ -2164,6 +2110,80 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
   );
 }
 
+function ClipWindowEditor({
+  clips,
+  onChange,
+  fallbackLabel,
+  maxDuration,
+}: {
+  clips: CutClip[];
+  onChange: (clips: CutClip[]) => void;
+  fallbackLabel: string;
+  maxDuration?: number | null;
+}) {
+  const max = maxDuration || Infinity;
+  return (
+    <div className="rounded border border-border divide-y divide-border">
+      {clips.map((c, i) => (
+        <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm group">
+          <span className="text-muted-foreground w-5 text-right">{i + 1}</span>
+          <span className="flex-1 truncate">{c.snippet || c.filename || fallbackLabel}</span>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>In</span>
+            <Input
+              type="number" min={0} step={0.5}
+              className="h-6 w-[4.5rem] px-1.5 text-xs tabular-nums"
+              value={c.start_time}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isFinite(v)) return;
+                onChange(clips.map((cc, j) => j === i ? { ...cc, start_time: Math.max(0, Math.min(v, cc.end_time - 0.5)) } : cc));
+              }}
+              data-testid={`input-clip-in-${i}`}
+            />
+            <span>Out</span>
+            <Input
+              type="number" min={0} step={0.5}
+              className="h-6 w-[4.5rem] px-1.5 text-xs tabular-nums"
+              value={c.end_time}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isFinite(v)) return;
+                onChange(clips.map((cc, j) => j === i ? { ...cc, end_time: Math.min(max, Math.max(v, cc.start_time + 0.5)) } : cc));
+              }}
+              data-testid={`input-clip-out-${i}`}
+            />
+            <span className="tabular-nums w-10 text-right">{(c.end_time - c.start_time).toFixed(1)}s</span>
+          </div>
+          <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100">
+            <Button
+              size="icon" variant="ghost" className="h-6 w-6" title="Move up" disabled={i === 0}
+              onClick={() => { const n = [...clips]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; onChange(n); }}
+              data-testid={`button-clip-up-${i}`}
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="icon" variant="ghost" className="h-6 w-6" title="Move down" disabled={i === clips.length - 1}
+              onClick={() => { const n = [...clips]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; onChange(n); }}
+              data-testid={`button-clip-down-${i}`}
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="icon" variant="ghost" className="h-6 w-6 text-destructive" title="Remove clip"
+              onClick={() => onChange(clips.filter((_, j) => j !== i))}
+              data-testid={`button-clip-remove-${i}`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AssetReelSection({
   mediaId,
   canHighlight,
@@ -2186,6 +2206,9 @@ function AssetReelSection({
   });
   const createMutation = useCreateReel();
   const deleteMutation = useDeleteReel();
+  const renderMutation = useRenderReel();
+  const [draft, setDraft] = useState<ReelJob | null>(null);
+  const [draftClips, setDraftClips] = useState<CutClip[]>([]);
 
   const [prompt, setPrompt] = useState("");
   const [preset, setPreset] = useState<"original" | "vertical">("original");
@@ -2207,10 +2230,34 @@ function AssetReelSection({
           burn_captions: burnCaptions,
           max_clips: maxClips,
           pace,
+          // Preview first: select clips as a draft, render after user approval.
+          dry_run: true,
         },
       },
       {
+        onSuccess: (r) => {
+          setDraft(r);
+          setDraftClips((r.clips ?? []) as unknown as CutClip[]);
+          invalidate();
+        },
+      },
+    );
+  };
+
+  const discardDraft = () => {
+    if (draft) deleteMutation.mutate({ id: draft.id }, { onSuccess: invalidate });
+    setDraft(null);
+    setDraftClips([]);
+  };
+
+  const renderDraft = () => {
+    if (!draft || draftClips.length === 0) return;
+    renderMutation.mutate(
+      { id: draft.id, data: { clips: draftClips } },
+      {
         onSuccess: () => {
+          setDraft(null);
+          setDraftClips([]);
           setPrompt("");
           invalidate();
         },
@@ -2313,9 +2360,53 @@ function AssetReelSection({
         )}
       </div>
 
-      {reels && reels.length > 0 && (
+      {draft && (
+        <div className="space-y-3" data-testid="reel-draft-preview">
+          {draftClips.length > 0 ? (
+            <>
+              <CutPreviewPlayer
+                key={draftClips.length}
+                clips={draftClips}
+                open
+                onClose={discardDraft}
+              />
+              <ClipWindowEditor
+                clips={draftClips}
+                onChange={setDraftClips}
+                fallbackLabel={draft.prompt}
+              />
+              <div className="flex items-center gap-2">
+                <Button className="gap-2" onClick={renderDraft} disabled={renderMutation.isPending} data-testid="button-render-reel">
+                  {renderMutation.isPending ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" />Starting render...</>
+                  ) : (
+                    <><Film className="h-4 w-4" />Render & Export</>
+                  )}
+                </Button>
+                <Button variant="outline" onClick={discardDraft} data-testid="button-discard-draft">
+                  Discard
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {draftClips.length} clips · {Math.round(draftClips.reduce((s, c) => s + (c.end_time - c.start_time), 0))}s total
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="py-4 text-center space-y-2">
+              <p className="text-sm text-muted-foreground">All clips removed.</p>
+              <Button variant="outline" size="sm" onClick={() => setDraftClips((draft.clips ?? []) as unknown as CutClip[])}>Reset clips</Button>
+              <Button variant="ghost" size="sm" onClick={discardDraft}>Discard draft</Button>
+            </div>
+          )}
+          {renderMutation.isError && (
+            <p className="text-sm text-red-400">Failed to start the render. Try again or check Pipeline Jobs.</p>
+          )}
+        </div>
+      )}
+
+      {reels && reels.filter((r: ReelJob) => r.status !== "draft").length > 0 && (
         <div className="space-y-3">
-          {reels.map((r: ReelJob) => (
+          {reels.filter((r: ReelJob) => r.status !== "draft").map((r: ReelJob) => (
             <div key={r.id} className="border border-border rounded-lg p-4">
               <div className="flex items-start gap-4">
                 <div className="shrink-0 text-muted-foreground mt-1">

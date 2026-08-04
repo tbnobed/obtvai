@@ -283,6 +283,9 @@ class ReelRequestIn(BaseModel):
     burn_captions: bool = False
     max_clips: int = Field(default=6, ge=1, le=500)
     pace: Literal["fast", "normal", "cinematic"] = "normal"
+    # Select clips and return a draft without rendering — render later via
+    # POST /reels/{id}/render (optionally with a user-curated clip list).
+    dry_run: bool = False
 
 
 class ReelFeedbackIn(BaseModel):

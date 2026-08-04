@@ -3252,6 +3252,35 @@ paths:
         "404":
           description: No matching moments found for the prompt
 
+  /reels/{id}/render:
+    post:
+      operationId: renderReel
+      tags: [reels]
+      summary: Render a draft reel, optionally with a user-curated clip list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HighlightRenderIn"
+      responses:
+        "202":
+          description: Reel render queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelJob"
+        "404":
+          description: Reel not found
+        "409":
+          description: Reel is already rendering
+
   /reels/{id}:
     get:
       operationId: getReel
@@ -6149,7 +6178,7 @@ components:
           description: True when the source clip list was not fully approved at render time
         status:
           type: string
-          description: pending | running | success | error
+          description: draft | pending | running | success | error
         progress:
           type: number
         output_url:
@@ -6259,6 +6288,10 @@ components:
           enum: [fast, normal, cinematic]
           default: normal
           description: "Cutting pace, enforced as a hard max clip length after curation: fast = 2-6 s clips, normal = up to 15 s, cinematic = up to 40 s. Overlong clips are split at scene boundaries or sentence gaps."
+        dry_run:
+          type: boolean
+          default: false
+          description: Select clips and return a draft without rendering; render later via /reels/{id}/render
 
     ReelFeedback:
       type: object
@@ -6474,7 +6507,7 @@ components:
             $ref: "#/components/schemas/ReelClip"
         status:
           type: string
-          description: pending | running | success | error
+          description: draft | pending | running | success | error
         progress:
           type: number
         output_url:
