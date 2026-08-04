@@ -1184,6 +1184,7 @@ router.post("/media/:id/highlight", (req, res) => {
     res.status(400).json({ detail: "No key moments available — run AI analysis first" });
     return;
   }
+  const curated = Array.isArray(req.body?.clips) ? req.body.clips.length : 0;
   const job = {
     id: `job-hl-${Date.now()}`,
     media_id: asset.id,
@@ -1192,7 +1193,9 @@ router.post("/media/:id/highlight", (req, res) => {
     status: "running",
     progress: 10,
     error_message: null as string | null,
-    logs: ["Building highlight reel", "Cutting 5 clips from source"],
+    logs: curated
+      ? ["Building highlight reel", `Using ${curated} user-curated clip(s) from preview`]
+      : ["Building highlight reel", "Cutting 5 clips from source"],
     retry_count: 0,
     created_at: new Date().toISOString(),
     started_at: new Date().toISOString(),

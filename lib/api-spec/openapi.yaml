@@ -627,6 +627,12 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HighlightRenderIn"
       responses:
         "202":
           description: Highlight job queued
@@ -6313,6 +6319,15 @@ components:
           type: boolean
           default: false
           description: Locked clips are never removed or reordered by the assistant
+
+    HighlightRenderIn:
+      type: object
+      description: Optional user-curated clip list from the highlight preview
+      properties:
+        clips:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/CutClip"
 
     HighlightPreview:
       type: object

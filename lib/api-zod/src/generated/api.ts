@@ -791,6 +791,20 @@ export const CreateHighlightParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const createHighlightBodyClipsItemLockedDefault = false;
+
+export const CreateHighlightBody = zod.object({
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "locked": zod.boolean().default(createHighlightBodyClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
+})).nullish()
+}).describe('Optional user-curated clip list from the highlight preview')
+
 export const CreateHighlightResponse = zod.object({
   "id": zod.string(),
   "media_id": zod.string().nullish().describe('Null for library-wide jobs (e.g. insights)'),

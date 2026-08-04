@@ -51,6 +51,7 @@ import type {
   GraphicsPreset,
   HealthStatus,
   HighlightPreview,
+  HighlightRenderIn,
   JobCleanupRequest,
   JobCleanupResult,
   JobStats,
@@ -1982,14 +1983,15 @@ export const getCreateHighlightUrl = (id: string,) => {
 /**
  * @summary Generate a highlight reel video from the asset's key moments
  */
-export const createHighlight = async (id: string, options?: RequestInit): Promise<ProcessingJob> => {
+export const createHighlight = async (id: string,
+    highlightRenderIn?: HighlightRenderIn, options?: RequestInit): Promise<ProcessingJob> => {
 
   return customFetch<ProcessingJob>(getCreateHighlightUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(highlightRenderIn)
   }
 );}
 
@@ -1998,8 +2000,8 @@ export const createHighlight = async (id: string, options?: RequestInit): Promis
 
 
 export const getCreateHighlightMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createHighlight>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createHighlight>>, TError,{id: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createHighlight>>, TError,{id: string;data?: BodyType<HighlightRenderIn>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createHighlight>>, TError,{id: string;data?: BodyType<HighlightRenderIn>}, TContext> => {
 
 const mutationKey = ['createHighlight'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2011,10 +2013,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createHighlight>>, {id: string}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createHighlight>>, {id: string;data?: BodyType<HighlightRenderIn>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  createHighlight(id,requestOptions)
+          return  createHighlight(id,data,requestOptions)
         }
 
 
@@ -2025,18 +2027,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CreateHighlightMutationResult = NonNullable<Awaited<ReturnType<typeof createHighlight>>>
-
+    export type CreateHighlightMutationBody = BodyType<HighlightRenderIn> | undefined
     export type CreateHighlightMutationError = ErrorType<unknown>
 
     /**
  * @summary Generate a highlight reel video from the asset's key moments
  */
 export const useCreateHighlight = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createHighlight>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createHighlight>>, TError,{id: string;data?: BodyType<HighlightRenderIn>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createHighlight>>,
         TError,
-        {id: string},
+        {id: string;data?: BodyType<HighlightRenderIn>},
         TContext
       > => {
       return useMutation(getCreateHighlightMutationOptions(options));

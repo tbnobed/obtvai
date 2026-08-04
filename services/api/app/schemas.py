@@ -1034,6 +1034,11 @@ class CutClip(BaseModel):
     locked: bool = False
 
 
+class HighlightRenderIn(BaseModel):
+    """Optional user-curated clip list from the highlight preview."""
+    clips: Optional[List[CutClip]] = None
+
+
 class ProjectCutOut(BaseModel):
     version: int
     clips: List[CutClip] = []

@@ -2127,6 +2127,14 @@ export interface CutClip {
   locked?: boolean;
 }
 
+/**
+ * Optional user-curated clip list from the highlight preview
+ */
+export interface HighlightRenderIn {
+  /** @nullable */
+  clips?: CutClip[] | null;
+}
+
 export interface HighlightPreview {
   clips: CutClip[];
   total_seconds: number;

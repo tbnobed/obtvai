@@ -32,14 +32,14 @@ import {
   useUpdateClipList, getGetClipListQueryKey,
   useListRatings, getListRatingsQueryKey
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform, ReelJob, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, ReelJob, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, CutClip } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search, Pencil, Check, X } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search, Pencil, Check, X, ChevronUp, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -198,21 +198,32 @@ export default function AssetDetail() {
   const highlightJob = jobs?.find(j => j.job_type === "highlight" && (j.status === "pending" || j.status === "running"));
   const highlightBusy = highlightMutation.isPending || Boolean(highlightJob);
 
-  const startHighlight = () => {
-    if (!id) return;
-    highlightMutation.mutate({ id }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
-      }
-    });
-  };
   const [hlPreviewOpen, setHlPreviewOpen] = useState(false);
+  const [hlClips, setHlClips] = useState<CutClip[] | null>(null);
   const hlPreview = useGetHighlightPreview(id!, {
     query: {
       queryKey: getGetHighlightPreviewQueryKey(id!),
       enabled: hlPreviewOpen && Boolean(asset?.key_moments?.length),
     },
   });
+  const [hlDirty, setHlDirty] = useState(false);
+  useEffect(() => {
+    // Seed the editable list from a fresh preview, but never clobber the
+    // user's edits on a background refetch.
+    if (hlPreview.data && !hlDirty) setHlClips(hlPreview.data.clips);
+  }, [hlPreview.data, hlDirty]);
+
+  const startHighlight = () => {
+    if (!id) return;
+    // Send the curated list only when the user actually previewed (and
+    // possibly edited) it — otherwise let the worker pick clips itself.
+    const edited = hlPreviewOpen && hlClips && hlClips.length > 0;
+    highlightMutation.mutate({ id, data: edited ? { clips: hlClips } : undefined }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
+      }
+    });
+  };
 
   const creativeMutation = useCreateCreativePass();
   const creativeJob = jobs?.find(j => j.job_type === "creative" && (j.status === "pending" || j.status === "running"));
@@ -784,21 +795,45 @@ export default function AssetDetail() {
                         <div className="py-8 flex items-center justify-center text-sm text-muted-foreground gap-2">
                           <Loader2 className="h-4 w-4 animate-spin" /> Selecting clips…
                         </div>
-                      ) : hlPreview.data && hlPreview.data.clips.length > 0 ? (
+                      ) : hlClips && hlClips.length > 0 ? (
                         <>
                           <CutPreviewPlayer
-                            clips={hlPreview.data.clips}
+                            key={hlClips.map((c) => `${c.start_time}-${c.end_time}`).join("|")}
+                            clips={hlClips}
                             open={hlPreviewOpen}
                             onClose={() => setHlPreviewOpen(false)}
                           />
                           <div className="rounded border border-border divide-y divide-border">
-                            {hlPreview.data.clips.map((c, i) => (
-                              <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
+                            {hlClips.map((c, i) => (
+                              <div key={`${i}-${c.start_time}-${c.end_time}`} className="flex items-center gap-3 px-3 py-2 text-sm group">
                                 <span className="text-muted-foreground w-5 text-right">{i + 1}</span>
                                 <span className="flex-1 truncate">{c.snippet || asset.filename}</span>
                                 <span className="text-xs text-muted-foreground tabular-nums">
                                   {Math.round(c.start_time)}s–{Math.round(c.end_time)}s · {Math.round(c.end_time - c.start_time)}s
                                 </span>
+                                <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100">
+                                  <Button
+                                    size="icon" variant="ghost" className="h-6 w-6" title="Move up" disabled={i === 0}
+                                    onClick={() => { setHlDirty(true); setHlClips((cs) => { if (!cs) return cs; const n = [...cs]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); }}
+                                    data-testid={`button-clip-up-${i}`}
+                                  >
+                                    <ChevronUp className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="icon" variant="ghost" className="h-6 w-6" title="Move down" disabled={i === hlClips.length - 1}
+                                    onClick={() => { setHlDirty(true); setHlClips((cs) => { if (!cs) return cs; const n = [...cs]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; }); }}
+                                    data-testid={`button-clip-down-${i}`}
+                                  >
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="icon" variant="ghost" className="h-6 w-6 text-destructive" title="Remove clip"
+                                    onClick={() => { setHlDirty(true); setHlClips((cs) => cs ? cs.filter((_, j) => j !== i) : cs); }}
+                                    data-testid={`button-clip-remove-${i}`}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -811,10 +846,20 @@ export default function AssetDetail() {
                               )}
                             </Button>
                             <span className="text-xs text-muted-foreground">
-                              {hlPreview.data.clips.length} clips · {Math.round(hlPreview.data.total_seconds)}s total
+                              {hlClips.length} clips · {Math.round(hlClips.reduce((s, c) => s + (c.end_time - c.start_time), 0))}s total
                             </span>
+                            {hlPreview.data && hlClips.length !== hlPreview.data.clips.length && (
+                              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => { setHlDirty(false); setHlClips(hlPreview.data!.clips); }} data-testid="button-reset-clips">
+                                Reset
+                              </Button>
+                            )}
                           </div>
                         </>
+                      ) : hlClips && hlClips.length === 0 && hlPreview.data ? (
+                        <div className="py-6 text-center space-y-2">
+                          <p className="text-sm text-muted-foreground">All clips removed.</p>
+                          <Button variant="outline" size="sm" onClick={() => { setHlDirty(false); setHlClips(hlPreview.data!.clips); }}>Reset clips</Button>
+                        </div>
                       ) : hlPreview.isError ? (
                         <p className="text-sm text-destructive py-6 text-center">Couldn't load the clip preview — check that AI analysis has run, then try again.</p>
                       ) : (

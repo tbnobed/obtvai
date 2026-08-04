@@ -17,6 +17,7 @@ from ..schemas import (
     MarkerOut, MarkerInput,
     MediaMoveInput, MediaMoveResult,
     AssetPersonOut, SpeakingMomentOut, OnCameraRangeOut,
+    HighlightRenderIn,
 )
 from ..models import ClipList, Clip, ReelJob
 from ..config import settings
@@ -954,7 +955,8 @@ async def preview_highlight(id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{id}/highlight", response_model=ProcessingJobOut, status_code=202)
-async def create_highlight(id: str, db: AsyncSession = Depends(get_db)):
+async def create_highlight(id: str, body: HighlightRenderIn | None = None,
+                           db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
     asset = result.scalar_one_or_none()
     if not asset:
@@ -987,7 +989,22 @@ async def create_highlight(id: str, db: AsyncSession = Depends(get_db)):
     await db.refresh(job)
 
     from ..worker_client import enqueue_job
-    await enqueue_job("highlight", id, job.id)
+    extra = None
+    if body and body.clips:
+        import math
+        duration = float(asset.duration_seconds or 0)
+        validated = []
+        for c in body.clips:
+            s, e = float(c.start_time), float(c.end_time)
+            if not (math.isfinite(s) and math.isfinite(e)) or s < 0 or e <= s:
+                raise HTTPException(status_code=422, detail=f"Invalid clip window {c.start_time}–{c.end_time}")
+            if duration > 0 and e > duration + 0.5:
+                raise HTTPException(status_code=422, detail=f"Clip end {e}s exceeds asset duration {duration}s")
+            if e - s < 0.5:
+                raise HTTPException(status_code=422, detail="Clips must be at least 0.5s long")
+            validated.append({"start_time": s, "end_time": e})
+        extra = {"clips": validated}
+    await enqueue_job("highlight", id, job.id, extra=extra)
 
     out = ProcessingJobOut.model_validate(job)
     out.filename = asset.filename

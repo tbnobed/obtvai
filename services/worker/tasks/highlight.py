@@ -54,7 +54,7 @@ def _select_windows(moments: list, duration: float) -> list[tuple[float, float]]
 
 
 @celery_app.task(bind=True, name="tasks.highlight.build_highlight", queue="cpu")
-def build_highlight(self, media_id: str, job_id: str):
+def build_highlight(self, media_id: str, job_id: str, clips: list = None):
     db = get_session()
     try:
         update_job(db, job_id, status="running", started_at=datetime.utcnow(),
@@ -84,7 +84,24 @@ def build_highlight(self, media_id: str, job_id: str):
         if not src or not os.path.exists(src):
             raise RuntimeError("No source file available for clipping")
 
-        windows = _select_windows(key_moments, duration)
+        # User-curated clip list from the preview wins over recomputing —
+        # the render must match exactly what the user approved.
+        if clips:
+            windows = []
+            for c in clips:
+                try:
+                    s = max(0.0, float(c["start_time"]))
+                    e = float(c["end_time"])
+                except (KeyError, TypeError, ValueError):
+                    raise RuntimeError(f"Malformed curated clip: {c!r}")
+                if duration > 0:
+                    e = min(e, duration)
+                if e - s < 0.5:
+                    raise RuntimeError(f"Curated clip too short after clamping: {s}-{e}")
+                windows.append((s, e))
+            append_log(db, job_id, f"Using {len(windows)} user-curated clip(s) from preview")
+        else:
+            windows = _select_windows(key_moments, duration)
         if not windows:
             raise RuntimeError("Key moments did not yield any usable clip windows")
 
