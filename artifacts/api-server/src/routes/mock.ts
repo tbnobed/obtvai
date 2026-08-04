@@ -1217,6 +1217,14 @@ router.post("/media/:id/highlight", (req, res) => {
   res.status(202).json(job);
 });
 
+router.delete("/media/:id/highlight", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ error: "Media not found" }); return; }
+  if (!(asset as any).highlight_url) { res.status(404).json({ detail: "No highlight reel to delete" }); return; }
+  (asset as any).highlight_url = null;
+  res.status(204).send();
+});
+
 router.post("/media/:id/creative", (req, res) => {
   const asset = assets.find((a) => a.id === req.params.id);
   if (!asset) { res.status(404).json({ error: "Media not found" }); return; }

@@ -1563,6 +1563,26 @@ async def stream_dub_video(id: str, lang: str, db: AsyncSession = Depends(get_db
     )
 
 
+@router.delete("/{id}/highlight", status_code=204)
+async def delete_highlight(id: str, db: AsyncSession = Depends(get_db)):
+    """Delete the generated highlight reel (file + reference)."""
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+    if not asset.highlight_url:
+        raise HTTPException(status_code=404, detail="No highlight reel to delete")
+    path = os.path.join(settings.artifacts_root, "reels", asset.highlight_url)
+    if os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    asset.highlight_url = None
+    db.add(asset)
+    await db.commit()
+
+
 @router.get("/{id}/highlight/stream")
 async def stream_highlight(id: str, db: AsyncSession = Depends(get_db)):
     from fastapi.responses import FileResponse

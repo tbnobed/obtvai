@@ -653,7 +653,7 @@ export const CreateRoughCutResponse = zod.object({
   "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
   "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -822,6 +822,16 @@ export const CreateHighlightResponse = zod.object({
 
 
 /**
+ * @summary Delete the generated highlight reel (file + reference)
+ */
+export const DeleteHighlightParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteHighlightResponse = zod.void()
+
+
+/**
  * @summary The exact clips a highlight reel render would cut, without rendering
  */
 export const GetHighlightPreviewParams = zod.object({
@@ -913,7 +923,7 @@ export const CreateSocialCutsResponseItem = zod.object({
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -3533,7 +3543,7 @@ export const RenderProjectCutResponse = zod.object({
   "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
   "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -3758,7 +3768,7 @@ export const CreateClipListRoughCutResponse = zod.object({
   "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
   "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -3794,7 +3804,7 @@ export const RenderClipListResponseItem = zod.object({
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -3838,7 +3848,7 @@ export const ListRendersResponseItem = zod.object({
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -3891,7 +3901,7 @@ export const CreateRenderResponse = zod.object({
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -3929,7 +3939,7 @@ export const GetRenderResponse = zod.object({
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -3999,7 +4009,7 @@ export const PublishRenderResponse = zod.object({
   "preset": zod.string().describe('original | vertical'),
   "burn_captions": zod.boolean(),
   "unreviewed": zod.boolean().nullish().describe('True when the source clip list was not fully approved at render time'),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -4057,7 +4067,7 @@ export const ListReelsResponseItem = zod.object({
   "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
   "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -4116,7 +4126,7 @@ export const CreateReelResponse = zod.object({
   "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
   "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -4166,7 +4176,7 @@ export const RenderReelResponse = zod.object({
   "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
   "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -4202,7 +4212,7 @@ export const GetReelResponse = zod.object({
   "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
   "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),
@@ -4252,7 +4262,7 @@ export const RateReelResponse = zod.object({
   "snippet": zod.string().nullish().describe('Transcript text that matched the prompt'),
   "thumbnail_url": zod.string().nullish().describe('Preview frame near the clip start (relative thumbnail path)')
 })),
-  "status": zod.string().describe('pending | running | success | error'),
+  "status": zod.string().describe('draft | pending | running | success | error'),
   "progress": zod.number(),
   "output_url": zod.string().nullish().describe('Set when status is success'),
   "error_message": zod.string().nullish(),

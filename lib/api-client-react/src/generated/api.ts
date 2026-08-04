@@ -2044,6 +2044,77 @@ export const useCreateHighlight = <TError = ErrorType<unknown>,
       return useMutation(getCreateHighlightMutationOptions(options));
     }
 
+export const getDeleteHighlightUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/highlight`
+}
+
+/**
+ * @summary Delete the generated highlight reel (file + reference)
+ */
+export const deleteHighlight = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteHighlightUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteHighlightMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteHighlight>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteHighlight>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteHighlight'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteHighlight>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteHighlight(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteHighlightMutationResult = NonNullable<Awaited<ReturnType<typeof deleteHighlight>>>
+
+    export type DeleteHighlightMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete the generated highlight reel (file + reference)
+ */
+export const useDeleteHighlight = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteHighlight>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteHighlight>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteHighlightMutationOptions(options));
+    }
+
 export const getGetHighlightPreviewUrl = (id: string,) => {
 
 

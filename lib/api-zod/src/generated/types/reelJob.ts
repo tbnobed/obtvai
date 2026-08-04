@@ -46,7 +46,7 @@ export interface ReelJob {
      */
   unreviewed?: boolean | null;
   clips: ReelClip[];
-  /** pending | running | success | error */
+  /** draft | pending | running | success | error */
   status: string;
   progress: number;
   /**

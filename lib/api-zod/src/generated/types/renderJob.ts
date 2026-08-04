@@ -31,7 +31,7 @@ export interface RenderJob {
      * @nullable
      */
   unreviewed?: boolean | null;
-  /** pending | running | success | error */
+  /** draft | pending | running | success | error */
   status: string;
   progress: number;
   /**

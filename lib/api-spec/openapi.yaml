@@ -640,6 +640,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProcessingJob"
+    delete:
+      operationId: deleteHighlight
+      tags: [media]
+      summary: Delete the generated highlight reel (file + reference)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Highlight reel deleted
+        "404":
+          description: No highlight reel to delete
 
   /media/{id}/highlight/preview:
     get:

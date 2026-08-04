@@ -9,7 +9,7 @@ import {
   useDeleteMedia, getListMediaQueryKey,
   useRetryJob,
   useRunStage,
-  useCreateHighlight,
+  useCreateHighlight, useDeleteHighlight,
   useGetHighlightPreview, getGetHighlightPreviewQueryKey,
   useCreateCreativePass,
   useCreateSocialAnalysis,
@@ -198,6 +198,16 @@ export default function AssetDetail() {
   const highlightMutation = useCreateHighlight();
   const highlightJob = jobs?.find(j => j.job_type === "highlight" && (j.status === "pending" || j.status === "running"));
   const highlightBusy = highlightMutation.isPending || Boolean(highlightJob);
+
+  const deleteHighlightMutation = useDeleteHighlight();
+  const deleteHighlight = () => {
+    if (!id) return;
+    deleteHighlightMutation.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
+      }
+    });
+  };
 
   const [hlPreviewOpen, setHlPreviewOpen] = useState(false);
   const [hlClips, setHlClips] = useState<CutClip[] | null>(null);
@@ -871,6 +881,16 @@ export default function AssetDetail() {
                         <Button variant="outline" size="sm" className="gap-2" onClick={startHighlight}>
                           <Film className="h-4 w-4" />
                           Regenerate
+                        </Button>
+                        <Button
+                          variant="outline" size="sm"
+                          className="gap-2 text-destructive hover:text-destructive"
+                          onClick={deleteHighlight}
+                          disabled={deleteHighlightMutation.isPending}
+                          data-testid="button-delete-highlight"
+                        >
+                          {deleteHighlightMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          Delete
                         </Button>
                       </div>
                     </div>
