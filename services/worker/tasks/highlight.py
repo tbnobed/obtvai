@@ -10,6 +10,7 @@ from app import celery_app
 from db import get_session
 from tasks.base import update_job, append_log, update_asset
 from tasks.proxy import _run_ffmpeg_with_progress, _ENCODERS
+from tasks.render import _build_srt, _subtitles_filter
 from config import REELS_DIR
 
 # Seconds of video captured for each key moment.
@@ -54,7 +55,8 @@ def _select_windows(moments: list, duration: float) -> list[tuple[float, float]]
 
 
 @celery_app.task(bind=True, name="tasks.highlight.build_highlight", queue="cpu")
-def build_highlight(self, media_id: str, job_id: str, clips: list = None):
+def build_highlight(self, media_id: str, job_id: str, clips: list = None,
+                    preset: str = "original", burn_captions: bool = False):
     db = get_session()
     try:
         update_job(db, job_id, status="running", started_at=datetime.utcnow(),
@@ -105,30 +107,53 @@ def build_highlight(self, media_id: str, job_id: str, clips: list = None):
         if not windows:
             raise RuntimeError("Key moments did not yield any usable clip windows")
 
-        append_log(db, job_id, f"Cutting {len(windows)} clips from {os.path.basename(src)}")
+        vertical = preset == "vertical"
+        base_filters = (
+            ["crop=ih*9/16:ih:(iw-ih*9/16)/2:0", "scale=1080:1920"]
+            if vertical
+            else ["scale=trunc(iw/2)*2:trunc(ih/2)*2"]
+        )
+        append_log(
+            db, job_id,
+            f"Cutting {len(windows)} clips from {os.path.basename(src)}"
+            f" (preset={preset}, captions={'on' if burn_captions else 'off'})",
+        )
 
         os.makedirs(REELS_DIR, exist_ok=True)
         tmp_dir = tempfile.mkdtemp(prefix=f"reel_{media_id}_")
         try:
             clip_paths = []
+            pinned_encoder = None
             n = len(windows)
             for i, (start, end) in enumerate(windows):
                 clip_path = os.path.join(tmp_dir, f"clip_{i:02d}.mp4")
                 clip_dur = end - start
+
+                filters = list(base_filters)
+                if burn_captions:
+                    srt_path = os.path.join(tmp_dir, f"cap_{i:02d}.srt")
+                    if _build_srt(db, media_id, start, end, srt_path):
+                        filters.append(_subtitles_filter(srt_path, vertical))
+
                 rc, tail = -1, ""
-                for label, codec_args in _ENCODERS:
+                # Pin the encoder after the first successful clip so every
+                # segment shares identical codec settings — required for the
+                # lossless concat (-c copy) below.
+                encoders = [pinned_encoder] if pinned_encoder else list(_ENCODERS)
+                for label, codec_args in encoders:
                     cmd = [
                         "ffmpeg", "-y",
                         "-ss", f"{start:.2f}", "-i", src, "-t", f"{clip_dur:.2f}",
                         *codec_args,
                         "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2",
-                        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=30",
+                        "-vf", ",".join(filters + ["fps=30"]),
                         "-movflags", "+faststart",
                         "-progress", "pipe:1", "-nostats",
                         clip_path,
                     ]
                     rc, tail = _run_ffmpeg_with_progress(cmd, 0, lambda pct: None, timeout=600)
                     if rc == 0:
+                        pinned_encoder = (label, codec_args)
                         break
                     append_log(db, job_id, f"Clip {i + 1} {label} failed (exit {rc}): {tail[:200]}")
                 if rc != 0:

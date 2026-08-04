@@ -6370,12 +6370,19 @@ components:
 
     HighlightRenderIn:
       type: object
-      description: Optional user-curated clip list from the highlight preview
+      description: Optional user-curated clip list and render options from the highlight preview
       properties:
         clips:
           type: ["array", "null"]
           items:
             $ref: "#/components/schemas/CutClip"
+        preset:
+          type: string
+          enum: [original, vertical]
+          default: original
+        burn_captions:
+          type: boolean
+          default: false
 
     HighlightPreview:
       type: object

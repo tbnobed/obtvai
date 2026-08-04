@@ -792,6 +792,8 @@ export const CreateHighlightParams = zod.object({
 })
 
 export const createHighlightBodyClipsItemLockedDefault = false;
+export const createHighlightBodyPresetDefault = `original`;
+export const createHighlightBodyBurnCaptionsDefault = false;
 
 export const CreateHighlightBody = zod.object({
   "clips": zod.array(zod.object({
@@ -802,8 +804,10 @@ export const CreateHighlightBody = zod.object({
   "snippet": zod.string().nullish(),
   "thumbnail_url": zod.string().nullish(),
   "locked": zod.boolean().default(createHighlightBodyClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
-})).nullish()
-}).describe('Optional user-curated clip list from the highlight preview')
+})).nullish(),
+  "preset": zod.enum(['original', 'vertical']).default(createHighlightBodyPresetDefault),
+  "burn_captions": zod.boolean().default(createHighlightBodyBurnCaptionsDefault)
+}).describe('Optional user-curated clip list and render options from the highlight preview')
 
 export const CreateHighlightResponse = zod.object({
   "id": zod.string(),
@@ -4143,6 +4147,8 @@ export const RenderReelParams = zod.object({
 })
 
 export const renderReelBodyClipsItemLockedDefault = false;
+export const renderReelBodyPresetDefault = `original`;
+export const renderReelBodyBurnCaptionsDefault = false;
 
 export const RenderReelBody = zod.object({
   "clips": zod.array(zod.object({
@@ -4153,8 +4159,10 @@ export const RenderReelBody = zod.object({
   "snippet": zod.string().nullish(),
   "thumbnail_url": zod.string().nullish(),
   "locked": zod.boolean().default(renderReelBodyClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
-})).nullish()
-}).describe('Optional user-curated clip list from the highlight preview')
+})).nullish(),
+  "preset": zod.enum(['original', 'vertical']).default(renderReelBodyPresetDefault),
+  "burn_captions": zod.boolean().default(renderReelBodyBurnCaptionsDefault)
+}).describe('Optional user-curated clip list and render options from the highlight preview')
 
 export const RenderReelResponse = zod.object({
   "id": zod.string(),

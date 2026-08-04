@@ -58,6 +58,7 @@ export * from './graphicsPreset';
 export * from './healthStatus';
 export * from './highlightPreview';
 export * from './highlightRenderIn';
+export * from './highlightRenderInPreset';
 export * from './insightItem';
 export * from './insightPersonRef';
 export * from './insightTopicRef';

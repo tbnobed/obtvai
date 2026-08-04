@@ -989,7 +989,10 @@ async def create_highlight(id: str, body: HighlightRenderIn | None = None,
     await db.refresh(job)
 
     from ..worker_client import enqueue_job
-    extra = None
+    extra = {
+        "preset": body.preset if body else "original",
+        "burn_captions": bool(body.burn_captions) if body else False,
+    }
     if body and body.clips:
         import math
         duration = float(asset.duration_seconds or 0)
@@ -1003,7 +1006,7 @@ async def create_highlight(id: str, body: HighlightRenderIn | None = None,
             if e - s < 0.5:
                 raise HTTPException(status_code=422, detail="Clips must be at least 0.5s long")
             validated.append({"start_time": s, "end_time": e})
-        extra = {"clips": validated}
+        extra["clips"] = validated
     await enqueue_job("highlight", id, job.id, extra=extra)
 
     out = ProcessingJobOut.model_validate(job)

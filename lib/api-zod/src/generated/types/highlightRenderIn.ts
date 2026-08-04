@@ -6,11 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CutClip } from './cutClip';
+import type { HighlightRenderInPreset } from './highlightRenderInPreset';
 
 /**
- * Optional user-curated clip list from the highlight preview
+ * Optional user-curated clip list and render options from the highlight preview
  */
 export interface HighlightRenderIn {
   /** @nullable */
   clips?: CutClip[] | null;
+  preset?: HighlightRenderInPreset;
+  burn_captions?: boolean;
 }

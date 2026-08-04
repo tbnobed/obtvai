@@ -210,6 +210,7 @@ export default function AssetDetail() {
   };
 
   const [hlPreviewOpen, setHlPreviewOpen] = useState(false);
+  const [hlOptions, setHlOptions] = useState<{ preset: "original" | "vertical"; burn_captions: boolean }>({ preset: "original", burn_captions: false });
   const [hlClips, setHlClips] = useState<CutClip[] | null>(null);
   const hlPreview = useGetHighlightPreview(id!, {
     query: {
@@ -229,7 +230,7 @@ export default function AssetDetail() {
     // Send the curated list only when the user actually previewed (and
     // possibly edited) it — otherwise let the worker pick clips itself.
     const edited = hlPreviewOpen && hlClips && hlClips.length > 0;
-    highlightMutation.mutate({ id, data: edited ? { clips: hlClips } : undefined }, {
+    highlightMutation.mutate({ id, data: { ...(edited ? { clips: hlClips } : {}), ...hlOptions } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
       }
@@ -804,7 +805,7 @@ export default function AssetDetail() {
                   highlightBusy={highlightBusy}
                   highlightProgress={highlightJob?.progress ?? null}
                   highlightError={highlightMutation.isError}
-                  onGenerateHighlight={() => setHlPreviewOpen(true)}
+                  onGenerateHighlight={(opts) => { setHlOptions(opts); setHlPreviewOpen(true); }}
                 />
                 {asset.key_moments && asset.key_moments.length > 0 ? (
                   <>
@@ -2217,7 +2218,7 @@ function AssetReelSection({
   highlightBusy: boolean;
   highlightProgress: number | null;
   highlightError: boolean;
-  onGenerateHighlight: () => void;
+  onGenerateHighlight: (opts: { preset: "original" | "vertical"; burn_captions: boolean }) => void;
 }) {
   const queryClient = useQueryClient();
   const listParams = { media_id: mediaId };
@@ -2346,7 +2347,7 @@ function AssetReelSection({
           </label>
           <Button
             className="gap-2 ml-auto"
-            onClick={hasPrompt ? submit : onGenerateHighlight}
+            onClick={hasPrompt ? submit : () => onGenerateHighlight({ preset: preset as "original" | "vertical", burn_captions: burnCaptions })}
             disabled={hasPrompt ? createMutation.isPending : (!canHighlight || highlightBusy)}
             data-testid="button-generate-reel"
           >

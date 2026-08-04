@@ -1038,8 +1038,10 @@ class CutClip(BaseModel):
 
 
 class HighlightRenderIn(BaseModel):
-    """Optional user-curated clip list from the highlight preview."""
+    """Optional user-curated clip list and render options from the highlight preview."""
     clips: Optional[List[CutClip]] = None
+    preset: Literal["original", "vertical"] = "original"
+    burn_captions: bool = False
 
 
 class ProjectCutOut(BaseModel):

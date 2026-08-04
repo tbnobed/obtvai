@@ -2129,12 +2129,22 @@ export interface CutClip {
   locked?: boolean;
 }
 
+export type HighlightRenderInPreset = typeof HighlightRenderInPreset[keyof typeof HighlightRenderInPreset];
+
+
+export const HighlightRenderInPreset = {
+  original: 'original',
+  vertical: 'vertical',
+} as const;
+
 /**
- * Optional user-curated clip list from the highlight preview
+ * Optional user-curated clip list and render options from the highlight preview
  */
 export interface HighlightRenderIn {
   /** @nullable */
   clips?: CutClip[] | null;
+  preset?: HighlightRenderInPreset;
+  burn_captions?: boolean;
 }
 
 export interface HighlightPreview {
