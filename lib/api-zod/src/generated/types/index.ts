@@ -56,6 +56,7 @@ export * from './graphicsGeneration';
 export * from './graphicsGenerationListResponse';
 export * from './graphicsPreset';
 export * from './healthStatus';
+export * from './highlightPreview';
 export * from './insightItem';
 export * from './insightPersonRef';
 export * from './insightTopicRef';

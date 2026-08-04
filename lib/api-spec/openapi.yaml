@@ -635,6 +635,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProcessingJob"
 
+  /media/{id}/highlight/preview:
+    get:
+      operationId: getHighlightPreview
+      tags: [media]
+      summary: The exact clips a highlight reel render would cut, without rendering
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Highlight clip windows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HighlightPreview"
+
   /media/{id}/creative:
     post:
       operationId: createCreativePass
@@ -6294,6 +6313,17 @@ components:
           type: boolean
           default: false
           description: Locked clips are never removed or reordered by the assistant
+
+    HighlightPreview:
+      type: object
+      required: [clips, total_seconds]
+      properties:
+        clips:
+          type: array
+          items:
+            $ref: "#/components/schemas/CutClip"
+        total_seconds:
+          type: number
 
     ClipFeedbackCreate:
       type: object

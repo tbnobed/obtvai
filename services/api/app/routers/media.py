@@ -876,6 +876,83 @@ async def get_media_frame(id: str, t: float = 0.0, db: AsyncSession = Depends(ge
     )
 
 
+# Keep in sync with services/worker/tasks/highlight.py — the preview must
+# show exactly the windows the worker will render.
+_HL_CLIP_SECONDS = 8.0
+_HL_LEAD_IN_SECONDS = 1.0
+_HL_MAX_CLIPS = 8
+
+
+def _highlight_windows(moments: list, duration: float) -> list:
+    times = []
+    for m in moments:
+        try:
+            t = float(m.get("time")) if isinstance(m, dict) else float(m)
+        except (TypeError, ValueError):
+            continue
+        if t < 0 or (duration > 0 and t >= duration):
+            continue
+        times.append(t)
+    times.sort()
+    windows = []
+    for t in times[: _HL_MAX_CLIPS * 2]:
+        start = max(0.0, t - _HL_LEAD_IN_SECONDS)
+        end = start + _HL_CLIP_SECONDS
+        if duration > 0:
+            end = min(end, duration)
+        if end - start < 2.0:
+            continue
+        if windows and start < windows[-1][1]:
+            prev_start, prev_end = windows[-1]
+            windows[-1] = (prev_start, max(prev_end, end))
+            continue
+        windows.append((start, end))
+        if len(windows) >= _HL_MAX_CLIPS:
+            break
+    return windows
+
+
+@router.get("/{id}/highlight/preview")
+async def preview_highlight(id: str, db: AsyncSession = Depends(get_db)):
+    """The exact clips a highlight reel render would cut, without rendering —
+    same shape as Studio cut clips so the same preview player can play them."""
+    result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+    if not asset.key_moments:
+        raise HTTPException(
+            status_code=400,
+            detail="No key moments available — run AI analysis first",
+        )
+    duration = float(asset.duration_seconds or 0)
+    moments = asset.key_moments or []
+    windows = _highlight_windows(moments, duration)
+
+    def _label(start: float, end: float):
+        for m in moments:
+            if isinstance(m, dict):
+                try:
+                    t = float(m.get("time"))
+                except (TypeError, ValueError):
+                    continue
+                if start <= t <= end and (m.get("label") or m.get("description")):
+                    return m.get("label") or m.get("description")
+        return None
+
+    clips = [
+        {
+            "media_id": asset.id,
+            "filename": asset.filename,
+            "start_time": round(s, 2),
+            "end_time": round(e, 2),
+            "snippet": _label(s, e),
+        }
+        for s, e in windows
+    ]
+    return {"clips": clips, "total_seconds": round(sum(e - s for s, e in windows), 2)}
+
+
 @router.post("/{id}/highlight", response_model=ProcessingJobOut, status_code=202)
 async def create_highlight(id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))

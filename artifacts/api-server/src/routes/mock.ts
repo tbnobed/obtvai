@@ -1139,6 +1139,44 @@ router.post("/jobs/:id/cancel", (req, res) => {
 });
 
 // ── Highlight reel ───────────────────────────────────────────────────────────
+router.get("/media/:id/highlight/preview", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ error: "Media not found" }); return; }
+  const moments = (asset.key_moments || []) as any[];
+  if (!moments.length) {
+    res.status(400).json({ detail: "No key moments available — run AI analysis first" });
+    return;
+  }
+  // Mirror the worker's window logic: 8s clips, 1s lead-in, max 8, merged overlaps.
+  const duration = Number((asset as any).duration_seconds || 0);
+  const times = moments
+    .map((m) => (typeof m === "number" ? m : Number(m?.time)))
+    .filter((t) => Number.isFinite(t) && t >= 0 && (!duration || t < duration))
+    .sort((a, b) => a - b);
+  const windows: Array<[number, number]> = [];
+  for (const t of times.slice(0, 16)) {
+    const start = Math.max(0, t - 1);
+    let end = start + 8;
+    if (duration) end = Math.min(end, duration);
+    if (end - start < 2) continue;
+    const last = windows[windows.length - 1];
+    if (last && start < last[1]) { last[1] = Math.max(last[1], end); continue; }
+    windows.push([start, end]);
+    if (windows.length >= 8) break;
+  }
+  const clips = windows.map(([s, e]) => {
+    const m = moments.find((mm) => typeof mm === "object" && Number(mm?.time) >= s && Number(mm?.time) <= e);
+    return {
+      media_id: asset.id,
+      filename: asset.filename,
+      start_time: Math.round(s * 100) / 100,
+      end_time: Math.round(e * 100) / 100,
+      snippet: (m && (m.label || m.description)) || null,
+    };
+  });
+  res.json({ clips, total_seconds: Math.round(clips.reduce((acc, c) => acc + c.end_time - c.start_time, 0) * 100) / 100 });
+});
+
 router.post("/media/:id/highlight", (req, res) => {
   const asset = assets.find((a) => a.id === req.params.id);
   if (!asset) { res.status(404).json({ error: "Media not found" }); return; }

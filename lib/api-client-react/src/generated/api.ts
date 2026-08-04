@@ -50,6 +50,7 @@ import type {
   GraphicsGenerationListResponse,
   GraphicsPreset,
   HealthStatus,
+  HighlightPreview,
   JobCleanupRequest,
   JobCleanupResult,
   JobStats,
@@ -2040,6 +2041,83 @@ export const useCreateHighlight = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCreateHighlightMutationOptions(options));
     }
+
+export const getGetHighlightPreviewUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/highlight/preview`
+}
+
+/**
+ * @summary The exact clips a highlight reel render would cut, without rendering
+ */
+export const getHighlightPreview = async (id: string, options?: RequestInit): Promise<HighlightPreview> => {
+
+  return customFetch<HighlightPreview>(getGetHighlightPreviewUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetHighlightPreviewQueryKey = (id: string,) => {
+    return [
+    `/api/media/${id}/highlight/preview`
+    ] as const;
+    }
+
+
+export const getGetHighlightPreviewQueryOptions = <TData = Awaited<ReturnType<typeof getHighlightPreview>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHighlightPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHighlightPreviewQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHighlightPreview>>> = ({ signal }) => getHighlightPreview(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHighlightPreview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetHighlightPreviewQueryResult = NonNullable<Awaited<ReturnType<typeof getHighlightPreview>>>
+export type GetHighlightPreviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The exact clips a highlight reel render would cut, without rendering
+ */
+
+export function useGetHighlightPreview<TData = Awaited<ReturnType<typeof getHighlightPreview>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHighlightPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetHighlightPreviewQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getCreateCreativePassUrl = (id: string,) => {
 

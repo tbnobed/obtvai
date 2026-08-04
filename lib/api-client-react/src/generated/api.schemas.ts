@@ -2127,6 +2127,11 @@ export interface CutClip {
   locked?: boolean;
 }
 
+export interface HighlightPreview {
+  clips: CutClip[];
+  total_seconds: number;
+}
+
 export type ClipFeedbackCreateRating = typeof ClipFeedbackCreateRating[keyof typeof ClipFeedbackCreateRating];
 
 

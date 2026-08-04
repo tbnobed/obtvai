@@ -808,6 +808,29 @@ export const CreateHighlightResponse = zod.object({
 
 
 /**
+ * @summary The exact clips a highlight reel render would cut, without rendering
+ */
+export const GetHighlightPreviewParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const getHighlightPreviewResponseClipsItemLockedDefault = false;
+
+export const GetHighlightPreviewResponse = zod.object({
+  "clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "snippet": zod.string().nullish(),
+  "thumbnail_url": zod.string().nullish(),
+  "locked": zod.boolean().default(getHighlightPreviewResponseClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
+})),
+  "total_seconds": zod.number()
+})
+
+
+/**
  * @summary Run the creative editor pass (story beats, clip suggestions, editorial notes)
  */
 export const CreateCreativePassParams = zod.object({

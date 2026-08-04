@@ -10,6 +10,7 @@ import {
   useRetryJob,
   useRunStage,
   useCreateHighlight,
+  useGetHighlightPreview, getGetHighlightPreviewQueryKey,
   useCreateCreativePass,
   useCreateSocialAnalysis,
   useCreateSocialCuts,
@@ -46,6 +47,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import AssetChat from "@/components/asset-chat";
+import { CutPreviewPlayer } from "@/components/project/cut-preview-dialog";
 import { ReelRatingButtons } from "@/components/reel-rating";
 
 const PLATFORM_META: Record<string, { label: string; Icon: typeof Youtube; color: string }> = {
@@ -204,6 +206,13 @@ export default function AssetDetail() {
       }
     });
   };
+  const [hlPreviewOpen, setHlPreviewOpen] = useState(false);
+  const hlPreview = useGetHighlightPreview(id!, {
+    query: {
+      queryKey: getGetHighlightPreviewQueryKey(id!),
+      enabled: hlPreviewOpen && Boolean(asset?.key_moments?.length),
+    },
+  });
 
   const creativeMutation = useCreateCreativePass();
   const creativeJob = jobs?.find(j => j.job_type === "creative" && (j.status === "pending" || j.status === "running"));
@@ -768,7 +777,52 @@ export default function AssetDetail() {
               </TabsContent>
               <TabsContent value="highlight" className="mt-4 space-y-6">
                 {asset.key_moments && asset.key_moments.length > 0 ? (
-                  asset.highlight_url && !highlightBusy ? (
+                  <>
+                  {hlPreviewOpen && (
+                    <div className="space-y-3 max-w-5xl" data-testid="highlight-preview">
+                      {hlPreview.isLoading ? (
+                        <div className="py-8 flex items-center justify-center text-sm text-muted-foreground gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" /> Selecting clips…
+                        </div>
+                      ) : hlPreview.data && hlPreview.data.clips.length > 0 ? (
+                        <>
+                          <CutPreviewPlayer
+                            clips={hlPreview.data.clips}
+                            open={hlPreviewOpen}
+                            onClose={() => setHlPreviewOpen(false)}
+                          />
+                          <div className="rounded border border-border divide-y divide-border">
+                            {hlPreview.data.clips.map((c, i) => (
+                              <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
+                                <span className="text-muted-foreground w-5 text-right">{i + 1}</span>
+                                <span className="flex-1 truncate">{c.snippet || asset.filename}</span>
+                                <span className="text-xs text-muted-foreground tabular-nums">
+                                  {Math.round(c.start_time)}s–{Math.round(c.end_time)}s · {Math.round(c.end_time - c.start_time)}s
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button className="gap-2" onClick={startHighlight} disabled={highlightBusy} data-testid="button-render-highlight">
+                              {highlightBusy ? (
+                                <><Loader2 className="h-4 w-4 animate-spin" />Rendering{highlightJob?.progress ? ` — ${Math.round(highlightJob.progress)}%` : "..."}</>
+                              ) : (
+                                <><Film className="h-4 w-4" />Render & Export</>
+                              )}
+                            </Button>
+                            <span className="text-xs text-muted-foreground">
+                              {hlPreview.data.clips.length} clips · {Math.round(hlPreview.data.total_seconds)}s total
+                            </span>
+                          </div>
+                        </>
+                      ) : hlPreview.isError ? (
+                        <p className="text-sm text-destructive py-6 text-center">Couldn't load the clip preview — check that AI analysis has run, then try again.</p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground py-6 text-center">No usable clip windows from the key moments.</p>
+                      )}
+                    </div>
+                  )}
+                  {asset.highlight_url && !highlightBusy ? (
                     <div className="space-y-3 max-w-5xl">
                       <video
                         src={`/api/media/${id}/highlight/stream`}
@@ -782,36 +836,49 @@ export default function AssetDetail() {
                             Download
                           </a>
                         </Button>
+                        {!hlPreviewOpen && (
+                          <Button variant="outline" size="sm" className="gap-2" onClick={() => setHlPreviewOpen(true)} data-testid="button-preview-highlight">
+                            <Clapperboard className="h-4 w-4" />
+                            Preview Clips
+                          </Button>
+                        )}
                         <Button variant="outline" size="sm" className="gap-2" onClick={startHighlight}>
                           <Film className="h-4 w-4" />
                           Regenerate
                         </Button>
                       </div>
                     </div>
-                  ) : (
+                  ) : !hlPreviewOpen ? (
                     <div className="py-10 flex flex-col items-center text-center gap-3">
                       <Clapperboard className="h-10 w-10 text-muted-foreground" />
-                      <Button className="gap-2" onClick={startHighlight} disabled={highlightBusy}>
-                        {highlightBusy ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Building reel{highlightJob?.progress ? ` — ${Math.round(highlightJob.progress)}%` : "..."}
-                          </>
-                        ) : (
-                          <>
-                            <Film className="h-4 w-4" />
-                            Generate Highlight Reel
-                          </>
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button className="gap-2" onClick={() => setHlPreviewOpen(true)} data-testid="button-preview-highlight">
+                          <Clapperboard className="h-4 w-4" />
+                          Preview Reel
+                        </Button>
+                        <Button variant="outline" className="gap-2" onClick={startHighlight} disabled={highlightBusy}>
+                          {highlightBusy ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Building reel{highlightJob?.progress ? ` — ${Math.round(highlightJob.progress)}%` : "..."}
+                            </>
+                          ) : (
+                            <>
+                              <Film className="h-4 w-4" />
+                              Generate Highlight Reel
+                            </>
+                          )}
+                        </Button>
+                      </div>
                       <p className="text-xs text-muted-foreground max-w-sm">
-                        Cuts short clips at each AI-detected key moment and stitches them into one video.
+                        Preview shows the exact clips at each AI-detected key moment before anything is rendered — then render and export when it looks right.
                       </p>
                       {highlightMutation.isError && (
                         <p className="text-xs text-destructive">Failed to start highlight job. Check Pipeline Jobs.</p>
                       )}
                     </div>
-                  )
+                  ) : null}
+                  </>
                 ) : (
                   <div className="text-sm text-muted-foreground py-8 text-center">
                     A highlight reel needs AI-detected key moments. Run AI analysis first.
