@@ -41,7 +41,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import AssetChat from "@/components/asset-chat";
 import { StudioTab } from "@/components/project/studio-tab";
 import { ReelRatingButtons } from "@/components/reel-rating";
 
@@ -1008,16 +1007,12 @@ export default function AssetDetail() {
           </div>
         </div>
 
-        {/* Right Sidebar - Transcript / AI Chat */}
+        {/* Right Sidebar - Transcript */}
         <div className="w-[26rem] border-l border-border flex flex-col bg-card shrink-0 overflow-hidden">
           <Tabs defaultValue="transcript" className="flex flex-col h-full overflow-hidden">
             <div className="p-3 border-b border-border shrink-0">
               <TabsList className="w-full">
                 <TabsTrigger value="transcript" className="flex-1">Transcript</TabsTrigger>
-                <TabsTrigger value="chat" className="flex-1 gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  AI Chat
-                </TabsTrigger>
               </TabsList>
             </div>
             <TabsContent value="transcript" className="flex-1 overflow-hidden mt-0 flex flex-col">
@@ -1310,9 +1305,6 @@ export default function AssetDetail() {
                 </div>
               </ScrollArea>
               )}
-            </TabsContent>
-            <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
-              <AssetChat key={id} mediaId={id!} onSeek={seekTo} />
             </TabsContent>
           </Tabs>
         </div>
