@@ -64,6 +64,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - There is NO compose service named `worker` — worker code changes deploy as `worker-gpu worker-gpu-2 worker-cpu worker-graphics` (all build from the same `services/worker` image).
 - The deploy command must be in the FINAL user-facing chat message of the turn — never only in intermediate progress notes, and never omitted because a task tracker or checkpoint "closed" the work.
 - If a change requires ANY server action beyond `git pull && docker compose up -d --build ...` (new `.env` variables, one-time commands, config edits, credentials), state those steps explicitly in the chat next to the deploy command — documenting them only in `.env.example` or elsewhere in the repo is not enough.
+- NEVER attribute a problem to browser caching / stale bundle / "just refresh" — the user rebuilds and reloads properly. Find and state the real root cause with evidence (logs, DB rows) instead.
 
 ## Gotchas
 
