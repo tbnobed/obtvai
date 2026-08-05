@@ -22,7 +22,6 @@ import {
   useCreateReel, useGetReel, getGetReelQueryKey,
   useDeleteReel,
   useRenderReel,
-  useCreateRoughCut,
   useTightenMedia,
   getCaptions,
   useListMarkers, getListMarkersQueryKey,
@@ -252,19 +251,6 @@ export default function AssetDetail() {
         queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id }) });
       }
     });
-  };
-
-  const roughCutMutation = useCreateRoughCut();
-  const startRoughCut = () => {
-    if (!id) return;
-    roughCutMutation.mutate(
-      { id, data: { preset: "original", burn_captions: false } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListReelsQueryKey({ media_id: id }) });
-        },
-      },
-    );
   };
 
   const tightenMutation = useTightenMedia();
@@ -798,8 +784,6 @@ export default function AssetDetail() {
                   error={creativeMutation.isError}
                   onRun={startCreative}
                   seekTo={seekTo}
-                  onRoughCut={startRoughCut}
-                  roughCutPending={roughCutMutation.isPending}
                 />
               </TabsContent>
               <TabsContent value="highlight" className="mt-4 space-y-6">
@@ -1867,8 +1851,6 @@ function CreativeSection({
   error,
   onRun,
   seekTo,
-  onRoughCut,
-  roughCutPending,
 }: {
   creative: CreativeAnalysis | null | undefined;
   busy: boolean;
@@ -1876,8 +1858,6 @@ function CreativeSection({
   error: boolean;
   onRun: () => void;
   seekTo: (time: number) => void;
-  onRoughCut?: () => void;
-  roughCutPending?: boolean;
 }) {
   if (!creative || busy) {
     return (
@@ -1909,20 +1889,6 @@ function CreativeSection({
 
   return (
     <div className="space-y-8">
-      {onRoughCut && creative.clip_suggestions.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-border p-3">
-          <div>
-            <div className="text-sm font-medium">Assemble rough cut</div>
-            <p className="text-xs text-muted-foreground">
-              Stitches the {creative.clip_suggestions.length} suggested clips into one reel, in story order.
-            </p>
-          </div>
-          <Button size="sm" className="gap-2 shrink-0" onClick={onRoughCut} disabled={roughCutPending}>
-            {roughCutPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clapperboard className="h-4 w-4" />}
-            Rough Cut
-          </Button>
-        </div>
-      )}
       {creative.logline && (
         <div className="border-l-2 border-primary pl-4">
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Logline</h3>
