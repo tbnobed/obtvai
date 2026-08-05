@@ -102,7 +102,7 @@ export default function SearchPage() {
           </Button>
         </div>
         <div className="text-xs text-muted-foreground">
-          {r.match_type === "visual" ? "Visual match" : "Transcript match"} · {(r.score * 100).toFixed(0)}%
+          {r.match_type === "person" ? "Person match" : r.match_type === "visual" ? "Visual match" : "Transcript match"}{r.match_type === "person" ? "" : ` · ${(r.score * 100).toFixed(0)}%`}
         </div>
         {r.snippet && (
           <div className="text-xs text-muted-foreground line-clamp-2">“{r.snippet}”</div>

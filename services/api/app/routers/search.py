@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
-from ..models import MediaAsset, TranscriptSegment, Scene, SearchHistory
+from ..models import MediaAsset, TranscriptSegment, Scene, SearchHistory, Person, PersonAppearance
 from ..schemas import (
     SearchQuery, SearchResponse, SearchResultOut, SearchHistoryItemOut,
     ScriptMatchRequest, ScriptMatchLineOut, ScriptMatchResponse,
@@ -63,6 +63,63 @@ def _is_black_thumbnail(thumbnail_url: str | None) -> bool:
 async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db)):
     t0 = time.time()
     results: list[SearchResultOut] = []
+
+    # Person-identity search: CLIP/SigLIP embeds the query as generic visual
+    # concepts — it has no idea who a specific named person is. Identities live
+    # in the People system, so when the query names a known person, surface
+    # their identified appearances directly instead of relying on the vision
+    # model to guess from pixels.
+    person_media_ids: set[str] = set()
+    q_norm = body.query.strip().lower()
+    if q_norm:
+        people_q = await db.execute(select(Person))
+        matched = [
+            p for p in people_q.scalars().all()
+            if p.display_name and (
+                p.display_name.lower() == q_norm or p.display_name.lower() in q_norm
+            )
+        ]
+        for person in matched:
+            app_q = await db.execute(
+                select(PersonAppearance, MediaAsset)
+                .join(MediaAsset, PersonAppearance.media_id == MediaAsset.id)
+                .where(PersonAppearance.person_id == person.id)
+            )
+            for appearance, asset in app_q.all():
+                if body.media_id and asset.id != body.media_id:
+                    continue
+                if body.media_ids and asset.id not in body.media_ids:
+                    continue
+                if asset.id in person_media_ids:
+                    continue
+                person_media_ids.add(asset.id)
+                start = appearance.first_spoken_at or 0.0
+                # Prefer a scene frame near where the person first appears
+                # over the asset's generic poster thumbnail.
+                scene_q = await db.execute(
+                    select(Scene)
+                    .where(Scene.media_id == asset.id, Scene.start_time <= start + 2.0)
+                    .order_by(desc(Scene.start_time))
+                    .limit(1)
+                )
+                scene = scene_q.scalar_one_or_none()
+                thumb = None
+                if scene and not _is_black_thumbnail(scene.thumbnail_url):
+                    thumb = scene.thumbnail_url
+                mins = int((appearance.speaking_seconds or 0) // 60)
+                snippet = f"{person.display_name} identified in this asset"
+                if mins:
+                    snippet += f" · speaks for {mins} min"
+                results.append(SearchResultOut(
+                    media_id=asset.id,
+                    filename=asset.filename,
+                    thumbnail_url=thumb or asset.thumbnail_url,
+                    start_time=start,
+                    end_time=start + (appearance.speaking_seconds or 0.0),
+                    score=1.0,
+                    match_type="person",
+                    snippet=snippet,
+                ))
 
     try:
         from ..services.embedding import get_text_embedding, get_clip_text_embedding
