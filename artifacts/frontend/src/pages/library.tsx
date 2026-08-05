@@ -468,7 +468,9 @@ export default function Library() {
   const [marquee, setMarquee] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const onGridMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest("[data-asset-id]")) return;
+    const t = e.target as HTMLElement;
+    // Don't hijack clicks on cards (draggable), form controls, or menus.
+    if (t.closest("[data-asset-id], button, input, select, a, textarea, [role='menu'], [role='menuitem'], th")) return;
     e.preventDefault();
     const startX = e.clientX, startY = e.clientY;
     const base = e.shiftKey || e.ctrlKey || e.metaKey ? new Set(selected) : new Set<string>();
@@ -750,7 +752,7 @@ export default function Library() {
         )}
       </aside>
 
-      <div className="flex-1 p-8 overflow-y-auto flex flex-col min-w-0">
+      <div ref={gridRef} onMouseDown={onGridMouseDown} className="flex-1 p-8 overflow-y-auto flex flex-col min-w-0">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Media Library</h1>
         <div className="flex gap-3 items-center flex-wrap justify-end">
@@ -1050,7 +1052,7 @@ export default function Library() {
         </div>
       ) : data?.items.length ? (
         view === "grid" ? (
-          <div ref={gridRef} onMouseDown={onGridMouseDown} className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {data.items.map(asset => (
               <ContextMenu key={asset.id}>
                 <ContextMenuTrigger asChild>
