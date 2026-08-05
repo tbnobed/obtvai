@@ -244,6 +244,31 @@ export default function AssetDetail() {
   };
 
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
+    const v = Number(localStorage.getItem("asset-panel-width"));
+    return Number.isFinite(v) && v >= 320 && v <= 1400 ? v : 560;
+  });
+  const startPanelResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const onMove = (ev: MouseEvent) => {
+      const max = Math.max(400, window.innerWidth - 480);
+      setPanelWidth(Math.min(Math.max(window.innerWidth - ev.clientX, 320), max));
+    };
+    const onUp = () => {
+      setPanelWidth((w) => {
+        localStorage.setItem("asset-panel-width", String(Math.round(w)));
+        return w;
+      });
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
   const cutsMutation = useCreateSocialCuts();
   const [cutsPlatform, setCutsPlatform] = useState<string | null>(null);
   const [cutsCreated, setCutsCreated] = useState<number | null>(null);
@@ -612,7 +637,15 @@ export default function AssetDetail() {
         </div>
 
         {/* Right Panel — all tabs beside the player */}
-        <div className="w-[26rem] lg:w-[34rem] xl:w-[42rem] 2xl:w-[50rem] shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
+        <div
+          className="relative shrink-0 border-l border-border bg-card flex flex-col overflow-hidden"
+          style={{ width: panelWidth }}
+        >
+          <div
+            onMouseDown={startPanelResize}
+            title="Drag to resize"
+            className="absolute left-0 top-0 z-20 h-full w-1.5 cursor-col-resize hover:bg-primary/40 active:bg-primary/60"
+          />
             <Tabs value={activeTab ?? "studio"} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
               <div className="p-3 border-b border-border shrink-0">
               <TabsList className="flex flex-wrap h-auto gap-1 justify-start w-full">
