@@ -807,6 +807,7 @@ export default function AssetDetail() {
                   highlightProgress={highlightJob?.progress ?? null}
                   highlightError={highlightMutation.isError}
                   onGenerateHighlight={(opts) => { setHlOptions(opts); setHlDirty(false); setHlClips(null); setHlPreviewOpen(true); }}
+                  onOptionsChange={setHlOptions}
                 />
                 {asset.key_moments && asset.key_moments.length > 0 ? (
                   <>
@@ -2214,6 +2215,7 @@ function AssetReelSection({
   highlightProgress,
   highlightError,
   onGenerateHighlight,
+  onOptionsChange,
 }: {
   mediaId: string;
   canHighlight: boolean;
@@ -2221,6 +2223,7 @@ function AssetReelSection({
   highlightProgress: number | null;
   highlightError: boolean;
   onGenerateHighlight: (opts: { preset: "original" | "vertical"; burn_captions: boolean; max_clips: number; pace: "fast" | "normal" | "cinematic" }) => void;
+  onOptionsChange: (opts: { preset: "original" | "vertical"; burn_captions: boolean; max_clips: number; pace: "fast" | "normal" | "cinematic" }) => void;
 }) {
   const queryClient = useQueryClient();
   const listParams = { media_id: mediaId };
@@ -2259,11 +2262,26 @@ function AssetReelSection({
     }
   }, [draft]);
 
-  const [prompt, setPrompt] = useState("");
+  // Survive tab switches and refreshes — losing the typed prompt silently
+  // drops the user onto the promptless key-moments path.
+  const [prompt, setPromptState] = useState(
+    () => sessionStorage.getItem(`reel-prompt-${mediaId}`) ?? ""
+  );
+  const setPrompt = (v: string) => {
+    setPromptState(v);
+    try { sessionStorage.setItem(`reel-prompt-${mediaId}`, v); } catch { /* quota */ }
+  };
   const [preset, setPreset] = useState<"original" | "vertical">("original");
   const [burnCaptions, setBurnCaptions] = useState(false);
   const [maxClips, setMaxClips] = useState(6);
   const [pace, setPace] = useState<"fast" | "normal" | "cinematic">("normal");
+  // Keep the parent's highlight options live: toggling captions/format/pace
+  // while the preview is open must affect the eventual render, not be
+  // silently ignored in favor of a snapshot taken at click time.
+  useEffect(() => {
+    onOptionsChange({ preset, burn_captions: burnCaptions, max_clips: maxClips, pace });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preset, burnCaptions, maxClips, pace]);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListReelsQueryKey(listParams) });
