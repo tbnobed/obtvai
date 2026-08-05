@@ -536,8 +536,14 @@ export default function AssetDetail() {
               </DialogContent>
             </Dialog>
 
-            <Tabs value={activeTab ?? (hasAnalysis ? "analysis" : "scenes")} onValueChange={setActiveTab}>
-              <TabsList>
+          </div>
+        </div>
+
+        {/* Right Panel — all tabs beside the player */}
+        <div className="w-[26rem] lg:w-[34rem] xl:w-[42rem] 2xl:w-[50rem] shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
+            <Tabs value={activeTab ?? (hasAnalysis ? "analysis" : "scenes")} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
+              <div className="p-3 border-b border-border shrink-0">
+              <TabsList className="flex flex-wrap h-auto gap-1 justify-start w-full">
                 <TabsTrigger value="analysis" className="gap-1.5">
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Analysis
@@ -573,8 +579,13 @@ export default function AssetDetail() {
                     Ratings
                   </TabsTrigger>
                 )}
+                <TabsTrigger value="transcript" className="gap-1.5">
+                  <Captions className="h-3.5 w-3.5" />
+                  Transcript
+                </TabsTrigger>
               </TabsList>
-              <TabsContent value="selects" className="mt-4">
+              </div>
+              <TabsContent value="selects" className="flex-1 overflow-y-auto mt-0 p-4">
                 <div className="space-y-4">
                   <div className="flex items-end gap-2 flex-wrap max-w-3xl">
                     <div className="flex-1 min-w-48">
@@ -667,7 +678,7 @@ export default function AssetDetail() {
                   </div>
                 </div>
               </TabsContent>
-              <TabsContent value="analysis" className="mt-4">
+              <TabsContent value="analysis" className="flex-1 overflow-y-auto mt-0 p-4">
                 {hasAnalysis ? (
                   <div className="grid gap-8 lg:grid-cols-2">
                     <div className="space-y-6">
@@ -720,14 +731,14 @@ export default function AssetDetail() {
                   </div>
                 )}
               </TabsContent>
-              <TabsContent value="people" className="mt-4">
+              <TabsContent value="people" className="flex-1 overflow-y-auto mt-0 p-4">
                 <AssetPeople
                   mediaId={id!}
                   duration={asset.duration_seconds ?? 0}
                   seekTo={seekTo}
                 />
               </TabsContent>
-              <TabsContent value="creative" className="mt-4">
+              <TabsContent value="creative" className="flex-1 overflow-y-auto mt-0 p-4">
                 <CreativeSection
                   creative={asset.creative as CreativeAnalysis | null | undefined}
                   busy={creativeBusy}
@@ -737,11 +748,11 @@ export default function AssetDetail() {
                   seekTo={seekTo}
                 />
               </TabsContent>
-              <TabsContent value="studio" className="mt-4 space-y-6">
+              <TabsContent value="studio" className="flex-1 overflow-y-auto mt-0 p-4 space-y-6">
                 <AssetStudioSection mediaId={id!} />
                 <AssetRendersSection mediaId={id!} />
               </TabsContent>
-              <TabsContent value="socials" className="mt-4">
+              <TabsContent value="socials" className="flex-1 overflow-y-auto mt-0 p-4">
                 {(asset.social_scores && asset.social_scores.length > 0 && !socialBusy) ? (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -888,7 +899,7 @@ export default function AssetDetail() {
                   </div>
                 )}
               </TabsContent>
-              <TabsContent value="scenes" className="mt-4">
+              <TabsContent value="scenes" className="flex-1 overflow-y-auto mt-0 p-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {scenes?.map(scene => (
                     <div 
@@ -908,7 +919,7 @@ export default function AssetDetail() {
                   ))}
                 </div>
               </TabsContent>
-              <TabsContent value="jobs" className="mt-4">
+              <TabsContent value="jobs" className="flex-1 overflow-y-auto mt-0 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Select value={runStageType} onValueChange={setRunStageType}>
                     <SelectTrigger className="h-8 text-xs w-48">
@@ -984,7 +995,7 @@ export default function AssetDetail() {
                   ))}
                 </div>
               </TabsContent>
-              <TabsContent value="ratings" className="mt-4">
+              <TabsContent value="ratings" className="flex-1 overflow-y-auto mt-0 p-4">
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground mb-2">
                     Audience measurement records linked to this asset —{" "}
@@ -1006,18 +1017,6 @@ export default function AssetDetail() {
                   ))}
                 </div>
               </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-
-        {/* Right Sidebar - Transcript */}
-        <div className="w-[26rem] border-l border-border flex flex-col bg-card shrink-0 overflow-hidden">
-          <Tabs defaultValue="transcript" className="flex flex-col h-full overflow-hidden">
-            <div className="p-3 border-b border-border shrink-0">
-              <TabsList className="w-full">
-                <TabsTrigger value="transcript" className="flex-1">Transcript</TabsTrigger>
-              </TabsList>
-            </div>
             <TabsContent value="transcript" className="flex-1 overflow-hidden mt-0 flex flex-col">
               <div className="px-3 pt-3 shrink-0 flex items-center gap-2">
                 <Languages className="h-4 w-4 text-muted-foreground shrink-0" />
