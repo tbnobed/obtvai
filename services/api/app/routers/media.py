@@ -349,6 +349,10 @@ async def list_media(
         "duration_asc": MediaAsset.duration_seconds.asc().nulls_last(),
         "size_desc": desc(MediaAsset.file_size_bytes).nulls_last(),
         "size_asc": MediaAsset.file_size_bytes.asc().nulls_last(),
+        "codec_asc": func.lower(MediaAsset.codec).asc().nulls_last(),
+        "codec_desc": func.lower(MediaAsset.codec).desc().nulls_last(),
+        "status_asc": MediaAsset.status.asc(),
+        "status_desc": desc(MediaAsset.status),
     }
     q = select(MediaAsset).order_by(sort_map.get(sort or "", desc(MediaAsset.created_at)))
     if status:

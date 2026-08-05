@@ -616,6 +616,10 @@ router.get("/media", (req, res) => {
     duration_asc: (a, b) => (a.duration_seconds ?? Infinity) - (b.duration_seconds ?? Infinity),
     size_desc: (a, b) => (b.file_size_bytes ?? -1) - (a.file_size_bytes ?? -1),
     size_asc: (a, b) => (a.file_size_bytes ?? Infinity) - (b.file_size_bytes ?? Infinity),
+    codec_asc: (a, b) => String(a.codec ?? "\uffff").toLowerCase().localeCompare(String(b.codec ?? "\uffff").toLowerCase()),
+    codec_desc: (a, b) => String(b.codec ?? "").toLowerCase().localeCompare(String(a.codec ?? "").toLowerCase()),
+    status_asc: (a, b) => String(a.status).localeCompare(String(b.status)),
+    status_desc: (a, b) => String(b.status).localeCompare(String(a.status)),
   };
   items.sort(cmp[sort] ?? cmp.created_desc);
   const total = items.length;

@@ -16,7 +16,7 @@ import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
   ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent,
 } from "@/components/ui/context-menu";
-import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox, Download } from "lucide-react";
+import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -497,6 +497,24 @@ export default function Library() {
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+  };
+
+  // Clickable column headers for the list view — first click applies the
+  // column's natural direction, second click flips it.
+  const sortHeader = (label: string, key: string, firstDir: "asc" | "desc") => {
+    const active = sort === `${key}_asc` || sort === `${key}_desc`;
+    const dir = sort === `${key}_asc` ? "asc" : "desc";
+    const next = active ? (dir === "asc" ? `${key}_desc` : `${key}_asc`) : `${key}_${firstDir}`;
+    return (
+      <button
+        type="button"
+        className={`flex items-center gap-1 hover:text-foreground transition-colors ${active ? "text-foreground" : ""}`}
+        onClick={() => { setSort(next); setPage(0); }}
+      >
+        {label}
+        {active && (dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+      </button>
+    );
   };
 
   // Shared right-click menu content for an asset (grid card or list row).
@@ -1090,12 +1108,12 @@ export default function Library() {
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2 font-medium w-16"></th>
-                  <th className="px-3 py-2 font-medium">Name</th>
-                  <th className="px-3 py-2 font-medium w-24">Duration</th>
-                  <th className="px-3 py-2 font-medium w-24">Size</th>
-                  <th className="px-3 py-2 font-medium w-24">Codec</th>
-                  <th className="px-3 py-2 font-medium w-28">Added</th>
-                  <th className="px-3 py-2 font-medium w-28">Status</th>
+                  <th className="px-3 py-2 font-medium">{sortHeader("Name", "name", "asc")}</th>
+                  <th className="px-3 py-2 font-medium w-24">{sortHeader("Duration", "duration", "desc")}</th>
+                  <th className="px-3 py-2 font-medium w-24">{sortHeader("Size", "size", "desc")}</th>
+                  <th className="px-3 py-2 font-medium w-24">{sortHeader("Codec", "codec", "asc")}</th>
+                  <th className="px-3 py-2 font-medium w-28">{sortHeader("Added", "created", "desc")}</th>
+                  <th className="px-3 py-2 font-medium w-28">{sortHeader("Status", "status", "asc")}</th>
                 </tr>
               </thead>
               <tbody>
