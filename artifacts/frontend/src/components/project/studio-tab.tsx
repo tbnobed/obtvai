@@ -232,9 +232,26 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
         </div>
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {!(messages ?? []).length && (
-            <div className="text-sm text-muted-foreground space-y-2 pt-4">
-              <p>Tell me what to build — I'll assemble a cut from this project's footage and revise it as we talk.</p>
-              <p className="text-xs">e.g. "A 10-minute highlight reel focused on the healing testimonies" — then "less of the host, more guest reactions".</p>
+            <div className="text-sm text-muted-foreground space-y-3 pt-4">
+              <p>Tell me what to build — I'll assemble a cut from this footage and revise it as we talk. You can also just ask questions about what's in it.</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "What are the main topics covered?",
+                  "Cut a 30 second clip of the key moments",
+                  "Build a 2 minute highlight reel",
+                  "Find the strongest soundbites",
+                ].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setInput(s)}
+                    className="text-xs rounded-full border border-border px-3 py-1.5 hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs">Then refine: "make it shorter", "less of the host", "drop clip 2", "render it".</p>
             </div>
           )}
           {(messages ?? []).map((m) => (

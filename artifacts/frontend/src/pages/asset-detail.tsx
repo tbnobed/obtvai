@@ -542,6 +542,13 @@ export default function AssetDetail() {
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Analysis
                 </TabsTrigger>
+                <TabsTrigger
+                  value="studio"
+                  className="gap-1.5 text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  <Clapperboard className="h-3.5 w-3.5" />
+                  Studio
+                </TabsTrigger>
                 <TabsTrigger value="people" className="gap-1.5">
                   <Users className="h-3.5 w-3.5" />
                   People
@@ -549,10 +556,6 @@ export default function AssetDetail() {
                 <TabsTrigger value="creative" className="gap-1.5">
                   <Clapperboard className="h-3.5 w-3.5" />
                   Creative
-                </TabsTrigger>
-                <TabsTrigger value="studio" className="gap-1.5">
-                  <Clapperboard className="h-3.5 w-3.5" />
-                  Studio
                 </TabsTrigger>
                 <TabsTrigger value="socials" className="gap-1.5">
                   <Share2 className="h-3.5 w-3.5" />
