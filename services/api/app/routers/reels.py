@@ -391,7 +391,9 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
         # Snapshot the pre-curation candidates so we can tell what the LLM
         # kept vs re-cut when this reel is rated and used as a reference.
         candidate_clips=clips,
-        status="draft" if body.dry_run else "pending",
+        # Dry run starts as "selecting": the worker runs the full LLM curation
+        # + pace pass and flips it to "draft" for the user to review.
+        status="selecting" if body.dry_run else "pending",
         progress=0.0,
         created_at=datetime.utcnow(),
     )
@@ -399,11 +401,8 @@ async def create_reel(body: ReelRequestIn, db: AsyncSession = Depends(get_db)):
     await touch_project(db, r.project_id)
     await db.commit()
 
-    if body.dry_run:
-        return _to_out(r)
-
     try:
-        await enqueue_reel(r.id)
+        await enqueue_reel(r.id, select_only=body.dry_run)
     except Exception as exc:
         await db.rollback()
         r.status = "error"
@@ -478,7 +477,9 @@ async def render_reel(id: str, body: HighlightRenderIn | None = None,
     await db.commit()
 
     try:
-        await enqueue_reel(r.id)
+        # The clip list was reviewed and approved in the preview — render it
+        # verbatim, without re-running LLM curation or pace splitting.
+        await enqueue_reel(r.id, skip_curation=True)
     except Exception as exc:
         r.status = "error"
         r.error_message = f"Failed to enqueue reel task: {exc}"

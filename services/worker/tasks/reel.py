@@ -471,7 +471,7 @@ def _curate_batch(
 
 
 @celery_app.task(bind=True, name="tasks.reel.build_reel", queue="cpu")
-def build_reel(self, reel_id: str):
+def build_reel(self, reel_id: str, select_only: bool = False, skip_curation: bool = False):
     db = get_session()
     try:
         from sqlalchemy import text
@@ -498,7 +498,9 @@ def build_reel(self, reel_id: str):
         # Chat draft-cut renders (cut_version set) are already human-approved,
         # clip by clip — render them VERBATIM. Curation is only for reels
         # generated from a prompt, where clips are raw search candidates.
-        if cut_version is None and reel_prompt and (reel_prompt or "").strip():
+        # Draft renders (skip_curation) are clip lists the user already
+        # reviewed and approved in the preview — render them VERBATIM too.
+        if cut_version is None and not skip_curation and reel_prompt and (reel_prompt or "").strip():
             try:
                 curated = _curate_clips(
                     db, reel_prompt.strip(), clips, target_duration,
@@ -516,11 +518,18 @@ def build_reel(self, reel_id: str):
         # ── Pace enforcement: hard constraint, not a vibe ────────────────────
         # The LLM suggests; the assembler enforces. Anything longer than the
         # pace's max clip length is split at scene boundaries or sentence gaps.
-        if cut_version is None:
+        if cut_version is None and not skip_curation:
             paced = _enforce_pace(db, clips, pace)
             if paced != clips:
                 clips = paced
                 _update_reel(db, reel_id, clips=json.dumps(clips))
+
+        if select_only:
+            # Dry run: the fully curated + paced clip list is the draft the
+            # user will review — stop before any rendering.
+            _update_reel(db, reel_id, status="draft", progress=0.0)
+            return
+
         _update_reel(db, reel_id, progress=10.0)
 
         vertical = preset == "vertical"

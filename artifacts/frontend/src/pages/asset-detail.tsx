@@ -19,7 +19,7 @@ import {
   useUpdateTranscriptSegment,
   useListReels, getListReelsQueryKey,
   useListRenders, getListRendersQueryKey, useDeleteRender,
-  useCreateReel,
+  useCreateReel, useGetReel, getGetReelQueryKey,
   useDeleteReel,
   useRenderReel,
   useCreateRoughCut,
@@ -2230,8 +2230,25 @@ function AssetReelSection({
   const createMutation = useCreateReel();
   const deleteMutation = useDeleteReel();
   const renderMutation = useRenderReel();
-  const [draft, setDraft] = useState<ReelJob | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
   const [draftClips, setDraftClips] = useState<CutClip[]>([]);
+  // The dry run enqueues the full LLM curation + pace pass on the worker;
+  // poll until the reel flips from "selecting" to an editable "draft".
+  const draftQuery = useGetReel(draftId ?? "", {
+    query: {
+      queryKey: getGetReelQueryKey(draftId ?? ""),
+      enabled: !!draftId,
+      refetchInterval: (q) => (q.state.data?.status === "selecting" ? 1500 : false),
+    },
+  });
+  const draft = draftId ? draftQuery.data ?? null : null;
+  const draftSeededFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (draft && draft.status === "draft" && draftSeededFor.current !== draft.id) {
+      draftSeededFor.current = draft.id;
+      setDraftClips((draft.clips ?? []) as unknown as CutClip[]);
+    }
+  }, [draft]);
 
   const [prompt, setPrompt] = useState("");
   const [preset, setPreset] = useState<"original" | "vertical">("original");
@@ -2259,8 +2276,8 @@ function AssetReelSection({
       },
       {
         onSuccess: (r) => {
-          setDraft(r);
-          setDraftClips((r.clips ?? []) as unknown as CutClip[]);
+          setDraftId(r.id);
+          setDraftClips([]);
           invalidate();
         },
       },
@@ -2268,8 +2285,8 @@ function AssetReelSection({
   };
 
   const discardDraft = () => {
-    if (draft) deleteMutation.mutate({ id: draft.id }, { onSuccess: invalidate });
-    setDraft(null);
+    if (draftId) deleteMutation.mutate({ id: draftId }, { onSuccess: invalidate });
+    setDraftId(null);
     setDraftClips([]);
   };
 
@@ -2279,7 +2296,7 @@ function AssetReelSection({
       { id: draft.id, data: { clips: draftClips } },
       {
         onSuccess: () => {
-          setDraft(null);
+          setDraftId(null);
           setDraftClips([]);
           setPrompt("");
           invalidate();
@@ -2383,7 +2400,21 @@ function AssetReelSection({
         )}
       </div>
 
-      {draft && (
+      {draftId && (!draft || draft.status === "selecting") && (
+        <div className="flex items-center gap-3 py-6 justify-center text-sm text-muted-foreground" data-testid="reel-draft-selecting">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Curating clips for your prompt — trimming to complete thoughts and enforcing pace...
+        </div>
+      )}
+
+      {draft && draft.status === "error" && (
+        <div className="flex items-center gap-3 py-4 justify-center text-sm text-red-400">
+          <span>Clip selection failed{draft.error_message ? `: ${draft.error_message}` : "."}</span>
+          <Button variant="outline" size="sm" onClick={discardDraft}>Dismiss</Button>
+        </div>
+      )}
+
+      {draft && draft.status === "draft" && (
         <div className="space-y-3" data-testid="reel-draft-preview">
           {draftClips.length > 0 ? (
             <>
@@ -2428,9 +2459,9 @@ function AssetReelSection({
         </div>
       )}
 
-      {reels && reels.filter((r: ReelJob) => r.status !== "draft").length > 0 && (
+      {reels && reels.filter((r: ReelJob) => r.status !== "draft" && r.status !== "selecting").length > 0 && (
         <div className="space-y-3">
-          {reels.filter((r: ReelJob) => r.status !== "draft").map((r: ReelJob) => (
+          {reels.filter((r: ReelJob) => r.status !== "draft" && r.status !== "selecting").map((r: ReelJob) => (
             <div key={r.id} className="border border-border rounded-lg p-4">
               <div className="flex items-start gap-4">
                 <div className="shrink-0 text-muted-foreground mt-1">

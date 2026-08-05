@@ -67,8 +67,12 @@ async def enqueue_render(render_id: str) -> str:
     return render_id
 
 
-async def enqueue_reel(reel_id: str) -> str:
-    await _publish("cpu", "tasks.reel.build_reel", {"reel_id": reel_id}, str(uuid.uuid4()))
+async def enqueue_reel(reel_id: str, select_only: bool = False, skip_curation: bool = False) -> str:
+    await _publish(
+        "cpu", "tasks.reel.build_reel",
+        {"reel_id": reel_id, "select_only": select_only, "skip_curation": skip_curation},
+        str(uuid.uuid4()),
+    )
     return reel_id
 
 

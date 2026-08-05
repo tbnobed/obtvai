@@ -2128,6 +2128,11 @@ function nearestSceneThumb(mediaId: string, startTime: number): string | null {
 }
 
 function tickReel(r: MockReel) {
+  if (r.status === "selecting") {
+    // Simulated LLM curation pass: flips to an editable draft after ~2s.
+    if ((Date.now() - r._startedAt) / 1000 > 2) r.status = "draft";
+    return;
+  }
   if (r.status !== "pending" && r.status !== "running") return;
   const elapsed = (Date.now() - r._startedAt) / 1000;
   if (elapsed < 1.5) {
@@ -2258,13 +2263,13 @@ router.post("/reels", (req, res) => {
     burn_captions: burn,
     unreviewed: false,
     clips,
-    status: req.body.dry_run ? "draft" : "pending",
+    status: req.body.dry_run ? "selecting" : "pending",
     progress: 0,
     output_url: null,
     error_message: null,
     created_at: new Date().toISOString(),
     finished_at: null,
-    _startedAt: req.body.dry_run ? 0 : Date.now(),
+    _startedAt: Date.now(),
   };
   reels.unshift(reel);
   touchProject(reel.project_id);
