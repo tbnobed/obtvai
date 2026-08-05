@@ -264,7 +264,9 @@ def _curate_clips(
                 f"keeping raw candidates for it:\n{traceback.format_exc()}"
             )
             refined = None
-        if refined:
+        if refined is not None:
+            # A valid selection — even an empty one — is an editorial
+            # decision; only unusable LLM responses keep the raw chunk.
             any_curated = True
             out.extend(refined)
         else:
@@ -404,6 +406,8 @@ def _curate_batch(
     )
     raw = _generate(tokenizer, model, llm_prompt, max_new_tokens=900)
     data = _extract_json(raw)
+    if not isinstance(data, dict) or not isinstance(data.get("clips"), list):
+        return None  # unusable LLM response — caller keeps raw candidates
 
     refined: list[dict] = []
     for item in (data.get("clips") or []):
@@ -444,9 +448,12 @@ def _curate_batch(
             "thumbnail_url": included[idx].get("thumbnail_url"),
         })
 
-    # Sanity: require a meaningful selection, otherwise keep raw candidates
-    if len(refined) < min(3, len(included)):
-        return None
+    # The LLM answered with a valid selection — honor it even when it is
+    # small or empty. A brief with exclusions ("do not mention X") can
+    # legitimately drop almost everything; silently falling back to the raw
+    # candidates here would resurrect exactly the content the brief banned.
+    if not refined:
+        return []
 
     # ── Visual variety pass ──────────────────────────────────────────────
     # The LLM sees visuals only as text; verify with the actual SigLIP
@@ -513,7 +520,7 @@ def build_reel(self, reel_id: str, select_only: bool = False, skip_curation: boo
                         db, reel_id, progress=round(min(9.0, 1.0 + frac * 8.0), 1)
                     ),
                 )
-                if curated:
+                if curated is not None:
                     clips = curated
                     _update_reel(db, reel_id, clips=json.dumps(clips))
             except Exception:
@@ -528,6 +535,18 @@ def build_reel(self, reel_id: str, select_only: bool = False, skip_curation: boo
             if paced != clips:
                 clips = paced
                 _update_reel(db, reel_id, clips=json.dumps(clips))
+
+        if not clips:
+            # The brief's exclusions dropped every candidate — surface that
+            # honestly instead of rendering (or drafting) the raw material.
+            _update_reel(
+                db, reel_id, status="error", progress=0.0,
+                error_message=(
+                    "The editorial brief excluded every candidate moment — "
+                    "nothing in this material matches. Try different wording."
+                ),
+            )
+            return
 
         if select_only:
             # Dry run: the fully curated + paced clip list is the draft the
