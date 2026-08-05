@@ -536,28 +536,92 @@ export default function AssetDetail() {
               </DialogContent>
             </Dialog>
 
+            <Tabs defaultValue="analysis" className="mt-4">
+              <TabsList>
+                <TabsTrigger value="analysis" className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI Analysis
+                </TabsTrigger>
+                <TabsTrigger value="people" className="gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  People
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="analysis" className="mt-4">
+                {hasAnalysis ? (
+                  <div className="grid gap-8 lg:grid-cols-2">
+                    <div className="space-y-6">
+                      {asset.synopsis && (
+                        <div>
+                          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Synopsis</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">{asset.synopsis}</p>
+                        </div>
+                      )}
+                      {asset.topics && asset.topics.length > 0 && (
+                        <div>
+                          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Topics</h3>
+                          <div className="flex flex-wrap gap-1.5">
+                            {asset.topics.map(topic => (
+                              <Badge key={topic} variant="secondary" className="text-xs">{topic}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {asset.key_moments && asset.key_moments.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Key Moments</h3>
+                        <div className="space-y-1">
+                          {asset.key_moments.map((moment, i) => (
+                            <div
+                              key={i}
+                              className="flex gap-3 items-baseline p-2 -mx-2 rounded cursor-pointer hover:bg-muted transition-colors"
+                              onClick={() => seekTo(moment.time)}
+                            >
+                              <span className="text-xs font-mono text-primary shrink-0 w-12 text-right">
+                                {formatTimecode(moment.time)}
+                              </span>
+                              <div>
+                                <div className="text-sm font-medium">{moment.title}</div>
+                                {moment.description && (
+                                  <div className="text-xs text-muted-foreground">{moment.description}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground py-8 text-center">
+                    No AI analysis yet. It is generated automatically after indexing completes —
+                    or re-run the index job from the Pipeline Jobs tab.
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="people" className="mt-4">
+                <AssetPeople
+                  mediaId={id!}
+                  duration={asset.duration_seconds ?? 0}
+                  seekTo={seekTo}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 
         {/* Right Panel — all tabs beside the player */}
         <div className="w-[26rem] lg:w-[34rem] xl:w-[42rem] 2xl:w-[50rem] shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
-            <Tabs value={activeTab ?? (hasAnalysis ? "analysis" : "scenes")} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
+            <Tabs value={activeTab ?? "studio"} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
               <div className="p-3 border-b border-border shrink-0">
               <TabsList className="flex flex-wrap h-auto gap-1 justify-start w-full">
-                <TabsTrigger value="analysis" className="gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  AI Analysis
-                </TabsTrigger>
                 <TabsTrigger
                   value="studio"
                   className="gap-1.5 text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
                   <Clapperboard className="h-3.5 w-3.5" />
                   Studio
-                </TabsTrigger>
-                <TabsTrigger value="people" className="gap-1.5">
-                  <Users className="h-3.5 w-3.5" />
-                  People
                 </TabsTrigger>
                 <TabsTrigger value="creative" className="gap-1.5">
                   <Clapperboard className="h-3.5 w-3.5" />
@@ -677,66 +741,6 @@ export default function AssetDetail() {
                   </div>
                   </div>
                 </div>
-              </TabsContent>
-              <TabsContent value="analysis" className="flex-1 overflow-y-auto mt-0 p-4">
-                {hasAnalysis ? (
-                  <div className="grid gap-8 lg:grid-cols-2">
-                    <div className="space-y-6">
-                      {asset.synopsis && (
-                        <div>
-                          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Synopsis</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">{asset.synopsis}</p>
-                        </div>
-                      )}
-                      {asset.topics && asset.topics.length > 0 && (
-                        <div>
-                          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Topics</h3>
-                          <div className="flex flex-wrap gap-1.5">
-                            {asset.topics.map(topic => (
-                              <Badge key={topic} variant="secondary" className="text-xs">{topic}</Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {asset.key_moments && asset.key_moments.length > 0 && (
-                      <div>
-                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Key Moments</h3>
-                        <div className="space-y-1">
-                          {asset.key_moments.map((moment, i) => (
-                            <div
-                              key={i}
-                              className="flex gap-3 items-baseline p-2 -mx-2 rounded cursor-pointer hover:bg-muted transition-colors"
-                              onClick={() => seekTo(moment.time)}
-                            >
-                              <span className="text-xs font-mono text-primary shrink-0 w-12 text-right">
-                                {formatTimecode(moment.time)}
-                              </span>
-                              <div>
-                                <div className="text-sm font-medium">{moment.title}</div>
-                                {moment.description && (
-                                  <div className="text-xs text-muted-foreground">{moment.description}</div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground py-8 text-center">
-                    No AI analysis yet. It is generated automatically after indexing completes —
-                    or re-run the index job from the Pipeline Jobs tab.
-                  </div>
-                )}
-              </TabsContent>
-              <TabsContent value="people" className="flex-1 overflow-y-auto mt-0 p-4">
-                <AssetPeople
-                  mediaId={id!}
-                  duration={asset.duration_seconds ?? 0}
-                  seekTo={seekTo}
-                />
               </TabsContent>
               <TabsContent value="creative" className="flex-1 overflow-y-auto mt-0 p-4">
                 <CreativeSection
