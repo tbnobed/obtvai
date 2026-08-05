@@ -361,7 +361,11 @@ def _curate_batch(
             "assembled in order afterwards.\n"
             if segment else ""
         )
-        + f'Editorial brief: "{prompt}"\n\n'
+        + f'Editorial brief: "{prompt}"\n'
+        "The brief is a binding editorial instruction, not just a search topic. "
+        "If it excludes something (e.g. \"do not mention X\", \"no X\", \"avoid X\"), "
+        "you MUST drop every candidate whose transcript mentions X — even if that "
+        "leaves very few clips. Never trade an exclusion away for reel length.\n\n"
         "Below are candidate moments found by search, each with surrounding "
         "transcript context and timecodes.\n\n"
         + "\n\n".join(blocks)
@@ -394,7 +398,8 @@ def _curate_batch(
         '{"clips": [{"candidate": 0, "start": "MM:SS or HH:MM:SS", '
         '"end": "MM:SS or HH:MM:SS", "why": "one line on why this moment earns '
         'its place"}]}\n'
-        f"Rules: keep 3 to {len(candidates)} clips, each {int(_CURATE_MIN_CLIP)}-"
+        f"Rules: keep 1 to {len(candidates)} clips (prefer 3+ when the brief allows), "
+        f"each {int(_CURATE_MIN_CLIP)}-"
         f"{int(max_clip)} seconds."
     )
     raw = _generate(tokenizer, model, llm_prompt, max_new_tokens=900)

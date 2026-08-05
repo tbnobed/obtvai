@@ -1,0 +1,218 @@
+[+] up 9/9
+ ✔ Image obtv-ai-worker-cpu       Built                                                                                                                                    11.0s
+ ✔ Image obtv-ai-api              Built                                                                                                                                    11.0s
+ ✔ Image obtv-ai-frontend         Built                                                                                                                                    11.0s
+ ✔ Container obtv-ai-redis-1      Healthy                                                                                                                                   3.3s
+ ✔ Container obtv-ai-postgres-1   Healthy                                                                                                                                   3.3s
+ ✔ Container obtv-ai-qdrant-1     Healthy                                                                                                                                   3.3s
+ ✔ Container obtv-ai-worker-cpu-1 Started                                                                                                                                   3.5s
+ ✔ Container obtv-ai-api-1        Healthy                                                                                                                                  14.1s
+ ✔ Container obtv-ai-frontend-1   Started                                                                                                                                  12.6s
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs --tail 50 worker-cpu
+worker-cpu-1  |                 .> cpu              exchange=cpu(direct) key=cpu
+worker-cpu-1  |                 .> ingest           exchange=ingest(direct) key=ingest
+worker-cpu-1  |
+worker-cpu-1  | [tasks]
+worker-cpu-1  |   . tasks.analyze.analyze_media
+worker-cpu-1  |   . tasks.audio.extract_audio
+worker-cpu-1  |   . tasks.creative.creative_pass
+worker-cpu-1  |   . tasks.diarize.run_diarization
+worker-cpu-1  |   . tasks.dub.generate_dub
+worker-cpu-1  |   . tasks.face_detect.detect_faces
+worker-cpu-1  |   . tasks.graphics.generate
+worker-cpu-1  |   . tasks.highlight.build_highlight
+worker-cpu-1  |   . tasks.identify.face_search
+worker-cpu-1  |   . tasks.identify.identify_people
+worker-cpu-1  |   . tasks.identify.regenerate_profile
+worker-cpu-1  |   . tasks.index.build_index
+worker-cpu-1  |   . tasks.ingest.import_from_link
+worker-cpu-1  |   . tasks.ingest.repair_link_imports
+worker-cpu-1  |   . tasks.ingest.run_ingest_pipeline
+worker-cpu-1  |   . tasks.insights.generate_insights
+worker-cpu-1  |   . tasks.proxy.create_proxy
+worker-cpu-1  |   . tasks.publish.publish_render
+worker-cpu-1  |   . tasks.qc.run_qc
+worker-cpu-1  |   . tasks.reel.build_reel
+worker-cpu-1  |   . tasks.render.render_clip
+worker-cpu-1  |   . tasks.scene_detect.detect_scenes
+worker-cpu-1  |   . tasks.social.score_social
+worker-cpu-1  |   . tasks.social_stats.sync_youtube_stats
+worker-cpu-1  |   . tasks.social_sync.sync_social_channels
+worker-cpu-1  |   . tasks.story.build_story
+worker-cpu-1  |   . tasks.transcribe.transcribe_audio
+worker-cpu-1  |   . tasks.translate.translate_transcript
+worker-cpu-1  |   . tasks.trends.fetch_trends
+worker-cpu-1  |   . tasks.visual_embed.embed_scenes
+worker-cpu-1  |   . tasks.voice.generate_speech
+worker-cpu-1  |   . tasks.voice.prepare_voice_sample
+worker-cpu-1  |
+worker-cpu-1  | [2026-08-05 01:07:52,421: INFO/Beat] beat: Starting...
+worker-cpu-1  | [2026-08-05 01:07:52,527: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-cpu-1  | [2026-08-05 01:07:52,529: INFO/MainProcess] mingle: searching for neighbors
+worker-cpu-1  | [2026-08-05 01:07:53,536: INFO/MainProcess] mingle: sync with 3 nodes
+worker-cpu-1  | [2026-08-05 01:07:53,536: INFO/MainProcess] mingle: sync complete
+worker-cpu-1  | [2026-08-05 01:07:53,543: INFO/MainProcess] celery@0465b60b924c ready.
+worker-cpu-1  | [2026-08-05 01:07:53,618: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-cpu-1  | [2026-08-05 01:08:14,169: INFO/MainProcess] Task tasks.reel.build_reel[87724a4d-2179-441d-a2df-a9eb433f2dd1] received
+worker-cpu-1  | [2026-08-05 01:08:14,667: INFO/ForkPoolWorker-2] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 01:08:14,677: INFO/ForkPoolWorker-2] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 01:08:14,710: INFO/ForkPoolWorker-2] HTTP Request: GET http://192.168.101.1:8001/v1/models "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 01:08:16,328: INFO/ForkPoolWorker-2] HTTP Request: POST http://192.168.101.1:8001/v1/chat/completions "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 01:08:16,374: INFO/ForkPoolWorker-2] Task tasks.reel.build_reel[87724a4d-2179-441d-a2df-a9eb433f2dd1] succeeded in 2.2035340139409527s: None
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs --tail 50 worker-cpu
+worker-cpu-1  |                 .> cpu              exchange=cpu(direct) key=cpu
+worker-cpu-1  |                 .> ingest           exchange=ingest(direct) key=ingest
+worker-cpu-1  |
+worker-cpu-1  | [tasks]
+worker-cpu-1  |   . tasks.analyze.analyze_media
+worker-cpu-1  |   . tasks.audio.extract_audio
+worker-cpu-1  |   . tasks.creative.creative_pass
+worker-cpu-1  |   . tasks.diarize.run_diarization
+worker-cpu-1  |   . tasks.dub.generate_dub
+worker-cpu-1  |   . tasks.face_detect.detect_faces
+worker-cpu-1  |   . tasks.graphics.generate
+worker-cpu-1  |   . tasks.highlight.build_highlight
+worker-cpu-1  |   . tasks.identify.face_search
+worker-cpu-1  |   . tasks.identify.identify_people
+worker-cpu-1  |   . tasks.identify.regenerate_profile
+worker-cpu-1  |   . tasks.index.build_index
+worker-cpu-1  |   . tasks.ingest.import_from_link
+worker-cpu-1  |   . tasks.ingest.repair_link_imports
+worker-cpu-1  |   . tasks.ingest.run_ingest_pipeline
+worker-cpu-1  |   . tasks.insights.generate_insights
+worker-cpu-1  |   . tasks.proxy.create_proxy
+worker-cpu-1  |   . tasks.publish.publish_render
+worker-cpu-1  |   . tasks.qc.run_qc
+worker-cpu-1  |   . tasks.reel.build_reel
+worker-cpu-1  |   . tasks.render.render_clip
+worker-cpu-1  |   . tasks.scene_detect.detect_scenes
+worker-cpu-1  |   . tasks.social.score_social
+worker-cpu-1  |   . tasks.social_stats.sync_youtube_stats
+worker-cpu-1  |   . tasks.social_sync.sync_social_channels
+worker-cpu-1  |   . tasks.story.build_story
+worker-cpu-1  |   . tasks.transcribe.transcribe_audio
+worker-cpu-1  |   . tasks.translate.translate_transcript
+worker-cpu-1  |   . tasks.trends.fetch_trends
+worker-cpu-1  |   . tasks.visual_embed.embed_scenes
+worker-cpu-1  |   . tasks.voice.generate_speech
+worker-cpu-1  |   . tasks.voice.prepare_voice_sample
+worker-cpu-1  |
+worker-cpu-1  | [2026-08-05 01:07:52,421: INFO/Beat] beat: Starting...
+worker-cpu-1  | [2026-08-05 01:07:52,527: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-cpu-1  | [2026-08-05 01:07:52,529: INFO/MainProcess] mingle: searching for neighbors
+worker-cpu-1  | [2026-08-05 01:07:53,536: INFO/MainProcess] mingle: sync with 3 nodes
+worker-cpu-1  | [2026-08-05 01:07:53,536: INFO/MainProcess] mingle: sync complete
+worker-cpu-1  | [2026-08-05 01:07:53,543: INFO/MainProcess] celery@0465b60b924c ready.
+worker-cpu-1  | [2026-08-05 01:07:53,618: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-cpu-1  | [2026-08-05 01:08:14,169: INFO/MainProcess] Task tasks.reel.build_reel[87724a4d-2179-441d-a2df-a9eb433f2dd1] received
+worker-cpu-1  | [2026-08-05 01:08:14,667: INFO/ForkPoolWorker-2] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 01:08:14,677: INFO/ForkPoolWorker-2] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 01:08:14,710: INFO/ForkPoolWorker-2] HTTP Request: GET http://192.168.101.1:8001/v1/models "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 01:08:16,328: INFO/ForkPoolWorker-2] HTTP Request: POST http://192.168.101.1:8001/v1/chat/completions "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 01:08:16,374: INFO/ForkPoolWorker-2] Task tasks.reel.build_reel[87724a4d-2179-441d-a2df-a9eb433f2dd1] succeeded in 2.2035340139409527s: None
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull
+Already up to date.
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull && docker compose up -d --build api frontend worker-cpu
+Already up to date.
+[+] Building 1.2s (54/54) FINISHED
+ => [internal] load local bake definitions                                                                                                                                 0.0s
+ => => reading from stdin 1.43kB                                                                                                                                           0.0s
+ => [frontend internal] load build definition from Dockerfile.production                                                                                                   0.0s
+ => => transferring dockerfile: 1.13kB                                                                                                                                     0.0s
+ => [api internal] load build definition from Dockerfile                                                                                                                   0.0s
+ => => transferring dockerfile: 628B                                                                                                                                       0.0s
+ => [worker-cpu internal] load build definition from Dockerfile                                                                                                            0.0s
+ => => transferring dockerfile: 3.06kB                                                                                                                                     0.0s
+ => [frontend internal] load metadata for docker.io/library/nginx:alpine                                                                                                   0.5s
+ => [frontend internal] load metadata for docker.io/library/node:20-slim                                                                                                   0.5s
+ => [api internal] load metadata for docker.io/library/python:3.11-slim                                                                                                    0.0s
+ => [worker-cpu internal] load metadata for docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04                                                                         0.0s
+ => [api internal] load .dockerignore                                                                                                                                      0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [worker-cpu internal] load .dockerignore                                                                                                                               0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [api internal] load build context                                                                                                                                      0.0s
+ => => transferring context: 1.72kB                                                                                                                                        0.0s
+ => [api 1/6] FROM docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                              0.0s
+ => => resolve docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                                  0.0s
+ => [worker-cpu  1/12] FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                 0.0s
+ => => resolve docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb                              0.0s
+ => [worker-cpu  3/12] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz /tmp/ffmpeg.tar.xz                     0.4s
+ => [worker-cpu internal] load build context                                                                                                                               0.0s
+ => => transferring context: 1.62kB                                                                                                                                        0.0s
+ => CACHED [api 2/6] RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libpq-dev     gcc     g++     curl     && rm -rf /var/lib/apt/lists/  0.0s
+ => CACHED [api 3/6] WORKDIR /app                                                                                                                                          0.0s
+ => CACHED [api 4/6] COPY requirements.txt .                                                                                                                               0.0s
+ => CACHED [api 5/6] RUN pip install --no-cache-dir -r requirements.txt                                                                                                    0.0s
+ => CACHED [api 6/6] COPY app/ ./app/                                                                                                                                      0.0s
+ => [api] exporting to image                                                                                                                                               0.1s
+ => => exporting layers                                                                                                                                                    0.0s
+ => => exporting manifest sha256:368e107589308f988d2e61379f6bc8fbfdde54948733ac77858f8ebd90ed70e6                                                                          0.0s
+ => => exporting config sha256:ace43b492a01dbc5701cce2b43fda63b4a03a0f68301d2f0230a2b8e8c0da31c                                                                            0.0s
+ => => exporting attestation manifest sha256:3b964c342eacfa32c5b27814945da5bbb2ed640035d25ef4ce2e2548382c9813                                                              0.0s
+ => => exporting manifest list sha256:530a2cb8dc722aadc1760a1b46d948cca339e9bdc6460a6ea012a6be6d00bf66                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-api:latest                                                                                                                      0.0s
+ => => unpacking to docker.io/library/obtv-ai-api:latest                                                                                                                   0.0s
+ => [api] resolving provenance for metadata file                                                                                                                           0.0s
+ => CACHED [worker-cpu  2/12] RUN apt-get update && apt-get install -y --no-install-recommends     python3.11     python3.11-dev     python3-dev     python3-pip     ffmp  0.0s
+ => CACHED [worker-cpu  3/12] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz /tmp/ffmpeg.tar.xz              0.0s
+ => CACHED [worker-cpu  4/12] RUN tar -xf /tmp/ffmpeg.tar.xz -C /tmp     && cp /tmp/ffmpeg-n8.1-latest-linux64-gpl-8.1/bin/ffmpeg /usr/local/bin/ffmpeg     && cp /tmp/ff  0.0s
+ => CACHED [worker-cpu  5/12] RUN ln -s /usr/bin/python3.11 /usr/bin/python                                                                                                0.0s
+ => CACHED [worker-cpu  6/12] WORKDIR /worker                                                                                                                              0.0s
+ => CACHED [worker-cpu  7/12] COPY requirements.txt .                                                                                                                      0.0s
+ => CACHED [worker-cpu  8/12] RUN pip install --no-cache-dir -r requirements.txt                                                                                           0.0s
+ => CACHED [worker-cpu  9/12] RUN pip install --no-cache-dir requests                                                                                                      0.0s
+ => CACHED [worker-cpu 10/12] RUN pip install --no-cache-dir --no-deps chatterbox-tts==0.1.4     && pip install --no-cache-dir librosa==0.11.0 s3tokenizer resemble-perth  0.0s
+ => CACHED [worker-cpu 11/12] RUN pip install --no-cache-dir --force-reinstall --no-deps onnxruntime-gpu==1.22.0     && python3 -c "import onnxruntime as ort; assert 'CU  0.0s
+ => CACHED [worker-cpu 12/12] COPY . .                                                                                                                                     0.0s
+ => [worker-cpu] exporting to image                                                                                                                                        0.2s
+ => => exporting layers                                                                                                                                                    0.0s
+ => => exporting manifest sha256:357368847c64ccd306402bb09078180cca28b54400b5e10977b49aa93f171bc8                                                                          0.0s
+ => => exporting config sha256:b6b3100fc1dc577bec60db10db5cf7da72128f1ffa8a5cd00f0b0e9a86ad2702                                                                            0.0s
+ => => exporting attestation manifest sha256:532af6040d7d5c3cb6085673c5ade1d030acc0418a56ddfd69f08f89eee8c39d                                                              0.0s
+ => => exporting manifest list sha256:a8a60d933bd697f92422ddcf7195464af838f5de00bf1c369af2f5e7a8402fbe                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-worker-cpu:latest                                                                                                               0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-cpu:latest                                                                                                            0.0s
+ => [frontend internal] load .dockerignore                                                                                                                                 0.0s
+ => => transferring context: 186B                                                                                                                                          0.0s
+ => [frontend stage-1 1/3] FROM docker.io/library/nginx:alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752                                     0.1s
+ => => resolve docker.io/library/nginx:alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752                                                      0.1s
+ => [frontend builder  1/12] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0                                   0.1s
+ => => resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0                                                      0.1s
+ => [frontend internal] load build context                                                                                                                                 0.0s
+ => => transferring context: 26.75kB                                                                                                                                       0.0s
+ => CACHED [frontend stage-1 2/3] COPY nginx/nginx.conf /etc/nginx/nginx.conf                                                                                              0.0s
+ => CACHED [frontend builder  2/12] WORKDIR /app                                                                                                                           0.0s
+ => CACHED [frontend builder  3/12] RUN npm install -g pnpm@10                                                                                                             0.0s
+ => CACHED [frontend builder  4/12] COPY pnpm-lock.yaml pnpm-workspace.yaml ./                                                                                             0.0s
+ => CACHED [frontend builder  5/12] RUN pnpm fetch                                                                                                                         0.0s
+ => CACHED [frontend builder  6/12] COPY package.json tsconfig.base.json tsconfig.json ./                                                                                  0.0s
+ => CACHED [frontend builder  7/12] COPY lib/ ./lib/                                                                                                                       0.0s
+ => CACHED [frontend builder  8/12] COPY artifacts/frontend/ ./artifacts/frontend/                                                                                         0.0s
+ => CACHED [frontend builder  9/12] RUN pnpm install --frozen-lockfile --prefer-offline                                                                                    0.0s
+ => CACHED [frontend builder 10/12] COPY attached_assets/ ./attached_assets/                                                                                               0.0s
+ => CACHED [frontend builder 11/12] RUN pnpm --filter @workspace/api-spec run codegen                                                                                      0.0s
+ => CACHED [frontend builder 12/12] RUN BASE_PATH=/ PORT=3000 pnpm --filter @workspace/frontend run build                                                                  0.0s
+ => CACHED [frontend stage-1 3/3] COPY --from=builder /app/artifacts/frontend/dist/public /usr/share/nginx/html                                                            0.0s
+ => [frontend] exporting to image                                                                                                                                          0.1s
+ => => exporting layers                                                                                                                                                    0.0s
+ => => exporting manifest sha256:6b43aa5b953cf082f7fa852a05079d699aa11fd612d0225e61ba517468d711ee                                                                          0.0s
+ => => exporting config sha256:b4fc34bf90477f5de13579f63240ce79c87f9ff3fd959afa77586a9946ab99bc                                                                            0.0s
+ => => exporting attestation manifest sha256:b97b27d8f987d7940c79a6c2cd61cd302443e40625034430163fc9db3debc572                                                              0.0s
+ => => exporting manifest list sha256:6414353ca9bd0d020621b36af313ad1b73d81875c1a7d38c7b22611070e9e545                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-frontend:latest                                                                                                                 0.0s
+ => => unpacking to docker.io/library/obtv-ai-frontend:latest                                                                                                              0.0s
+ => [frontend] resolving provenance for metadata file                                                                                                                      0.1s
+ => [worker-cpu] resolving provenance for metadata file                                                                                                                    0.0s
+[+] up 9/9
+ ✔ Image obtv-ai-frontend         Built                                                                                                                                     1.2s
+ ✔ Image obtv-ai-worker-cpu       Built                                                                                                                                     1.2s
+ ✔ Image obtv-ai-api              Built                                                                                                                                     1.2s
+ ✔ Container obtv-ai-qdrant-1     Healthy                                                                                                                                   3.2s
+ ✔ Container obtv-ai-postgres-1   Healthy                                                                                                                                   3.2s
+ ✔ Container obtv-ai-redis-1      Healthy                                                                                                                                   3.2s
+ ✔ Container obtv-ai-api-1        Healthy                                                                                                                                  14.0s
+ ✔ Container obtv-ai-worker-cpu-1 Started                                                                                                                                   3.5s
+ ✔ Container obtv-ai-frontend-1   Started                                                                                                                                  12.8s
+obtv-admin@obtv-llm-2:~/obtv-ai$ ^C
+obtv-admin@obtv-llm-2:~/obtv-ai$
