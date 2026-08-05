@@ -221,10 +221,13 @@ export default function AssetDetail() {
   });
   const [hlDirty, setHlDirty] = useState(false);
   useEffect(() => {
-    // Seed the editable list from a fresh preview, but never clobber the
-    // user's edits on a background refetch.
-    if (hlPreview.data && !hlDirty) setHlClips(hlPreview.data.clips);
-  }, [hlPreview.data, hlDirty]);
+    // Seed the editable list whenever it's unset — including reopening the
+    // preview against already-cached data, where the data reference doesn't
+    // change and the old deps never re-fired (the page showed "no usable
+    // clip windows" while the clips sat in cache). The null guard keeps
+    // background refetches from clobbering user edits.
+    if (hlPreview.data && !hlDirty && hlClips === null) setHlClips(hlPreview.data.clips);
+  }, [hlPreview.data, hlDirty, hlClips]);
 
   const startHighlight = () => {
     if (!id) return;
@@ -851,7 +854,7 @@ export default function AssetDetail() {
                             )}
                           </div>
                         </>
-                      ) : hlClips && hlClips.length === 0 && hlPreview.data ? (
+                      ) : hlClips && hlClips.length === 0 && hlPreview.data && hlPreview.data.clips.length > 0 ? (
                         <div className="py-6 text-center space-y-2">
                           <p className="text-sm text-muted-foreground">All clips removed.</p>
                           <Button variant="outline" size="sm" onClick={() => { setHlDirty(false); setHlClips(hlPreview.data!.clips); }}>Reset clips</Button>
