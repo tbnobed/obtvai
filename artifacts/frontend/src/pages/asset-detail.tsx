@@ -2068,6 +2068,7 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
   const queryClient = useQueryClient();
   const listParams = { media_id: mediaId };
   const deleteMutation = useDeleteRender();
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const { data: allRenders } = useListRenders(listParams, {
     query: {
       queryKey: getListRendersQueryKey(listParams),
@@ -2096,7 +2097,8 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
       </div>
       <div className="space-y-2">
         {renders.map((r: RenderJob) => (
-          <div key={r.id} className="flex items-center justify-between bg-muted/50 p-2.5 rounded text-sm gap-3">
+          <div key={r.id} className="bg-muted/50 p-2.5 rounded text-sm space-y-2">
+          <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="truncate">{r.label || r.filename || r.media_id}</div>
               <div className="text-xs text-muted-foreground">
@@ -2107,11 +2109,20 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
             <div className="flex items-center gap-2 shrink-0">
               <Badge variant="outline" className={reelStatusBadge(r.status)}>{r.status}</Badge>
               {r.status === "success" && (
-                <Button size="sm" variant="outline" asChild>
-                  <a href={`/api/renders/${r.id}/download`} download>
-                    <Download className="h-4 w-4 mr-2" /> MP4
-                  </a>
-                </Button>
+                <>
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={() => setPreviewId(previewId === r.id ? null : r.id)}
+                    data-testid={`button-preview-render-${r.id}`}
+                  >
+                    {previewId === r.id ? "Close" : "Preview"}
+                  </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={`/api/renders/${r.id}/download`} download>
+                      <Download className="h-4 w-4 mr-2" /> MP4
+                    </a>
+                  </Button>
+                </>
               )}
               <Button
                 size="sm" variant="ghost"
@@ -2128,6 +2139,21 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+          {previewId === r.id && r.status === "success" && (
+            <video
+              key={r.id}
+              src={`/api/renders/${r.id}/download`}
+              controls
+              autoPlay
+              playsInline
+              className={
+                r.preset === "vertical"
+                  ? "w-auto mx-auto max-h-[70vh] aspect-[9/16] rounded bg-black"
+                  : "w-full max-h-[70vh] rounded bg-black"
+              }
+            />
+          )}
           </div>
         ))}
       </div>
