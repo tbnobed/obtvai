@@ -823,6 +823,7 @@ export default function AssetDetail() {
                             clips={hlClips}
                             open={hlPreviewOpen}
                             onClose={() => setHlPreviewOpen(false)}
+                            vertical={hlOptions.preset === "vertical"}
                           />
                           <ClipWindowEditor
                             clips={hlClips}
@@ -2391,6 +2392,7 @@ function AssetReelSection({
                 clips={draftClips}
                 open
                 onClose={discardDraft}
+                vertical={draft.preset === "vertical"}
               />
               <ClipWindowEditor
                 clips={draftClips}

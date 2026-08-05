@@ -17,6 +17,7 @@ export function CutPreviewPlayer({
   compact = false,
   onToggleExpand,
   expanded = false,
+  vertical = false,
 }: {
   clips: CutClip[];
   open: boolean;
@@ -28,6 +29,8 @@ export function CutPreviewPlayer({
   /** When set, shows an expand/shrink button in the header. */
   onToggleExpand?: () => void;
   expanded?: boolean;
+  /** Preview the 9:16 center crop the vertical render will apply. */
+  vertical?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -200,7 +203,11 @@ export function CutPreviewPlayer({
           key={clip.media_id}
           ref={videoRef}
           src={`/api/media/${clip.media_id}/stream#t=${clip.start_time},${clip.end_time}`}
-          className={`w-full aspect-video ${compact ? "max-h-[30vh]" : expanded ? "max-h-[62vh]" : "max-h-[48vh]"} rounded bg-black object-contain`}
+          className={
+            vertical
+              ? `w-auto mx-auto aspect-[9/16] ${compact ? "max-h-[30vh]" : expanded ? "max-h-[62vh]" : "max-h-[48vh]"} rounded bg-black object-cover`
+              : `w-full aspect-video ${compact ? "max-h-[30vh]" : expanded ? "max-h-[62vh]" : "max-h-[48vh]"} rounded bg-black object-contain`
+          }
           onClick={togglePlay}
           playsInline
         />
