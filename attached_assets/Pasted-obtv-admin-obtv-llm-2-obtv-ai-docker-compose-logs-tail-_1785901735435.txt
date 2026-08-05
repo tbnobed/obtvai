@@ -1,0 +1,31 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs --tail 30 api
+api-1  | INFO:     172.18.0.12:58344 - "GET /api/media?sort=created_desc&limit=60&offset=0 HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58340 - "GET /api/projects HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:50986 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58346 - "GET /api/media?sort=created_desc&folder=d17217c5-5dc1-4c7e-b30a-cda207c36f2b&limit=60&offset=0 HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58366 - "GET /api/media/58185776-0320-481c-a5a0-48eb47f1389e/markers HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58376 - "GET /api/jobs?media_id=58185776-0320-481c-a5a0-48eb47f1389e HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58362 - "GET /api/media/58185776-0320-481c-a5a0-48eb47f1389e HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58354 - "GET /api/media/58185776-0320-481c-a5a0-48eb47f1389e/scenes HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58386 - "GET /api/ratings?asset_id=58185776-0320-481c-a5a0-48eb47f1389e&limit=100 HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58358 - "GET /api/media/58185776-0320-481c-a5a0-48eb47f1389e/transcript HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58398 - "GET /api/renders?media_id=58185776-0320-481c-a5a0-48eb47f1389e HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58406 - "GET /api/reels?media_id=58185776-0320-481c-a5a0-48eb47f1389e HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58416 - "GET /api/jobs?media_id=58185776-0320-481c-a5a0-48eb47f1389e HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58432 - "DELETE /api/renders/29e370a6-7c47-477b-abc7-9d1d12070d8d HTTP/1.1" 204 No Content
+api-1  | INFO:     172.18.0.12:58448 - "GET /api/renders?media_id=58185776-0320-481c-a5a0-48eb47f1389e HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58460 - "DELETE /api/renders/7ebebaaa-e09e-47f7-a136-d6cf374c9010 HTTP/1.1" 204 No Content
+api-1  | INFO:     172.18.0.12:58474 - "GET /api/renders?media_id=58185776-0320-481c-a5a0-48eb47f1389e HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:58490 - "GET /api/reels?media_id=58185776-0320-481c-a5a0-48eb47f1389e HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:53952 - "GET /api/folders HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:53938 - "GET /api/media?sort=created_desc&limit=60&offset=0 HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:53956 - "GET /api/projects HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.12:53964 - "GET /api/media?sort=created_desc&folder=d17217c5-5dc1-4c7e-b30a-cda207c36f2b&limit=60&offset=0 HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:42724 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:43460 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:40244 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:43116 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:34690 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:42632 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:37050 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:50506 - "GET /api/healthz HTTP/1.1" 200 OK
