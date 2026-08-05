@@ -1,0 +1,43 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs --tail 40 worker-cpu
+docker compose exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, status, progress, left(error_message,80) AS error, created_at FROM reel_jobs ORDER BY created_at DESC LIMIT 5;"
+worker-cpu-1  |   . tasks.social_stats.sync_youtube_stats
+worker-cpu-1  |   . tasks.social_sync.sync_social_channels
+worker-cpu-1  |   . tasks.story.build_story
+worker-cpu-1  |   . tasks.transcribe.transcribe_audio
+worker-cpu-1  |   . tasks.translate.translate_transcript
+worker-cpu-1  |   . tasks.trends.fetch_trends
+worker-cpu-1  |   . tasks.visual_embed.embed_scenes
+worker-cpu-1  |   . tasks.voice.generate_speech
+worker-cpu-1  |   . tasks.voice.prepare_voice_sample
+worker-cpu-1  |
+worker-cpu-1  | [2026-08-05 03:31:00,586: INFO/Beat] beat: Starting...
+worker-cpu-1  | [2026-08-05 03:31:00,594: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-cpu-1  | [2026-08-05 03:31:00,596: INFO/MainProcess] mingle: searching for neighbors
+worker-cpu-1  | [2026-08-05 03:31:01,605: INFO/MainProcess] mingle: sync with 3 nodes
+worker-cpu-1  | [2026-08-05 03:31:01,605: INFO/MainProcess] mingle: sync complete
+worker-cpu-1  | [2026-08-05 03:31:01,641: INFO/MainProcess] celery@6133915173de ready.
+worker-cpu-1  | [2026-08-05 03:31:03,621: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-cpu-1  | [2026-08-05 03:31:18,389: INFO/MainProcess] Task tasks.reel.build_reel[9007a75d-fcae-41b3-916b-bb7c4f7980a2] received
+worker-cpu-1  | [2026-08-05 03:31:18,867: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:18,875: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:18,882: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:18,888: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:18,894: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:18,900: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:18,926: INFO/ForkPoolWorker-5] HTTP Request: GET http://192.168.101.1:8001/v1/models "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:30,104: INFO/ForkPoolWorker-5] HTTP Request: POST http://192.168.101.1:8001/v1/chat/completions "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:30,129: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:30,134: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:31:30,157: INFO/ForkPoolWorker-5] Task tasks.reel.build_reel[9007a75d-fcae-41b3-916b-bb7c4f7980a2] succeeded in 11.767273883917369s: None
+worker-cpu-1  | [2026-08-05 03:33:33,568: INFO/MainProcess] Task tasks.reel.build_reel[67dd2984-f9f1-4c16-b6d9-14bb29c1c40d] received
+worker-cpu-1  | [2026-08-05 03:33:33,586: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:33:33,598: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:33:33,606: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:33:33,612: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:33:33,618: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:33:33,624: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:33:50,485: INFO/ForkPoolWorker-5] HTTP Request: POST http://192.168.101.1:8001/v1/chat/completions "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:33:50,509: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:33:50,522: INFO/ForkPoolWorker-5] HTTP Request: POST http://qdrant:6333/collections/scenes/points "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-05 03:33:50,576: INFO/ForkPoolWorker-5] Task tasks.reel.build_reel[67dd2984-f9f1-4c16-b6d9-14bb29c1c40d] succeeded in 17.007076481939293s: None
+psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "root" does not exist

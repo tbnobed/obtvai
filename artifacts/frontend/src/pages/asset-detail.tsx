@@ -2257,6 +2257,15 @@ function AssetReelSection({
     const t = setTimeout(() => setDraftStuck(true), 90_000);
     return () => clearTimeout(t);
   }, [draftId]);
+  // A page reload loses the in-memory draft id, orphaning a finished draft
+  // (drafts are filtered out of the reels list) — re-adopt it on load.
+  useEffect(() => {
+    if (draftId) return;
+    const existing = (reels ?? []).find(
+      (r: ReelJob) => r.status === "draft" || r.status === "selecting"
+    );
+    if (existing) setDraftId(existing.id);
+  }, [reels, draftId]);
   const draftSeededFor = useRef<string | null>(null);
   useEffect(() => {
     if (draft && draft.status === "draft" && draftSeededFor.current !== draft.id) {
