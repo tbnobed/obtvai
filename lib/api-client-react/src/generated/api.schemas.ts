@@ -1690,12 +1690,16 @@ export interface Clip {
   thumbnail_url?: string | null;
 }
 
+/**
+ * asset = hidden per-media Studio session
+ */
 export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];
 
 
 export const ProjectStatus = {
   active: 'active',
   archived: 'archived',
+  asset: 'asset',
 } as const;
 
 /**
@@ -1724,6 +1728,7 @@ export interface Project {
      * @nullable
      */
   script?: string | null;
+  /** asset = hidden per-media Studio session */
   status?: ProjectStatus;
   /** Media pool — asset ids this project works with; empty means the whole library */
   media_ids?: string[];

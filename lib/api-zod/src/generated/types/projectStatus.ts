@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * asset = hidden per-media Studio session
+ */
 export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];
 
 
 export const ProjectStatus = {
   active: 'active',
   archived: 'archived',
+  asset: 'asset',
 } as const;

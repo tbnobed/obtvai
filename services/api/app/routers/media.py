@@ -592,6 +592,28 @@ async def delete_media(id: str, db: AsyncSession = Depends(get_db)):
     # Explicit cleanup in case the markers table predates the CASCADE FK.
     from ..models import Marker
     await db.execute(delete(Marker).where(Marker.media_id == id))
+
+    # Remove this asset's hidden Studio session (single-asset project) so its
+    # chat/cut state doesn't linger as inaccessible orphaned data. Linked jobs
+    # are unlinked, mirroring delete_project.
+    from ..models import Project
+    from sqlalchemy import update as sa_update
+    sessions = (await db.execute(
+        select(Project).where(Project.status == "asset")
+    )).scalars().all()
+    for p in sessions:
+        if (p.media_ids or []) == [id]:
+            for model in (ClipList, ReelJob):
+                await db.execute(
+                    sa_update(model).where(model.project_id == p.id).values(project_id=None)
+                )
+            from ..models import RenderJob, StoryJob
+            for model in (RenderJob, StoryJob):
+                await db.execute(
+                    sa_update(model).where(model.project_id == p.id).values(project_id=None)
+                )
+            await db.delete(p)
+
     await db.delete(asset)
     await db.commit()
 
@@ -1264,6 +1286,44 @@ async def create_rough_cut(
 
     from .reels import _to_out
     return _to_out(reel)
+
+
+@router.post("/{id}/studio")
+async def get_media_studio_session(id: str, db: AsyncSession = Depends(get_db)):
+    """Find or create the per-asset Studio chat session.
+
+    An asset session is a Project with status "asset" whose media pool is just
+    this one asset. It reuses the entire Studio chat/cut machinery but is
+    hidden from the Projects list.
+    """
+    from ..models import Project
+    from .projects import _to_out as project_to_out
+
+    asset = (await db.execute(select(MediaAsset).where(MediaAsset.id == id))).scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    # Serialize concurrent opens for the same asset — read-then-insert would
+    # otherwise race and split the chat/cut history across duplicate sessions.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('studio-session-' || :mid))"), {"mid": id})
+
+    sessions = (await db.execute(
+        select(Project).where(Project.status == "asset").order_by(Project.created_at)
+    )).scalars().all()
+    existing = next((p for p in sessions if (p.media_ids or []) == [id]), None)
+    if existing is not None:
+        return await project_to_out(existing, db)
+
+    p = Project(
+        id=str(uuid.uuid4()),
+        name=f"Studio — {asset.filename}",
+        status="asset",
+        media_ids=[id],
+    )
+    db.add(p)
+    await db.commit()
+    await db.refresh(p)
+    return await project_to_out(p, db)
 
 
 @router.post("/{id}/social", response_model=ProcessingJobOut, status_code=202)

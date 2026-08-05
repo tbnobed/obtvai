@@ -30,9 +30,10 @@ import {
   useListClipLists, getListClipListsQueryKey,
   useCreateClipList,
   useUpdateClipList, getGetClipListQueryKey,
-  useListRatings, getListRatingsQueryKey
+  useListRatings, getListRatingsQueryKey,
+  useGetMediaStudioSession
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform, ReelJob, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, CutClip } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, ReelJob, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, CutClip, Project } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -48,6 +49,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import AssetChat from "@/components/asset-chat";
 import { CutPreviewPlayer } from "@/components/project/cut-preview-dialog";
+import { StudioTab } from "@/components/project/studio-tab";
 import { ReelRatingButtons } from "@/components/reel-rating";
 
 const PLATFORM_META: Record<string, { label: string; Icon: typeof Youtube; color: string }> = {
@@ -606,6 +608,10 @@ export default function AssetDetail() {
                   <Film className="h-3.5 w-3.5" />
                   Highlight Reel
                 </TabsTrigger>
+                <TabsTrigger value="studio" className="gap-1.5">
+                  <Clapperboard className="h-3.5 w-3.5" />
+                  Studio
+                </TabsTrigger>
                 <TabsTrigger value="socials" className="gap-1.5">
                   <Share2 className="h-3.5 w-3.5" />
                   Socials
@@ -890,6 +896,9 @@ export default function AssetDetail() {
                   </>
                 ) : null}
                 <AssetRendersSection mediaId={id!} />
+              </TabsContent>
+              <TabsContent value="studio" className="mt-4">
+                <AssetStudioSection mediaId={id!} />
               </TabsContent>
               <TabsContent value="socials" className="mt-4">
                 {(asset.social_scores && asset.social_scores.length > 0 && !socialBusy) ? (
@@ -2569,4 +2578,42 @@ function AssetReelSection({
       )}
     </div>
   );
+}
+
+function AssetStudioSection({ mediaId }: { mediaId: string }) {
+  const [project, setProject] = useState<Project | null>(null);
+  const sessionMutation = useGetMediaStudioSession();
+  const startedFor = useRef<string | null>(null);
+
+  const open = () => {
+    sessionMutation.mutate(
+      { id: mediaId },
+      { onSuccess: (p) => setProject(p) },
+    );
+  };
+
+  useEffect(() => {
+    if (startedFor.current === mediaId) return;
+    startedFor.current = mediaId;
+    setProject(null);
+    open();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaId]);
+
+  if (sessionMutation.isError) {
+    return (
+      <div className="py-10 flex flex-col items-center gap-3 text-sm text-destructive">
+        Failed to open the Studio session for this asset.
+        <Button size="sm" variant="outline" onClick={open}>Retry</Button>
+      </div>
+    );
+  }
+  if (!project) {
+    return (
+      <div className="py-10 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Opening Studio…
+      </div>
+    );
+  }
+  return <StudioTab project={project} />;
 }

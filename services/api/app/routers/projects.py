@@ -76,7 +76,9 @@ async def _load(id: str, db: AsyncSession) -> Project:
 @router.get("", response_model=list[ProjectOut])
 async def list_projects(db: AsyncSession = Depends(get_db)):
     rows = (await db.execute(
-        select(Project).order_by(desc(Project.created_at))
+        select(Project)
+        .where(Project.status != "asset")  # hide per-asset Studio sessions
+        .order_by(desc(Project.created_at))
     )).scalars().all()
     return [await _to_out(p, db) for p in rows]
 

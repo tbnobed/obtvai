@@ -663,6 +663,39 @@ export const CreateRoughCutResponse = zod.object({
 
 
 /**
+ * @summary Find or create the studio chat session (single-asset project) for a media asset
+ */
+export const GetMediaStudioSessionParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const getMediaStudioSessionResponseStatusDefault = `active`;
+export const getMediaStudioSessionResponseMediaIdsDefault = [];
+
+export const GetMediaStudioSessionResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
+  "status": zod.enum(['active', 'archived', 'asset']).default(getMediaStudioSessionResponseStatusDefault).describe('asset = hidden per-media Studio session'),
+  "media_ids": zod.array(zod.string()).default(getMediaStudioSessionResponseMediaIdsDefault).describe('Media pool — asset ids this project works with; empty means the whole library'),
+  "media_ranges": zod.record(zod.string(), zod.object({
+  "in": zod.number(),
+  "out": zod.number()
+})).nullish().describe('Per-asset usable region the Studio assistant selects within'),
+  "target_runtime_seconds": zod.number().nullish().describe('Target run time for the finished piece, in seconds'),
+  "created_at": zod.string(),
+  "updated_at": zod.string().nullish(),
+  "counts": zod.object({
+  "clip_lists": zod.number(),
+  "stories": zod.number(),
+  "reels": zod.number(),
+  "renders": zod.number()
+})
+})
+
+
+/**
  * @summary Translate the transcript into a target language
  */
 export const CreateTranslationParams = zod.object({
@@ -3159,7 +3192,7 @@ export const ListProjectsResponseItem = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
-  "status": zod.enum(['active', 'archived']).default(listProjectsResponseStatusDefault),
+  "status": zod.enum(['active', 'archived', 'asset']).default(listProjectsResponseStatusDefault).describe('asset = hidden per-media Studio session'),
   "media_ids": zod.array(zod.string()).default(listProjectsResponseMediaIdsDefault).describe('Media pool — asset ids this project works with; empty means the whole library'),
   "media_ranges": zod.record(zod.string(), zod.object({
   "in": zod.number(),
@@ -3204,7 +3237,7 @@ export const CreateProjectResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
-  "status": zod.enum(['active', 'archived']).default(createProjectResponseStatusDefault),
+  "status": zod.enum(['active', 'archived', 'asset']).default(createProjectResponseStatusDefault).describe('asset = hidden per-media Studio session'),
   "media_ids": zod.array(zod.string()).default(createProjectResponseMediaIdsDefault).describe('Media pool — asset ids this project works with; empty means the whole library'),
   "media_ranges": zod.record(zod.string(), zod.object({
   "in": zod.number(),
@@ -3237,7 +3270,7 @@ export const GetProjectResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
-  "status": zod.enum(['active', 'archived']).default(getProjectResponseStatusDefault),
+  "status": zod.enum(['active', 'archived', 'asset']).default(getProjectResponseStatusDefault).describe('asset = hidden per-media Studio session'),
   "media_ids": zod.array(zod.string()).default(getProjectResponseMediaIdsDefault).describe('Media pool — asset ids this project works with; empty means the whole library'),
   "media_ranges": zod.record(zod.string(), zod.object({
   "in": zod.number(),
@@ -3286,7 +3319,7 @@ export const UpdateProjectResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "script": zod.string().nullish().describe('Working script\/rundown text used in the Find stage'),
-  "status": zod.enum(['active', 'archived']).default(updateProjectResponseStatusDefault),
+  "status": zod.enum(['active', 'archived', 'asset']).default(updateProjectResponseStatusDefault).describe('asset = hidden per-media Studio session'),
   "media_ids": zod.array(zod.string()).default(updateProjectResponseMediaIdsDefault).describe('Media pool — asset ids this project works with; empty means the whole library'),
   "media_ranges": zod.record(zod.string(), zod.object({
   "in": zod.number(),

@@ -1581,6 +1581,77 @@ export const useCreateRoughCut = <TError = ErrorType<void>,
       return useMutation(getCreateRoughCutMutationOptions(options));
     }
 
+export const getGetMediaStudioSessionUrl = (id: string,) => {
+
+
+
+
+  return `/api/media/${id}/studio`
+}
+
+/**
+ * @summary Find or create the studio chat session (single-asset project) for a media asset
+ */
+export const getMediaStudioSession = async (id: string, options?: RequestInit): Promise<Project> => {
+
+  return customFetch<Project>(getGetMediaStudioSessionUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMediaStudioSessionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getMediaStudioSession>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof getMediaStudioSession>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['getMediaStudioSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof getMediaStudioSession>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  getMediaStudioSession(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GetMediaStudioSessionMutationResult = NonNullable<Awaited<ReturnType<typeof getMediaStudioSession>>>
+
+    export type GetMediaStudioSessionMutationError = ErrorType<void>
+
+    /**
+ * @summary Find or create the studio chat session (single-asset project) for a media asset
+ */
+export const useGetMediaStudioSession = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getMediaStudioSession>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof getMediaStudioSession>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getGetMediaStudioSessionMutationOptions(options));
+    }
+
 export const getCreateTranslationUrl = (id: string,) => {
 
 

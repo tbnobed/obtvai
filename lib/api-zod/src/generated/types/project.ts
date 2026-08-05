@@ -19,6 +19,7 @@ export interface Project {
      * @nullable
      */
   script?: string | null;
+  /** asset = hidden per-media Studio session */
   status?: ProjectStatus;
   /** Media pool — asset ids this project works with; empty means the whole library */
   media_ids?: string[];

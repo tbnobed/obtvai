@@ -346,7 +346,7 @@ const conversations = [
 
 type MockProject = {
   id: string; name: string; description: string | null; script: string | null;
-  status: "active" | "archived";
+  status: "active" | "archived" | "asset";
   media_ids: string[];
   media_ranges?: Record<string, { in: number; out: number }> | null;
   target_runtime_seconds: number | null;
@@ -1559,7 +1559,29 @@ function projectOut(p: MockProject) {
 }
 
 router.get("/projects", (_req, res) => {
-  res.json(projects.map(projectOut));
+  res.json(projects.filter((p) => p.status !== "asset").map(projectOut));
+});
+
+// Find-or-create the per-asset Studio chat session (hidden single-asset project)
+router.post("/media/:id/studio", (req, res) => {
+  const asset = assets.find((a) => a.id === req.params.id);
+  if (!asset) { res.status(404).json({ detail: "Media not found" }); return; }
+  let p = projects.find((x) => x.status === "asset" && x.media_ids.length === 1 && x.media_ids[0] === asset.id);
+  if (!p) {
+    p = {
+      id: `proj-asset-${asset.id}`,
+      name: `Studio — ${asset.filename}`,
+      description: null,
+      script: null,
+      status: "asset",
+      media_ids: [asset.id],
+      target_runtime_seconds: null,
+      created_at: new Date().toISOString(),
+      updated_at: null,
+    };
+    projects.unshift(p);
+  }
+  res.json(projectOut(p));
 });
 
 router.post("/projects", (req, res) => {

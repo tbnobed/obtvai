@@ -482,6 +482,27 @@ paths:
         "409":
           description: Asset has no creative clip suggestions yet
 
+  /media/{id}/studio:
+    post:
+      operationId: getMediaStudioSession
+      tags: [media]
+      summary: Find or create the studio chat session (single-asset project) for a media asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Existing or newly created studio session project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Media asset not found
+
   /media/{id}/translate:
     post:
       operationId: createTranslation
@@ -5953,8 +5974,9 @@ components:
           description: Working script/rundown text used in the Find stage
         status:
           type: string
-          enum: [active, archived]
+          enum: [active, archived, asset]
           default: active
+          description: asset = hidden per-media Studio session
         media_ids:
           type: array
           items:
