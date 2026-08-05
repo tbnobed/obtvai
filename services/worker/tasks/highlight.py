@@ -18,9 +18,13 @@ CLIP_SECONDS = 8.0
 # Start each clip slightly before the moment so the lead-in isn't clipped.
 LEAD_IN_SECONDS = 1.0
 MAX_CLIPS = 8
+# Pace bounds the length of each key-moment clip window.
+PACE_SECONDS = {"fast": 6.0, "normal": 8.0, "cinematic": 15.0}
 
 
-def _select_windows(moments: list, duration: float) -> list[tuple[float, float]]:
+def _select_windows(moments: list, duration: float,
+                    max_clips: int = MAX_CLIPS,
+                    clip_seconds: float = CLIP_SECONDS) -> list[tuple[float, float]]:
     """Turn key moments into non-overlapping (start, end) clip windows."""
     times = []
     for m in moments:
@@ -36,9 +40,9 @@ def _select_windows(moments: list, duration: float) -> list[tuple[float, float]]
     times.sort()
 
     windows: list[tuple[float, float]] = []
-    for t in times[: MAX_CLIPS * 2]:
+    for t in times[: max_clips * 2]:
         start = max(0.0, t - LEAD_IN_SECONDS)
-        end = start + CLIP_SECONDS
+        end = start + clip_seconds
         if duration > 0:
             end = min(end, duration)
         if end - start < 2.0:
@@ -49,14 +53,15 @@ def _select_windows(moments: list, duration: float) -> list[tuple[float, float]]
             windows[-1] = (prev_start, max(prev_end, end))
             continue
         windows.append((start, end))
-        if len(windows) >= MAX_CLIPS:
+        if len(windows) >= max_clips:
             break
     return windows
 
 
 @celery_app.task(bind=True, name="tasks.highlight.build_highlight", queue="cpu")
 def build_highlight(self, media_id: str, job_id: str, clips: list = None,
-                    preset: str = "original", burn_captions: bool = False):
+                    preset: str = "original", burn_captions: bool = False,
+                    max_clips: int = MAX_CLIPS, pace: str = "normal"):
     db = get_session()
     try:
         update_job(db, job_id, status="running", started_at=datetime.utcnow(),
@@ -103,7 +108,11 @@ def build_highlight(self, media_id: str, job_id: str, clips: list = None,
                 windows.append((s, e))
             append_log(db, job_id, f"Using {len(windows)} user-curated clip(s) from preview")
         else:
-            windows = _select_windows(key_moments, duration)
+            windows = _select_windows(
+                key_moments, duration,
+                max_clips=max(1, min(int(max_clips or MAX_CLIPS), 20)),
+                clip_seconds=PACE_SECONDS.get(pace, CLIP_SECONDS),
+            )
         if not windows:
             raise RuntimeError("Key moments did not yield any usable clip windows")
 

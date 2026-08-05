@@ -794,6 +794,10 @@ export const CreateHighlightParams = zod.object({
 export const createHighlightBodyClipsItemLockedDefault = false;
 export const createHighlightBodyPresetDefault = `original`;
 export const createHighlightBodyBurnCaptionsDefault = false;
+export const createHighlightBodyMaxClipsDefault = 8;
+export const createHighlightBodyMaxClipsMax = 20;
+
+export const createHighlightBodyPaceDefault = `normal`;
 
 export const CreateHighlightBody = zod.object({
   "clips": zod.array(zod.object({
@@ -806,7 +810,9 @@ export const CreateHighlightBody = zod.object({
   "locked": zod.boolean().default(createHighlightBodyClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
 })).nullish(),
   "preset": zod.enum(['original', 'vertical']).default(createHighlightBodyPresetDefault),
-  "burn_captions": zod.boolean().default(createHighlightBodyBurnCaptionsDefault)
+  "burn_captions": zod.boolean().default(createHighlightBodyBurnCaptionsDefault),
+  "max_clips": zod.number().min(1).max(createHighlightBodyMaxClipsMax).default(createHighlightBodyMaxClipsDefault),
+  "pace": zod.enum(['fast', 'normal', 'cinematic']).default(createHighlightBodyPaceDefault)
 }).describe('Optional user-curated clip list and render options from the highlight preview')
 
 export const CreateHighlightResponse = zod.object({
@@ -840,6 +846,16 @@ export const DeleteHighlightResponse = zod.void()
  */
 export const GetHighlightPreviewParams = zod.object({
   "id": zod.coerce.string()
+})
+
+export const getHighlightPreviewQueryMaxClipsDefault = 8;
+export const getHighlightPreviewQueryMaxClipsMax = 20;
+
+export const getHighlightPreviewQueryPaceDefault = `normal`;
+
+export const GetHighlightPreviewQueryParams = zod.object({
+  "max_clips": zod.coerce.number().min(1).max(getHighlightPreviewQueryMaxClipsMax).default(getHighlightPreviewQueryMaxClipsDefault),
+  "pace": zod.enum(['fast', 'normal', 'cinematic']).default(getHighlightPreviewQueryPaceDefault)
 })
 
 export const getHighlightPreviewResponseClipsItemLockedDefault = false;
@@ -4149,6 +4165,10 @@ export const RenderReelParams = zod.object({
 export const renderReelBodyClipsItemLockedDefault = false;
 export const renderReelBodyPresetDefault = `original`;
 export const renderReelBodyBurnCaptionsDefault = false;
+export const renderReelBodyMaxClipsDefault = 8;
+export const renderReelBodyMaxClipsMax = 20;
+
+export const renderReelBodyPaceDefault = `normal`;
 
 export const RenderReelBody = zod.object({
   "clips": zod.array(zod.object({
@@ -4161,7 +4181,9 @@ export const RenderReelBody = zod.object({
   "locked": zod.boolean().default(renderReelBodyClipsItemLockedDefault).describe('Locked clips are never removed or reordered by the assistant')
 })).nullish(),
   "preset": zod.enum(['original', 'vertical']).default(renderReelBodyPresetDefault),
-  "burn_captions": zod.boolean().default(renderReelBodyBurnCaptionsDefault)
+  "burn_captions": zod.boolean().default(renderReelBodyBurnCaptionsDefault),
+  "max_clips": zod.number().min(1).max(renderReelBodyMaxClipsMax).default(renderReelBodyMaxClipsDefault),
+  "pace": zod.enum(['fast', 'normal', 'cinematic']).default(renderReelBodyPaceDefault)
 }).describe('Optional user-curated clip list and render options from the highlight preview')
 
 export const RenderReelResponse = zod.object({

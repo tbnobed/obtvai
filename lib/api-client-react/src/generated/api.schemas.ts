@@ -2137,6 +2137,15 @@ export const HighlightRenderInPreset = {
   vertical: 'vertical',
 } as const;
 
+export type HighlightRenderInPace = typeof HighlightRenderInPace[keyof typeof HighlightRenderInPace];
+
+
+export const HighlightRenderInPace = {
+  fast: 'fast',
+  normal: 'normal',
+  cinematic: 'cinematic',
+} as const;
+
 /**
  * Optional user-curated clip list and render options from the highlight preview
  */
@@ -2145,6 +2154,12 @@ export interface HighlightRenderIn {
   clips?: CutClip[] | null;
   preset?: HighlightRenderInPreset;
   burn_captions?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  max_clips?: number;
+  pace?: HighlightRenderInPace;
 }
 
 export interface HighlightPreview {
@@ -2596,6 +2611,24 @@ export type StreamDubParams = {
  */
 download?: boolean;
 };
+
+export type GetHighlightPreviewParams = {
+/**
+ * @minimum 1
+ * @maximum 20
+ */
+max_clips?: number;
+pace?: GetHighlightPreviewPace;
+};
+
+export type GetHighlightPreviewPace = typeof GetHighlightPreviewPace[keyof typeof GetHighlightPreviewPace];
+
+
+export const GetHighlightPreviewPace = {
+  fast: 'fast',
+  normal: 'normal',
+  cinematic: 'cinematic',
+} as const;
 
 export type ListPeopleParams = {
 /**

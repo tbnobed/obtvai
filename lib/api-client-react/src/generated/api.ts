@@ -39,6 +39,7 @@ import type {
   FaceCluster,
   GetCaptionsParams,
   GetCoAppearancesParams,
+  GetHighlightPreviewParams,
   GetKeywordHeatmapParams,
   GetMediaFrameParams,
   GetMediaTranscriptParams,
@@ -2115,20 +2116,29 @@ export const useDeleteHighlight = <TError = ErrorType<void>,
       return useMutation(getDeleteHighlightMutationOptions(options));
     }
 
-export const getGetHighlightPreviewUrl = (id: string,) => {
+export const getGetHighlightPreviewUrl = (id: string,
+    params?: GetHighlightPreviewParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/media/${id}/highlight/preview`
+  return stringifiedParams.length > 0 ? `/api/media/${id}/highlight/preview?${stringifiedParams}` : `/api/media/${id}/highlight/preview`
 }
 
 /**
  * @summary The exact clips a highlight reel render would cut, without rendering
  */
-export const getHighlightPreview = async (id: string, options?: RequestInit): Promise<HighlightPreview> => {
+export const getHighlightPreview = async (id: string,
+    params?: GetHighlightPreviewParams, options?: RequestInit): Promise<HighlightPreview> => {
 
-  return customFetch<HighlightPreview>(getGetHighlightPreviewUrl(id),
+  return customFetch<HighlightPreview>(getGetHighlightPreviewUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -2141,23 +2151,25 @@ export const getHighlightPreview = async (id: string, options?: RequestInit): Pr
 
 
 
-export const getGetHighlightPreviewQueryKey = (id: string,) => {
+export const getGetHighlightPreviewQueryKey = (id: string,
+    params?: GetHighlightPreviewParams,) => {
     return [
-    `/api/media/${id}/highlight/preview`
+    `/api/media/${id}/highlight/preview`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetHighlightPreviewQueryOptions = <TData = Awaited<ReturnType<typeof getHighlightPreview>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHighlightPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetHighlightPreviewQueryOptions = <TData = Awaited<ReturnType<typeof getHighlightPreview>>, TError = ErrorType<unknown>>(id: string,
+    params?: GetHighlightPreviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHighlightPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetHighlightPreviewQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetHighlightPreviewQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHighlightPreview>>> = ({ signal }) => getHighlightPreview(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHighlightPreview>>> = ({ signal }) => getHighlightPreview(id,params, { signal, ...requestOptions });
 
 
 
@@ -2175,11 +2187,12 @@ export type GetHighlightPreviewQueryError = ErrorType<unknown>
  */
 
 export function useGetHighlightPreview<TData = Awaited<ReturnType<typeof getHighlightPreview>>, TError = ErrorType<unknown>>(
- id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHighlightPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: string,
+    params?: GetHighlightPreviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHighlightPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetHighlightPreviewQueryOptions(id,options)
+  const queryOptions = getGetHighlightPreviewQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

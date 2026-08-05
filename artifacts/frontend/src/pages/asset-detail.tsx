@@ -210,11 +210,12 @@ export default function AssetDetail() {
   };
 
   const [hlPreviewOpen, setHlPreviewOpen] = useState(false);
-  const [hlOptions, setHlOptions] = useState<{ preset: "original" | "vertical"; burn_captions: boolean }>({ preset: "original", burn_captions: false });
+  const [hlOptions, setHlOptions] = useState<{ preset: "original" | "vertical"; burn_captions: boolean; max_clips: number; pace: "fast" | "normal" | "cinematic" }>({ preset: "original", burn_captions: false, max_clips: 8, pace: "normal" });
   const [hlClips, setHlClips] = useState<CutClip[] | null>(null);
-  const hlPreview = useGetHighlightPreview(id!, {
+  const hlPreviewParams = { max_clips: hlOptions.max_clips, pace: hlOptions.pace };
+  const hlPreview = useGetHighlightPreview(id!, hlPreviewParams, {
     query: {
-      queryKey: getGetHighlightPreviewQueryKey(id!),
+      queryKey: getGetHighlightPreviewQueryKey(id!, hlPreviewParams),
       enabled: hlPreviewOpen && Boolean(asset?.key_moments?.length),
     },
   });
@@ -805,7 +806,7 @@ export default function AssetDetail() {
                   highlightBusy={highlightBusy}
                   highlightProgress={highlightJob?.progress ?? null}
                   highlightError={highlightMutation.isError}
-                  onGenerateHighlight={(opts) => { setHlOptions(opts); setHlPreviewOpen(true); }}
+                  onGenerateHighlight={(opts) => { setHlOptions(opts); setHlDirty(false); setHlClips(null); setHlPreviewOpen(true); }}
                 />
                 {asset.key_moments && asset.key_moments.length > 0 ? (
                   <>
@@ -2218,7 +2219,7 @@ function AssetReelSection({
   highlightBusy: boolean;
   highlightProgress: number | null;
   highlightError: boolean;
-  onGenerateHighlight: (opts: { preset: "original" | "vertical"; burn_captions: boolean }) => void;
+  onGenerateHighlight: (opts: { preset: "original" | "vertical"; burn_captions: boolean; max_clips: number; pace: "fast" | "normal" | "cinematic" }) => void;
 }) {
   const queryClient = useQueryClient();
   const listParams = { media_id: mediaId };
@@ -2347,7 +2348,7 @@ function AssetReelSection({
           </label>
           <Button
             className="gap-2 ml-auto"
-            onClick={hasPrompt ? submit : () => onGenerateHighlight({ preset: preset as "original" | "vertical", burn_captions: burnCaptions })}
+            onClick={hasPrompt ? submit : () => onGenerateHighlight({ preset: preset as "original" | "vertical", burn_captions: burnCaptions, max_clips: maxClips, pace })}
             disabled={hasPrompt ? createMutation.isPending : (!canHighlight || highlightBusy)}
             data-testid="button-generate-reel"
           >

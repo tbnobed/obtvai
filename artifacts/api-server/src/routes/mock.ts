@@ -1147,22 +1147,25 @@ router.get("/media/:id/highlight/preview", (req, res) => {
     res.status(400).json({ detail: "No key moments available — run AI analysis first" });
     return;
   }
-  // Mirror the worker's window logic: 8s clips, 1s lead-in, max 8, merged overlaps.
+  // Mirror the worker's window logic: pace-length clips, 1s lead-in, max_clips cap, merged overlaps.
   const duration = Number((asset as any).duration_seconds || 0);
+  const maxClips = Math.max(1, Math.min(Number(req.query.max_clips) || 8, 20));
+  const paceSeconds: Record<string, number> = { fast: 6, normal: 8, cinematic: 15 };
+  const clipLen = paceSeconds[String(req.query.pace)] ?? 8;
   const times = moments
     .map((m) => (typeof m === "number" ? m : Number(m?.time)))
     .filter((t) => Number.isFinite(t) && t >= 0 && (!duration || t < duration))
     .sort((a, b) => a - b);
   const windows: Array<[number, number]> = [];
-  for (const t of times.slice(0, 16)) {
+  for (const t of times.slice(0, maxClips * 2)) {
     const start = Math.max(0, t - 1);
-    let end = start + 8;
+    let end = start + clipLen;
     if (duration) end = Math.min(end, duration);
     if (end - start < 2) continue;
     const last = windows[windows.length - 1];
     if (last && start < last[1]) { last[1] = Math.max(last[1], end); continue; }
     windows.push([start, end]);
-    if (windows.length >= 8) break;
+    if (windows.length >= maxClips) break;
   }
   const clips = windows.map(([s, e]) => {
     const m = moments.find((mm) => typeof mm === "object" && Number(mm?.time) >= s && Number(mm?.time) <= e);

@@ -1042,6 +1042,8 @@ class HighlightRenderIn(BaseModel):
     clips: Optional[List[CutClip]] = None
     preset: Literal["original", "vertical"] = "original"
     burn_captions: bool = False
+    max_clips: int = Field(default=8, ge=1, le=20)
+    pace: Literal["fast", "normal", "cinematic"] = "normal"
 
 
 class ProjectCutOut(BaseModel):

@@ -667,6 +667,21 @@ paths:
           required: true
           schema:
             type: string
+        - name: max_clips
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 8
+            minimum: 1
+            maximum: 20
+        - name: pace
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [fast, normal, cinematic]
+            default: normal
       responses:
         "200":
           description: Highlight clip windows
@@ -6383,6 +6398,15 @@ components:
         burn_captions:
           type: boolean
           default: false
+        max_clips:
+          type: integer
+          default: 8
+          minimum: 1
+          maximum: 20
+        pace:
+          type: string
+          enum: [fast, normal, cinematic]
+          default: normal
 
     HighlightPreview:
       type: object

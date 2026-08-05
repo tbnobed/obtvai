@@ -884,7 +884,13 @@ _HL_LEAD_IN_SECONDS = 1.0
 _HL_MAX_CLIPS = 8
 
 
-def _highlight_windows(moments: list, duration: float) -> list:
+# Pace bounds the length of each key-moment clip window.
+_HL_PACE_SECONDS = {"fast": 6.0, "normal": 8.0, "cinematic": 15.0}
+
+
+def _highlight_windows(moments: list, duration: float,
+                       max_clips: int = _HL_MAX_CLIPS,
+                       clip_seconds: float = _HL_CLIP_SECONDS) -> list:
     times = []
     for m in moments:
         try:
@@ -896,9 +902,9 @@ def _highlight_windows(moments: list, duration: float) -> list:
         times.append(t)
     times.sort()
     windows = []
-    for t in times[: _HL_MAX_CLIPS * 2]:
+    for t in times[: max_clips * 2]:
         start = max(0.0, t - _HL_LEAD_IN_SECONDS)
-        end = start + _HL_CLIP_SECONDS
+        end = start + clip_seconds
         if duration > 0:
             end = min(end, duration)
         if end - start < 2.0:
@@ -908,13 +914,14 @@ def _highlight_windows(moments: list, duration: float) -> list:
             windows[-1] = (prev_start, max(prev_end, end))
             continue
         windows.append((start, end))
-        if len(windows) >= _HL_MAX_CLIPS:
+        if len(windows) >= max_clips:
             break
     return windows
 
 
 @router.get("/{id}/highlight/preview")
-async def preview_highlight(id: str, db: AsyncSession = Depends(get_db)):
+async def preview_highlight(id: str, max_clips: int = 8, pace: str = "normal",
+                            db: AsyncSession = Depends(get_db)):
     """The exact clips a highlight reel render would cut, without rendering —
     same shape as Studio cut clips so the same preview player can play them."""
     result = await db.execute(select(MediaAsset).where(MediaAsset.id == id))
@@ -928,7 +935,11 @@ async def preview_highlight(id: str, db: AsyncSession = Depends(get_db)):
         )
     duration = float(asset.duration_seconds or 0)
     moments = asset.key_moments or []
-    windows = _highlight_windows(moments, duration)
+    windows = _highlight_windows(
+        moments, duration,
+        max_clips=max(1, min(int(max_clips), 20)),
+        clip_seconds=_HL_PACE_SECONDS.get(pace, _HL_CLIP_SECONDS),
+    )
 
     def _label(start: float, end: float):
         for m in moments:
@@ -992,6 +1003,8 @@ async def create_highlight(id: str, body: HighlightRenderIn | None = None,
     extra = {
         "preset": body.preset if body else "original",
         "burn_captions": bool(body.burn_captions) if body else False,
+        "max_clips": body.max_clips if body else 8,
+        "pace": body.pace if body else "normal",
     }
     if body and body.clips:
         import math
@@ -1603,4 +1616,7 @@ async def stream_highlight(id: str, db: AsyncSession = Depends(get_db)):
         media_type="video/mp4",
         filename=f"highlight_{asset.filename.rsplit('.', 1)[0]}.mp4",
         content_disposition_type="inline",
+        # The reel is always written to the same filename, so a regenerated
+        # reel would otherwise be masked by the browser's cached copy.
+        headers={"Cache-Control": "no-store"},
     )

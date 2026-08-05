@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CutClip } from './cutClip';
+import type { HighlightRenderInPace } from './highlightRenderInPace';
 import type { HighlightRenderInPreset } from './highlightRenderInPreset';
 
 /**
@@ -16,4 +17,10 @@ export interface HighlightRenderIn {
   clips?: CutClip[] | null;
   preset?: HighlightRenderInPreset;
   burn_captions?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  max_clips?: number;
+  pace?: HighlightRenderInPace;
 }
