@@ -808,6 +808,7 @@ export default function AssetDetail() {
                   highlightError={highlightMutation.isError}
                   onGenerateHighlight={(opts) => { setHlOptions(opts); setHlDirty(false); setHlClips(null); setHlPreviewOpen(true); }}
                   onOptionsChange={setHlOptions}
+                  onPromptSubmit={() => { setHlPreviewOpen(false); setHlClips(null); setHlDirty(false); }}
                 />
                 {asset.key_moments && asset.key_moments.length > 0 ? (
                   <>
@@ -2216,6 +2217,7 @@ function AssetReelSection({
   highlightError,
   onGenerateHighlight,
   onOptionsChange,
+  onPromptSubmit,
 }: {
   mediaId: string;
   canHighlight: boolean;
@@ -2224,6 +2226,7 @@ function AssetReelSection({
   highlightError: boolean;
   onGenerateHighlight: (opts: { preset: "original" | "vertical"; burn_captions: boolean; max_clips: number; pace: "fast" | "normal" | "cinematic" }) => void;
   onOptionsChange: (opts: { preset: "original" | "vertical"; burn_captions: boolean; max_clips: number; pace: "fast" | "normal" | "cinematic" }) => void;
+  onPromptSubmit: () => void;
 }) {
   const queryClient = useQueryClient();
   const listParams = { media_id: mediaId };
@@ -2288,6 +2291,9 @@ function AssetReelSection({
 
   const submit = () => {
     if (prompt.trim().length < 3) return;
+    // A stale highlight preview left open above the draft reads as "the
+    // prompt did nothing" — close it the moment a prompt build starts.
+    onPromptSubmit();
     createMutation.mutate(
       {
         data: {
@@ -2393,7 +2399,7 @@ function AssetReelSection({
           </label>
           <Button
             className="gap-2 ml-auto"
-            onClick={hasPrompt ? submit : () => onGenerateHighlight({ preset: preset as "original" | "vertical", burn_captions: burnCaptions, max_clips: maxClips, pace })}
+            onClick={hasPrompt ? submit : () => { setDraftId(null); setDraftClips([]); onGenerateHighlight({ preset: preset as "original" | "vertical", burn_captions: burnCaptions, max_clips: maxClips, pace }); }}
             disabled={hasPrompt ? createMutation.isPending : (!canHighlight || highlightBusy)}
             data-testid="button-generate-reel"
           >
