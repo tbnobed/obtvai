@@ -3,6 +3,7 @@ import {
   useListMedia, getListMediaQueryKey, useIngestMedia, useImportMediaFromLink,
   useListFolders, getListFoldersQueryKey, useCreateFolder, useUpdateFolder, useDeleteFolder,
   useMoveMedia, useListProjects, getListProjectsQueryKey, useUpdateProject, getGetProjectQueryKey,
+  useCreateProject,
   useDeleteMedia,
 } from "@workspace/api-client-react";
 import type { MediaAsset, MediaFolder } from "@workspace/api-client-react";
@@ -441,6 +442,63 @@ export default function Library() {
     });
   };
 
+  const createProject = useCreateProject();
+  const [newProjectIds, setNewProjectIds] = useState<string[] | null>(null);
+  const [newProjectName, setNewProjectName] = useState("");
+  const submitNewProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectName.trim() || !newProjectIds?.length) return;
+    createProject.mutate({ data: { name: newProjectName.trim(), media_ids: newProjectIds } }, {
+      onSuccess: (p) => {
+        queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        const n = newProjectIds.length;
+        setNewProjectIds(null);
+        setNewProjectName("");
+        setSelected(new Set());
+        toast({ description: `Created project ${p.name} with ${n} file${n === 1 ? "" : "s"}` });
+        navigate(`/studio/${p.id}`);
+      },
+      onError: () => toast({ variant: "destructive", description: "Could not create project" }),
+    });
+  };
+
+  // Rubber-band (marquee) selection: click-drag on empty grid space selects
+  // every card the rectangle touches. Shift/Ctrl keeps the existing selection.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [marquee, setMarquee] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const onGridMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("[data-asset-id]")) return;
+    e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    const base = e.shiftKey || e.ctrlKey || e.metaKey ? new Set(selected) : new Set<string>();
+    let active = false;
+    const onMove = (ev: MouseEvent) => {
+      if (!active && Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 5) return;
+      active = true;
+      const rect = {
+        x1: Math.min(startX, ev.clientX), y1: Math.min(startY, ev.clientY),
+        x2: Math.max(startX, ev.clientX), y2: Math.max(startY, ev.clientY),
+      };
+      setMarquee(rect);
+      const next = new Set(base);
+      gridRef.current?.querySelectorAll<HTMLElement>("[data-asset-id]").forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.left < rect.x2 && r.right > rect.x1 && r.top < rect.y2 && r.bottom > rect.y1) {
+          next.add(el.dataset.assetId!);
+        }
+      });
+      setSelected(next);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      setMarquee(null);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
   // Shared right-click menu content for an asset (grid card or list row).
   const assetMenu = (asset: MediaAsset) => {
     const count = selected.has(asset.id) ? selected.size : 1;
@@ -471,6 +529,10 @@ export default function Library() {
             )}
           </ContextMenuSubContent>
         </ContextMenuSub>
+        <ContextMenuItem onSelect={() => { setNewProjectName(""); setNewProjectIds(dragIds(asset.id)); }}>
+          <Plus className="h-4 w-4 mr-2" />
+          New project with selected{count > 1 ? ` (${count})` : ""}
+        </ContextMenuItem>
         <ContextMenuSub>
           <ContextMenuSubTrigger>
             <FolderInput className="h-4 w-4 mr-2" />
@@ -970,11 +1032,12 @@ export default function Library() {
         </div>
       ) : data?.items.length ? (
         view === "grid" ? (
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div ref={gridRef} onMouseDown={onGridMouseDown} className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {data.items.map(asset => (
               <ContextMenu key={asset.id}>
                 <ContextMenuTrigger asChild>
                   <div
+                    data-asset-id={asset.id}
                     draggable
                     onDragStart={(e) => handleAssetDragStart(e, asset.id)}
                     onClick={(e) => {
@@ -1040,6 +1103,7 @@ export default function Library() {
                   <ContextMenu key={asset.id}>
                     <ContextMenuTrigger asChild>
                   <tr
+                    data-asset-id={asset.id}
                     draggable
                     onDragStart={(e) => handleAssetDragStart(e, asset.id)}
                     className={`border-b border-border last:border-b-0 cursor-pointer ${selected.has(asset.id) ? "bg-primary/10" : "hover:bg-muted/30"}`}
@@ -1110,6 +1174,37 @@ export default function Library() {
         </div>
       )}
       </div>
+
+      {marquee && (
+        <div
+          className="fixed z-50 pointer-events-none border border-primary bg-primary/10"
+          style={{ left: marquee.x1, top: marquee.y1, width: marquee.x2 - marquee.x1, height: marquee.y2 - marquee.y1 }}
+        />
+      )}
+
+      <Dialog open={newProjectIds !== null} onOpenChange={(open) => { if (!open) setNewProjectIds(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              New project with {newProjectIds?.length ?? 0} file{(newProjectIds?.length ?? 0) === 1 ? "" : "s"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={submitNewProject} className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Project name</label>
+              <Input
+                value={newProjectName}
+                onChange={e => setNewProjectName(e.target.value)}
+                placeholder="Dailies review"
+                autoFocus
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={!newProjectName.trim() || createProject.isPending}>
+              {createProject.isPending ? "Creating..." : "Create project"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
