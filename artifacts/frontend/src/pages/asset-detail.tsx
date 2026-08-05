@@ -2270,7 +2270,12 @@ function AssetReelSection({
     query: {
       queryKey: getGetReelQueryKey(draftId ?? ""),
       enabled: !!draftId,
-      refetchInterval: (q) => (q.state.data?.status === "selecting" ? 1500 : false),
+      // Keep polling through "running" too — older worker builds flip the
+      // draft to "running" during curation; stopping there blinds the page.
+      refetchInterval: (q) => {
+        const s = q.state.data?.status;
+        return !s || s === "selecting" || s === "running" ? 1500 : false;
+      },
     },
   });
   const draft = draftId ? draftQuery.data ?? null : null;
@@ -2468,7 +2473,7 @@ function AssetReelSection({
         )}
       </div>
 
-      {draftId && (!draft || draft.status === "selecting") && (
+      {draftId && (!draft || draft.status === "selecting" || draft.status === "running") && (
         draftStuck ? (
           <div className="flex items-center gap-3 py-4 justify-center text-sm text-red-400" data-testid="reel-draft-stuck">
             <span>Clip curation is taking too long — the reel worker may be down or running an old build. Check worker-cpu logs.</span>

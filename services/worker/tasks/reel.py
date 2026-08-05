@@ -500,7 +500,14 @@ def build_reel(self, reel_id: str, select_only: bool = False, skip_curation: boo
         if not clips:
             raise RuntimeError("Reel has no clips to cut")
 
-        _update_reel(db, reel_id, status="running", progress=0.0, error_message=None)
+        # A select-only pass must stay in "selecting": the UI polls the draft
+        # while that status holds, and the reels list hides it. Flipping it to
+        # "running" made the draft invisible the moment curation started.
+        _update_reel(
+            db, reel_id,
+            status="selecting" if select_only else "running",
+            progress=0.0, error_message=None,
+        )
 
         # ── Creative curation: let the LLM act as a story editor ────────────
         # The API's semantic search only finds *candidate* fragments; without
