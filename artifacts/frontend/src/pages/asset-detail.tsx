@@ -2242,6 +2242,15 @@ function AssetReelSection({
     },
   });
   const draft = draftId ? draftQuery.data ?? null : null;
+  // If the worker never picks the job up (stale worker build, queue down),
+  // the reel sits in "selecting" forever — surface that instead of spinning.
+  const [draftStuck, setDraftStuck] = useState(false);
+  useEffect(() => {
+    setDraftStuck(false);
+    if (!draftId) return;
+    const t = setTimeout(() => setDraftStuck(true), 90_000);
+    return () => clearTimeout(t);
+  }, [draftId]);
   const draftSeededFor = useRef<string | null>(null);
   useEffect(() => {
     if (draft && draft.status === "draft" && draftSeededFor.current !== draft.id) {
@@ -2401,10 +2410,17 @@ function AssetReelSection({
       </div>
 
       {draftId && (!draft || draft.status === "selecting") && (
-        <div className="flex items-center gap-3 py-6 justify-center text-sm text-muted-foreground" data-testid="reel-draft-selecting">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Curating clips for your prompt — trimming to complete thoughts and enforcing pace...
-        </div>
+        draftStuck ? (
+          <div className="flex items-center gap-3 py-4 justify-center text-sm text-red-400" data-testid="reel-draft-stuck">
+            <span>Clip curation is taking too long — the reel worker may be down or running an old build. Check worker-cpu logs.</span>
+            <Button variant="outline" size="sm" onClick={discardDraft}>Dismiss</Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 py-6 justify-center text-sm text-muted-foreground" data-testid="reel-draft-selecting">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Curating clips for your prompt — trimming to complete thoughts and enforcing pace...
+          </div>
+        )
       )}
 
       {draft && draft.status === "error" && (
