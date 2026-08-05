@@ -1,0 +1,46 @@
+=> ERROR [frontend builder 11/12] RUN pnpm --filter @workspace/api-spec run codegen                                                                                       5.6s
+ => CACHED [worker-cpu  2/12] RUN apt-get update && apt-get install -y --no-install-recommends     python3.11     python3.11-dev     python3-dev     python3-pip     ffmp  0.0s
+ => [worker-cpu  3/12] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz /tmp/ffmpeg.tar.xz                     0.5s
+ => CANCELED [worker-cpu  4/12] RUN tar -xf /tmp/ffmpeg.tar.xz -C /tmp     && cp /tmp/ffmpeg-n8.1-latest-linux64-gpl-8.1/bin/ffmpeg /usr/local/bin/ffmpeg     && cp /tmp/  3.6s
+------
+ > [frontend builder 11/12] RUN pnpm --filter @workspace/api-spec run codegen:
+0.385
+0.385 > @workspace/api-spec@0.0.0 codegen /app/lib/api-spec
+0.385 > orval --config ./orval.config.ts && pnpm -w run typecheck:libs
+0.385
+0.581 🍻 orval v8.20.0 - A swagger client generator for typescript
+0.660 api-client-react Cleaning output folder
+2.022 🎉 api-client-react - Your OpenAPI spec has been converted into ready to use orval!
+2.037 zod Cleaning output folder
+2.237 🎉 zod - Your OpenAPI spec has been converted into ready to use orval!
+2.449
+2.449 > workspace@0.0.0 typecheck:libs /app
+2.449 > tsc --build
+2.449
+4.816 lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'GetHighlightPreviewParams'. Consider explicitly re-exporting to resolve the ambiguity.
+4.852  ELIFECYCLE  Command failed with exit code 2.
+4.869 /app/lib/api-spec:
+4.869  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-spec@0.0.0 codegen: `orval --config ./orval.config.ts && pnpm -w run typecheck:libs`
+4.869 Exit status 2
+------
+[+] up 0/3
+ ⠙ Image obtv-ai-worker-cpu Building                                                                                                                                        8.0s
+ ⠙ Image obtv-ai-api        Building                                                                                                                                        8.0s
+ ⠙ Image obtv-ai-frontend   Building                                                                                                                                        8.0s
+Dockerfile.production:24
+
+--------------------
+
+  22 |     COPY attached_assets/ ./attached_assets/
+
+  23 |
+
+  24 | >>> RUN pnpm --filter @workspace/api-spec run codegen
+
+  25 |     RUN BASE_PATH=/ PORT=3000 pnpm --filter @workspace/frontend run build
+
+  26 |
+
+--------------------
+
+target frontend: failed to solve: process "/bin/sh -c pnpm --filter @workspace/api-spec run codegen" did not complete successfully: exit code: 2
