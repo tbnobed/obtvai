@@ -38,7 +38,7 @@ export default function SearchPage() {
     if (term.length < 2) return;
     if (q) setQuery(q);
     searchMutation.mutate(
-      { data: { query: term, search_type: s ?? scope } },
+      { data: { query: term, search_type: s ?? scope, limit: 500 } },
       {
         onSuccess: () =>
           queryClient.invalidateQueries({ queryKey: getGetSearchHistoryQueryKey() }),

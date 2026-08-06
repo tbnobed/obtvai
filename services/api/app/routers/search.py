@@ -39,7 +39,7 @@ _MIN_VISUAL_SCORE = 0.25
 # bar, surface the best few hits above this lower noise floor rather than
 # returning a hard zero.
 _MIN_VISUAL_SCORE_RELAXED = 0.10
-_RELAXED_VISUAL_LIMIT = 5
+_RELAXED_VISUAL_LIMIT = 24
 # First-pass cap on visual scenes from a single asset: broadcast footage has
 # many near-identical shots, and without a cap one file's duplicates push
 # every other asset's valid match past the result limit.
@@ -179,7 +179,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
             visual_hits = await search_vectors(
                 collection="scenes",
                 vector=clip_query_embedding,
-                limit=min(max(body.limit * 5, 50), 200),
+                limit=min(max(body.limit * 5, 50), 1000),
                 media_id=body.media_id,
                 media_ids=body.media_ids,
             )
