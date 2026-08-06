@@ -92,6 +92,7 @@ async def move_media(payload: MediaMoveInput, db: AsyncSession = Depends(get_db)
 RUNNABLE_STAGES = {
     "proxy", "audio_extract", "transcribe", "diarize", "scene_detect", "qc",
     "visual_embed", "face_detect", "index", "analyze", "creative", "identify",
+    "sprite",
 }
 
 
@@ -232,6 +233,8 @@ async def resume_stalled_media(db: AsyncSession = Depends(get_db)):
             job_types = []
             if not asset.proxy_path:
                 job_types.append("proxy")
+            elif not asset.sprite_url:
+                job_types.append("sprite")
             if transcript[0] == 0:
                 # No transcript at all: restart from audio extraction, which
                 # chains transcribe -> diarize + index downstream.

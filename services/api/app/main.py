@@ -50,6 +50,8 @@ _COLUMN_MIGRATIONS = [
     ("media_assets", "dubbed_languages", "JSONB"),
     ("transcript_segments", "translations", "JSONB"),
     ("media_assets", "speaker_embeddings", "JSONB"),
+    ("media_assets", "sprite_url", "TEXT"),
+    ("media_assets", "sprite_meta", "JSONB"),
     ("face_clusters", "embedding", "JSONB"),
     ("reel_jobs", "media_id", "TEXT"),
     ("social_channel_analyses", "top_videos", "JSONB"),

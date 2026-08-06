@@ -472,6 +472,14 @@ export default function AssetDetail() {
                 )}
               </div>
             )}
+            {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && asset.sprite_url && asset.sprite_meta && (
+              <SpriteScrubber
+                spriteUrl={asset.sprite_url}
+                meta={asset.sprite_meta as SpriteMeta}
+                duration={asset.duration_seconds!}
+                seekTo={seekTo}
+              />
+            )}
             {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
               <HeatStrip
                 duration={asset.duration_seconds!}

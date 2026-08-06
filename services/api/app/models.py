@@ -21,6 +21,10 @@ class MediaAsset(Base):
     source_path: Mapped[str | None] = mapped_column(String, nullable=True)
     proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Scrub sprite sheet: one JPEG grid of frames + timing metadata
+    # ({interval, tile_width, tile_height, cols, rows, count}).
+    sprite_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    sprite_meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)

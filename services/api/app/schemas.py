@@ -18,6 +18,8 @@ class MediaAssetOut(BaseModel):
     curator_id: Optional[str] = None
     proxy_path: Optional[str] = None
     thumbnail_url: Optional[str] = None
+    sprite_url: Optional[str] = None
+    sprite_meta: Optional[dict] = None
     duration_seconds: Optional[float] = None
     width: Optional[int] = None
     height: Optional[int] = None

@@ -168,6 +168,12 @@ def create_proxy(self, media_id: str, job_id: str):
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         append_log(db, job_id, "Proxy created successfully")
 
+        # Queue scrub-sprite generation now that a seekable proxy exists.
+        from tasks.base import create_job
+        sprite_job_id = create_job(db, media_id, "sprite")
+        from tasks.sprites import generate_sprite
+        generate_sprite.delay(media_id, sprite_job_id)
+
     except Exception as e:
         db.rollback()
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())

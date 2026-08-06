@@ -49,6 +49,12 @@ export interface SocialScore {
 }
 
 /**
+ * Sprite timing: {interval, tile_width, tile_height, cols, rows, count}
+ * @nullable
+ */
+export type MediaAssetSpriteMeta = { [key: string]: unknown } | null;
+
+/**
  * Technical QC results (audio clipping, silence, black frames)
  * @nullable
  */
@@ -140,6 +146,16 @@ export interface MediaAsset {
   proxy_path?: string | null;
   /** @nullable */
   thumbnail_url?: string | null;
+  /**
+     * Scrub sprite sheet filename (served from /api/thumbnails)
+     * @nullable
+     */
+  sprite_url?: string | null;
+  /**
+     * Sprite timing: {interval, tile_width, tile_height, cols, rows, count}
+     * @nullable
+     */
+  sprite_meta?: MediaAssetSpriteMeta;
   /** @nullable */
   duration_seconds?: number | null;
   /** @nullable */

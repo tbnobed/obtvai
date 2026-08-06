@@ -98,6 +98,7 @@ export * from './markerKind';
 export * from './markerSource';
 export * from './mediaAsset';
 export * from './mediaAssetQcFlags';
+export * from './mediaAssetSpriteMeta';
 export * from './mediaFolder';
 export * from './mediaFolderInput';
 export * from './mediaFolderUpdate';

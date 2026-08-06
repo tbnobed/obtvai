@@ -8,6 +8,7 @@
 import type { CreativeAnalysis } from './creativeAnalysis';
 import type { KeyMoment } from './keyMoment';
 import type { MediaAssetQcFlags } from './mediaAssetQcFlags';
+import type { MediaAssetSpriteMeta } from './mediaAssetSpriteMeta';
 import type { SocialScore } from './socialScore';
 
 export interface MediaAsset {
@@ -29,6 +30,16 @@ export interface MediaAsset {
   proxy_path?: string | null;
   /** @nullable */
   thumbnail_url?: string | null;
+  /**
+     * Scrub sprite sheet filename (served from /api/thumbnails)
+     * @nullable
+     */
+  sprite_url?: string | null;
+  /**
+     * Sprite timing: {interval, tile_width, tile_height, cols, rows, count}
+     * @nullable
+     */
+  sprite_meta?: MediaAssetSpriteMeta;
   /** @nullable */
   duration_seconds?: number | null;
   /** @nullable */

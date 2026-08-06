@@ -21,12 +21,23 @@ def embed_scenes(self, media_id: str, job_id: str):
             {"mid": media_id},
         ).fetchall()
         vrow = db.execute(
-            text("SELECT original_path, proxy_path FROM media_assets WHERE id = :mid"),
+            text("SELECT original_path, proxy_path, sprite_url, sprite_meta FROM media_assets WHERE id = :mid"),
             {"mid": media_id},
         ).fetchone()
         video_path = (vrow[1] or vrow[0]) if vrow else None
         if video_path and not os.path.exists(video_path):
             video_path = None
+        sprite_img = None
+        sprite_meta = None
+        if vrow and vrow[2] and vrow[3]:
+            sprite_file = os.path.join(THUMBNAILS_DIR, os.path.basename(vrow[2]))
+            if os.path.exists(sprite_file):
+                try:
+                    from PIL import Image as _Img
+                    sprite_img = _Img.open(sprite_file).convert("RGB")
+                    sprite_meta = vrow[3]
+                except Exception:
+                    sprite_img = None
 
         if not scenes:
             update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
@@ -70,6 +81,21 @@ def embed_scenes(self, media_id: str, job_id: str):
         import subprocess
         import tempfile
         import numpy as np
+
+        def _sprite_tile(t: float):
+            """Crop the sprite tile nearest to time t — free frame access,
+            no ffmpeg seek."""
+            if sprite_img is None or not sprite_meta:
+                return None
+            try:
+                interval = float(sprite_meta["interval"])
+                tw, th = int(sprite_meta["tile_width"]), int(sprite_meta["tile_height"])
+                cols, count = int(sprite_meta["cols"]), int(sprite_meta["count"])
+                idx = min(count - 1, max(0, int(round(t / interval))))
+                x, y = (idx % cols) * tw, (idx // cols) * th
+                return sprite_img.crop((x, y, x + tw, y + th))
+            except Exception:
+                return None
 
         def _is_blackish(img) -> bool:
             arr = np.asarray(img.resize((64, 64)))
@@ -121,34 +147,38 @@ def embed_scenes(self, media_id: str, job_id: str):
                 # busy scene (concerts, award shows). Sample extra frames
                 # every ~6s (max 10 per scene) and index one vector each —
                 # search merges them back to the best score per scene.
-                if video_path and duration > 6.0:
+                if (sprite_img is not None or video_path) and duration > 6.0:
                     step = max(6.0, duration / 10.0)
                     t = float(start_sec) + step / 2.0
                     while t < float(end_sec) - 1.0:
-                        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
-                            frame_path = tf.name
-                        try:
-                            proc = subprocess.run(
-                                ["ffmpeg", "-y", "-ss", str(t), "-i", video_path,
-                                 "-vframes", "1", "-q:v", "4", frame_path],
-                                capture_output=True, timeout=60,
-                            )
-                            if proc.returncode == 0 and os.path.getsize(frame_path) > 0:
-                                fimg = Image.open(frame_path).convert("RGB")
-                                if not _is_blackish(fimg):
-                                    _embed_and_upsert(
-                                        fimg,
-                                        str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{scene_id}@{t:.1f}")),
-                                        {"scene_id": scene_id, "media_id": media_id,
-                                         "frame_time": round(t, 2)},
-                                    )
-                                    frame_points += 1
-                                    scene_ok = True
-                        finally:
+                        fimg = _sprite_tile(t)
+                        if fimg is None and video_path:
+                            # No sprite yet (older assets): fall back to a
+                            # per-frame ffmpeg seek.
+                            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
+                                frame_path = tf.name
                             try:
-                                os.unlink(frame_path)
-                            except OSError:
-                                pass
+                                proc = subprocess.run(
+                                    ["ffmpeg", "-y", "-ss", str(t), "-i", video_path,
+                                     "-vframes", "1", "-q:v", "4", frame_path],
+                                    capture_output=True, timeout=60,
+                                )
+                                if proc.returncode == 0 and os.path.getsize(frame_path) > 0:
+                                    fimg = Image.open(frame_path).convert("RGB")
+                            finally:
+                                try:
+                                    os.unlink(frame_path)
+                                except OSError:
+                                    pass
+                        if fimg is not None and not _is_blackish(fimg):
+                            _embed_and_upsert(
+                                fimg,
+                                str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{scene_id}@{t:.1f}")),
+                                {"scene_id": scene_id, "media_id": media_id,
+                                 "frame_time": round(t, 2)},
+                            )
+                            frame_points += 1
+                            scene_ok = True
                         t += step
 
                 if scene_ok:

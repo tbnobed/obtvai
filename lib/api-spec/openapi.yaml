@@ -3799,6 +3799,13 @@ components:
           type: ["string", "null"]
         thumbnail_url:
           type: ["string", "null"]
+        sprite_url:
+          type: ["string", "null"]
+          description: Scrub sprite sheet filename (served from /api/thumbnails)
+        sprite_meta:
+          type: ["object", "null"]
+          description: "Sprite timing: {interval, tile_width, tile_height, cols, rows, count}"
+          additionalProperties: true
         duration_seconds:
           type: ["number", "null"]
         width:
