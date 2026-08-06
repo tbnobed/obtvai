@@ -58,7 +58,9 @@ function useCountUp(target: number, duration = 900): number {
   return value;
 }
 
-const PAGE_SIZE = 48;
+// Divisible by every grid column count (3, 4, 5, 6, 8, 10) so a full page
+// always ends on a complete row — no dangling empty cells.
+const PAGE_SIZE = 120;
 
 export default function People() {
   const [view, setView] = useState<"grid" | "list" | "map">(() => {
