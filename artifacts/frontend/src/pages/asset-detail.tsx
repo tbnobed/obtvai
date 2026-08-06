@@ -2127,7 +2127,7 @@ function AssetSearchTab({ mediaId, seekTo }: { mediaId: string; seekTo: (t: numb
             data-testid={`asset-search-result-${i}`}
           >
             {r.thumbnail_url && (
-              <img src={r.thumbnail_url} alt="" className="h-12 w-20 rounded object-cover shrink-0" />
+              <img src={`/api/thumbnails/${r.thumbnail_url}`} alt="" loading="lazy" className="h-12 w-20 rounded object-cover shrink-0" />
             )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-xs">
