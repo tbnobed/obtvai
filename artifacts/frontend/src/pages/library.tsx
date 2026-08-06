@@ -139,8 +139,6 @@ export default function Library() {
     return (localStorage.getItem("library-view") as "grid" | "list") || "grid";
   });
   const [page, setPage] = useState(0);
-  // "" = all media, "root" = unfiled only, otherwise a folder id.
-  const [folderFilter, setFolderFilter] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Debounce typing so we don't refetch on every keystroke.
@@ -156,8 +154,18 @@ export default function Library() {
   const personName = urlParams.get("person_name") || "";
   const topicFilter = urlParams.get("topic") || "";
   const topicLabel = urlParams.get("topic_label") || topicFilter;
+  // Folder selection lives in the URL so browser back/forward returns to the
+  // folder you were browsing. "" = all media, "root" = unfiled, else folder id.
+  const folderFilter = urlParams.get("folder") || "";
+  const setFolderFilter = (id: string) => {
+    const next = new URLSearchParams(searchString);
+    if (id) next.set("folder", id);
+    else next.delete("folder");
+    const qs = next.toString();
+    navigate(`/library${qs ? `?${qs}` : ""}`);
+  };
 
-  useEffect(() => { setPage(0); }, [personFilter, topicFilter]);
+  useEffect(() => { setPage(0); }, [personFilter, topicFilter, folderFilter]);
 
   const listParams = {
     status: statusFilter || undefined,
