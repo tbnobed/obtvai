@@ -33,6 +33,13 @@ else:
 # model assigns ~floor-level similarity to *everything*, including black
 # frames, so weak hits must be dropped rather than shown.
 _MIN_VISUAL_SCORE = 0.25
+# Small/background objects ("soda can on the desk") legitimately score well
+# below _MIN_VISUAL_SCORE — the object covers a tiny part of the frame. When
+# the user *explicitly* asked for visual search and nothing clears the main
+# bar, surface the best few hits above this lower noise floor rather than
+# returning a hard zero.
+_MIN_VISUAL_SCORE_RELAXED = 0.10
+_RELAXED_VISUAL_LIMIT = 5
 
 
 def _rescale_clip_score(score: float) -> float:
@@ -168,6 +175,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                 media_id=body.media_id,
                 media_ids=body.media_ids,
             )
+            visual_candidates: list[tuple[float, SearchResultOut]] = []
             for hit in visual_hits:
                 scene_id = hit.payload.get("scene_id")
                 scene_q = await db.execute(
@@ -179,11 +187,11 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                 if row:
                     scene, asset = row
                     rescaled = _rescale_clip_score(hit.score)
-                    if rescaled < _MIN_VISUAL_SCORE:
+                    if rescaled < _MIN_VISUAL_SCORE_RELAXED:
                         continue
                     if _is_black_thumbnail(scene.thumbnail_url):
                         continue
-                    results.append(SearchResultOut(
+                    visual_candidates.append((rescaled, SearchResultOut(
                         media_id=asset.id,
                         filename=asset.filename,
                         thumbnail_url=scene.thumbnail_url or asset.thumbnail_url,
@@ -192,7 +200,15 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                         score=rescaled,
                         match_type="visual",
                         snippet=scene.description,
-                    ))
+                    )))
+            confident = [r for s, r in visual_candidates if s >= _MIN_VISUAL_SCORE]
+            if confident:
+                results.extend(confident)
+            elif body.search_type == "visual" and visual_candidates:
+                # Explicit visual search: best-effort weak matches beat a
+                # hard "0 results" (small objects score below the main bar).
+                visual_candidates.sort(key=lambda t: t[0], reverse=True)
+                results.extend(r for _, r in visual_candidates[:_RELAXED_VISUAL_LIMIT])
 
     except Exception:
         import logging
