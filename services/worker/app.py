@@ -20,6 +20,7 @@ celery_app = Celery(
         "tasks.index",
         "tasks.analyze",
         "tasks.creative",
+        "tasks.sentiment",
         "tasks.highlight",
         "tasks.social",
         "tasks.translate",

@@ -111,6 +111,8 @@ class TranscriptSegment(Base):
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     embedding_id: Mapped[str | None] = mapped_column(String, nullable=True)
     translations: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    sentiment: Mapped[float | None] = mapped_column(Float, nullable=True)  # -1..1
+    emotion: Mapped[str | None] = mapped_column(String, nullable=True)
 
     asset: Mapped["MediaAsset"] = relationship("MediaAsset", back_populates="transcript_segments")
 

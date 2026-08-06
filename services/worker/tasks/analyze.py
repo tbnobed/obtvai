@@ -432,6 +432,20 @@ def analyze_media(self, media_id: str, job_id: str):
                 creative_job_id = create_job(db, media_id, "creative")
                 from tasks.creative import creative_pass
                 creative_pass.delay(media_id, creative_job_id)
+            sentiment_active = db.execute(
+                text("""
+                    SELECT 1 FROM processing_jobs
+                    WHERE media_id = :mid AND job_type = 'sentiment'
+                      AND status IN ('pending', 'running')
+                    LIMIT 1
+                """),
+                {"mid": media_id},
+            ).fetchone()
+            if not sentiment_active:
+                from tasks.base import create_job
+                sentiment_job_id = create_job(db, media_id, "sentiment")
+                from tasks.sentiment import sentiment_pass
+                sentiment_pass.delay(media_id, sentiment_job_id)
         except Exception as chain_err:  # noqa: BLE001
             db.rollback()
             append_log(db, job_id, f"Could not queue creative pass: {chain_err}")

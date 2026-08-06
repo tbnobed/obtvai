@@ -557,7 +557,9 @@ export const GetMediaTranscriptResponseItem = zod.object({
   "end_time": zod.number(),
   "text": zod.string(),
   "speaker": zod.string().nullish(),
-  "confidence": zod.number().nullish()
+  "confidence": zod.number().nullish(),
+  "sentiment": zod.number().nullish().describe('-1 (very negative) to 1 (very positive)'),
+  "emotion": zod.string().nullish().describe('dominant emotion label (fixed vocabulary)')
 })
 export const GetMediaTranscriptResponse = zod.array(GetMediaTranscriptResponseItem)
 
@@ -582,7 +584,9 @@ export const UpdateTranscriptSegmentResponse = zod.object({
   "end_time": zod.number(),
   "text": zod.string(),
   "speaker": zod.string().nullish(),
-  "confidence": zod.number().nullish()
+  "confidence": zod.number().nullish(),
+  "sentiment": zod.number().nullish().describe('-1 (very negative) to 1 (very positive)'),
+  "emotion": zod.string().nullish().describe('dominant emotion label (fixed vocabulary)')
 })
 
 
@@ -3042,6 +3046,51 @@ export const FindSimilarMomentsResponse = zod.object({
 })),
   "query": zod.string(),
   "took_ms": zod.number()
+})
+
+
+/**
+ * @summary Emotion labels present in the library with segment counts
+ */
+export const ListEmotionFacetsResponseItem = zod.object({
+  "emotion": zod.string(),
+  "count": zod.number()
+})
+export const ListEmotionFacetsResponse = zod.array(ListEmotionFacetsResponseItem)
+
+
+/**
+ * @summary Strongest library moments carrying a given emotion
+ */
+export const listEmotionMomentsQueryLimitDefault = 100;
+
+export const ListEmotionMomentsQueryParams = zod.object({
+  "emotion": zod.coerce.string(),
+  "q": zod.coerce.string().optional().describe('Optional keyword filter over the segment text'),
+  "limit": zod.coerce.number().default(listEmotionMomentsQueryLimitDefault)
+})
+
+export const ListEmotionMomentsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "text": zod.string(),
+  "speaker": zod.string().nullish(),
+  "sentiment": zod.number().nullish(),
+  "emotion": zod.string()
+}))
+})
+
+
+/**
+ * @summary Queue sentiment scoring for assets analyzed before sentiment existed
+ */
+export const BackfillSentimentResponse = zod.object({
+  "assets_queued": zod.number().describe('Number of media assets queued for re-analysis'),
+  "jobs_created": zod.number().describe('Total diarize\/face_detect jobs created')
 })
 
 

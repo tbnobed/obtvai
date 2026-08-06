@@ -46,6 +46,7 @@ async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: d
         "index": ("cpu", "tasks.index.build_index"),
         "analyze": ("gpu", "tasks.analyze.analyze_media"),
         "creative": ("gpu", "tasks.creative.creative_pass"),
+        "sentiment": ("gpu", "tasks.sentiment.sentiment_pass"),
         "highlight": ("cpu", "tasks.highlight.build_highlight"),
         "social": ("gpu", "tasks.social.score_social"),
         "translate": ("gpu", "tasks.translate.translate_transcript"),

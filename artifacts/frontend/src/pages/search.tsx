@@ -8,6 +8,11 @@ import {
   getListSavedSearchesQueryKey,
   useCreateSavedSearch,
   useDeleteSavedSearch,
+  useListEmotionFacets,
+  getListEmotionFacetsQueryKey,
+  useListEmotionMoments,
+  getListEmotionMomentsQueryKey,
+  useBackfillSentiment,
 } from "@workspace/api-client-react";
 import type { SearchResult } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,11 +20,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Play, Loader2, ExternalLink, History, Bookmark, BookmarkPlus, X } from "lucide-react";
+import { Search, Play, Loader2, ExternalLink, History, Bookmark, BookmarkPlus, X, HeartPulse } from "lucide-react";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 import { formatTC } from "@/lib/timecode";
 
 type SearchScope = "combined" | "transcript" | "visual";
+
+const EMOTION_COLORS: Record<string, string> = {
+  joy: "#facc15",
+  humor: "#fb923c",
+  excitement: "#f97316",
+  warmth: "#4ade80",
+  pride: "#34d399",
+  surprise: "#a78bfa",
+  sadness: "#60a5fa",
+  anger: "#f87171",
+  tension: "#ef4444",
+  fear: "#c084fc",
+};
 
 const SCOPES: { value: SearchScope; label: string }[] = [
   { value: "combined", label: "All" },
@@ -46,6 +64,17 @@ export default function SearchPage() {
   const alreadySaved = savedSearches?.some(
     (sv) => sv.query.trim().toLowerCase() === query.trim().toLowerCase() && sv.search_type === scope,
   );
+
+  const [emotion, setEmotion] = useState<string | null>(null);
+  const { data: emotionFacets } = useListEmotionFacets({
+    query: { queryKey: getListEmotionFacetsQueryKey() },
+  });
+  const emotionParams = { emotion: emotion ?? "", limit: 100 };
+  const { data: emotionMoments, isLoading: emotionLoading } = useListEmotionMoments(
+    emotionParams,
+    { query: { queryKey: getListEmotionMomentsQueryKey(emotionParams), enabled: !!emotion } },
+  );
+  const backfillSentiment = useBackfillSentiment();
 
   const runSearch = (q?: string, s?: SearchScope) => {
     const term = (q ?? query).trim();
@@ -222,6 +251,85 @@ export default function SearchPage() {
             </Badge>
           ))}
         </div>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <HeartPulse className="h-3.5 w-3.5 text-primary" />
+        <span className="text-xs text-muted-foreground">Emotions:</span>
+        {emotionFacets?.length ? (
+          emotionFacets.map((f) => (
+            <Badge
+              key={f.emotion}
+              variant={emotion === f.emotion ? "secondary" : "outline"}
+              className="cursor-pointer hover:bg-muted"
+              style={{ borderColor: `${EMOTION_COLORS[f.emotion] ?? "#71717a"}66`, color: emotion === f.emotion ? undefined : EMOTION_COLORS[f.emotion] }}
+              onClick={() => setEmotion((cur) => (cur === f.emotion ? null : f.emotion))}
+            >
+              {f.emotion} · {f.count}
+            </Badge>
+          ))
+        ) : (
+          <>
+            <span className="text-xs text-muted-foreground">none scored yet</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-xs"
+              disabled={backfillSentiment.isPending || backfillSentiment.isSuccess}
+              onClick={() => backfillSentiment.mutate(undefined as never, {
+                onSuccess: () => queryClient.invalidateQueries({ queryKey: getListEmotionFacetsQueryKey() }),
+              })}
+              title="Score every existing transcript for sentiment & emotion (runs in the background on the worker)"
+            >
+              {backfillSentiment.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : backfillSentiment.isSuccess ? "Queued — check back after processing" : "Analyze emotions across library"}
+            </Button>
+          </>
+        )}
+      </div>
+
+      {emotion && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm capitalize" style={{ color: EMOTION_COLORS[emotion] }}>
+              {emotionLoading ? "Loading…" : `${emotionMoments?.items.length ?? 0} ${emotion} moment${(emotionMoments?.items.length ?? 0) === 1 ? "" : "s"} across the library`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {emotionMoments?.items.length ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[480px] overflow-y-auto pr-1">
+                {emotionMoments.items.map((m, i) => (
+                  <button
+                    key={`${m.media_id}-${m.start_time}-${i}`}
+                    type="button"
+                    className="flex flex-col gap-1 rounded-md border border-border bg-card/50 hover:bg-muted/40 px-3 py-2 text-left"
+                    onClick={() =>
+                      setPlayerClip({
+                        media_id: m.media_id,
+                        start_time: m.start_time,
+                        end_time: m.end_time,
+                        label: m.text,
+                        filename: m.filename,
+                      })
+                    }
+                  >
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-mono text-primary">{formatTC(m.start_time, 25, false)}</span>
+                      <span className="truncate text-muted-foreground">{m.filename}</span>
+                      {m.sentiment != null && (
+                        <span className="ml-auto font-mono" style={{ color: EMOTION_COLORS[emotion] }}>
+                          {m.sentiment > 0 ? "+" : ""}{m.sentiment.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs line-clamp-2">{m.speaker ? `${m.speaker}: ` : ""}{m.text}</p>
+                  </button>
+                ))}
+              </div>
+            ) : emotionLoading ? null : (
+              <p className="text-sm text-muted-foreground">No moments carry this emotion.</p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {!searchMutation.data && !searchMutation.isPending && !!history?.length && (

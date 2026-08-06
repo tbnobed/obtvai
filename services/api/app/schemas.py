@@ -147,6 +147,8 @@ class TranscriptSegmentOut(BaseModel):
     text: str
     speaker: Optional[str] = None
     confidence: Optional[float] = None
+    sentiment: Optional[float] = None
+    emotion: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -719,6 +721,27 @@ class ResumeStalledOut(BaseModel):
     assets_resumed: int
     jobs_created: int
     assets_marked_ready: int
+
+
+class EmotionFacetOut(BaseModel):
+    emotion: str
+    count: int
+
+
+class EmotionMomentOut(BaseModel):
+    media_id: str
+    filename: str
+    thumbnail_url: Optional[str] = None
+    start_time: float
+    end_time: float
+    text: str
+    speaker: Optional[str] = None
+    sentiment: Optional[float] = None
+    emotion: str
+
+
+class EmotionMomentsOut(BaseModel):
+    items: List[EmotionMomentOut]
 
 
 class ReanalyzeOut(BaseModel):

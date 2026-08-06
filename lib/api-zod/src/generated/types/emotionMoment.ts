@@ -6,24 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface TranscriptSegment {
-  id: string;
+export interface EmotionMoment {
   media_id: string;
+  filename: string;
+  /** @nullable */
+  thumbnail_url?: string | null;
   start_time: number;
   end_time: number;
   text: string;
   /** @nullable */
   speaker?: string | null;
   /** @nullable */
-  confidence?: number | null;
-  /**
-     * -1 (very negative) to 1 (very positive)
-     * @nullable
-     */
   sentiment?: number | null;
-  /**
-     * dominant emotion label (fixed vocabulary)
-     * @nullable
-     */
-  emotion?: string | null;
+  emotion: string;
 }

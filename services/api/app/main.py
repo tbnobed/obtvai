@@ -49,6 +49,8 @@ _COLUMN_MIGRATIONS = [
     ("media_assets", "translated_languages", "JSONB"),
     ("media_assets", "dubbed_languages", "JSONB"),
     ("transcript_segments", "translations", "JSONB"),
+    ("transcript_segments", "sentiment", "DOUBLE PRECISION"),
+    ("transcript_segments", "emotion", "TEXT"),
     ("media_assets", "speaker_embeddings", "JSONB"),
     ("media_assets", "sprite_url", "TEXT"),
     ("media_assets", "sprite_meta", "JSONB"),

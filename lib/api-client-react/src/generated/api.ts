@@ -37,6 +37,8 @@ import type {
   Conversation,
   DeleteSavedSearch200,
   DubRequest,
+  EmotionFacet,
+  EmotionMomentsPage,
   ExportProjectCutBody,
   FaceCluster,
   GetCaptionsParams,
@@ -64,6 +66,7 @@ import type {
   LibraryStats,
   ListAuditLogParams,
   ListClipListsParams,
+  ListEmotionMomentsParams,
   ListGraphicsGenerationsParams,
   ListJobsParams,
   ListMediaParams,
@@ -8026,6 +8029,238 @@ export const useFindSimilarMoments = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getFindSimilarMomentsMutationOptions(options));
+    }
+
+export const getListEmotionFacetsUrl = () => {
+
+
+
+
+  return `/api/search/emotions`
+}
+
+/**
+ * @summary Emotion labels present in the library with segment counts
+ */
+export const listEmotionFacets = async ( options?: RequestInit): Promise<EmotionFacet[]> => {
+
+  return customFetch<EmotionFacet[]>(getListEmotionFacetsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEmotionFacetsQueryKey = () => {
+    return [
+    `/api/search/emotions`
+    ] as const;
+    }
+
+
+export const getListEmotionFacetsQueryOptions = <TData = Awaited<ReturnType<typeof listEmotionFacets>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmotionFacets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEmotionFacetsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEmotionFacets>>> = ({ signal }) => listEmotionFacets({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEmotionFacets>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEmotionFacetsQueryResult = NonNullable<Awaited<ReturnType<typeof listEmotionFacets>>>
+export type ListEmotionFacetsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Emotion labels present in the library with segment counts
+ */
+
+export function useListEmotionFacets<TData = Awaited<ReturnType<typeof listEmotionFacets>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmotionFacets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEmotionFacetsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListEmotionMomentsUrl = (params: ListEmotionMomentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/search/emotion-moments?${stringifiedParams}` : `/api/search/emotion-moments`
+}
+
+/**
+ * @summary Strongest library moments carrying a given emotion
+ */
+export const listEmotionMoments = async (params: ListEmotionMomentsParams, options?: RequestInit): Promise<EmotionMomentsPage> => {
+
+  return customFetch<EmotionMomentsPage>(getListEmotionMomentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEmotionMomentsQueryKey = (params?: ListEmotionMomentsParams,) => {
+    return [
+    `/api/search/emotion-moments`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListEmotionMomentsQueryOptions = <TData = Awaited<ReturnType<typeof listEmotionMoments>>, TError = ErrorType<unknown>>(params: ListEmotionMomentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmotionMoments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEmotionMomentsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEmotionMoments>>> = ({ signal }) => listEmotionMoments(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEmotionMoments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEmotionMomentsQueryResult = NonNullable<Awaited<ReturnType<typeof listEmotionMoments>>>
+export type ListEmotionMomentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Strongest library moments carrying a given emotion
+ */
+
+export function useListEmotionMoments<TData = Awaited<ReturnType<typeof listEmotionMoments>>, TError = ErrorType<unknown>>(
+ params: ListEmotionMomentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmotionMoments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEmotionMomentsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getBackfillSentimentUrl = () => {
+
+
+
+
+  return `/api/search/sentiment/backfill`
+}
+
+/**
+ * @summary Queue sentiment scoring for assets analyzed before sentiment existed
+ */
+export const backfillSentiment = async ( options?: RequestInit): Promise<ReanalyzeResult> => {
+
+  return customFetch<ReanalyzeResult>(getBackfillSentimentUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBackfillSentimentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof backfillSentiment>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof backfillSentiment>>, TError,void, TContext> => {
+
+const mutationKey = ['backfillSentiment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof backfillSentiment>>, void> = () => {
+
+
+          return  backfillSentiment(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BackfillSentimentMutationResult = NonNullable<Awaited<ReturnType<typeof backfillSentiment>>>
+
+    export type BackfillSentimentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Queue sentiment scoring for assets analyzed before sentiment existed
+ */
+export const useBackfillSentiment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof backfillSentiment>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof backfillSentiment>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getBackfillSentimentMutationOptions(options));
     }
 
 export const getListSavedSearchesUrl = () => {

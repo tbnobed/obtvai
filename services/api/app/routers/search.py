@@ -12,6 +12,7 @@ from ..schemas import (
     SearchQuery, SearchResponse, SearchResultOut, SearchHistoryItemOut,
     ScriptMatchRequest, ScriptMatchLineOut, ScriptMatchResponse,
     ReanalyzeOut, SimilarMomentQuery, SavedSearchCreate, SavedSearchOut,
+    EmotionFacetOut, EmotionMomentOut, EmotionMomentsOut,
 )
 from ..config import settings
 
@@ -542,6 +543,84 @@ async def delete_saved_search(saved_id: str, db: AsyncSession = Depends(get_db))
 
 
 # ── Find moments like this ────────────────────────────────────────────────────
+
+@router.get("/emotions", response_model=list[EmotionFacetOut])
+async def list_emotion_facets(db: AsyncSession = Depends(get_db)):
+    """Emotion labels present in the library with segment counts."""
+    rows = (await db.execute(
+        select(TranscriptSegment.emotion, sa_func.count(TranscriptSegment.id))
+        .where(TranscriptSegment.emotion.isnot(None), TranscriptSegment.emotion != "neutral")
+        .group_by(TranscriptSegment.emotion)
+        .order_by(sa_func.count(TranscriptSegment.id).desc())
+    )).all()
+    return [EmotionFacetOut(emotion=r[0], count=r[1]) for r in rows]
+
+
+@router.get("/emotion-moments", response_model=EmotionMomentsOut)
+async def list_emotion_moments(
+    emotion: str,
+    q: str | None = None,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+):
+    """Strongest moments across the library carrying a given emotion,
+    optionally narrowed by a keyword."""
+    limit = max(1, min(limit, 300))
+    stmt = (
+        select(TranscriptSegment, MediaAsset.filename, MediaAsset.thumbnail_url)
+        .join(MediaAsset, MediaAsset.id == TranscriptSegment.media_id)
+        .where(TranscriptSegment.emotion == emotion.strip().lower())
+        .order_by(sa_func.abs(sa_func.coalesce(TranscriptSegment.sentiment, 0)).desc())
+        .limit(limit)
+    )
+    if q and q.strip():
+        stmt = stmt.where(TranscriptSegment.text.ilike(f"%{q.strip()}%"))
+    rows = (await db.execute(stmt)).all()
+    return EmotionMomentsOut(items=[
+        EmotionMomentOut(
+            media_id=seg.media_id, filename=fn, thumbnail_url=thumb,
+            start_time=seg.start_time, end_time=seg.end_time, text=seg.text,
+            speaker=seg.speaker, sentiment=seg.sentiment, emotion=seg.emotion,
+        )
+        for seg, fn, thumb in rows
+    ])
+
+
+@router.post("/sentiment/backfill", response_model=ReanalyzeOut, status_code=202)
+async def backfill_sentiment(db: AsyncSession = Depends(get_db)):
+    """Queue a sentiment pass for every ready asset whose transcript has
+    unscored segments (analyzed before sentiment existed)."""
+    from ..worker_client import enqueue_job
+    from ..models import ProcessingJob
+
+    media_ids = (await db.execute(
+        select(TranscriptSegment.media_id)
+        .join(MediaAsset, MediaAsset.id == TranscriptSegment.media_id)
+        .where(TranscriptSegment.sentiment.is_(None), TranscriptSegment.emotion.is_(None),
+               MediaAsset.status == "ready")
+        .group_by(TranscriptSegment.media_id)
+    )).scalars().all()
+
+    active = set((await db.execute(
+        select(ProcessingJob.media_id).where(
+            ProcessingJob.job_type == "sentiment",
+            ProcessingJob.status.in_(["pending", "running"]),
+        )
+    )).scalars().all())
+
+    jobs = 0
+    for mid in media_ids:
+        if mid in active:
+            continue
+        job = ProcessingJob(media_id=mid, job_type="sentiment", status="pending",
+                            created_at=datetime.utcnow())
+        db.add(job)
+        await db.flush()
+        await enqueue_job("sentiment", mid, job.id)
+        jobs += 1
+    await db.commit()
+    return ReanalyzeOut(assets_queued=len(media_ids), jobs_created=jobs)
+
 
 @router.post("/similar-moment", response_model=SearchResponse)
 async def similar_moment(body: SimilarMomentQuery, db: AsyncSession = Depends(get_db)):

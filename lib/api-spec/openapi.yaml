@@ -2411,6 +2411,65 @@ paths:
               schema:
                 $ref: "#/components/schemas/SearchResponse"
 
+  /search/emotions:
+    get:
+      operationId: listEmotionFacets
+      summary: Emotion labels present in the library with segment counts
+      tags: [search]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmotionFacet"
+
+  /search/emotion-moments:
+    get:
+      operationId: listEmotionMoments
+      summary: Strongest library moments carrying a given emotion
+      tags: [search]
+      parameters:
+        - name: emotion
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          description: Optional keyword filter over the segment text
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmotionMomentsPage"
+
+  /search/sentiment/backfill:
+    post:
+      operationId: backfillSentiment
+      summary: Queue sentiment scoring for assets analyzed before sentiment existed
+      tags: [search]
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReanalyzeResult"
+
   /search/saved:
     get:
       operationId: listSavedSearches
@@ -4279,6 +4338,12 @@ components:
           type: ["string", "null"]
         confidence:
           type: ["number", "null"]
+        sentiment:
+          type: ["number", "null"]
+          description: -1 (very negative) to 1 (very positive)
+        emotion:
+          type: ["string", "null"]
+          description: dominant emotion label (fixed vocabulary)
 
     TranscriptSegmentUpdate:
       type: object
@@ -5814,6 +5879,47 @@ components:
         search_type:
           type: string
           default: combined
+
+    EmotionFacet:
+      type: object
+      required: [emotion, count]
+      properties:
+        emotion:
+          type: string
+        count:
+          type: integer
+
+    EmotionMoment:
+      type: object
+      required: [media_id, filename, start_time, end_time, text, emotion]
+      properties:
+        media_id:
+          type: string
+        filename:
+          type: string
+        thumbnail_url:
+          type: ["string", "null"]
+        start_time:
+          type: number
+        end_time:
+          type: number
+        text:
+          type: string
+        speaker:
+          type: ["string", "null"]
+        sentiment:
+          type: ["number", "null"]
+        emotion:
+          type: string
+
+    EmotionMomentsPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmotionMoment"
 
     SavedSearch:
       type: object

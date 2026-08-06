@@ -420,6 +420,16 @@ export interface TranscriptSegment {
   speaker?: string | null;
   /** @nullable */
   confidence?: number | null;
+  /**
+     * -1 (very negative) to 1 (very positive)
+     * @nullable
+     */
+  sentiment?: number | null;
+  /**
+     * dominant emotion label (fixed vocabulary)
+     * @nullable
+     */
+  emotion?: string | null;
 }
 
 export interface TranscriptSegmentUpdate {
@@ -1543,6 +1553,30 @@ export interface SavedSearchCreate {
   name: string;
   query: string;
   search_type?: string;
+}
+
+export interface EmotionFacet {
+  emotion: string;
+  count: number;
+}
+
+export interface EmotionMoment {
+  media_id: string;
+  filename: string;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  start_time: number;
+  end_time: number;
+  text: string;
+  /** @nullable */
+  speaker?: string | null;
+  /** @nullable */
+  sentiment?: number | null;
+  emotion: string;
+}
+
+export interface EmotionMomentsPage {
+  items: EmotionMoment[];
 }
 
 export interface SavedSearch {
@@ -2799,6 +2833,15 @@ offset?: number;
 export type GetRatingsOverviewParams = {
 from?: string;
 to?: string;
+};
+
+export type ListEmotionMomentsParams = {
+emotion: string;
+/**
+ * Optional keyword filter over the segment text
+ */
+q?: string;
+limit?: number;
 };
 
 export type DeleteSavedSearch200 = {

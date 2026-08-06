@@ -686,6 +686,15 @@ export default function AssetDetail() {
                       <div className="flex gap-2 items-baseline mb-1">
                         <span className="text-xs font-medium text-primary">{segment.speaker || 'Unknown'}</span>
                         <span className="text-[10px] text-muted-foreground font-mono">{formatTimecode(segment.start_time)}</span>
+                        {segment.emotion && segment.emotion !== "neutral" && (
+                          <span
+                            className="text-[10px] px-1.5 py-0 rounded-full border"
+                            style={{ color: emotionColor(segment.emotion), borderColor: `${emotionColor(segment.emotion)}55` }}
+                            title={segment.sentiment != null ? `sentiment ${segment.sentiment > 0 ? "+" : ""}${segment.sentiment.toFixed(2)}` : undefined}
+                          >
+                            {segment.emotion}
+                          </span>
+                        )}
                       </div>
                       {editingSegId === String(segment.id) ? (
                         <div onClick={(e) => e.stopPropagation()}>
@@ -809,6 +818,7 @@ export default function AssetDetail() {
                 spriteUrl={asset.sprite_url ?? undefined}
                 spriteMeta={(asset.sprite_meta as SpriteMeta | null) ?? undefined}
                 videoRef={videoRef}
+                segments={transcript ?? []}
               />
             )}
           </div>
@@ -1663,6 +1673,24 @@ function AssetPeople({
   );
 }
 
+const EMOTION_COLORS: Record<string, string> = {
+  joy: "#facc15",
+  humor: "#fb923c",
+  excitement: "#f97316",
+  warmth: "#4ade80",
+  pride: "#34d399",
+  surprise: "#a78bfa",
+  sadness: "#60a5fa",
+  anger: "#f87171",
+  tension: "#ef4444",
+  fear: "#c084fc",
+  neutral: "#71717a",
+};
+
+function emotionColor(emotion?: string | null): string {
+  return EMOTION_COLORS[emotion ?? ""] ?? "#71717a";
+}
+
 function MomentsTimeline({
   duration,
   keyMoments,
@@ -1673,6 +1701,7 @@ function MomentsTimeline({
   spriteUrl,
   spriteMeta,
   videoRef,
+  segments,
 }: {
   duration: number;
   keyMoments: { time: number; title: string; description?: string }[];
@@ -1683,6 +1712,7 @@ function MomentsTimeline({
   spriteUrl?: string;
   spriteMeta?: SpriteMeta;
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  segments?: TranscriptSegment[];
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ x: number; t: number } | null>(null);
@@ -1840,11 +1870,34 @@ function MomentsTimeline({
           <div className="absolute -top-0.5 -ml-[5px] w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-white" />
         </div>
       </div>
+      {(segments ?? []).some((s) => s.emotion && s.emotion !== "neutral") && (
+        <div className="relative h-2.5 mt-0.5 rounded-sm bg-zinc-900 overflow-hidden pointer-events-none">
+          {(segments ?? []).map((s) =>
+            s.emotion && s.emotion !== "neutral" ? (
+              <div
+                key={`em-${s.id}`}
+                className="absolute top-0 h-full pointer-events-auto"
+                style={{
+                  left: pct(s.start_time),
+                  width: widthPct(s.start_time, s.end_time),
+                  background: emotionColor(s.emotion),
+                  opacity: 0.35 + 0.6 * Math.min(1, Math.abs(s.sentiment ?? 0.4)),
+                }}
+                title={`${s.emotion}${s.sentiment != null ? ` (${s.sentiment > 0 ? "+" : ""}${s.sentiment.toFixed(2)})` : ""} — ${s.text.slice(0, 120)}`}
+              />
+            ) : null
+          )}
+          <div className="absolute top-0 bottom-0 w-[2px] -ml-[1px] bg-white/80" style={{ left: pct(playhead) }} />
+        </div>
+      )}
       <div className="flex gap-4 mt-1 text-[10px] text-zinc-500">
         <span className="font-mono text-zinc-300">{formatTimecode(playhead)}</span>
         <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, hsl(213,57%,18%), hsl(125,75%,35%), hsl(25,95%,54%))" }} /> cold → hot = AI clip strength &amp; key moments</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-green-500 rounded-sm" /> Select</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-red-500 rounded-sm" /> Reject</span>
+        {(segments ?? []).some((s) => s.emotion && s.emotion !== "neutral") && (
+          <span className="flex items-center gap-1"><span className="inline-block w-6 h-1.5 rounded-sm" style={{ background: "linear-gradient(to right, #60a5fa, #ef4444, #facc15, #4ade80)" }} /> emotion lane</span>
+        )}
         <span className="ml-auto text-zinc-600">right-click anywhere to find similar moments</span>
       </div>
     </div>
