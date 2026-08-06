@@ -430,6 +430,68 @@ async def lifespan(app: FastAPI):
 
     reaper_task = asyncio.create_task(_reap_stale_jobs_loop())
 
+    # ---- Overnight watchdog: auto-retry failed pipeline jobs -------------
+    # Long unattended runs (bulk reindex) die to transient causes — OOM,
+    # worker rebuilds (the reaper above marks those as error), Qdrant
+    # timeouts. This loop requeues errored pipeline jobs up to 3 attempts,
+    # so the pipeline heals itself instead of stalling until morning.
+    # Worker tasks are idempotent on retry (they delete prior rows first).
+    _AUTO_RETRY_TYPES = (
+        "sprite", "visual_embed", "index", "scene_detect", "face_detect",
+        "audio_extract", "transcribe", "diarize", "qc", "proxy", "analyze",
+        "creative", "identify", "insights",
+    )
+    _MAX_AUTO_RETRIES = 3
+
+    async def _auto_retry_loop():
+        from sqlalchemy import text as sql_text
+        from .database import AsyncSessionLocal
+        from .worker_client import enqueue_job
+        await asyncio.sleep(180)  # let workers come up after a stack restart
+        while True:
+            try:
+                async with AsyncSessionLocal() as db:
+                    rows = (await db.execute(sql_text(
+                        "SELECT id, media_id, job_type, retry_count FROM processing_jobs "
+                        "WHERE status = 'error' AND job_type = ANY(:types) "
+                        "AND retry_count < :max_r "
+                        "AND finished_at < (now() AT TIME ZONE 'utc') - interval '3 minutes' "
+                        "AND created_at > (now() AT TIME ZONE 'utc') - interval '48 hours' "
+                        "ORDER BY finished_at LIMIT 20"
+                    ), {"types": list(_AUTO_RETRY_TYPES), "max_r": _MAX_AUTO_RETRIES})).fetchall()
+                    requeued = 0
+                    for job_id, media_id, job_type, retry_count in rows:
+                        res = await db.execute(sql_text(
+                            "UPDATE processing_jobs SET status = 'pending', "
+                            "retry_count = retry_count + 1, error_message = NULL, "
+                            "started_at = NULL, finished_at = NULL, heartbeat_at = NULL, "
+                            "celery_task_id = NULL, progress = 0 "
+                            "WHERE id = :id AND status = 'error'"
+                        ), {"id": job_id})
+                        if not (res.rowcount or 0):
+                            continue
+                        await db.commit()
+                        try:
+                            await enqueue_job(job_type, media_id, job_id)
+                            requeued += 1
+                        except Exception as e:
+                            # Broker briefly down: put the job back to error so
+                            # a later cycle retries it (attempt not consumed).
+                            await db.execute(sql_text(
+                                "UPDATE processing_jobs SET status = 'error', "
+                                "retry_count = retry_count - 1, "
+                                "error_message = :msg, finished_at = (now() AT TIME ZONE 'utc') "
+                                "WHERE id = :id"
+                            ), {"id": job_id, "msg": f"Auto-retry enqueue failed: {e}"})
+                            await db.commit()
+                    if requeued:
+                        print(f"[{_ts()}] Watchdog: auto-retried {requeued} failed job(s)")
+            except Exception as e:
+                print(f"[{_ts()}] Watchdog error: {e}")
+            await asyncio.sleep(180)
+
+    watchdog_task = asyncio.create_task(_auto_retry_loop())
+
     yield
 
 
