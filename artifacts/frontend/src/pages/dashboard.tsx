@@ -110,10 +110,18 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, []);
 
+  // Questions go to the AI assistant; descriptive queries go to semantic
+  // search. "what are the main topics…?" is a question, "wide shots of a
+  // crowd" is a search.
+  const looksLikeQuestion = (q: string) =>
+    /\?\s*$/.test(q) ||
+    /^(who|what|when|where|why|how|which|is|are|was|were|do|does|did|can|could|should|tell me|summarize|explain|list|count|compare)\b/i.test(q);
+
   const submitQuickSearch = () => {
     const q = quickQuery.trim();
     if (q.length < 2) return;
-    navigate(`/search?q=${encodeURIComponent(q)}`);
+    if (looksLikeQuestion(q)) navigate(`/ai?q=${encodeURIComponent(q)}`);
+    else navigate(`/search?q=${encodeURIComponent(q)}`);
   };
 
   const errorCount = stats?.status_counts.error || 0;

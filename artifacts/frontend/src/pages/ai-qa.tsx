@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useAskAI,
   useListConversations, getListConversationsQueryKey,
@@ -81,11 +81,7 @@ export default function AIQA() {
     );
   };
 
-  const handleAsk = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!question.trim()) return;
-
-    const currentQ = question;
+  const ask = (currentQ: string) => {
     setPendingMessages(prev => [...prev, { role: "user", content: currentQ }]);
     setQuestion("");
 
@@ -114,6 +110,25 @@ export default function AIQA() {
       }
     );
   };
+
+  const handleAsk = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!question.trim()) return;
+    ask(question);
+  };
+
+  // A question handed over via URL (e.g. from the dashboard hero) is asked
+  // immediately in a fresh chat.
+  const autoAsked = useRef(false);
+  useEffect(() => {
+    if (autoAsked.current) return;
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q && q.trim()) {
+      autoAsked.current = true;
+      window.history.replaceState(null, "", "/ai");
+      ask(q.trim());
+    }
+  }, []);
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
