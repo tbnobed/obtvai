@@ -27,7 +27,8 @@ import {
   useListRatings, getListRatingsQueryKey,
   useGetMediaStudioSession
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, Project } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, Project, SearchResult } from "@workspace/api-client-react";
+import { useSemanticSearch } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -653,6 +654,10 @@ export default function AssetDetail() {
                   <Captions className="h-3.5 w-3.5" />
                   Transcript
                 </TabsTrigger>
+                <TabsTrigger value="search" className="gap-1.5">
+                  <Search className="h-3.5 w-3.5" />
+                  Search
+                </TabsTrigger>
                 <TabsTrigger
                   value="studio"
                   className="gap-1.5 text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -1054,7 +1059,10 @@ export default function AssetDetail() {
                   ))}
                 </div>
               </TabsContent>
-            <TabsContent value="transcript" className="flex-1 overflow-hidden mt-0 flex flex-col">
+            <TabsContent value="search" className="flex-1 overflow-y-auto mt-0 p-4">
+                <AssetSearchTab mediaId={id!} seekTo={seekTo} />
+              </TabsContent>
+              <TabsContent value="transcript" className="flex-1 overflow-hidden mt-0 flex flex-col">
               <div className="px-3 pt-3 shrink-0 flex items-center gap-2">
                 <Languages className="h-4 w-4 text-muted-foreground shrink-0" />
                 <Select value={transcriptLang} onValueChange={setTranscriptLang}>
@@ -2051,4 +2059,86 @@ function AssetStudioSection({ mediaId, onSeek }: { mediaId: string; onSeek?: (t:
     );
   }
   return <StudioTab project={project} onSeekSource={onSeek} />;
+}
+
+function AssetSearchTab({ mediaId, seekTo }: { mediaId: string; seekTo: (t: number) => void }) {
+  const [q, setQ] = useState("");
+  const [scope, setScope] = useState<"combined" | "transcript" | "visual">("combined");
+  const search = useSemanticSearch();
+
+  const run = (s?: "combined" | "transcript" | "visual") => {
+    const term = q.trim();
+    if (term.length < 2) return;
+    search.mutate({
+      data: { query: term, media_id: mediaId, search_type: s ?? scope, limit: 500 },
+    });
+  };
+
+  const results = search.data?.results ?? [];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && run()}
+          placeholder="Search this asset — transcript & visuals…"
+          data-testid="input-asset-search"
+        />
+        <Button onClick={() => run()} disabled={q.trim().length < 2 || search.isPending} data-testid="button-asset-search">
+          {search.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+        </Button>
+      </div>
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className="text-muted-foreground mr-1">Search in:</span>
+        {([["combined", "All"], ["transcript", "Transcript"], ["visual", "Visuals"]] as const).map(([v, label]) => (
+          <Button
+            key={v}
+            size="sm"
+            variant={scope === v ? "default" : "outline"}
+            className="h-6 px-2 text-xs"
+            onClick={() => { setScope(v); if (q.trim().length >= 2) run(v); }}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      {search.data && (
+        <p className="text-xs text-muted-foreground">
+          {results.length} result{results.length === 1 ? "" : "s"} for “{search.data.query}”
+        </p>
+      )}
+      <div className="space-y-1.5">
+        {results.map((r: SearchResult, i: number) => (
+          <button
+            key={`${r.start_time}-${i}`}
+            type="button"
+            onClick={() => seekTo(r.start_time)}
+            className="w-full flex items-start gap-3 rounded-md border border-border bg-card/50 hover:bg-muted/40 px-3 py-2 text-left"
+            data-testid={`asset-search-result-${i}`}
+          >
+            {r.thumbnail_url && (
+              <img src={r.thumbnail_url} alt="" className="h-12 w-20 rounded object-cover shrink-0" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-mono text-primary">
+                  {formatTimecode(r.start_time)}{r.end_time != null ? ` – ${formatTimecode(r.end_time)}` : ""}
+                </span>
+                <span className="text-muted-foreground">
+                  {r.match_type === "visual" ? "Visual" : r.match_type === "person" ? "Person" : "Transcript"}
+                  {r.match_type === "person" ? "" : ` · ${(r.score * 100).toFixed(0)}%`}
+                </span>
+              </div>
+              {r.snippet && <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{r.snippet}</p>}
+            </div>
+          </button>
+        ))}
+        {search.data && !results.length && (
+          <p className="text-sm text-muted-foreground py-4 text-center">No matches in this asset.</p>
+        )}
+      </div>
+    </div>
+  );
 }
