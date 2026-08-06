@@ -78,7 +78,7 @@ def _named_only_filter():
     is itself a placeholder ("Person N", "SPEAKER_XX", "VOn")."""
     return (
         Person.name_source.isnot(None)
-        & Person.display_name.op("!~*")(r"^(person\s*\d+|speaker[_\s-]*\d+|vo\s*\d*|unknown.*|unidentified.*)$")
+        & Person.display_name.op("!~*")("^(person ?[0-9]+|speaker[_ -]*[0-9]+|vo ?[0-9]*|unknown.*|unidentified.*)$")
     )
 
 
