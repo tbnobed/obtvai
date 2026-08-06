@@ -40,6 +40,10 @@ _MIN_VISUAL_SCORE = 0.25
 # returning a hard zero.
 _MIN_VISUAL_SCORE_RELAXED = 0.10
 _RELAXED_VISUAL_LIMIT = 5
+# First-pass cap on visual scenes from a single asset: broadcast footage has
+# many near-identical shots, and without a cap one file's duplicates push
+# every other asset's valid match past the result limit.
+_MAX_VISUAL_PER_ASSET = 3
 
 
 def _rescale_clip_score(score: float) -> float:
@@ -168,10 +172,14 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
             # CLIP was trained on captioned photos — "a photo of a watch" retrieves
             # far better than the bare word "watch".
             clip_query_embedding = await get_clip_text_embedding(f"a photo of {body.query}")
+            # Fetch well past the requested limit: broadcast footage is full of
+            # near-duplicate scenes (e.g. 20 shots of the same flags), and a
+            # shallow fetch lets one asset crowd every other match out of the
+            # candidate pool before diversity capping can help.
             visual_hits = await search_vectors(
                 collection="scenes",
                 vector=clip_query_embedding,
-                limit=body.limit,
+                limit=min(max(body.limit * 5, 50), 200),
                 media_id=body.media_id,
                 media_ids=body.media_ids,
             )
@@ -201,9 +209,27 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                         match_type="visual",
                         snippet=scene.description,
                     )))
-            confident = [r for s, r in visual_candidates if s >= _MIN_VISUAL_SCORE]
+            # Diversity cap: at most _MAX_VISUAL_PER_ASSET scenes per asset in
+            # the first pass, so 20 near-identical shots from one file don't
+            # bury a valid match from another (fill remaining slots afterwards).
+            visual_candidates.sort(key=lambda t: t[0], reverse=True)
+            per_asset: dict[str, int] = {}
+            capped: list[tuple[float, SearchResultOut]] = []
+            overflow: list[tuple[float, SearchResultOut]] = []
+            for s, r in visual_candidates:
+                n = per_asset.get(r.media_id, 0)
+                if n < _MAX_VISUAL_PER_ASSET:
+                    per_asset[r.media_id] = n + 1
+                    capped.append((s, r))
+                else:
+                    overflow.append((s, r))
+            confident = [r for s, r in capped if s >= _MIN_VISUAL_SCORE]
             if confident:
-                results.extend(confident)
+                if len(confident) < body.limit:
+                    confident.extend(
+                        r for s, r in overflow if s >= _MIN_VISUAL_SCORE
+                    )
+                results.extend(confident[: body.limit])
             elif body.search_type == "visual" and visual_candidates:
                 # Explicit visual search: best-effort weak matches beat a
                 # hard "0 results" (small objects score below the main bar).
