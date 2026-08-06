@@ -456,6 +456,31 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
 
     overview = None if body.media_id else await _library_overview(db)
 
+    # "How many assets mention/talk about X?" cannot be answered from a
+    # dozen retrieved snippets — count over the whole database instead and
+    # hand the model exact figures.
+    if overview is not None:
+        try:
+            kw_lines = []
+            for kw in _question_keywords(retrieval_question)[:4]:
+                n = (
+                    await db.execute(
+                        select(func.count(func.distinct(TranscriptSegment.media_id)))
+                        .where(TranscriptSegment.text.ilike(f"%{kw}%"))
+                    )
+                ).scalar_one()
+                if n:
+                    kw_lines.append(f'Assets whose transcripts mention "{kw}": {n}')
+            if kw_lines:
+                overview += (
+                    "\nExact database counts (distinct assets, whole library — "
+                    "use THESE for any \"how many assets mention/talk about X\" "
+                    "question, not the number of excerpts below):\n"
+                    + "\n".join(kw_lines)
+                )
+        except Exception:
+            pass
+
     answer_text, citations = await _run_qa(
         body.question, context_segments, db,
         single_asset=bool(body.media_id), history=history,
