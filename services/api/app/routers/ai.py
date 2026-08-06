@@ -353,6 +353,14 @@ async def _run_qa(
             f"(Error: {e})"
         )
 
+    # Sources must support the answer. In library-wide chats, retrieval always
+    # fetches *something*, but aggregate answers (counts, topics, people) come
+    # from the overview — attaching unrelated clips as "sources" is noise.
+    # Keep only citations whose file the answer actually references.
+    if not single_asset:
+        referenced = [c for c in citations if c.filename in answer]
+        citations = referenced
+
     return answer, citations[:5]
 
 
