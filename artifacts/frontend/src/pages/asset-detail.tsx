@@ -786,7 +786,7 @@ export default function AssetDetail() {
                 />
               </TabsContent>
               <TabsContent value="studio" className="flex-1 overflow-y-auto mt-0 p-4 space-y-6">
-                <AssetStudioSection mediaId={id!} />
+                <AssetStudioSection mediaId={id!} onSeek={seekTo} />
                 <AssetRendersSection mediaId={id!} />
               </TabsContent>
               <TabsContent value="socials" className="flex-1 overflow-y-auto mt-0 p-4">
@@ -2015,7 +2015,7 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
   );
 }
 
-function AssetStudioSection({ mediaId }: { mediaId: string }) {
+function AssetStudioSection({ mediaId, onSeek }: { mediaId: string; onSeek?: (t: number) => void }) {
   const [project, setProject] = useState<Project | null>(null);
   const sessionMutation = useGetMediaStudioSession();
   const startedFor = useRef<string | null>(null);
@@ -2050,5 +2050,5 @@ function AssetStudioSection({ mediaId }: { mediaId: string }) {
       </div>
     );
   }
-  return <StudioTab project={project} />;
+  return <StudioTab project={project} onSeekSource={onSeek} />;
 }

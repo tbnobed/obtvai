@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, cloneElement, isValidElement, useEffect, useMemo, useRef, useState } from "react";
 import {
   useListProjectChatMessages, getListProjectChatMessagesQueryKey,
   usePostProjectChatMessage,
@@ -30,10 +30,62 @@ import { formatTC } from "@/lib/timecode";
 
 const fmtTime = (s: number) => formatTC(s, 25, false);
 
-function ChatMarkdown({ text }: { text: string }) {
+function parseTC(tc: string): number {
+  const p = tc.split(":").map(Number);
+  return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+}
+
+// Matches "1:22", "01:07:43" and ranges like "1:22-1:43" / "1:22–1:43".
+const TC_RE = /\b(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[-–]\s*\d{1,2}:\d{2}(?::\d{2})?)?)\b/g;
+
+function linkifyTimecodes(node: React.ReactNode, onSeek: (t: number) => void): React.ReactNode {
+  if (typeof node === "string") {
+    const out: React.ReactNode[] = [];
+    let last = 0;
+    let i = 0;
+    for (const m of node.matchAll(TC_RE)) {
+      const idx = m.index ?? 0;
+      if (idx > last) out.push(node.slice(last, idx));
+      const label = m[1];
+      const start = parseTC(label.split(/\s*[-–]\s*/)[0]);
+      out.push(
+        <button
+          key={`tc-${idx}-${i++}`}
+          type="button"
+          onClick={() => onSeek(start)}
+          className="text-primary underline underline-offset-2 hover:opacity-80 font-mono"
+        >
+          {label}
+        </button>,
+      );
+      last = idx + label.length;
+    }
+    if (!out.length) return node;
+    if (last < node.length) out.push(node.slice(last));
+    return out;
+  }
+  if (Array.isArray(node)) return node.map((n, i) => <Fragment key={i}>{linkifyTimecodes(n, onSeek)}</Fragment>);
+  if (isValidElement(node)) {
+    const children = (node.props as { children?: React.ReactNode }).children;
+    if (children == null) return node;
+    return cloneElement(node, undefined, linkifyTimecodes(children, onSeek));
+  }
+  return node;
+}
+
+function ChatMarkdown({ text, onSeek }: { text: string; onSeek?: (t: number) => void }) {
+  const wrap = (Tag: "p" | "li" | "td" | "th") =>
+    function Wrapped({ children }: { children?: React.ReactNode }) {
+      return <Tag>{onSeek ? linkifyTimecodes(children, onSeek) : children}</Tag>;
+    };
   return (
     <div className="min-w-0 overflow-x-auto text-sm leading-relaxed space-y-2 [&_p]:my-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5 [&_strong]:font-semibold [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_code]:rounded [&_code]:bg-black/30 [&_code]:px-1 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_td]:align-top">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={onSeek ? { p: wrap("p"), li: wrap("li"), td: wrap("td"), th: wrap("th") } : undefined}
+      >
+        {text}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -52,7 +104,7 @@ function fmtRuntime(s: number) {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 }
 
-export function StudioTab({ project, onOpenPool, focusVersion, fill }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null; fill?: boolean }) {
+export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSource }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null; fill?: boolean; onSeekSource?: (t: number) => void }) {
   const panelH = fill ? "h-[calc(100vh-170px)]" : "h-[calc(100vh-260px)]";
   const projectId = project.id;
   const queryClient = useQueryClient();
@@ -281,7 +333,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill }: { project
                   </span>
                 ) : (
                   <>
-                    {m.role === "user" ? m.content : <ChatMarkdown text={m.content ?? ""} />}
+                    {m.role === "user" ? m.content : <ChatMarkdown text={m.content ?? ""} onSeek={onSeekSource} />}
                     {m.cut_version != null && (
                       <button
                         type="button"
