@@ -471,6 +471,15 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
                 ).scalar_one()
                 if n:
                     kw_lines.append(f'Assets whose transcripts mention "{kw}": {n}')
+                n_appear = (
+                    await db.execute(
+                        select(func.count(func.distinct(PersonAppearance.media_id)))
+                        .join(Person, Person.id == PersonAppearance.person_id)
+                        .where(Person.display_name.ilike(f"%{kw}%"))
+                    )
+                ).scalar_one()
+                if n_appear:
+                    kw_lines.append(f'Assets where an identified person named like "{kw}" appears on screen or speaks: {n_appear}')
             if kw_lines:
                 overview += (
                     "\nExact database counts (distinct assets, whole library — "
