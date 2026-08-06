@@ -649,6 +649,10 @@ export default function AssetDetail() {
             <Tabs value={activeTab ?? "studio"} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
               <div className="p-3 border-b border-border shrink-0">
               <TabsList className="flex flex-wrap h-auto gap-1 justify-start w-full">
+                <TabsTrigger value="transcript" className="gap-1.5">
+                  <Captions className="h-3.5 w-3.5" />
+                  Transcript
+                </TabsTrigger>
                 <TabsTrigger
                   value="studio"
                   className="gap-1.5 text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -676,10 +680,6 @@ export default function AssetDetail() {
                     Ratings
                   </TabsTrigger>
                 )}
-                <TabsTrigger value="transcript" className="gap-1.5">
-                  <Captions className="h-3.5 w-3.5" />
-                  Transcript
-                </TabsTrigger>
               </TabsList>
               </div>
               <TabsContent value="selects" className="flex-1 overflow-y-auto mt-0 p-4">
