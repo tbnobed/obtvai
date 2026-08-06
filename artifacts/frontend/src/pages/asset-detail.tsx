@@ -437,6 +437,311 @@ export default function AssetDetail() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div className="flex-1 flex overflow-hidden">
+        {/* Transcript Panel — always visible, independent of the right tabs */}
+        <div className="w-[360px] shrink-0 border-r border-border bg-card flex flex-col overflow-hidden">
+          <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-1.5 text-sm font-medium">
+            <Captions className="h-4 w-4 text-muted-foreground" />
+            Transcript
+          </div>
+              <div className="flex-1 overflow-hidden flex flex-col">
+              <div className="px-3 pt-3 shrink-0 flex items-center gap-2">
+                <Languages className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Select value={transcriptLang} onValueChange={setTranscriptLang}>
+                  <SelectTrigger className="h-8 text-xs flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="original">Original</SelectItem>
+                    {TRANSLATION_LANGUAGES.map(l => (
+                      <SelectItem key={l.code} value={l.code}>
+                        {l.label}{(asset?.translated_languages ?? []).includes(l.code) ? " ✓" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="px-3 pt-2 shrink-0 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-1.5 h-8 text-xs"
+                  onClick={() => downloadCaptions("srt")}
+                  disabled={captionsBusy !== null}
+                >
+                  {captionsBusy === "srt" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Captions className="h-3.5 w-3.5" />}
+                  SRT
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-1.5 h-8 text-xs"
+                  onClick={() => downloadCaptions("vtt")}
+                  disabled={captionsBusy !== null}
+                >
+                  {captionsBusy === "vtt" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Captions className="h-3.5 w-3.5" />}
+                  VTT
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-1.5 h-8 text-xs"
+                  onClick={startTighten}
+                  disabled={tightenMutation.isPending}
+                >
+                  {tightenMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scissors className="h-3.5 w-3.5" />}
+                  Tighten
+                </Button>
+              </div>
+              {transcriptLang !== "original" && langAvailable && (
+                <div className="px-3 pt-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="w-full gap-2 mb-1.5 text-muted-foreground"
+                    onClick={() => startTranslate(transcriptLang)}
+                    disabled={translateBusy}
+                  >
+                    {translateBusy ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Retranslating{translateJob?.progress ? ` — ${Math.round(translateJob.progress)}%` : "..."}
+                      </>
+                    ) : (
+                      <>
+                        <Languages className="h-3.5 w-3.5" />
+                        Retranslate
+                      </>
+                    )}
+                  </Button>
+                  {dubAvailable ? (
+                    <>
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant={dubOn ? "default" : "outline"}
+                          className="flex-1 min-w-0 gap-2"
+                          onClick={toggleDub}
+                        >
+                          <Volume2 className="h-4 w-4 shrink-0" />
+                          <span className="truncate">
+                            {dubOn ? "Dubbed version playing — click for original" : "Play dubbed version"}
+                          </span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 min-w-0 gap-2"
+                          asChild
+                          data-testid="button-download-dub-audio"
+                        >
+                          <a href={`/api/media/${id}/dub/${transcriptLang}/stream?download=true`} download>
+                            <Download className="h-4 w-4 shrink-0" />
+                            <span className="truncate">
+                              Download audio only (
+                              {TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()}
+                              {" "}dub, M4A)
+                            </span>
+                          </a>
+                        </Button>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-full gap-2 mt-1.5 text-muted-foreground"
+                        onClick={() => startDub(transcriptLang)}
+                        disabled={dubBusy}
+                      >
+                        {dubBusy ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Regenerating dub{dubJob?.progress ? ` — ${Math.round(dubJob.progress)}%` : "..."}
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Regenerate dub
+                          </>
+                        )}
+                      </Button>
+                      {!dubBusy && (
+                        <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
+                          <Checkbox
+                            checked={dubClonedVoices}
+                            onCheckedChange={(v) => setDubClonedVoices(v === true)}
+                          />
+                          Use cloned voices — speakers with a ready voice profile keep their own voice
+                        </label>
+                      )}
+                      {!dubBusy && (
+                        <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
+                          <Checkbox
+                            checked={dubLipSync}
+                            onCheckedChange={(v) => setDubLipSync(v === true)}
+                          />
+                          Lip sync (experimental) — re-render mouths to match the dub where the speaker's face is visible
+                        </label>
+                      )}
+                    </>
+                  ) : dubSupported ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={() => startDub(transcriptLang)}
+                        disabled={dubBusy}
+                      >
+                        {dubBusy ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Generating dub{dubJob?.progress ? ` — ${Math.round(dubJob.progress)}%` : "..."}
+                          </>
+                        ) : (
+                          <>
+                            <AudioLines className="h-4 w-4" />
+                            Generate dubbed audio
+                          </>
+                        )}
+                      </Button>
+                      <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
+                        <Checkbox
+                          checked={dubClonedVoices}
+                          onCheckedChange={(v) => setDubClonedVoices(v === true)}
+                          disabled={dubBusy}
+                        />
+                        Use cloned voices — speakers with a ready voice profile keep their own voice
+                      </label>
+                      <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
+                        <Checkbox
+                          checked={dubLipSync}
+                          onCheckedChange={(v) => setDubLipSync(v === true)}
+                          disabled={dubBusy}
+                        />
+                        Lip sync (experimental) — re-render mouths to match the dub where the speaker's face is visible
+                      </label>
+                      {dubMutation.isError && (
+                        <p className="text-xs text-destructive mt-1.5">Failed to start dubbing. Check Pipeline Jobs.</p>
+                      )}
+                      {!dubBusy && !dubMutation.isError && lastDubStatus === "error" && (
+                        <p className="text-xs text-destructive mt-1.5 break-words">
+                          Last dub failed{lastDubJob?.error_message ? `: ${lastDubJob.error_message}` : ""}. See Pipeline Jobs for details.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      Dubbed audio isn't available for this language — no local TTS voice exists for it.
+                    </p>
+                  )}
+                </div>
+              )}
+              {transcriptLang !== "original" && !langAvailable ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
+                  <Languages className="h-8 w-8 text-muted-foreground" />
+                  <Button size="sm" className="gap-2" onClick={() => startTranslate(transcriptLang)} disabled={translateBusy}>
+                    {translateBusy ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Translating{translateJob?.progress ? ` — ${Math.round(translateJob.progress)}%` : "..."}
+                      </>
+                    ) : (
+                      <>
+                        <Languages className="h-4 w-4" />
+                        Translate to {TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label}
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Translates the full transcript locally on the GPU worker. Timecodes and speakers stay aligned.
+                  </p>
+                  {translateMutation.isError && (
+                    <p className="text-xs text-destructive">Failed to start translation. Check Pipeline Jobs.</p>
+                  )}
+                  {!translateBusy && !translateMutation.isError && lastTranslateStatus === "error" && (
+                    <p className="text-xs text-destructive max-w-xs break-words">
+                      Last translation failed{lastTranslateJob?.error_message ? `: ${lastTranslateJob.error_message}` : ""}. See Pipeline Jobs for details.
+                    </p>
+                  )}
+                </div>
+              ) : (
+              <ScrollArea className="flex-1 p-4" onWheel={markTranscriptUserScroll} onTouchMove={markTranscriptUserScroll}>
+                <div className="space-y-4">
+                  {transcript?.map(segment => (
+                    <div 
+                      key={segment.id} 
+                      ref={el => { if (String(segment.id) === activeSegmentId) activeSegmentRef.current = el; }}
+                      className={`group cursor-pointer hover:bg-muted p-2 -mx-2 rounded transition-colors relative ${String(segment.id) === activeSegmentId ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}
+                      onClick={() => seekTo(segment.start_time)}
+                    >
+                      <div className="flex gap-2 items-baseline mb-1">
+                        <span className="text-xs font-medium text-primary">{segment.speaker || 'Unknown'}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{formatTimecode(segment.start_time)}</span>
+                      </div>
+                      {editingSegId === String(segment.id) ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="text-sm min-h-[60px]"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveSegmentEdit(String(segment.id));
+                              if (e.key === "Escape") setEditingSegId(null);
+                            }}
+                          />
+                          <div className="flex gap-1.5 mt-1.5">
+                            <Button
+                              size="sm" className="h-6 px-2 gap-1 text-[11px]"
+                              disabled={segmentUpdateMutation.isPending || !editText.trim()}
+                              onClick={() => saveSegmentEdit(String(segment.id))}
+                            >
+                              {segmentUpdateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Save
+                            </Button>
+                            <Button
+                              size="sm" variant="outline" className="h-6 px-2 gap-1 text-[11px]"
+                              onClick={() => setEditingSegId(null)}
+                            >
+                              <X className="h-3 w-3" /> Cancel
+                            </Button>
+                            {segmentUpdateMutation.isError && editingSegId === String(segment.id) && (
+                              <span className="text-[11px] text-destructive self-center">Save failed</span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm">{segment.text}</p>
+                      )}
+                      {editingSegId !== String(segment.id) && (
+                        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100">
+                          <Button
+                            size="sm" variant="secondary"
+                            className="h-6 px-2 gap-1 text-[11px]"
+                            title={transcriptLang !== "original" && langAvailable ? "Edit this translation" : "Edit this segment"}
+                            onClick={(e) => { e.stopPropagation(); setEditingSegId(String(segment.id)); setEditText(segment.text); }}
+                          >
+                            <Pencil className="h-3 w-3" /> Edit
+                          </Button>
+                          <Button
+                            size="sm" variant="secondary"
+                            className="h-6 px-2 gap-1 text-[11px]"
+                            title="Add this segment to a clip list"
+                            onClick={(e) => { e.stopPropagation(); setClipListSegment(segment); }}
+                          >
+                            <ListPlus className="h-3 w-3" /> Clip
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {!transcript?.length && (
+                    <div className="text-sm text-muted-foreground text-center mt-10">No transcript available</div>
+                  )}
+                </div>
+              </ScrollArea>
+              )}
+            </div>
+        </div>
+
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-y-auto">
           <div className="p-6 bg-black flex-shrink-0 relative">
@@ -666,10 +971,6 @@ export default function AssetDetail() {
             <Tabs value={activeTab ?? "studio"} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
               <div className="p-3 border-b border-border shrink-0">
               <TabsList className="flex flex-wrap h-auto gap-1 justify-start w-full">
-                <TabsTrigger value="transcript" className="gap-1.5">
-                  <Captions className="h-3.5 w-3.5" />
-                  Transcript
-                </TabsTrigger>
                 <TabsTrigger value="search" className="gap-1.5">
                   <Search className="h-3.5 w-3.5" />
                   Search
@@ -1078,303 +1379,6 @@ export default function AssetDetail() {
             <TabsContent value="search" className="flex-1 overflow-y-auto mt-0 p-4">
                 <AssetSearchTab mediaId={id!} seekTo={seekTo} />
               </TabsContent>
-              <TabsContent value="transcript" className="flex-1 overflow-hidden mt-0 flex flex-col">
-              <div className="px-3 pt-3 shrink-0 flex items-center gap-2">
-                <Languages className="h-4 w-4 text-muted-foreground shrink-0" />
-                <Select value={transcriptLang} onValueChange={setTranscriptLang}>
-                  <SelectTrigger className="h-8 text-xs flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="original">Original</SelectItem>
-                    {TRANSLATION_LANGUAGES.map(l => (
-                      <SelectItem key={l.code} value={l.code}>
-                        {l.label}{(asset?.translated_languages ?? []).includes(l.code) ? " ✓" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="px-3 pt-2 shrink-0 flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 gap-1.5 h-8 text-xs"
-                  onClick={() => downloadCaptions("srt")}
-                  disabled={captionsBusy !== null}
-                >
-                  {captionsBusy === "srt" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Captions className="h-3.5 w-3.5" />}
-                  SRT
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 gap-1.5 h-8 text-xs"
-                  onClick={() => downloadCaptions("vtt")}
-                  disabled={captionsBusy !== null}
-                >
-                  {captionsBusy === "vtt" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Captions className="h-3.5 w-3.5" />}
-                  VTT
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 gap-1.5 h-8 text-xs"
-                  onClick={startTighten}
-                  disabled={tightenMutation.isPending}
-                >
-                  {tightenMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scissors className="h-3.5 w-3.5" />}
-                  Tighten
-                </Button>
-              </div>
-              {transcriptLang !== "original" && langAvailable && (
-                <div className="px-3 pt-2 shrink-0">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="w-full gap-2 mb-1.5 text-muted-foreground"
-                    onClick={() => startTranslate(transcriptLang)}
-                    disabled={translateBusy}
-                  >
-                    {translateBusy ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Retranslating{translateJob?.progress ? ` — ${Math.round(translateJob.progress)}%` : "..."}
-                      </>
-                    ) : (
-                      <>
-                        <Languages className="h-3.5 w-3.5" />
-                        Retranslate
-                      </>
-                    )}
-                  </Button>
-                  {dubAvailable ? (
-                    <>
-                      <div className="flex gap-1.5">
-                        <Button
-                          size="sm"
-                          variant={dubOn ? "default" : "outline"}
-                          className="flex-1 min-w-0 gap-2"
-                          onClick={toggleDub}
-                        >
-                          <Volume2 className="h-4 w-4 shrink-0" />
-                          <span className="truncate">
-                            {dubOn ? "Dubbed version playing — click for original" : "Play dubbed version"}
-                          </span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 min-w-0 gap-2"
-                          asChild
-                          data-testid="button-download-dub-audio"
-                        >
-                          <a href={`/api/media/${id}/dub/${transcriptLang}/stream?download=true`} download>
-                            <Download className="h-4 w-4 shrink-0" />
-                            <span className="truncate">
-                              Download audio only (
-                              {TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()}
-                              {" "}dub, M4A)
-                            </span>
-                          </a>
-                        </Button>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-full gap-2 mt-1.5 text-muted-foreground"
-                        onClick={() => startDub(transcriptLang)}
-                        disabled={dubBusy}
-                      >
-                        {dubBusy ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Regenerating dub{dubJob?.progress ? ` — ${Math.round(dubJob.progress)}%` : "..."}
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            Regenerate dub
-                          </>
-                        )}
-                      </Button>
-                      {!dubBusy && (
-                        <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
-                          <Checkbox
-                            checked={dubClonedVoices}
-                            onCheckedChange={(v) => setDubClonedVoices(v === true)}
-                          />
-                          Use cloned voices — speakers with a ready voice profile keep their own voice
-                        </label>
-                      )}
-                      {!dubBusy && (
-                        <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
-                          <Checkbox
-                            checked={dubLipSync}
-                            onCheckedChange={(v) => setDubLipSync(v === true)}
-                          />
-                          Lip sync (experimental) — re-render mouths to match the dub where the speaker's face is visible
-                        </label>
-                      )}
-                    </>
-                  ) : dubSupported ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full gap-2"
-                        onClick={() => startDub(transcriptLang)}
-                        disabled={dubBusy}
-                      >
-                        {dubBusy ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Generating dub{dubJob?.progress ? ` — ${Math.round(dubJob.progress)}%` : "..."}
-                          </>
-                        ) : (
-                          <>
-                            <AudioLines className="h-4 w-4" />
-                            Generate dubbed audio
-                          </>
-                        )}
-                      </Button>
-                      <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
-                        <Checkbox
-                          checked={dubClonedVoices}
-                          onCheckedChange={(v) => setDubClonedVoices(v === true)}
-                          disabled={dubBusy}
-                        />
-                        Use cloned voices — speakers with a ready voice profile keep their own voice
-                      </label>
-                      <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-[11px] text-muted-foreground">
-                        <Checkbox
-                          checked={dubLipSync}
-                          onCheckedChange={(v) => setDubLipSync(v === true)}
-                          disabled={dubBusy}
-                        />
-                        Lip sync (experimental) — re-render mouths to match the dub where the speaker's face is visible
-                      </label>
-                      {dubMutation.isError && (
-                        <p className="text-xs text-destructive mt-1.5">Failed to start dubbing. Check Pipeline Jobs.</p>
-                      )}
-                      {!dubBusy && !dubMutation.isError && lastDubStatus === "error" && (
-                        <p className="text-xs text-destructive mt-1.5 break-words">
-                          Last dub failed{lastDubJob?.error_message ? `: ${lastDubJob.error_message}` : ""}. See Pipeline Jobs for details.
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-[11px] text-muted-foreground">
-                      Dubbed audio isn't available for this language — no local TTS voice exists for it.
-                    </p>
-                  )}
-                </div>
-              )}
-              {transcriptLang !== "original" && !langAvailable ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
-                  <Languages className="h-8 w-8 text-muted-foreground" />
-                  <Button size="sm" className="gap-2" onClick={() => startTranslate(transcriptLang)} disabled={translateBusy}>
-                    {translateBusy ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Translating{translateJob?.progress ? ` — ${Math.round(translateJob.progress)}%` : "..."}
-                      </>
-                    ) : (
-                      <>
-                        <Languages className="h-4 w-4" />
-                        Translate to {TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label}
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Translates the full transcript locally on the GPU worker. Timecodes and speakers stay aligned.
-                  </p>
-                  {translateMutation.isError && (
-                    <p className="text-xs text-destructive">Failed to start translation. Check Pipeline Jobs.</p>
-                  )}
-                  {!translateBusy && !translateMutation.isError && lastTranslateStatus === "error" && (
-                    <p className="text-xs text-destructive max-w-xs break-words">
-                      Last translation failed{lastTranslateJob?.error_message ? `: ${lastTranslateJob.error_message}` : ""}. See Pipeline Jobs for details.
-                    </p>
-                  )}
-                </div>
-              ) : (
-              <ScrollArea className="flex-1 p-4" onWheel={markTranscriptUserScroll} onTouchMove={markTranscriptUserScroll}>
-                <div className="space-y-4">
-                  {transcript?.map(segment => (
-                    <div 
-                      key={segment.id} 
-                      ref={el => { if (String(segment.id) === activeSegmentId) activeSegmentRef.current = el; }}
-                      className={`group cursor-pointer hover:bg-muted p-2 -mx-2 rounded transition-colors relative ${String(segment.id) === activeSegmentId ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}
-                      onClick={() => seekTo(segment.start_time)}
-                    >
-                      <div className="flex gap-2 items-baseline mb-1">
-                        <span className="text-xs font-medium text-primary">{segment.speaker || 'Unknown'}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono">{formatTimecode(segment.start_time)}</span>
-                      </div>
-                      {editingSegId === String(segment.id) ? (
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <Textarea
-                            value={editText}
-                            onChange={(e) => setEditText(e.target.value)}
-                            className="text-sm min-h-[60px]"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveSegmentEdit(String(segment.id));
-                              if (e.key === "Escape") setEditingSegId(null);
-                            }}
-                          />
-                          <div className="flex gap-1.5 mt-1.5">
-                            <Button
-                              size="sm" className="h-6 px-2 gap-1 text-[11px]"
-                              disabled={segmentUpdateMutation.isPending || !editText.trim()}
-                              onClick={() => saveSegmentEdit(String(segment.id))}
-                            >
-                              {segmentUpdateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Save
-                            </Button>
-                            <Button
-                              size="sm" variant="outline" className="h-6 px-2 gap-1 text-[11px]"
-                              onClick={() => setEditingSegId(null)}
-                            >
-                              <X className="h-3 w-3" /> Cancel
-                            </Button>
-                            {segmentUpdateMutation.isError && editingSegId === String(segment.id) && (
-                              <span className="text-[11px] text-destructive self-center">Save failed</span>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm">{segment.text}</p>
-                      )}
-                      {editingSegId !== String(segment.id) && (
-                        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100">
-                          <Button
-                            size="sm" variant="secondary"
-                            className="h-6 px-2 gap-1 text-[11px]"
-                            title={transcriptLang !== "original" && langAvailable ? "Edit this translation" : "Edit this segment"}
-                            onClick={(e) => { e.stopPropagation(); setEditingSegId(String(segment.id)); setEditText(segment.text); }}
-                          >
-                            <Pencil className="h-3 w-3" /> Edit
-                          </Button>
-                          <Button
-                            size="sm" variant="secondary"
-                            className="h-6 px-2 gap-1 text-[11px]"
-                            title="Add this segment to a clip list"
-                            onClick={(e) => { e.stopPropagation(); setClipListSegment(segment); }}
-                          >
-                            <ListPlus className="h-3 w-3" /> Clip
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {!transcript?.length && (
-                    <div className="text-sm text-muted-foreground text-center mt-10">No transcript available</div>
-                  )}
-                </div>
-              </ScrollArea>
-              )}
-            </TabsContent>
           </Tabs>
         </div>
       </div>
