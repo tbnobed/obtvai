@@ -798,22 +798,17 @@ export default function AssetDetail() {
                 )}
               </div>
             )}
-            {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && asset.sprite_url && asset.sprite_meta && (
-              <SpriteScrubber
-                spriteUrl={asset.sprite_url}
-                meta={asset.sprite_meta as SpriteMeta}
-                duration={asset.duration_seconds!}
-                seekTo={seekTo}
-              />
-            )}
             {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
-              <HeatStrip
+              <MomentsTimeline
                 duration={asset.duration_seconds!}
                 keyMoments={(asset.key_moments as { time: number; title: string; description?: string }[] | null) ?? []}
                 clipSuggestions={((asset.creative as CreativeAnalysis | null)?.clip_suggestions as { start: number; end: number; title: string; reason?: string; strength: number }[] | undefined) ?? []}
                 markers={markers ?? []}
                 seekTo={seekTo}
                 onFindSimilar={findSimilar}
+                spriteUrl={asset.sprite_url ?? undefined}
+                spriteMeta={(asset.sprite_meta as SpriteMeta | null) ?? undefined}
+                videoRef={videoRef}
               />
             )}
           </div>
@@ -1668,13 +1663,16 @@ function AssetPeople({
   );
 }
 
-function HeatStrip({
+function MomentsTimeline({
   duration,
   keyMoments,
   clipSuggestions,
   markers,
   seekTo,
   onFindSimilar,
+  spriteUrl,
+  spriteMeta,
+  videoRef,
 }: {
   duration: number;
   keyMoments: { time: number; title: string; description?: string }[];
@@ -1682,7 +1680,34 @@ function HeatStrip({
   markers: Marker[];
   seekTo: (time: number) => void;
   onFindSimilar?: (time: number) => void;
+  spriteUrl?: string;
+  spriteMeta?: SpriteMeta;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
 }) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ x: number; t: number } | null>(null);
+  const [playhead, setPlayhead] = useState(0);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onTime = () => setPlayhead(v.currentTime);
+    onTime();
+    v.addEventListener("timeupdate", onTime);
+    v.addEventListener("seeked", onTime);
+    return () => {
+      v.removeEventListener("timeupdate", onTime);
+      v.removeEventListener("seeked", onTime);
+    };
+  }, [videoRef, duration]);
+
+  const PREVIEW_W = 160;
+  const scale = spriteMeta ? PREVIEW_W / spriteMeta.tile_width : 1;
+  const previewH = spriteMeta ? Math.round(spriteMeta.tile_height * scale) : 0;
+  const idx = spriteMeta && hover ? Math.min(spriteMeta.count - 1, Math.max(0, Math.floor(hover.t / spriteMeta.interval))) : 0;
+  const bgX = spriteMeta ? -(idx % spriteMeta.cols) * spriteMeta.tile_width * scale : 0;
+  const bgY = spriteMeta ? -Math.floor(idx / spriteMeta.cols) * spriteMeta.tile_height * scale : 0;
+
   const pct = (t: number) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%`;
   const widthPct = (a: number, b: number) => `${Math.max(0.4, Math.min(100, ((b - a) / duration) * 100))}%`;
 
@@ -1724,24 +1749,55 @@ function HeatStrip({
     return `linear-gradient(to right, ${stops.join(",")})`;
   }, [clipSuggestions, keyMoments, duration]);
 
-  if (!keyMoments.length && !clipSuggestions.length && !markers.length) return null;
-
   const timeFromEvent = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    return frac * duration;
+    const x = Math.min(rect.width, Math.max(0, e.clientX - rect.left));
+    return { x, t: (x / rect.width) * duration };
   };
 
   return (
-    <div className="mt-2 select-none">
+    <div className="relative mt-2 select-none px-0" data-testid="moments-timeline">
+      {hover && spriteUrl && spriteMeta && (
+        <div
+          className="absolute bottom-full mb-1 z-20 pointer-events-none rounded border border-border shadow-lg overflow-hidden bg-black"
+          style={{
+            left: Math.min(Math.max(hover.x - PREVIEW_W / 2, 0), (barRef.current?.clientWidth ?? 0) - PREVIEW_W),
+            width: PREVIEW_W,
+          }}
+        >
+          <div
+            style={{
+              width: PREVIEW_W,
+              height: previewH,
+              backgroundImage: `url(/api/thumbnails/${spriteUrl})`,
+              backgroundPosition: `${bgX}px ${bgY}px`,
+              backgroundSize: `${spriteMeta.cols * spriteMeta.tile_width * scale}px ${spriteMeta.rows * spriteMeta.tile_height * scale}px`,
+            }}
+          />
+          <div className="text-center text-[10px] font-mono text-white bg-black/80 py-0.5">
+            {formatTimecode(hover.t)}
+          </div>
+        </div>
+      )}
+      {hover && (!spriteUrl || !spriteMeta) && (
+        <div
+          className="absolute bottom-full mb-1 z-20 pointer-events-none rounded bg-black/85 px-1.5 py-0.5 text-[10px] font-mono text-white"
+          style={{ left: Math.max(0, hover.x - 24) }}
+        >
+          {formatTimecode(hover.t)}
+        </div>
+      )}
       <div
-        className="relative h-7 rounded bg-zinc-900 overflow-hidden cursor-pointer"
-        title="Click to jump · right-click to find similar moments"
-        onClick={(e) => seekTo(timeFromEvent(e))}
+        ref={barRef}
+        className="relative h-9 rounded bg-zinc-900 overflow-hidden cursor-pointer"
+        title="Hover to preview · click to jump · right-click to find similar moments"
+        onMouseMove={(e) => setHover(timeFromEvent(e))}
+        onMouseLeave={() => setHover(null)}
+        onClick={(e) => seekTo(timeFromEvent(e).t)}
         onContextMenu={(e) => {
           if (!onFindSimilar) return;
           e.preventDefault();
-          onFindSimilar(timeFromEvent(e));
+          onFindSimilar(timeFromEvent(e).t);
         }}
       >
         <div className="absolute inset-0" style={{ background: gradient }} />
@@ -1773,8 +1829,19 @@ function HeatStrip({
             title={`${m.kind}${m.note ? `: ${m.note}` : ""}`}
           />
         ))}
+        {hover && (
+          <div className="absolute top-0 bottom-0 w-px bg-white/70 pointer-events-none" style={{ left: hover.x }} />
+        )}
+        <div
+          className="absolute top-0 bottom-0 pointer-events-none"
+          style={{ left: pct(playhead) }}
+        >
+          <div className="absolute top-0 bottom-0 w-[2px] -ml-[1px] bg-white shadow-[0_0_4px_rgba(0,0,0,0.9)]" />
+          <div className="absolute -top-0.5 -ml-[5px] w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-white" />
+        </div>
       </div>
       <div className="flex gap-4 mt-1 text-[10px] text-zinc-500">
+        <span className="font-mono text-zinc-300">{formatTimecode(playhead)}</span>
         <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, hsl(213,57%,18%), hsl(125,75%,35%), hsl(25,95%,54%))" }} /> cold → hot = AI clip strength &amp; key moments</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-green-500 rounded-sm" /> Select</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-red-500 rounded-sm" /> Reject</span>
@@ -2224,71 +2291,6 @@ type SpriteMeta = {
   rows: number;
   count: number;
 };
-
-function SpriteScrubber({ spriteUrl, meta, duration, seekTo }: {
-  spriteUrl: string;
-  meta: SpriteMeta;
-  duration: number;
-  seekTo: (t: number) => void;
-}) {
-  const barRef = useRef<HTMLDivElement>(null);
-  const [hover, setHover] = useState<{ x: number; t: number } | null>(null);
-
-  const PREVIEW_W = 160;
-  const scale = PREVIEW_W / meta.tile_width;
-  const previewH = Math.round(meta.tile_height * scale);
-  const idx = hover ? Math.min(meta.count - 1, Math.max(0, Math.floor(hover.t / meta.interval))) : 0;
-  const bgX = -(idx % meta.cols) * meta.tile_width * scale;
-  const bgY = -Math.floor(idx / meta.cols) * meta.tile_height * scale;
-
-  const timeAt = (clientX: number) => {
-    const rect = barRef.current!.getBoundingClientRect();
-    const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    return { x: clientX - rect.left, t: frac * duration };
-  };
-
-  return (
-    <div className="relative px-3 py-1.5" data-testid="sprite-scrubber">
-      {hover && (
-        <div
-          className="absolute bottom-full mb-1 z-20 pointer-events-none rounded border border-border shadow-lg overflow-hidden bg-black"
-          style={{
-            left: Math.min(Math.max(hover.x - PREVIEW_W / 2 + 12, 0), (barRef.current?.clientWidth ?? 0) - PREVIEW_W + 24),
-            width: PREVIEW_W,
-          }}
-        >
-          <div
-            style={{
-              width: PREVIEW_W,
-              height: previewH,
-              backgroundImage: `url(/api/thumbnails/${spriteUrl})`,
-              backgroundPosition: `${bgX}px ${bgY}px`,
-              backgroundSize: `${meta.cols * meta.tile_width * scale}px ${meta.rows * meta.tile_height * scale}px`,
-            }}
-          />
-          <div className="text-center text-[10px] font-mono text-white bg-black/80 py-0.5">
-            {formatTimecode(hover.t)}
-          </div>
-        </div>
-      )}
-      <div
-        ref={barRef}
-        className="h-3 rounded-full bg-muted/60 hover:bg-muted cursor-pointer relative"
-        onMouseMove={(e) => setHover(timeAt(e.clientX))}
-        onMouseLeave={() => setHover(null)}
-        onClick={(e) => seekTo(timeAt(e.clientX).t)}
-        title="Hover to preview, click to jump"
-      >
-        {hover && (
-          <div
-            className="absolute top-0 bottom-0 w-0.5 bg-primary rounded"
-            style={{ left: hover.x }}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
 
 function AssetSearchTab({ mediaId, seekTo }: { mediaId: string; seekTo: (t: number) => void }) {
   const [q, setQ] = useState("");
