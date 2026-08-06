@@ -1,0 +1,49 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull && docker compose up -d --build api
+remote: Enumerating objects: 17, done.
+remote: Counting objects: 100% (17/17), done.
+remote: Compressing objects: 100% (5/5), done.
+remote: Total 10 (delta 5), reused 10 (delta 5), pack-reused 0 (from 0)
+Unpacking objects: 100% (10/10), 165.46 KiB | 2.54 MiB/s, done.
+From https://github.com/tbnobed/obtvai
+   148062c..eb8384b  main       -> origin/main
+Updating 148062c..eb8384b
+Fast-forward
+ attached_assets/image_1786000894969.png | Bin 0 -> 169960 bytes
+ attached_assets/image_1786000901619.png | Bin 0 -> 12313 bytes
+ services/api/app/routers/ai.py          |   7 ++++++-
+ 3 files changed, 6 insertions(+), 1 deletion(-)
+ create mode 100644 attached_assets/image_1786000894969.png
+ create mode 100644 attached_assets/image_1786000901619.png
+[+] Building 0.5s (13/13) FINISHED
+ => [internal] load local bake definitions                                                                                                                                 0.0s
+ => => reading from stdin 514B                                                                                                                                             0.0s
+ => [internal] load build definition from Dockerfile                                                                                                                       0.0s
+ => => transferring dockerfile: 628B                                                                                                                                       0.0s
+ => [internal] load metadata for docker.io/library/python:3.11-slim                                                                                                        0.0s
+ => [internal] load .dockerignore                                                                                                                                          0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [1/6] FROM docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                                  0.0s
+ => => resolve docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                                  0.0s
+ => [internal] load build context                                                                                                                                          0.0s
+ => => transferring context: 22.18kB                                                                                                                                       0.0s
+ => CACHED [2/6] RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libpq-dev     gcc     g++     curl     && rm -rf /var/lib/apt/lists/*     0.0s
+ => CACHED [3/6] WORKDIR /app                                                                                                                                              0.0s
+ => CACHED [4/6] COPY requirements.txt .                                                                                                                                   0.0s
+ => CACHED [5/6] RUN pip install --no-cache-dir -r requirements.txt                                                                                                        0.0s
+ => [6/6] COPY app/ ./app/                                                                                                                                                 0.0s
+ => exporting to image                                                                                                                                                     0.3s
+ => => exporting layers                                                                                                                                                    0.1s
+ => => exporting manifest sha256:7339c99f24ae491364544f8f24631aa112adb74e453dcb0d481d10aa374feda4                                                                          0.0s
+ => => exporting config sha256:324062f4721aaa74c3940012b69a195eba694cc59f051b5260cd681135b10ca3                                                                            0.0s
+ => => exporting attestation manifest sha256:29c00429f22197dc596a424f10e1fd341b861f573628c77d758db7d4a4a3c150                                                              0.0s
+ => => exporting manifest list sha256:2c100a1f6948bd632aea14c95da3e13deedbd0821c40bcb4dc8fefa19ce3172f                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-api:latest                                                                                                                      0.0s
+ => => unpacking to docker.io/library/obtv-ai-api:latest                                                                                                                   0.0s
+ => resolving provenance for metadata file                                                                                                                                 0.0s
+[+] up 5/5
+ ✔ Image obtv-ai-api            Built                                                                                                                                       0.6s
+ ✔ Container obtv-ai-redis-1    Healthy                                                                                                                                     9.0s
+ ✔ Container obtv-ai-postgres-1 Healthy                                                                                                                                     9.0s
+ ✔ Container obtv-ai-qdrant-1   Healthy                                                                                                                                     9.0s
+ ✔ Container obtv-ai-api-1      Started                                                                                                                                     9.3s
+obtv-admin@obtv-llm-2:~/obtv-ai$

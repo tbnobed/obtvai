@@ -133,6 +133,8 @@ async def _library_overview(db: AsyncSession) -> str:
     from ..topic_norm import group_topics
     from ..models import LibraryInsight
 
+    import logging
+    log = logging.getLogger("obtv.ai")
     lines: list[str] = []
     try:
         total_assets, total_secs = (
@@ -141,7 +143,10 @@ async def _library_overview(db: AsyncSession) -> str:
             )
         ).one()
         lines.append(f"Library size: {total_assets} videos, {float(total_secs) / 3600:.1f} hours of footage.")
+    except Exception:
+        log.exception("library overview: totals failed")
 
+    try:
         raw_topic_rows = (
             await db.execute(
                 sql_text("""
@@ -157,7 +162,10 @@ async def _library_overview(db: AsyncSession) -> str:
             lines.append("Top topics across the library (topic — number of videos): " + "; ".join(
                 f"{g['topic']} — {g['asset_count']}" for g in grouped[:20]
             ))
+    except Exception:
+        log.exception("library overview: topics failed")
 
+    try:
         top_people = (
             await db.execute(
                 select(
@@ -175,7 +183,10 @@ async def _library_overview(db: AsyncSession) -> str:
             lines.append("Most-seen people (name — videos, speaking time): " + "; ".join(
                 f"{name} — {assets} videos, {float(secs) / 60:.0f} min" for name, assets, secs in top_people
             ))
+    except Exception:
+        log.exception("library overview: people failed")
 
+    try:
         stored = (
             await db.execute(select(LibraryInsight).where(LibraryInsight.id == 1))
         ).scalar_one_or_none()
@@ -187,7 +198,7 @@ async def _library_overview(db: AsyncSession) -> str:
                     detail = (i.get("detail") or "")[:200]
                     lines.append(f"Insight: {i['title']} — {detail}")
     except Exception:
-        return ""
+        log.exception("library overview: stored insights failed")
     return "\n".join(lines)
 
 
@@ -304,7 +315,23 @@ async def _run_qa(
 
     try:
         from ..services.llm import generate_response
-        answer = await generate_response(prompt, history=history, max_new_tokens=1500)
+        system = None
+        if overview and not single_asset:
+            system = (
+                "You are a sharp, analytical media librarian for a video archive. "
+                "The prompt contains a LIBRARY OVERVIEW block with authoritative, "
+                "machine-computed statistics about the whole library (video counts, "
+                "hours, topics, people). Any question about library totals, main "
+                "topics, or key people MUST be answered from that block — those "
+                "numbers are ground truth. Transcript excerpts are only quotes of "
+                "what people said on camera; never treat numbers spoken in them as "
+                "library statistics. For questions about specific spoken content, "
+                "quote the excerpts with filenames and timecodes. Be direct and "
+                "specific; make clear when something is interpretation. Start with "
+                "the substance itself — no boilerplate openings. Plain text only, "
+                "no markdown."
+            )
+        answer = await generate_response(prompt, history=history, max_new_tokens=1500, system=system)
         answer = _strip_markdown(answer)
     except Exception as e:
         transcript_summary = "\n".join(
