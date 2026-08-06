@@ -498,6 +498,78 @@ def _sanitize_clips(clips: list) -> list[dict]:
     return out
 
 
+_FULL_SPEAKING_RE = re.compile(
+    r"\b(?:entire|all|every|everything|full|complete|whole)\b.{0,50}?"
+    r"\b(?:talk(?:ing)?|speak(?:ing|s)?|spoke|says?|said|speech|moments?|segments?)\b",
+    re.IGNORECASE,
+)
+
+
+async def _person_full_cut(
+    db: AsyncSession, media_ids: list[str], text_blob: str,
+) -> tuple[str, list[dict]] | None:
+    """When the user asks for everything a person says, build the cut straight
+    from diarization: every transcript segment attributed to that person,
+    merged into contiguous clips, in chronological order. Returns
+    (display_name, clips) or None when no single person matches."""
+    from sqlalchemy import text as _sqltext
+    rows = (await db.execute(
+        _sqltext("""
+            SELECT p.id, p.display_name, pa.media_id, pa.speaker_label
+            FROM person_appearances pa
+            JOIN people p ON p.id = pa.person_id
+            WHERE pa.media_id = ANY(:mids) AND pa.speaker_label IS NOT NULL
+        """),
+        {"mids": list(media_ids)},
+    )).fetchall()
+    blob = (text_blob or "").lower()
+    matched: dict[str, dict] = {}
+    for pid, name, mid, label in rows:
+        toks = [t for t in re.split(r"\W+", (name or "").lower()) if len(t) > 2]
+        if toks and any(t in blob for t in toks):
+            matched.setdefault(pid, {"name": name, "pairs": []})["pairs"].append((mid, label))
+    if len(matched) != 1:
+        return None
+    info = next(iter(matched.values()))
+    filenames = {
+        mid: fn
+        for mid, fn in (await db.execute(
+            _sqltext("SELECT id, filename FROM media_assets WHERE id = ANY(:mids)"),
+            {"mids": list({m for m, _ in info["pairs"]})},
+        )).fetchall()
+    }
+    clips: list[dict] = []
+    for mid, label in sorted(set(info["pairs"])):
+        segs = (await db.execute(
+            _sqltext("""
+                SELECT start_time, end_time, text FROM transcript_segments
+                WHERE media_id = :mid AND speaker = :lbl
+                ORDER BY start_time
+            """),
+            {"mid": mid, "lbl": label},
+        )).fetchall()
+        cur = None
+        for s, e, txt in segs:
+            s, e = float(s), float(e or s)
+            if cur is not None and s - cur["end_time"] <= 2.0:
+                cur["end_time"] = max(cur["end_time"], e)
+            else:
+                if cur:
+                    clips.append(cur)
+                cur = {
+                    "media_id": mid,
+                    "filename": filenames.get(mid, ""),
+                    "start_time": s,
+                    "end_time": e,
+                    "snippet": re.sub(r"\s+", " ", str(txt or ""))[:200] or None,
+                    "thumbnail_url": None,
+                    "locked": False,
+                }
+        if cur:
+            clips.append(cur)
+    return (info["name"], clips) if clips else None
+
+
 _ALL_SOURCES_RE = re.compile(
     r"\b(?:every|each|all(?:\s+\d+)?)\s+(?:episodes?|sources?|files?|assets?)\b",
     re.IGNORECASE,
@@ -1058,6 +1130,32 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             searches = [notes] if notes else [user_text]
             logger.warning("planner returned no searches — falling back to %r", searches[0])
         kept = [c for i, c in enumerate(cut, 1) if i not in removals or c.get("locked")]
+
+        # "Give me a cut of his entire talking time" — build the cut from
+        # diarization directly instead of similarity search, which only ever
+        # surfaces a subset of what the person says.
+        if media_ids and _FULL_SPEAKING_RE.search(user_text):
+            recent = " ".join(m["content"] for m in history[-4:] if m.get("content"))
+            try:
+                full = await _person_full_cut(db, media_ids, f"{user_text} {recent}")
+            except Exception:
+                logger.exception("person full-cut lookup failed — falling back to search")
+                full = None
+            if full:
+                p_name, p_clips = full
+                p_clips = [c for c in p_clips if _clamp_to_range(c, ranges)]
+                locked = [c for c in kept if c.get("locked")]
+                new_cut = locked + [c for c in p_clips if not _overlaps_existing(c, locked)]
+                total_s = sum(_clip_duration(c) for c in new_cut)
+                reply = (
+                    f"Here's every moment {p_name} speaks, in order — nothing "
+                    f"skipped.\n\n({len(new_cut)} clips · {_fmt_tc(total_s)})"
+                )
+                await _lock_project_writes(db, project_id)
+                rev = await _save_revision(db, project_id, _sanitize_clips(new_cut), reply, "assistant")
+                await db.flush()
+                await _finish(db, assistant_id, reply, rev.version)
+                return
 
         candidates: list[dict] = []
 
