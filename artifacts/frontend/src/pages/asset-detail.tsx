@@ -395,11 +395,20 @@ export default function AssetDetail() {
   const lastDubJob = jobs?.filter(j => j.job_type === "dub")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0];
   const lastDubStatus = lastDubJob?.status;
+  const lastSentimentStatus = jobs?.filter(j => j.job_type === "sentiment")
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
   useEffect(() => {
     if ((lastHighlightStatus === "success" || lastSocialStatus === "success" || lastCreativeStatus === "success" || lastTranslateStatus === "success" || lastDubStatus === "success") && id) {
       queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
     }
   }, [lastHighlightStatus, lastSocialStatus, lastCreativeStatus, lastTranslateStatus, lastDubStatus, id, queryClient]);
+  // When a sentiment pass finishes, refresh the transcript so emotion
+  // chips and the timeline emotion lane appear without a reload.
+  useEffect(() => {
+    if (lastSentimentStatus === "success" && id) {
+      queryClient.invalidateQueries({ queryKey: getGetMediaTranscriptQueryKey(id, transcriptParams) });
+    }
+  }, [lastSentimentStatus, id, queryClient]);
 
   useEffect(() => {
     if (timeParam && videoRef.current && asset?.status === 'ready') {

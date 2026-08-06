@@ -608,7 +608,10 @@ async def backfill_sentiment(db: AsyncSession = Depends(get_db)):
         )
     )).scalars().all())
 
-    jobs = 0
+    # Commit all job rows BEFORE publishing to Celery: a fast worker picking
+    # up the task must be able to see its ProcessingJob row, or every
+    # update_job call silently affects zero rows.
+    created: list[tuple[str, str]] = []
     for mid in media_ids:
         if mid in active:
             continue
@@ -616,9 +619,18 @@ async def backfill_sentiment(db: AsyncSession = Depends(get_db)):
                             created_at=datetime.utcnow())
         db.add(job)
         await db.flush()
-        await enqueue_job("sentiment", mid, job.id)
-        jobs += 1
+        created.append((mid, job.id))
     await db.commit()
+
+    jobs = 0
+    for mid, jid in created:
+        try:
+            await enqueue_job("sentiment", mid, jid)
+            jobs += 1
+        except Exception:  # noqa: BLE001
+            # Leave the row pending; the stuck-job reaper / retry path picks
+            # it up rather than silently losing the asset from the backfill.
+            logger.exception("Failed to enqueue sentiment job %s for %s", jid, mid)
     return ReanalyzeOut(assets_queued=len(media_ids), jobs_created=jobs)
 
 

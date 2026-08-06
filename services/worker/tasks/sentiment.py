@@ -18,7 +18,9 @@ EMOTIONS = [
 ]
 _EMOTION_SET = set(EMOTIONS)
 
-_BATCH = 40  # segments per LLM call — keeps prompt & response well within budget
+_BATCH = 40  # max segments per LLM call
+_LINE_CAP = 300  # chars per transcript line in the prompt (long ASR runs get truncated)
+_BATCH_CHAR_BUDGET = 8000  # max total prompt chars from transcript lines per batch
 
 
 def _clamp(v) -> float | None:
@@ -54,13 +56,27 @@ def sentiment_pass(self, media_id: str, job_id: str):
         update_job(db, job_id, progress=3.0)
         tokenizer, model = _load_llm()
 
-        batches = [rows[i:i + _BATCH] for i in range(0, len(rows), _BATCH)]
+        # Batch by both count and character budget so a run of long ASR
+        # segments can't overflow the model context or starve the JSON reply.
+        batches: list[list] = []
+        cur: list = []
+        cur_chars = 0
+        for r in rows:
+            line_len = min(len(r[3] or ""), _LINE_CAP) + 8
+            if cur and (len(cur) >= _BATCH or cur_chars + line_len > _BATCH_CHAR_BUDGET):
+                batches.append(cur)
+                cur = []
+                cur_chars = 0
+            cur.append(r)
+            cur_chars += line_len
+        if cur:
+            batches.append(cur)
         append_log(db, job_id, f"Scoring {len(rows)} segments in {len(batches)} batch(es)")
 
         scored = 0
         for bi, batch in enumerate(batches):
             lines = "\n".join(
-                f"{i + 1}. {r[3]}" for i, r in enumerate(batch)
+                f"{i + 1}. {(r[3] or '')[:_LINE_CAP]}" for i, r in enumerate(batch)
             )
             prompt = (
                 "You are an emotion analyst for a video editing team. For each "
