@@ -77,12 +77,15 @@ def _format_timecode(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
 
 
-def _build_chunks(rows):
+def _build_chunks(rows, speaker_names=None):
     """Split the full transcript into timecoded chunks of ~_CHUNK_CHARS each.
 
     Returns a list of (chunk_text, start_seconds, end_seconds). The whole
-    transcript is always covered — nothing is truncated.
+    transcript is always covered — nothing is truncated. When speaker_names
+    maps a diarization label to an identified person's name, the name is used
+    so the LLM knows who is speaking.
     """
+    names = speaker_names or {}
     chunks = []
     parts = []
     total = 0
@@ -90,7 +93,8 @@ def _build_chunks(rows):
     last_time = chunk_start
     for start, speaker, text_val in rows:
         t = float(start)
-        line = f"[{_format_timecode(t)}] {speaker or 'Speaker'}: {text_val}"
+        who = names.get(speaker) or speaker or "Speaker"
+        line = f"[{_format_timecode(t)}] {who}: {text_val}"
         if total + len(line) > _CHUNK_CHARS and parts:
             chunks.append(("\n".join(parts), chunk_start, last_time))
             parts = []
@@ -242,7 +246,23 @@ def analyze_media(self, media_id: str, job_id: str):
             return
 
         duration = float(rows[-1][0])
-        chunks = _build_chunks(rows)
+
+        # Map diarization labels to identified person names so the analysis
+        # refers to people by name instead of "SPEAKER_00" / unnamed roles.
+        name_rows = db.execute(
+            text("""
+                SELECT pa.speaker_label, p.display_name
+                FROM person_appearances pa
+                JOIN people p ON p.id = pa.person_id
+                WHERE pa.media_id = :mid AND pa.speaker_label IS NOT NULL
+            """),
+            {"mid": media_id},
+        ).fetchall()
+        speaker_names = {label: name for label, name in name_rows if label and name}
+        if speaker_names:
+            append_log(db, job_id, f"Known speakers: {', '.join(sorted(set(speaker_names.values())))}")
+
+        chunks = _build_chunks(rows, speaker_names)
 
         append_log(db, job_id, f"Loading LLM: {LLM_MODEL}")
         update_job(db, job_id, progress=5.0)
