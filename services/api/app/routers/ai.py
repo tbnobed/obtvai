@@ -142,7 +142,11 @@ async def _library_overview(db: AsyncSession) -> str:
                 select(func.count(MediaAsset.id), func.coalesce(func.sum(MediaAsset.duration_seconds), 0))
             )
         ).one()
-        lines.append(f"Library size: {total_assets} videos, {float(total_secs) / 3600:.1f} hours of footage.")
+        lines.append(
+            f"Total assets in the library: {total_assets}. (\"Assets\", \"videos\", "
+            f"\"files\", and \"clips\" all refer to these {total_assets} items — "
+            f"{float(total_secs) / 3600:.1f} hours of footage in total.)"
+        )
     except Exception:
         log.exception("library overview: totals failed")
 
