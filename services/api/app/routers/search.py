@@ -347,19 +347,21 @@ async def reindex_library(db: AsyncSession = Depends(get_db)):
     await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext('obtv_reindex'))"))
 
     assets = (
-        await db.execute(select(MediaAsset.id).where(MediaAsset.status == "ready"))
-    ).scalars().all()
+        await db.execute(
+            select(MediaAsset.id, MediaAsset.sprite_url).where(MediaAsset.status == "ready")
+        )
+    ).all()
 
     assets_queued = 0
     jobs_created = 0
     pending: list[tuple[str, str, str]] = []
 
-    for media_id in assets:
+    for media_id, sprite_url in assets:
         active = (
             await db.execute(
                 select(ProcessingJob.id).where(
                     ProcessingJob.media_id == media_id,
-                    ProcessingJob.job_type.in_(("visual_embed", "index")),
+                    ProcessingJob.job_type.in_(("visual_embed", "index", "sprite")),
                     ProcessingJob.status.in_(("pending", "running")),
                 )
             )
@@ -376,6 +378,10 @@ async def reindex_library(db: AsyncSession = Depends(get_db)):
 
         queued_any = False
         job_types = ["index"]
+        # Sprite first: dense visual embedding crops frames from the sprite
+        # sheet (falls back to slow per-frame ffmpeg seeks without it).
+        if not sprite_url:
+            job_types.insert(0, "sprite")
         if has_scenes:
             job_types.append("visual_embed")
         for job_type in job_types:
