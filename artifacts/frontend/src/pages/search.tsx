@@ -113,7 +113,7 @@ export default function SearchPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-6 space-y-6 w-full">
       <div>
         <h1 className="text-2xl font-semibold flex items-center gap-2">
           <Search className="h-6 w-6" /> Search
@@ -184,7 +184,7 @@ export default function SearchPage() {
           </CardHeader>
           <CardContent>
             {searchMutation.data.results.length ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {searchMutation.data.results.map((r, i) => resultCard(r, `s-${i}`))}
               </div>
             ) : (
