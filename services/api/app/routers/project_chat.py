@@ -879,8 +879,13 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                         "Transcripts only cover what is SAID — for questions about "
                         "what is SHOWN (performances, locations, visuals), trust "
                         "the visual scene matches and count their segments. If the "
-                        "evidence doesn't cover it, say what IS there instead. Plain "
-                        "conversational text, no JSON, no promises of future work.",
+                        "evidence doesn't cover it, say what IS there instead. "
+                        "Write like you're talking to a colleague: short conversational "
+                        "paragraphs, and simple dash bullets when listing. NEVER use "
+                        "markdown tables, headings, or long quote dumps — pick the one "
+                        "or two best quotes and a few representative timestamps rather "
+                        "than exhaustive lists. Keep it under ~150 words. No JSON, no "
+                        "promises of future work.",
                         history=history,
                         system="You are a friendly, sharp video editor who knows this footage well.",
                         max_new_tokens=500,

@@ -105,7 +105,22 @@ function fmtRuntime(s: number) {
 }
 
 export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSource }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null; fill?: boolean; onSeekSource?: (t: number) => void }) {
-  const panelH = fill ? "h-[calc(100vh-170px)]" : "h-[calc(100vh-260px)]";
+  // Fill the viewport: measure where the panels actually start and stretch
+  // them to the bottom of the window instead of guessing a fixed offset.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [panelPx, setPanelPx] = useState<number | null>(null);
+  useEffect(() => {
+    const update = () => {
+      const r = gridRef.current?.getBoundingClientRect();
+      if (r) setPanelPx(Math.max(420, window.innerHeight - r.top - 24));
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const panelStyle = panelPx != null ? { height: panelPx } : undefined;
+  const panelH = panelPx != null ? "" : "h-[calc(100vh-260px)]";
+  void fill;
   const projectId = project.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -278,9 +293,9 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
   const total = cutDuration(clips);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(320px,1fr)_2fr]">
+    <div ref={gridRef} className="grid gap-4 lg:grid-cols-[minmax(320px,1fr)_2fr]">
       {/* ── Chat pane ── */}
-      <div className={`min-w-0 flex flex-col border border-border rounded-lg bg-card/50 ${panelH} min-h-[420px]`}>
+      <div className={`min-w-0 flex flex-col border border-border rounded-lg bg-card/50 ${panelH} min-h-[420px]`} style={panelStyle}>
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">Editorial assistant</span>
@@ -368,7 +383,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
       </div>
 
       {/* ── Living cut pane ── */}
-      <div className={`min-w-0 border border-border rounded-lg bg-card/50 flex flex-col ${panelH} min-h-[420px]`}>
+      <div className={`min-w-0 border border-border rounded-lg bg-card/50 flex flex-col ${panelH} min-h-[420px]`} style={panelStyle}>
         <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium">Draft cut</span>
           {latestVersion > 0 && (
