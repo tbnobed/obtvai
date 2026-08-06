@@ -199,7 +199,7 @@ export default function People() {
               "radial-gradient(circle at 20% 0%, hsl(var(--primary) / 0.25), transparent 45%), radial-gradient(circle at 80% 10%, hsl(280 80% 60% / 0.15), transparent 40%)",
           }}
         />
-        <div className="relative max-w-7xl mx-auto px-8 pt-16 pb-12 flex flex-col md:flex-row items-end justify-between gap-6">
+        <div className="relative w-full px-10 pt-14 pb-10 flex flex-col md:flex-row items-end justify-between gap-6">
           <div>
             <h1 className="text-4xl font-bold tracking-tight">People Directory</h1>
             {total > 0 && (
@@ -224,7 +224,7 @@ export default function People() {
       </div>
       )}
 
-      <div className={view === "map" ? "p-3 w-full flex flex-col flex-1 overflow-hidden" : "p-8 max-w-7xl mx-auto w-full flex flex-col flex-1"}>
+      <div className={view === "map" ? "p-3 w-full flex flex-col flex-1 overflow-hidden" : "px-10 py-8 w-full flex flex-col flex-1"}>
         {queuedMessage && (
           <div className="mb-6 px-4 py-3 rounded-xl border border-primary/20 bg-primary/5 text-sm text-primary shadow-sm flex items-center gap-3">
             <Check className="h-4 w-4 shrink-0" />
@@ -317,7 +317,7 @@ export default function People() {
               ))}
             </div>
           ) : (
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+            <div className="grid gap-4 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
               {[...Array(24)].map((_, i) => (
                 <Card key={i} className="animate-pulse bg-muted/50 h-[200px] border-border/50" />
               ))}
@@ -380,7 +380,7 @@ export default function People() {
               })}
             </div>
           ) : (
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+            <div className="grid gap-4 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
               {people.map((person) => {
                 const isUnnamed = person.name_source !== "manual" && (person.display_name.startsWith("Person ") || person.display_name.startsWith("SPEAKER_"));
                 const ringDeg = maxSpeaking > 0 ? ((person.total_speaking_seconds ?? 0) / maxSpeaking) * 360 : 0;
