@@ -275,7 +275,12 @@ async def _run_qa(
             f"LIBRARY OVERVIEW (authoritative aggregate data computed across the "
             f"entire library — for big-picture questions about main topics, themes, "
             f"key people, or what the library contains, base your answer on THIS "
-            f"data first; transcript excerpts below are only supporting evidence):\n"
+            f"data first; transcript excerpts below are only supporting evidence. "
+            f"When the question asks for counts or totals — how many videos, "
+            f"assets, hours, people — answer directly from this overview. Numbers "
+            f"that speakers happen to SAY in transcripts are things people said "
+            f"on camera, NOT statistics about this library; never present them "
+            f"as the library's totals):\n"
             f"{overview}\n\n"
         ) if overview else ""
         prompt = (
