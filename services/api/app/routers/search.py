@@ -251,12 +251,17 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                         continue
                     if _is_black_thumbnail(scene.thumbnail_url):
                         continue
+                    # Densely-sampled frame vectors carry the exact frame time —
+                    # point the result at that moment instead of the whole scene.
+                    ft = hit.payload.get("frame_time")
+                    r_start = max(scene.start_time, float(ft) - 2.0) if ft is not None else scene.start_time
+                    r_end = min(scene.end_time, float(ft) + 3.0) if ft is not None else scene.end_time
                     visual_candidates.append((rescaled, SearchResultOut(
                         media_id=asset.id,
                         filename=asset.filename,
                         thumbnail_url=scene.thumbnail_url or asset.thumbnail_url,
-                        start_time=scene.start_time,
-                        end_time=scene.end_time,
+                        start_time=r_start,
+                        end_time=max(r_end, r_start + 1.0),
                         score=rescaled,
                         match_type="visual",
                         snippet=scene.description,
