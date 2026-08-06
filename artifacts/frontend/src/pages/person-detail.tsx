@@ -292,7 +292,7 @@ function VoiceSection({
                     <Plus className="h-3.5 w-3.5" /> From footage
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="overflow-hidden">
                   <DialogHeader>
                     <DialogTitle>Add a Voice Sample from Footage</DialogTitle>
                   </DialogHeader>
@@ -300,15 +300,19 @@ function VoiceSection({
                     <p className="text-sm text-muted-foreground">
                       Pick a stretch where only {personName} speaks — no music, no crosstalk. 10–30 seconds is ideal.
                     </p>
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label>Asset</Label>
                       <Select value={sampleMedia} onValueChange={setSampleMedia}>
-                        <SelectTrigger><SelectValue placeholder="Choose an asset they speak in" /></SelectTrigger>
-                        <SelectContent>
+                        <SelectTrigger className="min-w-0 max-w-full [&>span]:min-w-0 [&>span]:truncate">
+                          <SelectValue placeholder="Choose an asset they speak in" />
+                        </SelectTrigger>
+                        <SelectContent className="max-w-[min(90vw,28rem)]">
                           {speakingAppearances.map((a) => (
                             <SelectItem key={a.media_id} value={a.media_id}>
-                              {a.filename}
-                              {a.first_spoken_at != null ? ` — first speaks at ${formatTimecode(a.first_spoken_at)}` : ""}
+                              <span className="block truncate">
+                                {a.filename}
+                                {a.first_spoken_at != null ? ` — first speaks at ${formatTimecode(a.first_spoken_at)}` : ""}
+                              </span>
                             </SelectItem>
                           ))}
                         </SelectContent>
