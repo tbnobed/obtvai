@@ -386,57 +386,60 @@ export default function People() {
                 const ringDeg = maxSpeaking > 0 ? ((person.total_speaking_seconds ?? 0) / maxSpeaking) * 360 : 0;
                 
                 return (
-                  <Card key={person.id} className="group border-border/50 bg-card/40 hover:bg-card hover:border-primary/40 hover:shadow-[0_0_20px_-10px_hsl(var(--primary))] transition-all duration-300 relative h-full overflow-hidden cursor-pointer">
+                  <Card key={person.id} className="group border-border/50 bg-card/40 hover:border-primary/40 hover:shadow-[0_0_20px_-10px_hsl(var(--primary))] transition-all duration-300 relative h-full overflow-hidden cursor-pointer p-0">
                     <Link href={`/people/${person.id}`} className="absolute inset-0 z-0 block">
                       <span className="sr-only">View {person.display_name}</span>
                     </Link>
-                    
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 bg-primary/10 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                    
-                    <CardContent className="p-5 flex flex-col items-center relative z-10 pointer-events-none">
-                       <div className="relative mb-4 transform group-hover:-translate-y-1 transition-transform duration-300">
-                         <div className="rounded-full p-[3px]" style={{ background: `conic-gradient(hsl(var(--primary)) ${ringDeg}deg, hsl(var(--muted)) ${ringDeg}deg)` }}>
-                            <div className="h-16 w-16 rounded-full overflow-hidden bg-muted border-2 border-background">
-                              {person.thumbnail_url ? <img src={`/api/thumbnails/${person.thumbnail_url}`} className="w-full h-full object-cover" /> : <User className="h-8 w-8 text-muted-foreground/50 m-auto mt-4" />}
+
+                    <div className="relative aspect-[4/5] w-full overflow-hidden pointer-events-none">
+                      {person.thumbnail_url ? (
+                        <img
+                          src={`/api/thumbnails/${person.thumbnail_url}`}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-muted/40">
+                          <User className="h-12 w-12 text-muted-foreground/40" />
+                        </div>
+                      )}
+                      {/* legibility gradient over the lower part of the face */}
+                      <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/90 via-black/45 to-transparent" />
+
+                      {isUnnamed && (
+                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-black/50 backdrop-blur flex items-center justify-center" title="Unnamed person">
+                          <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                        </div>
+                      )}
+
+                      {/* name + stats over the photo */}
+                      <div className="absolute inset-x-0 bottom-0 p-2.5 flex flex-col gap-1">
+                        <div className="relative h-6 flex items-center pointer-events-auto">
+                          {editingId === person.id ? (
+                            <div className="flex items-center gap-1 w-full" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                              <Input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveEdit(e, person.id); if (e.key === "Escape") cancelEdit(e); }} placeholder="Name..." className="h-6 text-xs px-2 bg-black/60 border-primary/50 focus-visible:ring-primary/50" />
+                              <Button size="icon" variant="secondary" className="h-6 w-6 shrink-0 bg-primary/30 text-primary-foreground hover:bg-primary/50" onClick={(e) => saveEdit(e, person.id)} disabled={!editName.trim() || updatePerson.isPending}><Check className="h-3 w-3" /></Button>
+                              <Button size="icon" variant="secondary" className="h-6 w-6 shrink-0 bg-destructive/30 text-white hover:bg-destructive/50" onClick={cancelEdit}><X className="h-3 w-3" /></Button>
                             </div>
-                         </div>
-                         {isUnnamed && (
-                           <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-amber-500/20 flex items-center justify-center border-2 border-background" title="Unnamed person">
-                             <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                           </div>
-                         )}
-                       </div>
-                       
-                       <div className="w-full relative h-7 flex items-center justify-center pointer-events-auto">
-                         {editingId === person.id ? (
-                           <div className="flex items-center gap-1 w-full max-w-[140px]" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                              <Input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveEdit(e, person.id); if (e.key === "Escape") cancelEdit(e); }} placeholder="Name..." className="h-7 text-xs px-2 bg-background/50 border-primary/50 focus-visible:ring-primary/50" />
-                              <Button size="icon" variant="secondary" className="h-7 w-7 shrink-0 bg-primary/20 text-primary hover:bg-primary/30" onClick={(e) => saveEdit(e, person.id)} disabled={!editName.trim() || updatePerson.isPending}><Check className="h-3.5 w-3.5" /></Button>
-                              <Button size="icon" variant="secondary" className="h-7 w-7 shrink-0 bg-destructive/10 text-destructive hover:bg-destructive/20" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
-                           </div>
-                         ) : (
-                           <>
-                             <p className="text-sm font-semibold truncate w-full text-center group-hover:opacity-0 transition-opacity duration-200 pointer-events-none">{person.display_name}</p>
-                             <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                               <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-primary/10 text-primary hover:bg-primary/20" onClick={(e) => startEdit(e, person.id, person.display_name)} title="Rename"><Pencil className="h-3.5 w-3.5" /></Button>
-                               <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20" onClick={(e) => handleDelete(e, person.id, person.display_name)} title="Delete"><Trash2 className="h-3.5 w-3.5" /></Button>
-                             </div>
-                           </>
-                         )}
-                       </div>
-                  
-                       <div className="flex items-center justify-center gap-4 mt-4 w-full pointer-events-none">
-                         <div className="flex flex-col items-center">
-                           <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Assets</span>
-                           <span className="text-xs font-medium tabular-nums flex items-center gap-1"><Film className="h-3 w-3 text-primary/60" /> {person.asset_count}</span>
-                         </div>
-                         <div className="w-px h-6 bg-border" />
-                         <div className="flex flex-col items-center">
-                           <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Speech</span>
-                           <span className="text-xs font-medium tabular-nums flex items-center gap-1"><Mic className="h-3 w-3 text-primary/60" /> {formatSpeaking(person.total_speaking_seconds ?? 0)}</span>
-                         </div>
-                       </div>
-                    </CardContent>
+                          ) : (
+                            <p className="text-sm font-semibold text-white truncate w-full drop-shadow-sm pointer-events-none">{person.display_name}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-white/80 tabular-nums pointer-events-none">
+                          <span className="flex items-center gap-1"><Film className="h-3 w-3 text-primary" /> {person.asset_count}</span>
+                          <span className="flex items-center gap-1"><Mic className="h-3 w-3 text-primary" /> {formatSpeaking(person.total_speaking_seconds ?? 0)}</span>
+                        </div>
+                        {/* speaking-share bar (same measure the ring used to show) */}
+                        <div className="h-0.5 rounded-full bg-white/15 overflow-hidden pointer-events-none">
+                          <div className="h-full bg-primary" style={{ width: `${Math.min(100, (ringDeg / 360) * 100)}%` }} />
+                        </div>
+                      </div>
+
+                      {/* hover actions */}
+                      <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+                        <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-black/50 backdrop-blur text-white hover:bg-primary/60" onClick={(e) => startEdit(e, person.id, person.display_name)} title="Rename"><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-black/50 backdrop-blur text-white hover:bg-destructive/70" onClick={(e) => handleDelete(e, person.id, person.display_name)} title="Delete"><Trash2 className="h-3.5 w-3.5" /></Button>
+                      </div>
+                    </div>
                   </Card>
                 );
               })}
