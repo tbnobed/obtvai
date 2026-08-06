@@ -729,7 +729,7 @@ export default function ProjectDetail() {
 
         {/* ------------------------------ FIND ------------------------------ */}
         <TabsContent value="studio">
-          {project && <StudioTab project={project} onOpenPool={() => setTab("pool")} focusVersion={studioFocusVersion} />}
+          {project && <StudioTab project={project} onOpenPool={() => setTab("pool")} focusVersion={studioFocusVersion} fill />}
         </TabsContent>
 
         <TabsContent value="pool">

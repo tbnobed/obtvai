@@ -21,12 +21,22 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { TrimPlayer } from "./trim-player";
 import { CutPreviewPlayer } from "./cut-preview-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatTC } from "@/lib/timecode";
 
 const fmtTime = (s: number) => formatTC(s, 25, false);
+
+function ChatMarkdown({ text }: { text: string }) {
+  return (
+    <div className="min-w-0 overflow-x-auto text-sm leading-relaxed space-y-2 [&_p]:my-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5 [&_strong]:font-semibold [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_code]:rounded [&_code]:bg-black/30 [&_code]:px-1 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_td]:align-top">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+    </div>
+  );
+}
 
 const EDL_COLORS = [
   "bg-sky-500/70", "bg-emerald-500/70", "bg-amber-500/70", "bg-fuchsia-500/70",
@@ -42,7 +52,8 @@ function fmtRuntime(s: number) {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 }
 
-export function StudioTab({ project, onOpenPool, focusVersion }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null }) {
+export function StudioTab({ project, onOpenPool, focusVersion, fill }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null; fill?: boolean }) {
+  const panelH = fill ? "h-[calc(100vh-170px)]" : "h-[calc(100vh-260px)]";
   const projectId = project.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -217,7 +228,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(320px,1fr)_2fr]">
       {/* ── Chat pane ── */}
-      <div className="min-w-0 flex flex-col border border-border rounded-lg bg-card/50 h-[calc(100vh-260px)] min-h-[420px]">
+      <div className={`min-w-0 flex flex-col border border-border rounded-lg bg-card/50 ${panelH} min-h-[420px]`}>
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">Editorial assistant</span>
@@ -257,8 +268,10 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
           {(messages ?? []).map((m) => (
             <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
               <div
-                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                  m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/60"
+                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                  m.role === "user"
+                    ? "bg-primary text-primary-foreground whitespace-pre-wrap"
+                    : "bg-muted/60"
                 }`}
                 data-testid={`chat-msg-${m.id}`}
               >
@@ -268,7 +281,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
                   </span>
                 ) : (
                   <>
-                    {m.content}
+                    {m.role === "user" ? m.content : <ChatMarkdown text={m.content ?? ""} />}
                     {m.cut_version != null && (
                       <button
                         type="button"
@@ -303,7 +316,7 @@ export function StudioTab({ project, onOpenPool, focusVersion }: { project: Proj
       </div>
 
       {/* ── Living cut pane ── */}
-      <div className="min-w-0 border border-border rounded-lg bg-card/50 flex flex-col h-[calc(100vh-260px)] min-h-[420px]">
+      <div className={`min-w-0 border border-border rounded-lg bg-card/50 flex flex-col ${panelH} min-h-[420px]`}>
         <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium">Draft cut</span>
           {latestVersion > 0 && (
