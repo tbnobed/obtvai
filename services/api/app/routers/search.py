@@ -223,7 +223,12 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                 if row:
                     scene, asset = row
                     rescaled = _rescale_clip_score(hit.score)
-                    if rescaled < _MIN_VISUAL_SCORE_RELAXED:
+                    # Single-asset searches keep even weak candidates: the
+                    # pool is tiny and the user explicitly asked about THIS
+                    # file, so a best-effort ranked list beats "0 results"
+                    # (small objects like a mic score well below the floor).
+                    floor = 0.02 if body.media_id else _MIN_VISUAL_SCORE_RELAXED
+                    if rescaled < floor:
                         continue
                     if _is_black_thumbnail(scene.thumbnail_url):
                         continue
@@ -258,7 +263,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                         r for s, r in overflow if s >= _MIN_VISUAL_SCORE
                     )
                 results.extend(confident[: body.limit])
-            elif body.search_type == "visual" and visual_candidates:
+            elif (body.search_type == "visual" or body.media_id) and visual_candidates:
                 # Explicit visual search: best-effort weak matches beat a
                 # hard "0 results" (small objects score below the main bar).
                 visual_candidates.sort(key=lambda t: t[0], reverse=True)
