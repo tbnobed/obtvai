@@ -124,6 +124,73 @@ async def _standalone_question(question: str, history: list[dict]) -> str:
     return question
 
 
+async def _library_overview(db: AsyncSession) -> str:
+    """Compact aggregate snapshot of the whole library (topics, people,
+    stored insights) so big-picture questions are answered from real
+    library-wide data instead of whatever transcript lines happen to
+    contain the question's words."""
+    from sqlalchemy import text as sql_text
+    from ..topic_norm import group_topics
+    from ..models import LibraryInsight
+
+    lines: list[str] = []
+    try:
+        total_assets, total_secs = (
+            await db.execute(
+                select(func.count(MediaAsset.id), func.coalesce(func.sum(MediaAsset.duration_seconds), 0))
+            )
+        ).one()
+        lines.append(f"Library size: {total_assets} videos, {float(total_secs) / 3600:.1f} hours of footage.")
+
+        raw_topic_rows = (
+            await db.execute(
+                sql_text("""
+                    SELECT topic, COUNT(DISTINCT id) AS n
+                    FROM media_assets, jsonb_array_elements_text(topics) AS topic
+                    WHERE topics IS NOT NULL
+                    GROUP BY topic
+                """)
+            )
+        ).all()
+        grouped = group_topics((t, int(n)) for t, n in raw_topic_rows)
+        if grouped:
+            lines.append("Top topics across the library (topic — number of videos): " + "; ".join(
+                f"{g['topic']} — {g['asset_count']}" for g in grouped[:20]
+            ))
+
+        top_people = (
+            await db.execute(
+                select(
+                    Person.display_name,
+                    func.count(func.distinct(PersonAppearance.media_id)).label("assets"),
+                    func.coalesce(func.sum(PersonAppearance.speaking_seconds), 0).label("secs"),
+                )
+                .join(PersonAppearance, PersonAppearance.person_id == Person.id)
+                .group_by(Person.id)
+                .order_by(func.count(func.distinct(PersonAppearance.media_id)).desc())
+                .limit(12)
+            )
+        ).all()
+        if top_people:
+            lines.append("Most-seen people (name — videos, speaking time): " + "; ".join(
+                f"{name} — {assets} videos, {float(secs) / 60:.0f} min" for name, assets, secs in top_people
+            ))
+
+        stored = (
+            await db.execute(select(LibraryInsight).where(LibraryInsight.id == 1))
+        ).scalar_one_or_none()
+        if stored:
+            if getattr(stored, "headline", None):
+                lines.append(f"Library insights headline: {stored.headline}")
+            for i in (stored.insights or [])[:6]:
+                if isinstance(i, dict) and i.get("title"):
+                    detail = (i.get("detail") or "")[:200]
+                    lines.append(f"Insight: {i['title']} — {detail}")
+    except Exception:
+        return ""
+    return "\n".join(lines)
+
+
 async def _run_qa(
     question: str,
     context_segments: list,
@@ -131,6 +198,7 @@ async def _run_qa(
     single_asset: bool = False,
     history: list[dict] | None = None,
     visual_lines: list[str] | None = None,
+    overview: str | None = None,
 ) -> tuple[str, list[AICitationOut]]:
     """Run local LLM QA over retrieved context segments.
 
@@ -161,7 +229,7 @@ async def _run_qa(
             snippet=seg.text[:200],
         ))
 
-    if not context_parts and not visual_lines:
+    if not context_parts and not visual_lines and not overview:
         if history:
             # Follow-up with no new retrievable context (e.g. "summarize what we
             # discussed") — let the LLM answer from the conversation itself.
@@ -203,7 +271,15 @@ async def _run_qa(
             f"segments. Do not invent quotes or timecodes."
         )
     else:
+        overview_text = (
+            f"LIBRARY OVERVIEW (authoritative aggregate data computed across the "
+            f"entire library — for big-picture questions about main topics, themes, "
+            f"key people, or what the library contains, base your answer on THIS "
+            f"data first; transcript excerpts below are only supporting evidence):\n"
+            f"{overview}\n\n"
+        ) if overview else ""
         prompt = (
+            f"{overview_text}"
             f"Transcript excerpts (format: [filename @ timecode] speaker: text):\n{context_text}"
             f"{visual_text}\n\n"
             f"Question: {question}\n\n"
@@ -334,10 +410,12 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
     except Exception:
         pass  # visual retrieval unavailable — transcript answer still works
 
+    overview = None if body.media_id else await _library_overview(db)
+
     answer_text, citations = await _run_qa(
         body.question, context_segments, db,
         single_asset=bool(body.media_id), history=history,
-        visual_lines=visual_lines,
+        visual_lines=visual_lines, overview=overview,
     )
 
     assistant_msg = AIMessage(
