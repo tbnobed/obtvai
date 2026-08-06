@@ -7,6 +7,79 @@ import {
   useDeleteMedia,
 } from "@workspace/api-client-react";
 import type { MediaAsset, MediaFolder } from "@workspace/api-client-react";
+
+type LibSpriteMeta = {
+  interval: number;
+  tile_width: number;
+  tile_height: number;
+  cols: number;
+  rows: number;
+  count: number;
+};
+
+/** Library card thumbnail with YouTube-style hover scrubbing: moving the
+ * mouse across the image previews frames from the asset's sprite sheet. */
+function HoverScrubThumb({ asset }: { asset: MediaAsset }) {
+  const [frac, setFrac] = useState<number | null>(null);
+  const meta = (asset.sprite_meta ?? null) as LibSpriteMeta | null;
+  const duration = asset.duration_seconds ?? 0;
+  const canScrub = !!(asset.sprite_url && meta && meta.count > 1 && duration > 0);
+
+  if (!asset.thumbnail_url && !canScrub) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <Film className="h-8 w-8 text-muted-foreground/50" />
+      </div>
+    );
+  }
+
+  let overlay = null;
+  if (canScrub && frac !== null) {
+    const t = frac * duration;
+    const idx = Math.min(meta!.count - 1, Math.max(0, Math.floor(t / meta!.interval)));
+    const c = idx % meta!.cols;
+    const r = Math.floor(idx / meta!.cols);
+    overlay = (
+      <>
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(/api/thumbnails/${asset.sprite_url})`,
+            backgroundSize: `${meta!.cols * 100}% ${meta!.rows * 100}%`,
+            backgroundPosition: `${meta!.cols > 1 ? (c / (meta!.cols - 1)) * 100 : 0}% ${meta!.rows > 1 ? (r / (meta!.rows - 1)) * 100 : 0}%`,
+          }}
+        />
+        <div className="absolute bottom-1 left-1 text-[10px] font-mono px-1 py-0.5 rounded bg-black/70 text-white pointer-events-none">
+          {Math.floor(t / 60)}:{String(Math.floor(t % 60)).padStart(2, "0")}
+        </div>
+        <div
+          className="absolute bottom-0 left-0 h-0.5 bg-primary pointer-events-none"
+          style={{ width: `${frac * 100}%` }}
+        />
+      </>
+    );
+  }
+
+  return (
+    <div
+      className="absolute inset-0"
+      onMouseMove={canScrub ? (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setFrac(Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)));
+      } : undefined}
+      onMouseLeave={canScrub ? () => setFrac(null) : undefined}
+    >
+      {asset.thumbnail_url ? (
+        <img src={`/api/thumbnails/${asset.thumbnail_url}`} alt={asset.filename} className="w-full h-full object-cover" draggable={false} />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Film className="h-8 w-8 text-muted-foreground/50" />
+        </div>
+      )}
+      {overlay}
+    </div>
+  );
+}
 import { Link, useLocation, useSearch } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -1071,13 +1144,7 @@ export default function Library() {
                     className={`group border bg-card rounded-md overflow-hidden cursor-pointer transition-colors flex flex-col h-full ${selected.has(asset.id) ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary"}`}
                   >
                     <div className="aspect-video bg-muted relative">
-                      {asset.thumbnail_url ? (
-                        <img src={`/api/thumbnails/${asset.thumbnail_url}`} alt={asset.filename} className="w-full h-full object-cover" draggable={false} />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Film className="h-8 w-8 text-muted-foreground/50" />
-                        </div>
-                      )}
+                      <HoverScrubThumb asset={asset} />
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleSelectClick(e, asset.id); }}
