@@ -1,13 +1,19 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useGetCoAppearances } from "@workspace/api-client-react";
+import { useGetCoAppearances, useGetCoMoments, getGetCoMomentsQueryKey } from "@workspace/api-client-react";
 import type { CoAppearanceNode, CoAppearancePair } from "@workspace/api-client-react";
-import { useLocation } from "wouter";
-import { Maximize2, Share2, ZoomIn, ZoomOut } from "lucide-react";
+import { useLocation, Link } from "wouter";
+import { Loader2, Maximize2, Play, Share2, X, ZoomIn, ZoomOut } from "lucide-react";
 
 const W = 960;
 const BASE_H = 620;
 const PAD = 60;
 const MAX_K = 4;
+
+function fmtTC(seconds: number) {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
+}
 
 function formatTogether(seconds: number) {
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -92,6 +98,12 @@ export default function CoAppearanceMap() {
   const { data, isLoading } = useGetCoAppearances({ named_only: namedOnly, min_shared: minShared });
   const [, navigate] = useLocation();
   const [hoveredPair, setHoveredPair] = useState<number | null>(null);
+  const [selectedPair, setSelectedPair] = useState<{ a: string; b: string } | null>(null);
+  const coMomentsParams = { person_a: selectedPair?.a ?? "", person_b: selectedPair?.b ?? "" };
+  const { data: coMoments, isLoading: coMomentsLoading } = useGetCoMoments(
+    coMomentsParams,
+    { query: { queryKey: getGetCoMomentsQueryKey(coMomentsParams), enabled: !!selectedPair } },
+  );
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   const allNodes = useMemo(() => data?.nodes ?? [], [data]);
@@ -456,6 +468,7 @@ export default function CoAppearanceMap() {
                 style={{ cursor: "pointer" }}
                 onMouseEnter={() => setHoveredPair(i)}
                 onMouseLeave={() => setHoveredPair(null)}
+                onClick={() => setSelectedPair({ a: p.person_a_id, b: p.person_b_id })}
               />
             );
           })}
@@ -533,6 +546,65 @@ export default function CoAppearanceMap() {
             );
           })}
         </svg>
+
+        {selectedPair && (
+          <div className="absolute top-3 right-3 bottom-3 w-[340px] bg-card/95 backdrop-blur border border-border rounded-xl shadow-xl flex flex-col overflow-hidden z-10">
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2 shrink-0">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">
+                  {coMoments ? `${coMoments.person_a_name} + ${coMoments.person_b_name}` : "Shared moments"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {coMoments ? `${coMoments.moments.length} shared ${coMoments.moments.length === 1 ? "moment" : "moments"} across ${coMoments.shared_assets} ${coMoments.shared_assets === 1 ? "asset" : "assets"}` : "Loading…"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-full p-1.5 hover:bg-muted text-muted-foreground shrink-0"
+                onClick={() => setSelectedPair(null)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+              {coMomentsLoading ? (
+                <div className="flex items-center justify-center h-24 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : coMoments?.moments.length ? (
+                coMoments.moments.map((m, mi) => (
+                  <Link
+                    key={mi}
+                    href={`/library/${m.media_id}?t=${Math.floor(m.start_time)}`}
+                    className="flex items-center gap-2.5 rounded-lg p-2 hover:bg-muted/70 transition-colors group"
+                  >
+                    <div className="relative w-20 aspect-video rounded overflow-hidden bg-black/40 shrink-0">
+                      {m.thumbnail_url && (
+                        <img src={`/api/thumbnails/${m.thumbnail_url}`} className="w-full h-full object-cover" />
+                      )}
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors">
+                        <Play className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium truncate">{m.filename}</p>
+                      <p className="text-[11px] text-muted-foreground tabular-nums">
+                        {fmtTC(m.start_time)} – {fmtTC(m.end_time)} · {formatTogether(m.duration_seconds)} together
+                      </p>
+                      <p className="text-[10px] text-muted-foreground/70">
+                        {m.kind === "on_camera" ? "Both on camera" : "In conversation"}
+                      </p>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground p-3">
+                  No timecoded overlap found — they share footage but never at the same moment.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
         <div className="absolute top-2 right-2 flex flex-col gap-1">
           <button
             type="button"

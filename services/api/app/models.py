@@ -351,6 +351,18 @@ class SearchHistory(Base):
     searched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class SavedSearch(Base):
+    """A named search the user saved. Results are computed live on each run,
+    so the collection automatically grows as new assets are indexed."""
+    __tablename__ = "saved_searches"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    search_type: Mapped[str] = mapped_column(String, default="combined")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class AIConversation(Base):
     __tablename__ = "ai_conversations"
 

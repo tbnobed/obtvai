@@ -103,6 +103,21 @@ async def retrieve_vectors(collection: str, ids: list[str]) -> dict[str, list[fl
     return out
 
 
+async def scene_points(collection: str, scene_id: str):
+    """All stored points (primary + sampled frames) for one scene, vectors included."""
+    client = get_client()
+    points, _ = await client.scroll(
+        collection_name=collection,
+        scroll_filter=Filter(
+            must=[FieldCondition(key="scene_id", match=MatchValue(value=scene_id))]
+        ),
+        limit=64,
+        with_payload=True,
+        with_vectors=True,
+    )
+    return points
+
+
 async def delete_by_media_id(collection: str, media_id: str):
     client = get_client()
     from qdrant_client.models import FilterSelector

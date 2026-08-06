@@ -1012,6 +1012,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/CoAppearanceGraph"
 
+  /people/co-moments:
+    get:
+      operationId: getCoMoments
+      tags: [people]
+      summary: Timecoded moments two people share — on-camera together or in conversation
+      parameters:
+        - name: person_a
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: person_b
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoMoments"
+
   /people/enroll:
     post:
       operationId: enrollPerson
@@ -2361,6 +2385,79 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SearchHistoryItem"
+
+  /search/similar-moment:
+    post:
+      operationId: findSimilarMoments
+      tags: [search]
+      summary: Find visually and verbally similar moments across the library for a given moment in an asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimilarMomentQuery"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+
+  /search/saved:
+    get:
+      operationId: listSavedSearches
+      tags: [search]
+      summary: List saved searches (results are computed live on each run)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SavedSearch"
+    post:
+      operationId: createSavedSearch
+      tags: [search]
+      summary: Save a search as a living collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedSearchCreate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedSearch"
+
+  /search/saved/{saved_id}:
+    delete:
+      operationId: deleteSavedSearch
+      tags: [search]
+      summary: Delete a saved search
+      parameters:
+        - name: saved_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
 
   # ── Jobs ──────────────────────────────────────────────────────────────────
   /jobs:
@@ -5686,6 +5783,86 @@ components:
           type: string
         took_ms:
           type: number
+
+    SimilarMomentQuery:
+      type: object
+      required: [media_id, time]
+      properties:
+        media_id:
+          type: string
+        time:
+          type: number
+          description: Playback position in seconds
+        limit:
+          type: integer
+          default: 10
+
+    SavedSearchCreate:
+      type: object
+      required: [name, query]
+      properties:
+        name:
+          type: string
+        query:
+          type: string
+        search_type:
+          type: string
+          default: combined
+
+    SavedSearch:
+      type: object
+      required: [id, name, query, search_type, created_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        query:
+          type: string
+        search_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    CoMoment:
+      type: object
+      required: [media_id, filename, start_time, end_time, duration_seconds, kind]
+      properties:
+        media_id:
+          type: string
+        filename:
+          type: string
+        thumbnail_url:
+          type: ["string", "null"]
+        start_time:
+          type: number
+        end_time:
+          type: number
+        duration_seconds:
+          type: number
+        kind:
+          type: string
+          description: "on_camera | conversation"
+
+    CoMoments:
+      type: object
+      required: [person_a_id, person_b_id, person_a_name, person_b_name, shared_assets, moments]
+      properties:
+        person_a_id:
+          type: string
+        person_b_id:
+          type: string
+        person_a_name:
+          type: string
+        person_b_name:
+          type: string
+        shared_assets:
+          type: integer
+        moments:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoMoment"
 
     ScriptMatchRequest:
       type: object

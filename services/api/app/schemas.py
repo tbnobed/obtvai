@@ -193,6 +193,45 @@ class SearchResponse(BaseModel):
     took_ms: float
 
 
+class SimilarMomentQuery(BaseModel):
+    media_id: str
+    time: float
+    limit: int = 10
+
+
+class SavedSearchCreate(BaseModel):
+    name: str
+    query: str
+    search_type: str = "combined"
+
+
+class SavedSearchOut(BaseModel):
+    id: str
+    name: str
+    query: str
+    search_type: str
+    created_at: datetime
+
+
+class CoMomentOut(BaseModel):
+    media_id: str
+    filename: str
+    thumbnail_url: Optional[str] = None
+    start_time: float
+    end_time: float
+    duration_seconds: float
+    kind: str  # "on_camera" (both faces on screen) or "conversation" (both speaking nearby)
+
+
+class CoMomentsOut(BaseModel):
+    person_a_id: str
+    person_b_id: str
+    person_a_name: str
+    person_b_name: str
+    shared_assets: int
+    moments: List[CoMomentOut] = []
+
+
 class SearchHistoryItemOut(BaseModel):
     id: str
     query: str

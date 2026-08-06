@@ -18,6 +18,8 @@ from ..schemas import (
     SpeakingMomentOut,
     OnCameraRangeOut,
     CoAppearanceGraphOut,
+    CoMomentOut,
+    CoMomentsOut,
     CoAppearanceNodeOut,
     CoAppearancePairOut,
     PersonMatchOut,
@@ -344,7 +346,135 @@ def _interval_overlap(a: list[tuple[float, float]], b: list[tuple[float, float]]
     return total
 
 
+def _intersect_intervals(a: list[tuple[float, float]], b: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Intersection intervals of two sorted, merged interval lists."""
+    out: list[tuple[float, float]] = []
+    i = j = 0
+    while i < len(a) and j < len(b):
+        start = max(a[i][0], b[j][0])
+        end = min(a[i][1], b[j][1])
+        if end > start:
+            out.append((start, end))
+        if a[i][1] <= b[j][1]:
+            i += 1
+        else:
+            j += 1
+    return out
+
+
+def _merge_intervals_padded(iv: list[tuple[float, float]], gap: float = 0.5) -> list[tuple[float, float]]:
+    iv = sorted(iv)
+    merged: list[list[float]] = []
+    for s, e in iv:
+        if merged and s <= merged[-1][1] + gap:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+    return [(s, e) for s, e in merged]
+
+
+async def _speaking_intervals(
+    db: AsyncSession, media_id: str, apps: list[PersonAppearance]
+) -> list[tuple[float, float]]:
+    """Padded speech intervals for one person in one asset, so alternating
+    turns in a dialogue register as overlap."""
+    labels = [app.speaker_label for app in apps if app.speaker_label]
+    if not labels:
+        return []
+    rows = (await db.execute(
+        select(TranscriptSegment.start_time, TranscriptSegment.end_time)
+        .where(TranscriptSegment.media_id == media_id, TranscriptSegment.speaker.in_(labels))
+    )).all()
+    return _merge_intervals_padded([(max(0.0, r[0] - 8.0), r[1] + 8.0) for r in rows], gap=4.0)
+
+
 MAX_CO_APPEARANCE_PAIRS = 300
+
+
+# NOTE: must be registered before the /{id} routes below, or FastAPI would
+# treat "co-moments" as a person id.
+@router.get("/co-moments", response_model=CoMomentsOut)
+async def get_co_moments(
+    person_a: str,
+    person_b: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Actual timecoded moments two people share: intervals where both faces
+    are on camera at once ("on_camera"), and — where face data is missing —
+    intervals where both are speaking within the same stretch ("conversation")."""
+    pa = await db.get(Person, person_a)
+    pb = await db.get(Person, person_b)
+    if not pa or not pb:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    apps = (await db.execute(
+        select(PersonAppearance).where(PersonAppearance.person_id.in_([person_a, person_b]))
+    )).scalars().all()
+
+    by_media: dict[str, dict[str, list[PersonAppearance]]] = {}
+    for app in apps:
+        by_media.setdefault(app.media_id, {}).setdefault(app.person_id, []).append(app)
+    shared = [mid for mid, d in by_media.items() if person_a in d and person_b in d]
+
+    moments = []
+    if shared:
+        assets = {a.id: a for a in (await db.execute(
+            select(MediaAsset).where(MediaAsset.id.in_(shared))
+        )).scalars().all()}
+
+        cluster_ids = [app.face_cluster_id for mid in shared for pid in (person_a, person_b)
+                       for app in by_media[mid][pid] if app.face_cluster_id]
+        clusters: dict[str, FaceCluster] = {}
+        if cluster_ids:
+            clusters = {c.cluster_id: c for c in (await db.execute(
+                select(FaceCluster).where(FaceCluster.cluster_id.in_(cluster_ids))
+            )).scalars().all()}
+
+        for mid in shared:
+            asset = assets.get(mid)
+            if asset is None:
+                continue
+
+            def face_iv(pid: str) -> list[tuple[float, float]]:
+                iv = []
+                for app in by_media[mid][pid]:
+                    c = clusters.get(app.face_cluster_id) if app.face_cluster_id else None
+                    for r in (c.appearances or []) if c else []:
+                        try:
+                            iv.append((float(r["start_time"]), float(r["end_time"])))
+                        except (KeyError, TypeError, ValueError):
+                            continue
+                return _merge_intervals_padded(iv)
+
+            iv_a, iv_b = face_iv(person_a), face_iv(person_b)
+            overlaps = _intersect_intervals(iv_a, iv_b) if iv_a and iv_b else []
+            kind = "on_camera"
+
+            if not overlaps:
+                # Fall back to conversation overlap: both speaking within the
+                # same stretch (speech intervals padded so alternating turns
+                # in a dialogue register as overlap).
+                sa_iv = await _speaking_intervals(db, mid, by_media[mid][person_a])
+                sb_iv = await _speaking_intervals(db, mid, by_media[mid][person_b])
+                overlaps = _intersect_intervals(sa_iv, sb_iv) if sa_iv and sb_iv else []
+                kind = "conversation"
+
+            for st, en in overlaps:
+                if en - st < 1.0:
+                    continue
+                moments.append(CoMomentOut(
+                    media_id=mid, filename=asset.filename,
+                    thumbnail_url=asset.thumbnail_url,
+                    start_time=round(st, 2), end_time=round(en, 2),
+                    duration_seconds=round(en - st, 2), kind=kind,
+                ))
+
+    moments.sort(key=lambda m: -m.duration_seconds)
+    return CoMomentsOut(
+        person_a_id=person_a, person_b_id=person_b,
+        person_a_name=pa.display_name, person_b_name=pb.display_name,
+        shared_assets=len(shared), moments=moments[:80],
+    )
 
 
 # NOTE: must be registered before the /{id} routes below, or FastAPI would

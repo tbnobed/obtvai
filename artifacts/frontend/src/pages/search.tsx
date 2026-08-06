@@ -4,6 +4,10 @@ import {
   useSemanticSearch,
   useGetSearchHistory,
   getGetSearchHistoryQueryKey,
+  useListSavedSearches,
+  getListSavedSearchesQueryKey,
+  useCreateSavedSearch,
+  useDeleteSavedSearch,
 } from "@workspace/api-client-react";
 import type { SearchResult } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Play, Loader2, ExternalLink, History } from "lucide-react";
+import { Search, Play, Loader2, ExternalLink, History, Bookmark, BookmarkPlus, X } from "lucide-react";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 import { formatTC } from "@/lib/timecode";
 
@@ -32,6 +36,16 @@ export default function SearchPage() {
     query: { queryKey: getGetSearchHistoryQueryKey() },
   });
   const queryClient = useQueryClient();
+  const { data: savedSearches } = useListSavedSearches({
+    query: { queryKey: getListSavedSearchesQueryKey() },
+  });
+  const createSaved = useCreateSavedSearch();
+  const deleteSaved = useDeleteSavedSearch();
+  const invalidateSaved = () =>
+    queryClient.invalidateQueries({ queryKey: getListSavedSearchesQueryKey() });
+  const alreadySaved = savedSearches?.some(
+    (sv) => sv.query.trim().toLowerCase() === query.trim().toLowerCase() && sv.search_type === scope,
+  );
 
   const runSearch = (q?: string, s?: SearchScope) => {
     const term = (q ?? query).trim();
@@ -146,6 +160,19 @@ export default function SearchPage() {
           <Button onClick={() => runSearch()} disabled={query.trim().length < 2 || searchMutation.isPending}>
             {searchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           </Button>
+          <Button
+            variant="outline"
+            title={alreadySaved ? "Already saved" : "Save this search — it re-runs live, so it grows as new footage is indexed"}
+            disabled={query.trim().length < 2 || !!alreadySaved || createSaved.isPending}
+            onClick={() =>
+              createSaved.mutate(
+                { data: { name: query.trim(), query: query.trim(), search_type: scope } },
+                { onSuccess: invalidateSaved },
+              )
+            }
+          >
+            <BookmarkPlus className="h-4 w-4 mr-1.5" /> Save
+          </Button>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground mr-1">Search in:</span>
@@ -165,6 +192,37 @@ export default function SearchPage() {
           ))}
         </div>
       </div>
+
+      {!!savedSearches?.length && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Bookmark className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs text-muted-foreground">Saved searches:</span>
+          {savedSearches.map((sv) => (
+            <Badge
+              key={sv.id}
+              variant="outline"
+              className="cursor-pointer hover:bg-muted border-primary/40 pl-2.5 pr-1 gap-1 group/chip"
+              onClick={() => {
+                setScope(sv.search_type as SearchScope);
+                runSearch(sv.query, sv.search_type as SearchScope);
+              }}
+            >
+              {sv.name}
+              <button
+                type="button"
+                className="rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive opacity-40 group-hover/chip:opacity-100 transition-opacity"
+                title="Remove saved search"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteSaved.mutate({ savedId: sv.id }, { onSuccess: invalidateSaved });
+                }}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {!searchMutation.data && !searchMutation.isPending && !!history?.length && (
         <div className="flex items-center gap-2 flex-wrap">

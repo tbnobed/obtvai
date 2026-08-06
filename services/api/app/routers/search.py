@@ -1,20 +1,22 @@
+import logging
 import re
 import time
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func as sa_func
 from ..database import get_db
-from ..models import MediaAsset, TranscriptSegment, Scene, SearchHistory, Person, PersonAppearance
+from ..models import MediaAsset, TranscriptSegment, Scene, SearchHistory, Person, PersonAppearance, SavedSearch
 from ..schemas import (
     SearchQuery, SearchResponse, SearchResultOut, SearchHistoryItemOut,
     ScriptMatchRequest, ScriptMatchLineOut, ScriptMatchResponse,
-    ReanalyzeOut,
+    ReanalyzeOut, SimilarMomentQuery, SavedSearchCreate, SavedSearchOut,
 )
 from ..config import settings
 
 router = APIRouter(prefix="/search", tags=["search"])
+logger = logging.getLogger("obtv.search")
 
 # Vision text->image cosine scores live in a much lower band than
 # sentence-transformer text-text scores (~0.3-0.6). Sorting the merged list by
@@ -509,3 +511,172 @@ async def get_search_history(db: AsyncSession = Depends(get_db)):
         select(SearchHistory).order_by(desc(SearchHistory.searched_at)).limit(50)
     )
     return [SearchHistoryItemOut.model_validate(h) for h in result.scalars().all()]
+
+
+# ── Saved searches ────────────────────────────────────────────────────────────
+# A saved search stores only the query; results are computed live each run, so
+# the "collection" grows automatically as new assets are indexed.
+
+@router.get("/saved", response_model=list[SavedSearchOut])
+async def list_saved_searches(db: AsyncSession = Depends(get_db)):
+    rows = (await db.execute(select(SavedSearch).order_by(desc(SavedSearch.created_at)))).scalars().all()
+    return rows
+
+
+@router.post("/saved", response_model=SavedSearchOut)
+async def create_saved_search(body: SavedSearchCreate, db: AsyncSession = Depends(get_db)):
+    row = SavedSearch(name=body.name.strip() or body.query, query=body.query, search_type=body.search_type)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/saved/{saved_id}")
+async def delete_saved_search(saved_id: str, db: AsyncSession = Depends(get_db)):
+    row = await db.get(SavedSearch, saved_id)
+    if row:
+        await db.delete(row)
+        await db.commit()
+    return {"ok": True}
+
+
+# ── Find moments like this ────────────────────────────────────────────────────
+
+@router.post("/similar-moment", response_model=SearchResponse)
+async def similar_moment(body: SimilarMomentQuery, db: AsyncSession = Depends(get_db)):
+    """Given a moment (media + playback time), find visually and verbally
+    similar moments across the rest of the library. Visual: the stored SigLIP
+    frame embedding nearest to the timestamp is used as the query vector
+    (image-to-image search). Verbal: the transcript segment at the timestamp
+    is re-embedded and searched against all transcripts."""
+    start = time.time()
+    from ..services.qdrant_client import search_vectors, scene_points
+
+    results: list[SearchResultOut] = []
+    per_asset: dict[str, int] = {}
+
+    # ---- visual: nearest stored frame vector -> image-to-image search ----
+    try:
+        scene = (await db.execute(
+            select(Scene).where(
+                Scene.media_id == body.media_id,
+                Scene.start_time <= body.time,
+                Scene.end_time >= body.time,
+            ).limit(1)
+        )).scalars().first()
+        if scene is None:
+            scene = (await db.execute(
+                select(Scene).where(Scene.media_id == body.media_id)
+                .order_by(sa_func.abs(Scene.start_time - body.time)).limit(1)
+            )).scalars().first()
+
+        query_vec = None
+        if scene is not None:
+            pts = await scene_points("scenes", scene.id)
+            best = None
+            for pt in pts:
+                ft = (pt.payload or {}).get("frame_time")
+                anchor = ft if ft is not None else scene.start_time
+                d = abs(float(anchor) - body.time)
+                if pt.vector is not None and (best is None or d < best[0]):
+                    best = (d, pt)
+            if best is not None:
+                query_vec = list(best[1].vector)
+
+        if query_vec is not None:
+            hits = await search_vectors("scenes", query_vec, limit=60)
+            best_by_scene: dict[str, tuple[float, dict]] = {}
+            for h in hits:
+                payload = h.payload or {}
+                sid = payload.get("scene_id")
+                mid = payload.get("media_id")
+                if not sid or mid == body.media_id:
+                    continue
+                if sid not in best_by_scene or h.score > best_by_scene[sid][0]:
+                    best_by_scene[sid] = (h.score, payload)
+            if best_by_scene:
+                rows = (await db.execute(
+                    select(Scene, MediaAsset).join(MediaAsset, MediaAsset.id == Scene.media_id)
+                    .where(Scene.id.in_(list(best_by_scene.keys())))
+                )).all()
+                scored = []
+                for sc, asset in rows:
+                    score, payload = best_by_scene[sc.id]
+                    ft = payload.get("frame_time")
+                    if ft is not None:
+                        st, en = max(0.0, float(ft) - 2.0), float(ft) + 3.0
+                    else:
+                        st, en = sc.start_time, sc.end_time
+                    scored.append((score, SearchResultOut(
+                        media_id=asset.id, filename=asset.filename,
+                        thumbnail_url=sc.thumbnail_url or asset.thumbnail_url,
+                        start_time=st, end_time=en,
+                        score=round(min(1.0, max(0.0, float(score))), 3),
+                        match_type="visual", snippet=sc.description,
+                    )))
+                scored.sort(key=lambda x: -x[0])
+                for _, r in scored:
+                    if per_asset.get(r.media_id, 0) >= 2:
+                        continue
+                    per_asset[r.media_id] = per_asset.get(r.media_id, 0) + 1
+                    results.append(r)
+                    if sum(1 for x in results if x.match_type == "visual") >= body.limit:
+                        break
+    except Exception:
+        logger.exception("similar-moment visual search failed")
+
+    # ---- verbal: transcript segment at t -> text similarity search ----
+    try:
+        seg = (await db.execute(
+            select(TranscriptSegment).where(
+                TranscriptSegment.media_id == body.media_id,
+                TranscriptSegment.start_time <= body.time + 2,
+                TranscriptSegment.end_time >= body.time - 2,
+            ).order_by(TranscriptSegment.start_time).limit(1)
+        )).scalars().first()
+        if seg is not None and (seg.text or "").strip():
+            from ..services.embedding import get_text_embedding
+            vec = await get_text_embedding(seg.text)
+            hits = await search_vectors("transcripts", vec, limit=40)
+            seg_ids = [
+                (h.payload or {}).get("segment_id") for h in hits
+                if (h.payload or {}).get("media_id") != body.media_id
+                and (h.payload or {}).get("segment_id") != seg.id
+            ]
+            seg_ids = [x for x in seg_ids if x]
+            score_by_seg = {(h.payload or {}).get("segment_id"): h.score for h in hits}
+            if seg_ids:
+                rows = (await db.execute(
+                    select(TranscriptSegment, MediaAsset)
+                    .join(MediaAsset, MediaAsset.id == TranscriptSegment.media_id)
+                    .where(TranscriptSegment.id.in_(seg_ids))
+                )).all()
+                spoken_per_asset: dict[str, int] = {}
+                scored = []
+                for ts, asset in rows:
+                    scored.append((float(score_by_seg.get(ts.id, 0)), ts, asset))
+                scored.sort(key=lambda x: -x[0])
+                n = 0
+                for score, ts, asset in scored:
+                    if spoken_per_asset.get(asset.id, 0) >= 2:
+                        continue
+                    spoken_per_asset[asset.id] = spoken_per_asset.get(asset.id, 0) + 1
+                    results.append(SearchResultOut(
+                        media_id=asset.id, filename=asset.filename,
+                        thumbnail_url=asset.thumbnail_url,
+                        start_time=ts.start_time, end_time=ts.end_time,
+                        score=round(min(1.0, max(0.0, score)), 3),
+                        match_type="transcript",
+                        snippet=(ts.text or "")[:220],
+                    ))
+                    n += 1
+                    if n >= body.limit:
+                        break
+    except Exception:
+        logger.exception("similar-moment transcript search failed")
+
+    return SearchResponse(
+        results=results, query=f"similar@{body.time:.1f}",
+        took_ms=round((time.time() - start) * 1000, 1),
+    )

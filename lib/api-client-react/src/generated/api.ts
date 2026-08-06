@@ -33,12 +33,15 @@ import type {
   ClipListInput,
   ClipListUpdate,
   CoAppearanceGraph,
+  CoMoments,
   Conversation,
+  DeleteSavedSearch200,
   DubRequest,
   ExportProjectCutBody,
   FaceCluster,
   GetCaptionsParams,
   GetCoAppearancesParams,
+  GetCoMomentsParams,
   GetHighlightPreviewParams,
   GetKeywordHeatmapParams,
   GetMediaFrameParams,
@@ -125,6 +128,8 @@ import type {
   RevertProjectCutBody,
   RoughCutInput,
   RunStageInput,
+  SavedSearch,
+  SavedSearchCreate,
   Scene,
   ScriptMatchRequest,
   ScriptMatchResponse,
@@ -132,6 +137,7 @@ import type {
   SearchQuery,
   SearchResponse,
   SessionUser,
+  SimilarMomentQuery,
   SocialChannel,
   SocialChannelAnalysis,
   SocialChannelInput,
@@ -3228,6 +3234,90 @@ export function useGetCoAppearances<TData = Awaited<ReturnType<typeof getCoAppea
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetCoAppearancesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCoMomentsUrl = (params: GetCoMomentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/people/co-moments?${stringifiedParams}` : `/api/people/co-moments`
+}
+
+/**
+ * @summary Timecoded moments two people share — on-camera together or in conversation
+ */
+export const getCoMoments = async (params: GetCoMomentsParams, options?: RequestInit): Promise<CoMoments> => {
+
+  return customFetch<CoMoments>(getGetCoMomentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoMomentsQueryKey = (params?: GetCoMomentsParams,) => {
+    return [
+    `/api/people/co-moments`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCoMomentsQueryOptions = <TData = Awaited<ReturnType<typeof getCoMoments>>, TError = ErrorType<unknown>>(params: GetCoMomentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoMoments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoMomentsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoMoments>>> = ({ signal }) => getCoMoments(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoMoments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoMomentsQueryResult = NonNullable<Awaited<ReturnType<typeof getCoMoments>>>
+export type GetCoMomentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Timecoded moments two people share — on-camera together or in conversation
+ */
+
+export function useGetCoMoments<TData = Awaited<ReturnType<typeof getCoMoments>>, TError = ErrorType<unknown>>(
+ params: GetCoMomentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoMoments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoMomentsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -7866,6 +7956,296 @@ export function useGetSearchHistory<TData = Awaited<ReturnType<typeof getSearchH
 
 
 
+
+export const getFindSimilarMomentsUrl = () => {
+
+
+
+
+  return `/api/search/similar-moment`
+}
+
+/**
+ * @summary Find visually and verbally similar moments across the library for a given moment in an asset
+ */
+export const findSimilarMoments = async (similarMomentQuery: SimilarMomentQuery, options?: RequestInit): Promise<SearchResponse> => {
+
+  return customFetch<SearchResponse>(getFindSimilarMomentsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(similarMomentQuery)
+  }
+);}
+
+
+
+
+
+export const getFindSimilarMomentsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof findSimilarMoments>>, TError,{data: BodyType<SimilarMomentQuery>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof findSimilarMoments>>, TError,{data: BodyType<SimilarMomentQuery>}, TContext> => {
+
+const mutationKey = ['findSimilarMoments'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof findSimilarMoments>>, {data: BodyType<SimilarMomentQuery>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  findSimilarMoments(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FindSimilarMomentsMutationResult = NonNullable<Awaited<ReturnType<typeof findSimilarMoments>>>
+    export type FindSimilarMomentsMutationBody = BodyType<SimilarMomentQuery>
+    export type FindSimilarMomentsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Find visually and verbally similar moments across the library for a given moment in an asset
+ */
+export const useFindSimilarMoments = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof findSimilarMoments>>, TError,{data: BodyType<SimilarMomentQuery>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof findSimilarMoments>>,
+        TError,
+        {data: BodyType<SimilarMomentQuery>},
+        TContext
+      > => {
+      return useMutation(getFindSimilarMomentsMutationOptions(options));
+    }
+
+export const getListSavedSearchesUrl = () => {
+
+
+
+
+  return `/api/search/saved`
+}
+
+/**
+ * @summary List saved searches (results are computed live on each run)
+ */
+export const listSavedSearches = async ( options?: RequestInit): Promise<SavedSearch[]> => {
+
+  return customFetch<SavedSearch[]>(getListSavedSearchesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSavedSearchesQueryKey = () => {
+    return [
+    `/api/search/saved`
+    ] as const;
+    }
+
+
+export const getListSavedSearchesQueryOptions = <TData = Awaited<ReturnType<typeof listSavedSearches>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedSearches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSavedSearchesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSavedSearches>>> = ({ signal }) => listSavedSearches({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSavedSearches>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSavedSearchesQueryResult = NonNullable<Awaited<ReturnType<typeof listSavedSearches>>>
+export type ListSavedSearchesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List saved searches (results are computed live on each run)
+ */
+
+export function useListSavedSearches<TData = Awaited<ReturnType<typeof listSavedSearches>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedSearches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSavedSearchesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSavedSearchUrl = () => {
+
+
+
+
+  return `/api/search/saved`
+}
+
+/**
+ * @summary Save a search as a living collection
+ */
+export const createSavedSearch = async (savedSearchCreate: SavedSearchCreate, options?: RequestInit): Promise<SavedSearch> => {
+
+  return customFetch<SavedSearch>(getCreateSavedSearchUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(savedSearchCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateSavedSearchMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSavedSearch>>, TError,{data: BodyType<SavedSearchCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSavedSearch>>, TError,{data: BodyType<SavedSearchCreate>}, TContext> => {
+
+const mutationKey = ['createSavedSearch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSavedSearch>>, {data: BodyType<SavedSearchCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSavedSearch(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSavedSearchMutationResult = NonNullable<Awaited<ReturnType<typeof createSavedSearch>>>
+    export type CreateSavedSearchMutationBody = BodyType<SavedSearchCreate>
+    export type CreateSavedSearchMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save a search as a living collection
+ */
+export const useCreateSavedSearch = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSavedSearch>>, TError,{data: BodyType<SavedSearchCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSavedSearch>>,
+        TError,
+        {data: BodyType<SavedSearchCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateSavedSearchMutationOptions(options));
+    }
+
+export const getDeleteSavedSearchUrl = (savedId: string,) => {
+
+
+
+
+  return `/api/search/saved/${savedId}`
+}
+
+/**
+ * @summary Delete a saved search
+ */
+export const deleteSavedSearch = async (savedId: string, options?: RequestInit): Promise<DeleteSavedSearch200> => {
+
+  return customFetch<DeleteSavedSearch200>(getDeleteSavedSearchUrl(savedId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSavedSearchMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSavedSearch>>, TError,{savedId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSavedSearch>>, TError,{savedId: string}, TContext> => {
+
+const mutationKey = ['deleteSavedSearch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSavedSearch>>, {savedId: string}> = (props) => {
+          const {savedId} = props ?? {};
+
+          return  deleteSavedSearch(savedId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSavedSearchMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSavedSearch>>>
+
+    export type DeleteSavedSearchMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a saved search
+ */
+export const useDeleteSavedSearch = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSavedSearch>>, TError,{savedId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSavedSearch>>,
+        TError,
+        {savedId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteSavedSearchMutationOptions(options));
+    }
 
 export const getListJobsUrl = (params?: ListJobsParams,) => {
   const normalizedParams = new URLSearchParams();

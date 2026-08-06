@@ -1532,6 +1532,48 @@ export interface SearchResponse {
   took_ms: number;
 }
 
+export interface SimilarMomentQuery {
+  media_id: string;
+  /** Playback position in seconds */
+  time: number;
+  limit?: number;
+}
+
+export interface SavedSearchCreate {
+  name: string;
+  query: string;
+  search_type?: string;
+}
+
+export interface SavedSearch {
+  id: string;
+  name: string;
+  query: string;
+  search_type: string;
+  created_at: string;
+}
+
+export interface CoMoment {
+  media_id: string;
+  filename: string;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  start_time: number;
+  end_time: number;
+  duration_seconds: number;
+  /** on_camera | conversation */
+  kind: string;
+}
+
+export interface CoMoments {
+  person_a_id: string;
+  person_b_id: string;
+  person_a_name: string;
+  person_b_name: string;
+  shared_assets: number;
+  moments: CoMoment[];
+}
+
 export interface ScriptMatchRequest {
   /**
      * Script, rundown, or story outline; matched line by line
@@ -2695,6 +2737,11 @@ named_only?: boolean;
 min_shared?: number;
 };
 
+export type GetCoMomentsParams = {
+person_a: string;
+person_b: string;
+};
+
 export type ListGraphicsGenerationsParams = {
 limit?: number;
 offset?: number;
@@ -2748,6 +2795,10 @@ offset?: number;
 export type GetRatingsOverviewParams = {
 from?: string;
 to?: string;
+};
+
+export type DeleteSavedSearch200 = {
+  ok?: boolean;
 };
 
 export type ListJobsParams = {

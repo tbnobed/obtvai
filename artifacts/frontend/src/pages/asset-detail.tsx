@@ -28,7 +28,7 @@ import {
   useGetMediaStudioSession
 } from "@workspace/api-client-react";
 import type { SocialScore, SocialCutsRequestPlatform, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, Project, SearchResult } from "@workspace/api-client-react";
-import { useSemanticSearch } from "@workspace/api-client-react";
+import { useSemanticSearch, useFindSimilarMoments } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -412,6 +412,16 @@ export default function AssetDetail() {
     }
   }, [timeParam, asset?.status]);
 
+  const similarMoments = useFindSimilarMoments();
+  const [similarOpen, setSimilarOpen] = useState(false);
+  const [similarAt, setSimilarAt] = useState(0);
+  const findSimilar = () => {
+    const t = videoRef.current?.currentTime ?? 0;
+    setSimilarAt(t);
+    setSimilarOpen(true);
+    similarMoments.mutate({ data: { media_id: id!, time: t, limit: 10 } });
+  };
+
   const seekTo = (time: number) => {
     if (videoRef.current) {
       videoRef.current.currentTime = time;
@@ -757,6 +767,17 @@ export default function AssetDetail() {
               />
             ) : (
               undefined
+            )}
+            {asset.status === 'ready' && (
+              <button
+                type="button"
+                className="absolute top-8 right-8 z-10 flex items-center gap-1.5 rounded-md bg-black/70 hover:bg-primary/80 px-2.5 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition-colors"
+                title="Find visually and verbally similar moments across the library at the current playback position"
+                onClick={findSimilar}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Find similar moments
+              </button>
             )}
             {asset.status === 'ready' && (
               <div
@@ -1382,6 +1403,64 @@ export default function AssetDetail() {
           </Tabs>
         </div>
       </div>
+      <Dialog open={similarOpen} onOpenChange={setSimilarOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Moments like {formatTimecode(similarAt)}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto -mx-1 px-1">
+            {similarMoments.isPending ? (
+              <div className="flex items-center justify-center h-40 text-muted-foreground gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" /> Searching the library…
+              </div>
+            ) : similarMoments.data?.results.length ? (
+              <div className="space-y-5">
+                {(["visual", "transcript"] as const).map((kind) => {
+                  const items = (similarMoments.data?.results ?? []).filter((r) => r.match_type === kind);
+                  if (!items.length) return null;
+                  return (
+                    <div key={kind}>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                        {kind === "visual" ? "Looks similar" : "Similar things said"}
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {items.map((r, i) => (
+                          <Link
+                            key={`${kind}-${i}`}
+                            href={`/library/${r.media_id}?t=${Math.floor(r.start_time)}`}
+                            onClick={() => setSimilarOpen(false)}
+                            className="rounded-lg overflow-hidden bg-muted/50 hover:bg-muted transition-colors group"
+                          >
+                            <div className="relative aspect-video bg-black/40">
+                              {r.thumbnail_url && (
+                                <img src={`/api/thumbnails/${r.thumbnail_url}`} className="w-full h-full object-cover" loading="lazy" />
+                              )}
+                              <span className="absolute bottom-1 right-1 text-[10px] px-1 py-0.5 rounded bg-black/70 text-white tabular-nums">
+                                {formatTimecode(r.start_time)}
+                              </span>
+                            </div>
+                            <div className="p-2">
+                              <p className="text-xs font-medium truncate">{r.filename}</p>
+                              {r.snippet && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{r.snippet}</p>}
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-10 text-center">
+                Nothing similar found elsewhere in the library for this moment.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       <AddToClipListDialog
         mediaId={id!}
         segment={clipListSegment}

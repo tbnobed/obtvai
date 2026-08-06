@@ -1296,6 +1296,32 @@ export const GetCoAppearancesResponse = zod.object({
 
 
 /**
+ * @summary Timecoded moments two people share — on-camera together or in conversation
+ */
+export const GetCoMomentsQueryParams = zod.object({
+  "person_a": zod.coerce.string(),
+  "person_b": zod.coerce.string()
+})
+
+export const GetCoMomentsResponse = zod.object({
+  "person_a_id": zod.string(),
+  "person_b_id": zod.string(),
+  "person_a_name": zod.string(),
+  "person_b_name": zod.string(),
+  "shared_assets": zod.number(),
+  "moments": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "duration_seconds": zod.number(),
+  "kind": zod.string().describe('on_camera | conversation')
+}))
+})
+
+
+/**
  * @summary Create a person from a reference photo — detects the face, stores its signature, and returns existing people that look like them as merge candidates
  */
 export const EnrollPersonBody = zod.object({
@@ -2989,6 +3015,78 @@ export const GetSearchHistoryResponseItem = zod.object({
   "searched_at": zod.string()
 })
 export const GetSearchHistoryResponse = zod.array(GetSearchHistoryResponseItem)
+
+
+/**
+ * @summary Find visually and verbally similar moments across the library for a given moment in an asset
+ */
+export const findSimilarMomentsBodyLimitDefault = 10;
+
+export const FindSimilarMomentsBody = zod.object({
+  "media_id": zod.string(),
+  "time": zod.number().describe('Playback position in seconds'),
+  "limit": zod.number().default(findSimilarMomentsBodyLimitDefault)
+})
+
+export const FindSimilarMomentsResponse = zod.object({
+  "results": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "start_time": zod.number(),
+  "end_time": zod.number(),
+  "score": zod.number(),
+  "match_type": zod.string().describe('transcript | visual'),
+  "snippet": zod.string().nullish().describe('Matching transcript text')
+})),
+  "query": zod.string(),
+  "took_ms": zod.number()
+})
+
+
+/**
+ * @summary List saved searches (results are computed live on each run)
+ */
+export const ListSavedSearchesResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "query": zod.string(),
+  "search_type": zod.string(),
+  "created_at": zod.coerce.date()
+})
+export const ListSavedSearchesResponse = zod.array(ListSavedSearchesResponseItem)
+
+
+/**
+ * @summary Save a search as a living collection
+ */
+export const createSavedSearchBodySearchTypeDefault = `combined`;
+
+export const CreateSavedSearchBody = zod.object({
+  "name": zod.string(),
+  "query": zod.string(),
+  "search_type": zod.string().default(createSavedSearchBodySearchTypeDefault)
+})
+
+export const CreateSavedSearchResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "query": zod.string(),
+  "search_type": zod.string(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a saved search
+ */
+export const DeleteSavedSearchParams = zod.object({
+  "saved_id": zod.coerce.string()
+})
+
+export const DeleteSavedSearchResponse = zod.object({
+  "ok": zod.boolean().optional()
+})
 
 
 /**
