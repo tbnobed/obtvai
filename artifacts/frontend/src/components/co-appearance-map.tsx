@@ -462,7 +462,8 @@ export default function CoAppearanceMap() {
                   x1={pa.x} y1={pa.y}
                   x2={pb.x} y2={pb.y}
                   stroke="currentColor"
-                  className={strong ? "text-primary" : dimmed ? "text-border/40" : "text-border"}
+                  className="text-primary"
+                  strokeOpacity={strong ? 1 : dimmed ? 0.08 : 0.25 + 0.45 * (p.shared_assets / maxShared)}
                   strokeWidth={1.5 + (p.shared_assets / maxShared) * 6}
                   strokeLinecap="round"
                   pointerEvents="none"
