@@ -199,18 +199,37 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
             # Visual search must query in CLIP space, not sentence-transformer space.
             # CLIP was trained on captioned photos — "a photo of a watch" retrieves
             # far better than the bare word "watch".
-            clip_query_embedding = await get_clip_text_embedding(f"a photo of {query_text}")
+            # Prompt ensembling: a single caption template biases retrieval
+            # toward one framing of the concept (close-up product shots).
+            # Embedding several phrasings and keeping each scene's best score
+            # catches the same object in context — held, on a podium, in the
+            # background — which a lone "a photo of X" query misses.
+            prompts = [
+                f"a photo of {query_text}",
+                f"a close-up photo of a {query_text}",
+                f"a photo of a person with a {query_text}",
+                f"a scene showing {query_text}",
+            ]
+            fetch_limit = min(max(body.limit * 5, 50), 1000)
             # Fetch well past the requested limit: broadcast footage is full of
             # near-duplicate scenes (e.g. 20 shots of the same flags), and a
             # shallow fetch lets one asset crowd every other match out of the
             # candidate pool before diversity capping can help.
-            visual_hits = await search_vectors(
-                collection="scenes",
-                vector=clip_query_embedding,
-                limit=min(max(body.limit * 5, 50), 1000),
-                media_id=body.media_id,
-                media_ids=body.media_ids,
-            )
+            best_hits: dict = {}
+            for prompt in prompts:
+                clip_query_embedding = await get_clip_text_embedding(prompt)
+                for hit in await search_vectors(
+                    collection="scenes",
+                    vector=clip_query_embedding,
+                    limit=fetch_limit,
+                    media_id=body.media_id,
+                    media_ids=body.media_ids,
+                ):
+                    sid = hit.payload.get("scene_id")
+                    prev = best_hits.get(sid)
+                    if prev is None or hit.score > prev.score:
+                        best_hits[sid] = hit
+            visual_hits = sorted(best_hits.values(), key=lambda h: h.score, reverse=True)
             visual_candidates: list[tuple[float, SearchResultOut]] = []
             for hit in visual_hits:
                 scene_id = hit.payload.get("scene_id")
