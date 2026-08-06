@@ -163,6 +163,13 @@ export default function Insights() {
     );
   };
 
+  const stats = data?.stats;
+  const animAssets = Math.round(useCountUp(stats?.total_assets ?? 0));
+  const animHours = useCountUp((stats?.total_duration_seconds ?? 0) / 3600);
+  const animPeople = Math.round(useCountUp(stats?.named_people_count ?? 0));
+  const animIndexed = useCountUp((stats?.speech_indexed_seconds ?? 0) / 3600);
+  const animTranscribed = Math.round(useCountUp(stats?.transcribed_assets ?? 0));
+
   if (isLoading) {
     return (
       <div className="flex-1 overflow-y-auto">
@@ -181,13 +188,6 @@ export default function Insights() {
       </div>
     );
   }
-
-  const stats = data?.stats;
-  const animAssets = Math.round(useCountUp(stats?.total_assets ?? 0));
-  const animHours = useCountUp((stats?.total_duration_seconds ?? 0) / 3600);
-  const animPeople = Math.round(useCountUp(stats?.named_people_count ?? 0));
-  const animIndexed = useCountUp((stats?.speech_indexed_seconds ?? 0) / 3600);
-  const animTranscribed = Math.round(useCountUp(stats?.transcribed_assets ?? 0));
 
   const totalPeople = stats ? stats.named_people_count + stats.unidentified_people_count : 1;
   const namedFrac = stats ? stats.named_people_count / Math.max(1, totalPeople) : 0;
