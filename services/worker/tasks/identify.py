@@ -171,12 +171,13 @@ def _profile_person(db, person_id: str, tokenizer, model, job_id: str, use_web: 
             break
         texts.append(t)
         total += len(t)
-    if not texts:
-        return
     name_row = db.execute(
         text("SELECT display_name FROM people WHERE id = :pid"), {"pid": person_id}
     ).fetchone()
     display_name = name_row[0] if name_row else "this person"
+    if not texts and not use_web:
+        append_log(db, job_id, f"No transcript text for {display_name} — nothing to profile")
+        return
     # End the read transaction NOW: LLM generation below takes minutes, and an
     # open transaction holding AccessShareLock on transcript_segments/people
     # deadlocks against API startup DDL (ALTER TABLE queues an
@@ -193,18 +194,35 @@ def _profile_person(db, person_id: str, tokenizer, model, job_id: str, use_web: 
                 "if the results clearly match, you may use them to state their "
                 "real role/affiliation):\n" + ctx + "\n"
             )
-    prompt = (
-        f"The following are things {display_name} has said across a video library.\n"
-        f"The person's name is {display_name}. Refer to them ONLY by this name, "
-        "even if the transcript mentions or suggests other names (those may be "
-        "people they are talking about or introducing).\n"
-        + web_block +
-        "Analyze them and respond with ONLY a JSON object of this exact shape:\n"
-        '{"summary": "1-2 sentence bio of who this person appears to be and their role", '
-        '"speech_style": "1-2 sentences describing how they speak: tone, pacing, vocabulary, verbal habits", '
-        '"key_topics": ["up to 6 short topic phrases they talk about most"]}\n\n'
-        + "\n".join(texts)
-    )
+    if texts:
+        prompt = (
+            f"The following are things {display_name} has said across a video library.\n"
+            f"The person's name is {display_name}. Refer to them ONLY by this name, "
+            "even if the transcript mentions or suggests other names (those may be "
+            "people they are talking about or introducing).\n"
+            + web_block +
+            "Analyze them and respond with ONLY a JSON object of this exact shape:\n"
+            '{"summary": "1-2 sentence bio of who this person appears to be and their role", '
+            '"speech_style": "1-2 sentences describing how they speak: tone, pacing, vocabulary, verbal habits", '
+            '"key_topics": ["up to 6 short topic phrases they talk about most"]}\n\n'
+            + "\n".join(texts)
+        )
+    else:
+        # Face-only person: no transcript to draw from. Profile from web
+        # search alone; without results there is nothing to work with.
+        if not web_block:
+            append_log(db, job_id, f"No transcript text and no web results for {display_name} — nothing to profile")
+            return
+        prompt = (
+            f"You are writing a short profile of a person named {display_name} who "
+            "appears on camera in a video library but has no attributed speech.\n"
+            + web_block +
+            "Using ONLY the web results above, respond with ONLY a JSON object of this exact shape:\n"
+            '{"summary": "1-2 sentence bio of who this person is and their role", '
+            '"speech_style": null, '
+            '"key_topics": ["up to 6 short topic phrases they are known for"]}\n'
+            "If the results are too ambiguous to identify the person, use null for summary."
+        )
     try:
         result = _extract_json(_generate(tokenizer, model, prompt, max_new_tokens=400))
     except Exception as e:
