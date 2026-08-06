@@ -21,7 +21,6 @@ import {
   MapPinned,
   Sparkles,
   ArrowRight,
-  FolderKanban,
   Scissors,
   BookOpen,
   Clapperboard,
@@ -110,14 +109,6 @@ export default function Dashboard() {
       {/* ---- Library hero: ask anything --------------------------------- */}
       <div className="relative border-b border-border bg-gradient-to-b from-primary/10 via-background to-background">
         <div className="max-w-5xl mx-auto px-8 pt-14 pb-10 text-center">
-          <div className="flex justify-end mb-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href="/studio" className="gap-2">
-                <FolderKanban className="h-4 w-4" />
-                Projects
-              </Link>
-            </Button>
-          </div>
           <h1 className="text-4xl font-bold tracking-tight" data-testid="text-hero-title">
             Ask your library anything
           </h1>
