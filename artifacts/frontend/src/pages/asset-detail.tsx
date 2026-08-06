@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearch, useLocation, Link } from "wouter";
 import { 
   useGetMedia, getGetMediaQueryKey,
@@ -415,8 +415,8 @@ export default function AssetDetail() {
   const similarMoments = useFindSimilarMoments();
   const [similarOpen, setSimilarOpen] = useState(false);
   const [similarAt, setSimilarAt] = useState(0);
-  const findSimilar = () => {
-    const t = videoRef.current?.currentTime ?? 0;
+  const findSimilar = (at?: number) => {
+    const t = at ?? videoRef.current?.currentTime ?? 0;
     setSimilarAt(t);
     setSimilarOpen(true);
     similarMoments.mutate({ data: { media_id: id!, time: t, limit: 10 } });
@@ -773,7 +773,7 @@ export default function AssetDetail() {
                 type="button"
                 className="absolute top-8 right-8 z-10 flex items-center gap-1.5 rounded-md bg-black/70 hover:bg-primary/80 px-2.5 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition-colors"
                 title="Find visually and verbally similar moments across the library at the current playback position"
-                onClick={findSimilar}
+                onClick={() => findSimilar()}
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 Find similar moments
@@ -813,6 +813,7 @@ export default function AssetDetail() {
                 clipSuggestions={((asset.creative as CreativeAnalysis | null)?.clip_suggestions as { start: number; end: number; title: string; reason?: string; strength: number }[] | undefined) ?? []}
                 markers={markers ?? []}
                 seekTo={seekTo}
+                onFindSimilar={findSimilar}
               />
             )}
           </div>
@@ -1673,56 +1674,110 @@ function HeatStrip({
   clipSuggestions,
   markers,
   seekTo,
+  onFindSimilar,
 }: {
   duration: number;
   keyMoments: { time: number; title: string; description?: string }[];
   clipSuggestions: { start: number; end: number; title: string; reason?: string; strength: number }[];
   markers: Marker[];
   seekTo: (time: number) => void;
+  onFindSimilar?: (time: number) => void;
 }) {
   const pct = (t: number) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%`;
   const widthPct = (a: number, b: number) => `${Math.max(0.4, Math.min(100, ((b - a) / duration) * 100))}%`;
+
+  // Continuous heat field: clip strength spread over its span, key moments as
+  // gaussian bumps, so the strip reads like a heat map instead of tick marks.
+  const gradient = useMemo(() => {
+    const N = 160;
+    const heat = new Array<number>(N).fill(0);
+    const bucket = (t: number) => Math.min(N - 1, Math.max(0, Math.floor((t / duration) * N)));
+    for (const c of clipSuggestions) {
+      const b0 = bucket(c.start), b1 = Math.max(bucket(c.end), b0);
+      const v = 0.25 + 0.75 * (c.strength / 100);
+      for (let b = b0; b <= b1; b++) heat[b] = Math.max(heat[b], v);
+      // soft falloff at the edges
+      for (let d = 1; d <= 3; d++) {
+        const f = v * (1 - d / 4);
+        if (b0 - d >= 0) heat[b0 - d] = Math.max(heat[b0 - d], f);
+        if (b1 + d < N) heat[b1 + d] = Math.max(heat[b1 + d], f);
+      }
+    }
+    for (const m of keyMoments) {
+      const b = bucket(m.time);
+      for (let d = -2; d <= 2; d++) {
+        const i = b + d;
+        if (i < 0 || i >= N) continue;
+        heat[i] = Math.max(heat[i], 0.85 * (1 - Math.abs(d) / 3));
+      }
+    }
+    const color = (v: number) => {
+      if (v <= 0.02) return "rgba(24,24,27,0)";
+      // cold teal -> amber -> hot orange-red as intensity rises
+      const hue = 190 - 165 * Math.min(1, v);
+      const sat = 60 + 35 * v;
+      const light = 30 + 25 * v;
+      return `hsla(${hue.toFixed(0)},${sat.toFixed(0)}%,${light.toFixed(0)}%,${(0.25 + 0.7 * v).toFixed(2)})`;
+    };
+    const stops = heat.map((v, i) => `${color(v)} ${((i / (N - 1)) * 100).toFixed(2)}%`);
+    return `linear-gradient(to right, ${stops.join(",")})`;
+  }, [clipSuggestions, keyMoments, duration]);
+
   if (!keyMoments.length && !clipSuggestions.length && !markers.length) return null;
+
+  const timeFromEvent = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    return frac * duration;
+  };
+
   return (
     <div className="mt-2 select-none">
-      <div className="relative h-6 rounded bg-zinc-900 overflow-hidden">
+      <div
+        className="relative h-7 rounded bg-zinc-900 overflow-hidden cursor-pointer"
+        title="Click to jump · right-click to find similar moments"
+        onClick={(e) => seekTo(timeFromEvent(e))}
+        onContextMenu={(e) => {
+          if (!onFindSimilar) return;
+          e.preventDefault();
+          onFindSimilar(timeFromEvent(e));
+        }}
+      >
+        <div className="absolute inset-0" style={{ background: gradient }} />
         {clipSuggestions.map((c, i) => (
           <div
             key={`cs-${i}`}
-            className="absolute top-0 h-full cursor-pointer bg-amber-500 hover:bg-amber-400 transition-colors"
-            style={{ left: pct(c.start), width: widthPct(c.start, c.end), opacity: 0.25 + 0.6 * (c.strength / 100) }}
+            className="absolute top-0 h-full"
+            style={{ left: pct(c.start), width: widthPct(c.start, c.end) }}
             title={`${c.title} (${c.strength}) — ${c.reason ?? ""}`}
-            onClick={() => seekTo(c.start)}
           />
         ))}
         {keyMoments.map((m, i) => (
           <div
             key={`km-${i}`}
-            className="absolute top-0 h-full w-0.5 bg-sky-400/80 cursor-pointer hover:bg-sky-300"
+            className="absolute top-0 h-full w-px bg-white/50"
             style={{ left: pct(m.time) }}
             title={`${m.title}${m.description ? ` — ${m.description}` : ""}`}
-            onClick={() => seekTo(m.time)}
           />
         ))}
         {markers.map(m => (
           <div
             key={m.id}
-            className={`absolute top-0 h-full cursor-pointer ${
+            className={`absolute top-0 h-full ${
               m.kind === "select" ? "bg-green-500" : m.kind === "reject" ? "bg-red-500" : "bg-white/80"
             }`}
             style={m.end_time != null
               ? { left: pct(m.time), width: widthPct(m.time, m.end_time), opacity: 0.55 }
               : { left: pct(m.time), width: "3px" }}
             title={`${m.kind}${m.note ? `: ${m.note}` : ""}`}
-            onClick={() => seekTo(m.time)}
           />
         ))}
       </div>
       <div className="flex gap-4 mt-1 text-[10px] text-zinc-500">
-        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-amber-500/70 rounded-sm" /> AI clip strength</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-sky-400 rounded-sm" /> Key moment</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, hsla(190,60%,30%,0.3), hsla(100,75%,42%,0.6), hsla(25,95%,55%,0.95))" }} /> heat = AI clip strength &amp; key moments</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-green-500 rounded-sm" /> Select</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-red-500 rounded-sm" /> Reject</span>
+        <span className="ml-auto text-zinc-600">right-click anywhere to find similar moments</span>
       </div>
     </div>
   );

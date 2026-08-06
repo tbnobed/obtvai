@@ -457,19 +457,32 @@ export default function CoAppearanceMap() {
               (hoveredPair !== null && !strong) ||
               (connectedTo !== null && !(connectedTo.has(p.person_a_id) && connectedTo.has(p.person_b_id) && (p.person_a_id === hoveredNode || p.person_b_id === hoveredNode)));
             return (
-              <line
-                key={i}
-                x1={pa.x} y1={pa.y}
-                x2={pb.x} y2={pb.y}
-                stroke="currentColor"
-                className={strong ? "text-primary" : dimmed ? "text-border/40" : "text-border"}
-                strokeWidth={1.5 + (p.shared_assets / maxShared) * 6}
-                strokeLinecap="round"
-                style={{ cursor: "pointer" }}
-                onMouseEnter={() => setHoveredPair(i)}
-                onMouseLeave={() => setHoveredPair(null)}
-                onClick={() => setSelectedPair({ a: p.person_a_id, b: p.person_b_id })}
-              />
+              <g key={i}>
+                <line
+                  x1={pa.x} y1={pa.y}
+                  x2={pb.x} y2={pb.y}
+                  stroke="currentColor"
+                  className={strong ? "text-primary" : dimmed ? "text-border/40" : "text-border"}
+                  strokeWidth={1.5 + (p.shared_assets / maxShared) * 6}
+                  strokeLinecap="round"
+                  pointerEvents="none"
+                />
+                <line
+                  x1={pa.x} y1={pa.y}
+                  x2={pb.x} y2={pb.y}
+                  stroke="transparent"
+                  strokeWidth={14}
+                  strokeLinecap="round"
+                  style={{ cursor: "pointer" }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseEnter={() => setHoveredPair(i)}
+                  onMouseLeave={() => setHoveredPair(null)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPair({ a: p.person_a_id, b: p.person_b_id });
+                  }}
+                />
+              </g>
             );
           })}
           {nodes.map((node) => {
