@@ -190,7 +190,7 @@ export default function Insights() {
   if (isLoading) {
     return (
       <div className="flex-1 overflow-y-auto">
-        <div className="p-8 max-w-7xl mx-auto animate-pulse mt-16 space-y-12">
+        <div className="px-10 py-8 w-full animate-pulse mt-16 space-y-12">
           <div className="space-y-4 text-center">
             <div className="h-10 w-64 bg-muted rounded mx-auto" />
             <div className="h-6 w-96 bg-muted rounded mx-auto" />
@@ -233,7 +233,7 @@ export default function Insights() {
               "radial-gradient(circle at 20% 0%, hsl(var(--primary) / 0.25), transparent 45%), radial-gradient(circle at 80% 10%, hsl(280 80% 60% / 0.15), transparent 40%)",
           }}
         />
-        <div className="relative max-w-6xl mx-auto px-8 pt-16 pb-14 text-center">
+        <div className="relative w-full px-10 pt-14 pb-12 text-center">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <h1 className="text-4xl font-bold tracking-tight text-left">Library Intelligence</h1>
             <Button onClick={handleRefresh} disabled={refresh.isPending} variant="secondary" className="gap-2 sm:self-start">
@@ -262,7 +262,7 @@ export default function Insights() {
         </div>
       </div>
 
-      <div className="p-8 max-w-7xl mx-auto space-y-12">
+      <div className="px-10 py-8 w-full space-y-12">
         {/* ---- Vitals --------------------------------------------------- */}
         {stats && (
           <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
