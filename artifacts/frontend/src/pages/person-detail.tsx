@@ -52,6 +52,7 @@ import {
   AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
   SlidersHorizontal, ChevronDown, ChevronUp, Eye, Undo2, Check, Search,
   RefreshCw, Globe, ScanSearch, ExternalLink, AlertTriangle,
+  LayoutGrid, List, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -767,6 +768,21 @@ export default function PersonDetail() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [openMoments, setOpenMoments] = useState<Record<string, boolean>>({});
+  const [appearView, setAppearView] = useState<"card" | "list">(
+    () => (localStorage.getItem("person-appearances-view") === "list" ? "list" : "card"),
+  );
+  const setAppearanceView = (v: "card" | "list") => {
+    setAppearView(v);
+    localStorage.setItem("person-appearances-view", v);
+  };
+  const [appearPage, setAppearPage] = useState(0);
+  const APPEAR_PAGE_SIZE = 24;
+  const totalAppearPages = Math.max(1, Math.ceil((person?.appearances?.length ?? 0) / APPEAR_PAGE_SIZE));
+  const safeAppearPage = Math.min(appearPage, totalAppearPages - 1);
+  const pagedAppearances = (person?.appearances ?? []).slice(
+    safeAppearPage * APPEAR_PAGE_SIZE,
+    (safeAppearPage + 1) * APPEAR_PAGE_SIZE,
+  );
   const [editingBio, setEditingBio] = useState(false);
   const [bioDraft, setBioDraft] = useState("");
 
@@ -1374,7 +1390,34 @@ export default function PersonDetail() {
 
       <VoiceSection personId={id} personName={person.display_name} appearances={person.appearances ?? []} voicePreset={person.voice_preset} voiceSettings={person.voice_settings} />
 
-      <h2 className="text-lg font-semibold mb-4">Appearances</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">
+          Appearances
+          {(person.appearances?.length ?? 0) > 0 && (
+            <span className="ml-2 text-sm font-normal text-muted-foreground">{person.appearances!.length}</span>
+          )}
+        </h2>
+        <div className="flex items-center gap-1">
+          <Button
+            variant={appearView === "card" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 gap-1.5 text-xs"
+            onClick={() => setAppearanceView("card")}
+            title="Card view"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Cards
+          </Button>
+          <Button
+            variant={appearView === "list" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 gap-1.5 text-xs"
+            onClick={() => setAppearanceView("list")}
+            title="List view"
+          >
+            <List className="h-3.5 w-3.5" /> List
+          </Button>
+        </div>
+      </div>
       {mergedGroups.length > 0 && (
         <div className="border border-border bg-card rounded-md p-4 mb-4">
           <p className="text-sm font-medium mb-1">Merged people</p>
@@ -1398,9 +1441,76 @@ export default function PersonDetail() {
           </div>
         </div>
       )}
-      {person.appearances?.length ? (
+      {person.appearances?.length ? (appearView === "card" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {pagedAppearances.map((a) => {
+            const momentsKey = `${a.media_id}-${a.speaker_label ?? ""}-${a.face_cluster_id ?? ""}`;
+            const isOpen = !!openMoments[momentsKey];
+            return (
+              <div
+                key={momentsKey}
+                className={`border border-border bg-card rounded-md overflow-hidden hover:border-primary transition-colors flex flex-col ${isOpen ? "sm:col-span-2 lg:col-span-3 xl:col-span-4" : ""}`}
+              >
+                <Link
+                  href={`/library/${a.media_id}${a.first_spoken_at != null ? `?t=${Math.floor(a.first_spoken_at)}` : ""}`}
+                  className="block cursor-pointer"
+                >
+                  <div className="relative aspect-video bg-muted">
+                    {a.thumbnail_url ? (
+                      <img src={`/api/thumbnails/${a.thumbnail_url}`} alt={a.filename} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Film className="h-6 w-6 text-muted-foreground/50" />
+                      </div>
+                    )}
+                    <span className="absolute bottom-1 right-1 text-[10px] px-1 py-0.5 rounded bg-black/70 text-white">
+                      {formatDuration(a.duration_seconds)}
+                    </span>
+                  </div>
+                </Link>
+                <div className="p-3 flex-1 flex flex-col gap-1 min-w-0">
+                  <p className="text-sm font-medium truncate" title={a.filename}>{a.filename}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {a.speaker_label ? `${a.speaker_label} · ` : ""}
+                    {formatDuration(a.speaking_seconds)} speaking · {a.segment_count ?? 0} segments
+                    {a.first_spoken_at != null ? ` · first speaks at ${formatTimecode(a.first_spoken_at)}` : ""}
+                  </p>
+                  {(a.merged_from as { display_name?: string } | null | undefined)?.display_name && (
+                    <Badge variant="secondary" className="w-fit text-[10px] font-normal">
+                      merged from {(a.merged_from as { display_name?: string }).display_name}
+                    </Badge>
+                  )}
+                  <div className="mt-auto pt-1.5 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => setOpenMoments((m) => ({ ...m, [momentsKey]: !m[momentsKey] }))}
+                    >
+                      {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      {isOpen ? "Hide moments" : "Moments"}
+                    </button>
+                    {(person.appearances?.length ?? 0) > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        disabled={splitPerson.isPending}
+                        onClick={(e) => handleSplit(e, a)}
+                        title="Split this appearance into a new person (undo a bad merge)"
+                      >
+                        <Scissors className="h-3 w-3" /> Split out
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {isOpen && <AppearanceMoments personId={id} mediaId={a.media_id} filename={a.filename} />}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
         <div className="space-y-2">
-          {person.appearances.map((a) => {
+          {pagedAppearances.map((a) => {
             const momentsKey = `${a.media_id}-${a.speaker_label ?? ""}-${a.face_cluster_id ?? ""}`;
             const isOpen = !!openMoments[momentsKey];
             return (
@@ -1468,8 +1578,33 @@ export default function PersonDetail() {
             );
           })}
         </div>
-      ) : (
+      )) : (
         <p className="text-sm text-muted-foreground">No appearances recorded.</p>
+      )}
+      {totalAppearPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2.5 gap-1 text-xs"
+            disabled={safeAppearPage === 0}
+            onClick={() => setAppearPage(safeAppearPage - 1)}
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Page {safeAppearPage + 1} of {totalAppearPages} · {person.appearances?.length ?? 0} appearances
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2.5 gap-1 text-xs"
+            disabled={safeAppearPage >= totalAppearPages - 1}
+            onClick={() => setAppearPage(safeAppearPage + 1)}
+          >
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       )}
     </div>
   );
