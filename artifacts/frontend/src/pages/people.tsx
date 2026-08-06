@@ -188,8 +188,9 @@ export default function People() {
     : 1;
 
   return (
-    <div className="flex-1 overflow-y-auto flex flex-col bg-background">
-      {/* ---- Header --------------------------------- */}
+    <div className={view === "map" ? "flex-1 h-full overflow-hidden flex flex-col bg-background" : "flex-1 overflow-y-auto flex flex-col bg-background"}>
+      {/* ---- Header (hidden in map view so the map fills the screen) ---- */}
+      {view !== "map" && (
       <div className="relative border-b border-border bg-gradient-to-b from-primary/10 via-background to-background overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.35] pointer-events-none"
@@ -221,8 +222,9 @@ export default function People() {
           </div>
         </div>
       </div>
+      )}
 
-      <div className="p-8 max-w-7xl mx-auto w-full flex flex-col flex-1">
+      <div className={view === "map" ? "p-3 w-full flex flex-col flex-1 overflow-hidden" : "p-8 max-w-7xl mx-auto w-full flex flex-col flex-1"}>
         {queuedMessage && (
           <div className="mb-6 px-4 py-3 rounded-xl border border-primary/20 bg-primary/5 text-sm text-primary shadow-sm flex items-center gap-3">
             <Check className="h-4 w-4 shrink-0" />
@@ -304,7 +306,7 @@ export default function People() {
         </div>
 
         {view === "map" ? (
-          <div className="flex-1 flex flex-col rounded-2xl border border-border/50 overflow-hidden bg-card/20 shadow-inner relative min-h-[600px] mb-8">
+          <div className="flex-1 flex flex-col rounded-2xl border border-border/50 overflow-hidden bg-card/20 shadow-inner relative">
             <CoAppearanceMap />
           </div>
         ) : isLoading ? (
