@@ -72,6 +72,16 @@ _STATS = (
 
 
 @router.get("", response_model=PeoplePageOut)
+def _named_only_filter():
+    """Real names only (enrolled, renamed, or auto-recognized). Hides
+    placeholders: name_source NULL rows, plus auto rows where the "name"
+    is itself a placeholder ("Person N", "SPEAKER_XX", "VOn")."""
+    return (
+        Person.name_source.isnot(None)
+        & Person.display_name.op("!~*")(r"^(person\s*\d+|speaker[_\s-]*\d+|vo\s*\d*|unknown.*|unidentified.*)$")
+    )
+
+
 async def list_people(
     limit: int = Query(48, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -102,10 +112,9 @@ async def list_people(
         count_stmt = count_stmt.where(face_filter)
         stmt = stmt.where(face_filter)
     if named_only:
-        # Real names only (enrolled, renamed, or auto-recognized) — hides
-        # "Person N" / raw speaker-label placeholders, whose name_source is NULL.
-        count_stmt = count_stmt.where(Person.name_source.isnot(None))
-        stmt = stmt.where(Person.name_source.isnot(None))
+        named_filter = _named_only_filter()
+        count_stmt = count_stmt.where(named_filter)
+        stmt = stmt.where(named_filter)
     if q and q.strip():
         needle = f"%{q.strip()}%"
         count_stmt = count_stmt.where(Person.display_name.ilike(needle))
@@ -503,9 +512,7 @@ async def get_co_appearances(
         _STATS, _STATS.c.person_id == Person.id
     )
     if named_only:
-        # Real names only (enrolled, renamed, or auto-recognized) — hides
-        # "Person N" / raw speaker-label placeholders, whose name_source is NULL.
-        people_query = people_query.where(Person.name_source.isnot(None))
+        people_query = people_query.where(_named_only_filter())
     people_rows = (await db.execute(people_query)).all()
     known_ids = {p.id for p, _ in people_rows}
 
