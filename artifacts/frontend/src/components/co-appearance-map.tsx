@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 import { Maximize2, Share2, ZoomIn, ZoomOut } from "lucide-react";
 
 const W = 960;
-const H = 620;
+const BASE_H = 620;
 const PAD = 60;
 const MAX_K = 4;
 
@@ -25,7 +25,7 @@ function nodeRadius(assetCount: number, maxAssets: number) {
  *  along edges (stronger pairs pull closer), and center gravity.
  *  Positions are scaled up as the node count grows so the world has room —
  *  zooming in spreads people apart while faces stay the same size. */
-function computeLayout(nodes: CoAppearanceNode[], pairs: CoAppearancePair[]) {
+function computeLayout(nodes: CoAppearanceNode[], pairs: CoAppearancePair[], H: number) {
   const n = nodes.length;
   const idx = new Map(nodes.map((node, i) => [node.person_id, i]));
   const px = new Array<number>(n);
@@ -122,27 +122,9 @@ export default function CoAppearanceMap() {
     };
   }, [allNodes, allPairs, topN]);
 
-  const layout = useMemo(() => computeLayout(nodes, pairs), [nodes, pairs]);
-
-  // View transform: screen = world * k + t. Node/label sizes are drawn in
-  // screen units so faces stay the same size at every zoom level.
-  const fitK = 1 / layout.s;
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [viewT, setViewT] = useState({ k: 1, tx: 0, ty: 0 });
-  const viewRef = useRef(viewT);
-  viewRef.current = viewT;
-  const fitKRef = useRef(fitK);
-  fitKRef.current = fitK;
-  const layoutRef = useRef(layout);
-  layoutRef.current = layout;
-
-  // Manual node positions (world coords) after the user drags people around.
-  const [overrides, setOverrides] = useState<Record<string, { x: number; y: number }>>({});
-
-  // The map must always fit inside the visible page (no page scroll): measure
-  // the space left below the controls and contain-fit the fixed W:H canvas
-  // into it, so the svg's pixel box always matches the viewBox aspect ratio
-  // (keeps cursor-to-world math exact — no letterboxing).
+  // Measure the space available for the map FIRST so the world canvas can
+  // adopt the container's aspect ratio — the map then fills the screen with
+  // no letterboxing, while cursor-to-world math stays exact.
   const wrapRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   useLayoutEffect(() => {
@@ -160,7 +142,27 @@ export default function CoAppearanceMap() {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [isLoading, nodes.length]);
+  }, [isLoading]);
+  // World height follows the container aspect so the svg fills it exactly.
+  const H = box && box.w > 0 ? Math.max(320, Math.round(W * (box.h / box.w))) : BASE_H;
+
+  const layout = useMemo(() => computeLayout(nodes, pairs, H), [nodes, pairs, H]);
+
+  // View transform: screen = world * k + t. Node/label sizes are drawn in
+  // screen units so faces stay the same size at every zoom level.
+  const fitK = 1 / layout.s;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [viewT, setViewT] = useState({ k: 1, tx: 0, ty: 0 });
+  const viewRef = useRef(viewT);
+  viewRef.current = viewT;
+  const fitKRef = useRef(fitK);
+  fitKRef.current = fitK;
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+
+  // Manual node positions (world coords) after the user drags people around.
+  const [overrides, setOverrides] = useState<Record<string, { x: number; y: number }>>({});
+
   const fit = box ? Math.max(0.1, Math.min(box.w / W, box.h / H)) : 0;
 
   useLayoutEffect(() => {
@@ -419,7 +421,7 @@ export default function CoAppearanceMap() {
         style={
           box
             ? { width: Math.max(1, Math.floor(W * fit)), height: Math.max(1, Math.floor(H * fit)) }
-            : { width: "100%", aspectRatio: `${W}/${H}`, visibility: "hidden" as const }
+            : { width: "100%", aspectRatio: `${W}/${BASE_H}`, visibility: "hidden" as const }
         }
       >
         <svg
