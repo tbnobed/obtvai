@@ -244,7 +244,15 @@ export default function AssetDetail() {
     });
   };
 
-  const [activeTab, setActiveTab] = useState<string | null>(null);
+  // Tab selection lives in the URL (?tab=) so browser back/forward walks
+  // through the views you visited instead of leaving the page.
+  const activeTab = searchParams.get("tab");
+  const setActiveTab = (v: string) => {
+    const p = new URLSearchParams(searchString);
+    p.set("tab", v);
+    p.delete("t");
+    navigate(`/library/${id}?${p.toString()}`);
+  };
   const [panelWidth, setPanelWidth] = useState<number>(() => {
     const v = Number(localStorage.getItem("asset-panel-width"));
     return Number.isFinite(v) && v >= 320 && v <= 1400 ? v : 560;

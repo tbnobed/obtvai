@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import {
   useSemanticSearch,
   useGetSearchHistory,
@@ -37,8 +37,13 @@ export default function SearchPage() {
     const term = (q ?? query).trim();
     if (term.length < 2) return;
     if (q) setQuery(q);
+    // Record the search in the URL so back/forward restores it instead of
+    // dropping you on an empty page.
+    const effScope = s ?? scope;
+    const url = `/search?q=${encodeURIComponent(term)}${effScope !== "combined" ? `&scope=${effScope}` : ""}`;
+    if (window.location.search !== url.slice(url.indexOf("?"))) navigate(url);
     searchMutation.mutate(
-      { data: { query: term, search_type: s ?? scope, limit: 500 } },
+      { data: { query: term, search_type: effScope, limit: 500 } },
       {
         onSuccess: () =>
           queryClient.invalidateQueries({ queryKey: getGetSearchHistoryQueryKey() }),
@@ -46,15 +51,21 @@ export default function SearchPage() {
     );
   };
 
-  // Support /search?q=… deep links (e.g. from the Dashboard search box).
+  // Support /search?q=… deep links (Dashboard search box, browser
+  // back/forward). Re-runs whenever the URL's query changes, so history
+  // navigation restores the results you were looking at.
   const searchString = useSearch();
-  const ranInitialQuery = useRef(false);
+  const [, navigate] = useLocation();
+  const lastUrlQuery = useRef<string | null>(null);
   useEffect(() => {
-    if (ranInitialQuery.current) return;
-    const q = new URLSearchParams(searchString).get("q");
-    if (q && q.trim().length >= 2) {
-      ranInitialQuery.current = true;
-      runSearch(q);
+    const p = new URLSearchParams(searchString);
+    const q = p.get("q");
+    const s = (p.get("scope") as SearchScope | null) ?? "combined";
+    const key = q ? `${q}|${s}` : null;
+    if (key && key !== lastUrlQuery.current && q!.trim().length >= 2) {
+      lastUrlQuery.current = key;
+      setScope(s);
+      runSearch(q!, s);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchString]);
