@@ -1711,13 +1711,14 @@ function HeatStrip({
         heat[i] = Math.max(heat[i], 0.85 * (1 - Math.abs(d) / 3));
       }
     }
-    const color = (v: number) => {
-      if (v <= 0.02) return "rgba(24,24,27,0)";
-      // cold teal -> amber -> hot orange-red as intensity rises
-      const hue = 190 - 165 * Math.min(1, v);
-      const sat = 60 + 35 * v;
-      const light = 30 + 25 * v;
-      return `hsla(${hue.toFixed(0)},${sat.toFixed(0)}%,${light.toFixed(0)}%,${(0.25 + 0.7 * v).toFixed(2)})`;
+    const color = (raw: number) => {
+      // Baseline "cold" floor so quiet stretches read as deep blue instead of
+      // empty black — the whole strip is part of the heat field.
+      const v = Math.max(0.06, Math.min(1, raw));
+      const hue = 225 - 200 * v; // deep blue -> teal -> green -> amber -> red
+      const sat = 55 + 40 * v;
+      const light = 16 + 38 * v;
+      return `hsl(${hue.toFixed(0)},${sat.toFixed(0)}%,${light.toFixed(0)}%)`;
     };
     const stops = heat.map((v, i) => `${color(v)} ${((i / (N - 1)) * 100).toFixed(2)}%`);
     return `linear-gradient(to right, ${stops.join(",")})`;
@@ -1774,7 +1775,7 @@ function HeatStrip({
         ))}
       </div>
       <div className="flex gap-4 mt-1 text-[10px] text-zinc-500">
-        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, hsla(190,60%,30%,0.3), hsla(100,75%,42%,0.6), hsla(25,95%,55%,0.95))" }} /> heat = AI clip strength &amp; key moments</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, hsl(213,57%,18%), hsl(125,75%,35%), hsl(25,95%,54%))" }} /> cold → hot = AI clip strength &amp; key moments</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-green-500 rounded-sm" /> Select</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-red-500 rounded-sm" /> Reject</span>
         <span className="ml-auto text-zinc-600">right-click anywhere to find similar moments</span>
