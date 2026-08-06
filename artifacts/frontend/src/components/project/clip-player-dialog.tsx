@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Expand, RotateCcw } from "lucide-react";
+import { Expand, ExternalLink, RotateCcw } from "lucide-react";
+import { Link } from "wouter";
 import { fmtTC } from "./trim-player";
 
 export type PlayerClip = {
@@ -88,6 +89,11 @@ export function ClipPlayerDialog({ clip, onClose }: { clip: PlayerClip | null; o
                 {clip.filename ? <span className="ml-2">{clip.filename}</span> : null}
               </span>
               <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" variant="outline" asChild data-testid="button-open-asset">
+                  <Link href={`/library/${clip.media_id}?t=${Math.floor(clip.start_time)}`} onClick={onClose}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open asset
+                  </Link>
+                </Button>
                 <Button size="sm" variant="outline" onClick={replay}>
                   <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Replay
                 </Button>
