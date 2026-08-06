@@ -835,7 +835,36 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 q for q in (plan.get("searches") or [])
                 if isinstance(q, str) and q.strip()
             ][:3]
-            if a_searches and media_ids:
+            # Identified-people stats: questions like "how long does X speak?"
+            # must be answered from diarization totals, not by summing the
+            # clips currently in the cut.
+            people_lines: list[str] = []
+            if media_ids:
+                try:
+                    from sqlalchemy import text as _sqltext
+                    prows = (await db.execute(
+                        _sqltext("""
+                            SELECT p.display_name,
+                                   COALESCE(SUM(pa.speaking_seconds), 0) AS secs,
+                                   COUNT(DISTINCT pa.media_id) AS assets
+                            FROM person_appearances pa
+                            JOIN people p ON p.id = pa.person_id
+                            WHERE pa.media_id = ANY(:mids)
+                            GROUP BY p.display_name
+                            ORDER BY secs DESC
+                            LIMIT 20
+                        """),
+                        {"mids": list(media_ids)},
+                    )).fetchall()
+                    for nm, secs, n_assets in prows:
+                        s = int(secs or 0)
+                        people_lines.append(
+                            f"- {nm}: {s // 60}m {s % 60}s total speaking time "
+                            f"across {n_assets} file(s)"
+                        )
+                except Exception:
+                    logger.exception("people stats lookup failed — answering without them")
+            if media_ids and (a_searches or people_lines):
                 found: list[dict] = []
                 seen: set[tuple] = set()
                 for q in a_searches:
@@ -844,13 +873,22 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                         if key not in seen and c.get("snippet"):
                             seen.add(key)
                             found.append(c)
-                try:
-                    vis_lines = await _visual_research(a_searches, media_ids, db)
-                except Exception:
-                    logger.exception("visual research failed — answering from transcripts only")
-                    vis_lines = []
-                if found or vis_lines:
+                vis_lines = []
+                if a_searches:
+                    try:
+                        vis_lines = await _visual_research(a_searches, media_ids, db)
+                    except Exception:
+                        logger.exception("visual research failed — answering from transcripts only")
+                        vis_lines = []
+                if found or vis_lines or people_lines:
                     sections = []
+                    if people_lines:
+                        sections.append(
+                            "IDENTIFIED PEOPLE in the media pool (diarization "
+                            "totals for the WHOLE footage — use these for any "
+                            "question about how long someone speaks; never sum "
+                            "cut clips for that):\n" + "\n".join(people_lines)
+                        )
                     if found:
                         lines = "\n".join(
                             "- [{}] {}".format(
