@@ -2077,6 +2077,80 @@ function AssetStudioSection({ mediaId, onSeek }: { mediaId: string; onSeek?: (t:
   return <StudioTab project={project} onSeekSource={onSeek} />;
 }
 
+type SpriteMeta = {
+  interval: number;
+  tile_width: number;
+  tile_height: number;
+  cols: number;
+  rows: number;
+  count: number;
+};
+
+function SpriteScrubber({ spriteUrl, meta, duration, seekTo }: {
+  spriteUrl: string;
+  meta: SpriteMeta;
+  duration: number;
+  seekTo: (t: number) => void;
+}) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ x: number; t: number } | null>(null);
+
+  const PREVIEW_W = 160;
+  const scale = PREVIEW_W / meta.tile_width;
+  const previewH = Math.round(meta.tile_height * scale);
+  const idx = hover ? Math.min(meta.count - 1, Math.max(0, Math.floor(hover.t / meta.interval))) : 0;
+  const bgX = -(idx % meta.cols) * meta.tile_width * scale;
+  const bgY = -Math.floor(idx / meta.cols) * meta.tile_height * scale;
+
+  const timeAt = (clientX: number) => {
+    const rect = barRef.current!.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    return { x: clientX - rect.left, t: frac * duration };
+  };
+
+  return (
+    <div className="relative px-3 py-1.5" data-testid="sprite-scrubber">
+      {hover && (
+        <div
+          className="absolute bottom-full mb-1 z-20 pointer-events-none rounded border border-border shadow-lg overflow-hidden bg-black"
+          style={{
+            left: Math.min(Math.max(hover.x - PREVIEW_W / 2 + 12, 0), (barRef.current?.clientWidth ?? 0) - PREVIEW_W + 24),
+            width: PREVIEW_W,
+          }}
+        >
+          <div
+            style={{
+              width: PREVIEW_W,
+              height: previewH,
+              backgroundImage: `url(/api/thumbnails/${spriteUrl})`,
+              backgroundPosition: `${bgX}px ${bgY}px`,
+              backgroundSize: `${meta.cols * meta.tile_width * scale}px ${meta.rows * meta.tile_height * scale}px`,
+            }}
+          />
+          <div className="text-center text-[10px] font-mono text-white bg-black/80 py-0.5">
+            {formatTimecode(hover.t)}
+          </div>
+        </div>
+      )}
+      <div
+        ref={barRef}
+        className="h-3 rounded-full bg-muted/60 hover:bg-muted cursor-pointer relative"
+        onMouseMove={(e) => setHover(timeAt(e.clientX))}
+        onMouseLeave={() => setHover(null)}
+        onClick={(e) => seekTo(timeAt(e.clientX).t)}
+        title="Hover to preview, click to jump"
+      >
+        {hover && (
+          <div
+            className="absolute top-0 bottom-0 w-0.5 bg-primary rounded"
+            style={{ left: hover.x }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AssetSearchTab({ mediaId, seekTo }: { mediaId: string; seekTo: (t: number) => void }) {
   const [q, setQ] = useState("");
   const [scope, setScope] = useState<"combined" | "transcript" | "visual">("combined");
