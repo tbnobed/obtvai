@@ -5,9 +5,6 @@ import {
   useRefreshLibraryInsights,
   useUpdatePerson,
   useCreateProject,
-  useGetTrends,
-  getGetTrendsQueryKey,
-  useRefreshTrends,
   useGetKeywordHeatmap,
   getGetKeywordHeatmapQueryKey,
 } from "@workspace/api-client-react";
@@ -32,10 +29,6 @@ import {
   Pencil,
   Check,
   X,
-  TrendingUp,
-  Youtube,
-  Newspaper,
-  ExternalLink,
   Flame,
 } from "lucide-react";
 import { formatHours } from "@/lib/format";
@@ -46,9 +39,6 @@ const personHref = (id: string, name: string) =>
   `/library?person=${encodeURIComponent(id)}&person_name=${encodeURIComponent(name)}`;
 const topicHref = (key: string, label: string) =>
   `/library?topic=${encodeURIComponent(key)}&topic_label=${encodeURIComponent(label)}`;
-
-const formatViews = (n: number) =>
-  new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 
 const monthLabel = (ym: string) => {
   const [y, m] = ym.split("-");
@@ -124,10 +114,6 @@ export default function Insights() {
   const refresh = useRefreshLibraryInsights();
   const updatePerson = useUpdatePerson();
   const createProject = useCreateProject();
-  const { data: trends } = useGetTrends({
-    query: { queryKey: getGetTrendsQueryKey() },
-  });
-  const refreshTrends = useRefreshTrends();
   const { data: heatmap } = useGetKeywordHeatmap(undefined, {
     query: { queryKey: getGetKeywordHeatmapQueryKey() },
   });
@@ -141,16 +127,6 @@ export default function Insights() {
       onSuccess: () => {
         setTimeout(() => {
           queryClient.invalidateQueries({ queryKey: getGetLibraryInsightsQueryKey() });
-        }, 8000);
-      },
-    });
-  };
-
-  const handleTrendsRefresh = () => {
-    refreshTrends.mutate(undefined as never, {
-      onSuccess: () => {
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: getGetTrendsQueryKey() });
         }, 8000);
       },
     });
@@ -484,135 +460,6 @@ export default function Insights() {
               )}
             </div>
 
-            {/* Trending Now */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  <h2 className="text-xl font-semibold tracking-tight">Trending Now</h2>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="gap-1.5 text-xs h-8 bg-card/40 hover:bg-card border border-border/50"
-                  disabled={refreshTrends.isPending}
-                  onClick={handleTrendsRefresh}
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${refreshTrends.isPending ? "animate-spin" : ""}`} />
-                  {refreshTrends.isPending ? "Queued..." : "Refresh"}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mb-5">
-                {trends?.fetched_at
-                  ? `External trend data fetched ${new Date(trends.fetched_at).toLocaleString()} · keywords only, nothing leaves the library`
-                  : "No trend data yet — refreshes automatically every 3 hours."}
-              </p>
-              
-              <div className="space-y-6">
-                <div className="border border-border bg-card/40 rounded-xl p-5 shadow-sm hover:bg-card/60 transition-colors">
-                  <h3 className="text-sm font-semibold mb-5 flex items-center gap-2">
-                    <Youtube className="h-4 w-4 text-red-500" />
-                    Your Topics on YouTube
-                  </h3>
-                  {!trends?.youtube_configured ? (
-                    <p className="text-sm text-muted-foreground">
-                      Not configured — set YOUTUBE_API_KEY to search recent videos for your topics.
-                    </p>
-                  ) : trends?.youtube?.length ? (
-                    <div className="space-y-4">
-                      {trends.youtube.slice(0, 8).map((v) => (
-                        <div key={`${v.rank}-${v.title}`} className="text-sm">
-                          <div className="flex items-start gap-3">
-                            <div className="flex flex-col items-center justify-center bg-background/50 rounded-lg w-10 h-10 border border-border/50 shrink-0">
-                              <span className="text-[9px] text-muted-foreground uppercase leading-none mb-0.5">Rank</span>
-                              <span className="text-sm font-bold text-foreground leading-none">#{v.rank}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              {v.url ? (
-                                <a
-                                  href={v.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="font-medium text-foreground/90 hover:text-primary inline-flex items-start gap-1.5 transition-colors"
-                                >
-                                  <span className="line-clamp-2">{v.title}</span>
-                                  <ExternalLink className="h-3 w-3 flex-shrink-0 mt-1 text-muted-foreground" />
-                                </a>
-                              ) : (
-                                <span className="font-medium text-foreground/90 line-clamp-2">{v.title}</span>
-                              )}
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {v.channel}
-                                {v.views != null && <> · <span className="font-medium">{formatViews(v.views)} views</span></>}
-                              </p>
-                              {v.matched_topics.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                  {v.matched_topics.map((t) => (
-                                    <Link key={t.key} href={topicHref(t.key, t.topic)}>
-                                      <Badge variant="outline" className="text-[10px] cursor-pointer hover:border-primary bg-background/50">
-                                        {t.topic}
-                                        <span className="ml-1.5 text-muted-foreground">{t.asset_count}</span>
-                                      </Badge>
-                                    </Link>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No recent videos found for your library topics yet.
-                    </p>
-                  )}
-                </div>
-
-                <div className="border border-border bg-card/40 rounded-xl p-5 shadow-sm hover:bg-card/60 transition-colors">
-                  <h3 className="text-sm font-semibold mb-5 flex items-center gap-2">
-                    <Newspaper className="h-4 w-4 text-blue-500" />
-                    Your Topics in the News
-                  </h3>
-                  {!trends?.web_configured ? (
-                    <p className="text-sm text-muted-foreground">
-                      Not configured — start the SearXNG container to track news momentum.
-                    </p>
-                  ) : trends?.web?.length ? (
-                    <div className="space-y-5">
-                      {trends.web.slice(0, 8).map((w) => (
-                        <div key={w.key} className="text-sm">
-                          <div className="flex items-center justify-between gap-3">
-                            <Link href={topicHref(w.key, w.topic)}>
-                              <span className="font-semibold text-foreground/90 cursor-pointer hover:text-primary transition-colors text-sm">{w.topic}</span>
-                            </Link>
-                            <Badge variant="secondary" className="text-[10px] bg-background/50 text-muted-foreground shrink-0">
-                              {w.result_count} {w.result_count === 1 ? "story" : "stories"} · {w.asset_count} {w.asset_count === 1 ? "asset" : "assets"}
-                            </Badge>
-                          </div>
-                          {w.headlines.length > 0 && w.headlines[0].url && (
-                            <div className="mt-2.5 pl-3 border-l-2 border-primary/30">
-                              <a
-                                href={w.headlines[0].url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[13px] text-muted-foreground hover:text-primary line-clamp-2 transition-colors leading-snug"
-                              >
-                                {w.headlines[0].title}
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No news matches yet — refresh once topics have been extracted.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* ---- Right Column (Span 1) ---------------------------------- */}
