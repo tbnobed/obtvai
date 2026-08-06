@@ -71,7 +71,6 @@ _STATS = (
 ).subquery()
 
 
-@router.get("", response_model=PeoplePageOut)
 def _named_only_filter():
     """Real names only (enrolled, renamed, or auto-recognized). Hides
     placeholders: name_source NULL rows, plus auto rows where the "name"
@@ -82,6 +81,7 @@ def _named_only_filter():
     )
 
 
+@router.get("", response_model=PeoplePageOut)
 async def list_people(
     limit: int = Query(48, ge=1, le=200),
     offset: int = Query(0, ge=0),

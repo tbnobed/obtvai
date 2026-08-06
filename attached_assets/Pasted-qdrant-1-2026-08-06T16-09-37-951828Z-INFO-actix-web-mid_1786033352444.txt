@@ -1,0 +1,286 @@
+qdrant-1           | 2026-08-06T16:09:37.951828Z  INFO actix_web::middleware::logger: 172.18.0.9 "GET /collections/scenes HTTP/1.1" 200 444 "-" "python-httpx/0.28.1" 0.000098  
+api-1              | INFO:     127.0.0.1:56754 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1              | INFO:     172.18.0.13:36004 - "GET /api/people?limit=120&offset=0&sort=appearances&named_only=true HTTP/1.1" 500 Internal Server Error
+api-1              | ERROR:    Exception in ASGI application
+api-1              |   + Exception Group Traceback (most recent call last):
+api-1              |   |   File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 76, in collapse_excgroups
+api-1              |   |     yield
+api-1              |   |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 186, in __call__
+api-1              |   |     async with anyio.create_task_group() as task_group:
+api-1              |   |   File "/usr/local/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 815, in __aexit__
+api-1              |   |     raise BaseExceptionGroup(
+api-1              |   | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+api-1              |   +-+---------------- 1 ----------------
+api-1              |     | Traceback (most recent call last):
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+api-1              |     |     result = await app(  # type: ignore[func-returns-value]
+api-1              |     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+api-1              |     |     return await self.app(scope, receive, send)
+api-1              |     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+api-1              |     |     await super().__call__(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+api-1              |     |     await self.middleware_stack(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
+api-1              |     |     await self.app(scope, receive, _send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 185, in __call__
+api-1              |     |     with collapse_excgroups():
+api-1              |     |   File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+api-1              |     |     self.gen.throw(typ, value, traceback)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 187, in __call__
+api-1              |     |     response = await self.dispatch_func(request, call_next)
+api-1              |     |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/app/app/auth.py", line 166, in auth_middleware
+api-1              |     |     response = await call_next(request)
+api-1              |     |                ^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 163, in call_next
+api-1              |     |     raise app_exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+api-1              |     |     await self.app(scope, receive_or_disconnect, send_no_error)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 85, in __call__
+api-1              |     |     await self.app(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+api-1              |     |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     |     await app(scope, receive, sender)
+frontend-1         | 192.168.200.193 - - [06/Aug/2026:16:22:21 +0000] "GET /api/people?limit=120&offset=0&sort=appearances&named_only=true HTTP/1.1" 500 21 "https://ai.obtv.io/people" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
+api-1              |     |     await self.middleware_stack(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
+api-1              |     |     await route.handle(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+api-1              |     |     await self.app(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+api-1              |     |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     |     await app(scope, receive, sender)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+api-1              |     |     response = await f(request)
+api-1              |     |                ^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 327, in app
+api-1              |     |     content = await serialize_response(
+api-1              |     |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 176, in serialize_response
+api-1              |     |     raise ResponseValidationError(
+api-1              |     | fastapi.exceptions.ResponseValidationError: 2 validation errors:
+api-1              |     |   {'type': 'missing', 'loc': ('response', 'items'), 'msg': 'Field required', 'input': <sqlalchemy.sql.elements.BooleanClauseList object at 0x7819ff58f890>}
+api-1              |     |   {'type': 'missing', 'loc': ('response', 'total'), 'msg': 'Field required', 'input': <sqlalchemy.sql.elements.BooleanClauseList object at 0x7819ff58f890>}
+api-1              |     |
+api-1              |     +------------------------------------
+api-1              |
+api-1              | During handling of the above exception, another exception occurred:
+api-1              |
+api-1              | Traceback (most recent call last):
+api-1              |   File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+api-1              |     result = await app(  # type: ignore[func-returns-value]
+api-1              |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+api-1              |     return await self.app(scope, receive, send)
+api-1              |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+api-1              |     await super().__call__(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+api-1              |     await self.middleware_stack(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
+api-1              |     await self.app(scope, receive, _send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 185, in __call__
+api-1              |     with collapse_excgroups():
+api-1              |   File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+api-1              |     self.gen.throw(typ, value, traceback)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 187, in __call__
+api-1              |     response = await self.dispatch_func(request, call_next)
+api-1              |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/app/app/auth.py", line 166, in auth_middleware
+api-1              |     response = await call_next(request)
+api-1              |                ^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 163, in call_next
+api-1              |     raise app_exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+api-1              |     await self.app(scope, receive_or_disconnect, send_no_error)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 85, in __call__
+api-1              |     await self.app(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+api-1              |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     await app(scope, receive, sender)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
+api-1              |     await self.middleware_stack(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
+api-1              |     await route.handle(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+api-1              |     await self.app(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+api-1              |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     await app(scope, receive, sender)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+api-1              |     response = await f(request)
+api-1              |                ^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 327, in app
+api-1              |     content = await serialize_response(
+api-1              |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 176, in serialize_response
+api-1              |     raise ResponseValidationError(
+api-1              | fastapi.exceptions.ResponseValidationError: 2 validation errors:
+api-1              |   {'type': 'missing', 'loc': ('response', 'items'), 'msg': 'Field required', 'input': <sqlalchemy.sql.elements.BooleanClauseList object at 0x7819ff58f890>}
+api-1              |   {'type': 'missing', 'loc': ('response', 'total'), 'msg': 'Field required', 'input': <sqlalchemy.sql.elements.BooleanClauseList object at 0x7819ff58f890>}
+api-1              |
+api-1              | INFO:     172.18.0.13:36020 - "GET /api/people?limit=120&offset=0&sort=appearances&named_only=true HTTP/1.1" 500 Internal Server Error
+api-1              | ERROR:    Exception in ASGI application
+api-1              |   + Exception Group Traceback (most recent call last):
+api-1              |   |   File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 76, in collapse_excgroups
+api-1              |   |     yield
+api-1              |   |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 186, in __call__
+api-1              |   |     async with anyio.create_task_group() as task_group:
+api-1              |   |   File "/usr/local/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 815, in __aexit__
+api-1              |   |     raise BaseExceptionGroup(
+api-1              |   | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+api-1              |   +-+---------------- 1 ----------------
+api-1              |     | Traceback (most recent call last):
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+api-1              |     |     result = await app(  # type: ignore[func-returns-value]
+api-1              |     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+api-1              |     |     return await self.app(scope, receive, send)
+api-1              |     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+api-1              |     |     await super().__call__(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+api-1              |     |     await self.middleware_stack(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
+api-1              |     |     await self.app(scope, receive, _send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 185, in __call__
+api-1              |     |     with collapse_excgroups():
+api-1              |     |   File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+api-1              |     |     self.gen.throw(typ, value, traceback)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 187, in __call__
+api-1              |     |     response = await self.dispatch_func(request, call_next)
+api-1              |     |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/app/app/auth.py", line 166, in auth_middleware
+api-1              |     |     response = await call_next(request)
+api-1              |     |                ^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 163, in call_next
+api-1              |     |     raise app_exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+api-1              |     |     await self.app(scope, receive_or_disconnect, send_no_error)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 85, in __call__
+api-1              |     |     await self.app(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+api-1              |     |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     |     await app(scope, receive, sender)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
+api-1              |     |     await self.middleware_stack(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
+api-1              |     |     await route.handle(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+api-1              |     |     await self.app(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+api-1              |     |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     |     await app(scope, receive, sender)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+api-1              |     |     response = await f(request)
+api-1              |     |                ^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 327, in app
+api-1              |     |     content = await serialize_response(
+api-1              |     |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 176, in serialize_response
+api-1              |     |     raise ResponseValidationError(
+api-1              |     | fastapi.exceptions.ResponseValidationError: 2 validation errors:
+api-1              |     |   {'type': 'missing', 'loc': ('response', 'items'), 'msg': 'Field required', 'input': <sqlalchemy.sql.elements.BooleanClauseList object at 0x7819ff5b0650>}
+api-1              |     |   {'type': 'missing', 'loc': ('response', 'total'), 'msg': 'Field required', 'input': <sqlalchemy.sql.elements.BooleanClauseList object at 0x7819ff5b0650>}
+api-1              |     |
+api-1              |     +------------------------------------
+api-1              |
+api-1              | During handling of the above exception, another exception occurred:
+api-1              |
+api-1              | Traceback (most recent call last):
+api-1              |   File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+api-1              |     result = await app(  # type: ignore[func-returns-value]
+api-1              |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+api-1              |     return await self.app(scope, receive, send)
+api-1              |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+api-1              |     await super().__call__(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+api-1              |     await self.middleware_stack(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
+api-1              |     await self.app(scope, receive, _send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 185, in __call__
+api-1              |     with collapse_excgroups():
+api-1              |   File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+api-1              |     self.gen.throw(typ, value, traceback)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 187, in __call__
+api-1              |     response = await self.dispatch_func(request, call_next)
+api-1              |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/app/app/auth.py", line 166, in auth_middleware
+api-1              |     response = await call_next(request)
+api-1              |                ^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 163, in call_next
+api-1              |     raise app_exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+api-1              |     await self.app(scope, receive_or_disconnect, send_no_error)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 85, in __call__
+api-1              |     await self.app(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+api-1              |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     await app(scope, receive, sender)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
+api-1              |     await self.middleware_stack(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
+api-1              |     await route.handle(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+api-1              |     await self.app(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+api-1              |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     await app(scope, receive, sender)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+api-1              |     response = await f(request)
+api-1              |                ^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 327, in app
+api-1              |     content = await serialize_response(
+api-1              |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 176, in serialize_response
+api-1              |     raise ResponseValidationError(
+api-1              | fastapi.exceptions.ResponseValidationError: 2 validation errors:
+api-1              |   {'type': 'missing', 'loc': ('response', 'items'), 'msg': 'Field required', 'input': <sqlalchemy.sql.elements.BooleanClauseList object at 0x7819ff5b0650>}
+api-1              |   {'type': 'missing', 'loc': ('response', 'total'), 'msg': 'Field required', 'input': <sqlalchemy.sql.elements.BooleanClauseList object at 0x7819ff5b0650>}
+api-1              |
+frontend-1         | 192.168.200.193 - - [06/Aug/2026:16:22:22 +0000] "GET /api/people?limit=120&offset=0&sort=appearances&named
