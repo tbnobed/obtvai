@@ -1126,29 +1126,35 @@ export default function AssetDetail() {
                   </Button>
                   {dubAvailable ? (
                     <>
-                      <Button
-                        size="sm"
-                        variant={dubOn ? "default" : "outline"}
-                        className="w-full gap-2"
-                        onClick={toggleDub}
-                      >
-                        <Volume2 className="h-4 w-4" />
-                        {dubOn ? "Dubbed version playing — click for original" : "Play dubbed version"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full gap-2 mt-1.5"
-                        asChild
-                        data-testid="button-download-dub-audio"
-                      >
-                        <a href={`/api/media/${id}/dub/${transcriptLang}/stream?download=true`} download>
-                          <Download className="h-4 w-4" />
-                          Download audio only (
-                          {TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()}
-                          {" "}dub, M4A)
-                        </a>
-                      </Button>
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant={dubOn ? "default" : "outline"}
+                          className="flex-1 min-w-0 gap-2"
+                          onClick={toggleDub}
+                        >
+                          <Volume2 className="h-4 w-4 shrink-0" />
+                          <span className="truncate">
+                            {dubOn ? "Dubbed version playing — click for original" : "Play dubbed version"}
+                          </span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 min-w-0 gap-2"
+                          asChild
+                          data-testid="button-download-dub-audio"
+                        >
+                          <a href={`/api/media/${id}/dub/${transcriptLang}/stream?download=true`} download>
+                            <Download className="h-4 w-4 shrink-0" />
+                            <span className="truncate">
+                              Download audio only (
+                              {TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()}
+                              {" "}dub, M4A)
+                            </span>
+                          </a>
+                        </Button>
+                      </div>
                       <Button
                         size="sm"
                         variant="ghost"
