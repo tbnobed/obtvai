@@ -1,3 +1,4 @@
+import re
 import time
 import uuid
 from datetime import datetime
@@ -75,13 +76,20 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
     t0 = time.time()
     results: list[SearchResultOut] = []
 
+    # Quoted queries ("israeli flag") mean the exact phrase: transcript
+    # matching becomes a literal substring search, and the visual query is
+    # embedded without the quote marks.
+    phrase_m = re.match(r'^\s*["“\']\s*(.+?)\s*["”\']\s*$', body.query or "")
+    exact_phrase = phrase_m.group(1) if phrase_m else None
+    query_text = exact_phrase or body.query
+
     # Person-identity search: CLIP/SigLIP embeds the query as generic visual
     # concepts — it has no idea who a specific named person is. Identities live
     # in the People system, so when the query names a known person, surface
     # their identified appearances directly instead of relying on the vision
     # model to guess from pixels.
     person_media_ids: set[str] = set()
-    q_norm = body.query.strip().lower()
+    q_norm = query_text.strip().lower()
     if q_norm:
         people_q = await db.execute(select(Person))
         matched = [
@@ -136,9 +144,29 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
         from ..services.embedding import get_text_embedding, get_clip_text_embedding
         from ..services.qdrant_client import search_vectors
 
-        query_embedding = await get_text_embedding(body.query)
+        query_embedding = await get_text_embedding(query_text)
 
-        if body.search_type in ("transcript", "combined"):
+        if exact_phrase and body.search_type in ("transcript", "combined"):
+            q = select(TranscriptSegment, MediaAsset).join(
+                MediaAsset, TranscriptSegment.media_id == MediaAsset.id
+            ).where(TranscriptSegment.text.ilike(f"%{exact_phrase}%"))
+            if body.media_id:
+                q = q.where(TranscriptSegment.media_id == body.media_id)
+            elif body.media_ids:
+                q = q.where(TranscriptSegment.media_id.in_(body.media_ids))
+            q = q.order_by(MediaAsset.filename, TranscriptSegment.start_time).limit(body.limit)
+            for seg, asset in (await db.execute(q)).all():
+                results.append(SearchResultOut(
+                    media_id=asset.id,
+                    filename=asset.filename,
+                    thumbnail_url=asset.thumbnail_url,
+                    start_time=seg.start_time,
+                    end_time=seg.end_time,
+                    score=1.0,
+                    match_type="transcript",
+                    snippet=seg.text,
+                ))
+        elif body.search_type in ("transcript", "combined"):
             transcript_hits = await search_vectors(
                 collection="transcripts",
                 vector=query_embedding,
@@ -171,7 +199,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
             # Visual search must query in CLIP space, not sentence-transformer space.
             # CLIP was trained on captioned photos — "a photo of a watch" retrieves
             # far better than the bare word "watch".
-            clip_query_embedding = await get_clip_text_embedding(f"a photo of {body.query}")
+            clip_query_embedding = await get_clip_text_embedding(f"a photo of {query_text}")
             # Fetch well past the requested limit: broadcast footage is full of
             # near-duplicate scenes (e.g. 20 shots of the same flags), and a
             # shallow fetch lets one asset crowd every other match out of the
