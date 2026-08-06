@@ -2715,6 +2715,10 @@ sort?: ListPeopleSort;
  * Only include people with a detected face — hides voice-only speakers (e.g. off-camera crew picked up by diarization)
  */
 faces_only?: boolean;
+/**
+ * Only include people with a real name (enrolled, renamed, or auto-recognized) — hides "Person N" / speaker-label placeholders
+ */
+named_only?: boolean;
 };
 
 export type ListPeopleSort = typeof ListPeopleSort[keyof typeof ListPeopleSort];

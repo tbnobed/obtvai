@@ -78,6 +78,7 @@ async def list_people(
     q: str | None = Query(None),
     sort: str = Query("appearances", pattern="^(appearances|name)$"),
     faces_only: bool | None = Query(None),
+    named_only: bool | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     count_stmt = select(func.count(Person.id))
@@ -100,6 +101,11 @@ async def list_people(
         )
         count_stmt = count_stmt.where(face_filter)
         stmt = stmt.where(face_filter)
+    if named_only:
+        # Real names only (enrolled, renamed, or auto-recognized) — hides
+        # "Person N" / raw speaker-label placeholders, whose name_source is NULL.
+        count_stmt = count_stmt.where(Person.name_source.isnot(None))
+        stmt = stmt.where(Person.name_source.isnot(None))
     if q and q.strip():
         needle = f"%{q.strip()}%"
         count_stmt = count_stmt.where(Person.display_name.ilike(needle))

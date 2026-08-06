@@ -25,6 +25,7 @@ import {
   Search,
   ArrowDownAZ,
   TrendingUp,
+  BadgeCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,18 @@ export default function People() {
     () => localStorage.getItem("people-faces-only") !== "false"
   );
   
+  const [namedOnly, setNamedOnly] = useState<boolean>(
+    () => localStorage.getItem("people-named-only") === "true"
+  );
+
+  const toggleNamedOnly = () => {
+    setNamedOnly((v) => {
+      localStorage.setItem("people-named-only", String(!v));
+      return !v;
+    });
+    setPage(0);
+  };
+
   const toggleFacesOnly = () => {
     setFacesOnly((v) => {
       localStorage.setItem("people-faces-only", String(!v));
@@ -104,6 +117,7 @@ export default function People() {
     ...(query ? { q: query } : {}),
     sort,
     ...(facesOnly ? { faces_only: true } : {}),
+    ...(namedOnly ? { named_only: true } : {}),
   });
   
   const people = data?.items;
@@ -290,6 +304,20 @@ export default function People() {
                 >
                   {facesOnly ? <ScanFace className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                   {facesOnly ? "Faces only" : "All speakers"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={namedOnly ? "secondary" : "outline"}
+                  className={`h-10 rounded-full px-4 gap-2 shadow-sm transition-colors ${
+                    namedOnly
+                      ? "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
+                      : "bg-card/50 border-border/50 hover:bg-card"
+                  }`}
+                  onClick={toggleNamedOnly}
+                  title={namedOnly ? 'Showing only identified people — click to include "Person N" and speaker placeholders' : 'Including unidentified "Person N" / SPEAKER_X placeholders — click to show identified people only'}
+                >
+                  <BadgeCheck className="h-4 w-4" />
+                  {namedOnly ? "Identified only" : "Everyone"}
                 </Button>
               </>
             )}

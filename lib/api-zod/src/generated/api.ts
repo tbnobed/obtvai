@@ -1226,7 +1226,8 @@ export const ListPeopleQueryParams = zod.object({
   "offset": zod.coerce.number().min(listPeopleQueryOffsetMin).default(listPeopleQueryOffsetDefault),
   "q": zod.coerce.string().optional().describe('Case-insensitive name search'),
   "sort": zod.enum(['appearances', 'name']).default(listPeopleQuerySortDefault).describe('Sort order — most-seen first (default) or name A-Z'),
-  "faces_only": zod.coerce.boolean().optional().describe('Only include people with a detected face — hides voice-only speakers (e.g. off-camera crew picked up by diarization)')
+  "faces_only": zod.coerce.boolean().optional().describe('Only include people with a detected face — hides voice-only speakers (e.g. off-camera crew picked up by diarization)'),
+  "named_only": zod.coerce.boolean().optional().describe('Only include people with a real name (enrolled, renamed, or auto-recognized) — hides \"Person N\" \/ speaker-label placeholders')
 })
 
 export const ListPeopleResponse = zod.object({
