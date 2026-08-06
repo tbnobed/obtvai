@@ -79,7 +79,7 @@ function ChatMarkdown({ text, onSeek }: { text: string; onSeek?: (t: number) => 
       return <Tag>{onSeek ? linkifyTimecodes(children, onSeek) : children}</Tag>;
     };
   return (
-    <div className="min-w-0 overflow-x-auto text-sm leading-relaxed space-y-2 [&_p]:my-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5 [&_strong]:font-semibold [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_code]:rounded [&_code]:bg-black/30 [&_code]:px-1 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_td]:align-top">
+    <div className="min-w-0 break-words text-sm leading-relaxed space-y-2 [&_table]:block [&_table]:overflow-x-auto [&_p]:my-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5 [&_strong]:font-semibold [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_code]:rounded [&_code]:bg-black/30 [&_code]:px-1 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_td]:align-top">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={onSeek ? { p: wrap("p"), li: wrap("li"), td: wrap("td"), th: wrap("th") } : undefined}
