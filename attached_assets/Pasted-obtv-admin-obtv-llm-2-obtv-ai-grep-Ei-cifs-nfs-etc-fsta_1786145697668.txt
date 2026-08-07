@@ -1,0 +1,55 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ grep -Ei "cifs|nfs" /etc/fstab
+systemctl list-units --type=mount --type=automount | grep -iv snap
+192.168.101.1:/data/captionforge /data/captionforge nfs defaults,_netdev,nofail,x-systemd.automount,x-systemd.requires=network-online.target 0 0
+//10.63.13.101/ipv/Workflows/AI /mnt/ipv-ai cifs credentials=/root/.smb-ipv,ro,vers=3.0,iocharset=utf8,_netdev,nofail 0 0
+//10.81.100.220/ipv/Curator/TUST-PROD/Proxies/WebProxy /mnt/curator_test cifs credentials=/root/.smb-ipv,ro,vers=3.0,iocharset=utf8,_netdev,nofail 0 0
+  UNIT                                                                                                   LOAD   ACTIVE SUB     DESCRIPTION
+  data-captionforge.automount                                                                            loaded active running data-captionforge.automount
+  proc-sys-fs-binfmt_misc.automount                                                                      loaded active running Arbitrary Executable File Formats File System Automount Point
+  -.mount                                                                                                loaded active mounted Root Mount
+  boot-efi.mount                                                                                         loaded active mounted /boot/efi
+  data-captionforge.mount                                                                                loaded active mounted /data/captionforge
+  dev-hugepages.mount                                                                                    loaded active mounted Huge Pages File System
+  dev-mqueue.mount                                                                                       loaded active mounted POSIX Message Queue File System
+  mnt-curator_test.mount                                                                                 loaded active mounted /mnt/curator_test
+  mnt-ipv\x2dai.mount                                                                                    loaded active mounted /mnt/ipv-ai
+  proc-sys-fs-binfmt_misc.mount                                                                          loaded active mounted Arbitrary Executable File Formats File System
+  run-docker-netns-0f79d2ec794c.mount                                                                    loaded active mounted /run/docker/netns/0f79d2ec794c
+  run-docker-netns-102ee1726c20.mount                                                                    loaded active mounted /run/docker/netns/102ee1726c20
+  run-docker-netns-1d956fefa76b.mount                                                                    loaded active mounted /run/docker/netns/1d956fefa76b
+  run-docker-netns-22adbe8a17e1.mount                                                                    loaded active mounted /run/docker/netns/22adbe8a17e1
+  run-docker-netns-4becf0b654b1.mount                                                                    loaded active mounted /run/docker/netns/4becf0b654b1
+  run-docker-netns-579501b8f0bf.mount                                                                    loaded active mounted /run/docker/netns/579501b8f0bf
+  run-docker-netns-5f4e444e7219.mount                                                                    loaded active mounted /run/docker/netns/5f4e444e7219
+  run-docker-netns-634cf13af96b.mount                                                                    loaded active mounted /run/docker/netns/634cf13af96b
+  run-docker-netns-69abea8c84df.mount                                                                    loaded active mounted /run/docker/netns/69abea8c84df
+  run-docker-netns-b832ba1dea36.mount                                                                    loaded active mounted /run/docker/netns/b832ba1dea36
+  run-docker-netns-f0f5c264e61c.mount                                                                    loaded active mounted /run/docker/netns/f0f5c264e61c
+  run-docker-netns-f43c700840d6.mount                                                                    loaded active mounted /run/docker/netns/f43c700840d6
+  run-rpc_pipefs.mount                                                                                   loaded active mounted RPC Pipe File System
+  run-user-1000-doc.mount                                                                                loaded active mounted /run/user/1000/doc
+  run-user-1000-gvfs.mount                                                                               loaded active mounted /run/user/1000/gvfs
+  run-user-1000.mount                                                                                    loaded active mounted /run/user/1000
+  sys-fs-fuse-connections.mount                                                                          loaded active mounted FUSE Control File System
+  sys-kernel-config.mount                                                                                loaded active mounted Kernel Configuration File System
+  sys-kernel-debug.mount                                                                                 loaded active mounted Kernel Debug File System
+  sys-kernel-tracing.mount                                                                               loaded active mounted Kernel Trace File System
+  var-lib-docker-rootfs-overlayfs-0cad484e8bccd17752518ffe0e491bf3a7bbbc2f59d162b83dfbfd1ab1cf633c.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/0cad484e8bccd17752518ffe0e491bf3a7bbbc2f59d162b83dfbfd1ab1cf633c
+  var-lib-docker-rootfs-overlayfs-1a1b84f4c6177626b29fc7c5dbe570b1c1a3f14823eac3c1c442dc5ae906aef2.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/1a1b84f4c6177626b29fc7c5dbe570b1c1a3f14823eac3c1c442dc5ae906aef2
+  var-lib-docker-rootfs-overlayfs-1e36a304d94e84ddeedcbd311a6e432ba6110ad1ab34a91f5d8744053b4c037a.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/1e36a304d94e84ddeedcbd311a6e432ba6110ad1ab34a91f5d8744053b4c037a
+  var-lib-docker-rootfs-overlayfs-4789ffeab5bd8bbd0528e5748b6e4f5ffff43ada9a0509d75f9ca006ccff2560.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/4789ffeab5bd8bbd0528e5748b6e4f5ffff43ada9a0509d75f9ca006ccff2560
+  var-lib-docker-rootfs-overlayfs-4917890d4cccd2c1da63af68f6ea06993b0e1c41497bf6cc814a6db65ff703af.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/4917890d4cccd2c1da63af68f6ea06993b0e1c41497bf6cc814a6db65ff703af
+  var-lib-docker-rootfs-overlayfs-5de824d72222d4463ef23d308f16be42be1256030d542e618fca7c45200b7c3f.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/5de824d72222d4463ef23d308f16be42be1256030d542e618fca7c45200b7c3f
+  var-lib-docker-rootfs-overlayfs-6b7d89dd7f6cc68fca742896c4d241953f7ee7f05cdfe5c3c7a729859a087237.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/6b7d89dd7f6cc68fca742896c4d241953f7ee7f05cdfe5c3c7a729859a087237
+  var-lib-docker-rootfs-overlayfs-745348b7204060f3345a26cd4d23c936b7d91f1a33bcc2cdbc2571f49965af0c.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/745348b7204060f3345a26cd4d23c936b7d91f1a33bcc2cdbc2571f49965af0c
+  var-lib-docker-rootfs-overlayfs-8e436e5afbf2e127a11822674a2dbea390b57001bf7451a0f6a5e33362682fd3.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/8e436e5afbf2e127a11822674a2dbea390b57001bf7451a0f6a5e33362682fd3
+  var-lib-docker-rootfs-overlayfs-a60501fa166bb6af1e934549da7174e33bcdaa5b7742069b21e80c75857bbfa3.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/a60501fa166bb6af1e934549da7174e33bcdaa5b7742069b21e80c75857bbfa3
+  var-lib-docker-rootfs-overlayfs-c23844e1ba2a50934013e082d1f88170edcae426fd46745882e3bb78be4a84a0.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/c23844e1ba2a50934013e082d1f88170edcae426fd46745882e3bb78be4a84a0
+  var-lib-docker-rootfs-overlayfs-de68d7aca8ab00842f847665662af9f0c855b97722f2bd3222867cbdd86ef34c.mount loaded active mounted /var/lib/docker/rootfs/overlayfs/de68d7aca8ab00842f847665662af9f0c855b97722f2bd3222867cbdd86ef34c
+
+Legend: LOAD   → Reflects whether the unit definition was properly loaded.
+        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.
+        SUB    → The low-level unit activation state, values depend on unit type.
+
+66 loaded units listed. Pass --all to see loaded but inactive units, too.
+To show all installed unit files use 'systemctl list-unit-files'.
