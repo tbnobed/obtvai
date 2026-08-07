@@ -3086,6 +3086,40 @@ export const ListEmotionMomentsResponse = zod.object({
 
 
 /**
+ * @summary Aggregated sentiment & emotion picture of the whole library
+ */
+export const GetSentimentOverviewResponse = zod.object({
+  "scored_segments": zod.number(),
+  "total_segments": zod.number(),
+  "scored_assets": zod.number(),
+  "avg_sentiment": zod.number().nullish(),
+  "positive_count": zod.number(),
+  "neutral_count": zod.number(),
+  "negative_count": zod.number(),
+  "emotions": zod.array(zod.object({
+  "emotion": zod.string(),
+  "count": zod.number()
+})),
+  "top_positive": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "avg_sentiment": zod.number(),
+  "scored_segments": zod.number(),
+  "dominant_emotion": zod.string().nullish()
+})),
+  "top_negative": zod.array(zod.object({
+  "media_id": zod.string(),
+  "filename": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "avg_sentiment": zod.number(),
+  "scored_segments": zod.number(),
+  "dominant_emotion": zod.string().nullish()
+}))
+})
+
+
+/**
  * @summary Queue sentiment scoring for assets analyzed before sentiment existed
  */
 export const BackfillSentimentResponse = zod.object({

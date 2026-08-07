@@ -139,6 +139,7 @@ import type {
   SearchHistoryItem,
   SearchQuery,
   SearchResponse,
+  SentimentOverview,
   SessionUser,
   SimilarMomentQuery,
   SocialChannel,
@@ -8180,6 +8181,83 @@ export function useListEmotionMoments<TData = Awaited<ReturnType<typeof listEmot
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListEmotionMomentsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSentimentOverviewUrl = () => {
+
+
+
+
+  return `/api/search/sentiment/overview`
+}
+
+/**
+ * @summary Aggregated sentiment & emotion picture of the whole library
+ */
+export const getSentimentOverview = async ( options?: RequestInit): Promise<SentimentOverview> => {
+
+  return customFetch<SentimentOverview>(getGetSentimentOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSentimentOverviewQueryKey = () => {
+    return [
+    `/api/search/sentiment/overview`
+    ] as const;
+    }
+
+
+export const getGetSentimentOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getSentimentOverview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSentimentOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSentimentOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSentimentOverview>>> = ({ signal }) => getSentimentOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSentimentOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSentimentOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getSentimentOverview>>>
+export type GetSentimentOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Aggregated sentiment & emotion picture of the whole library
+ */
+
+export function useGetSentimentOverview<TData = Awaited<ReturnType<typeof getSentimentOverview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSentimentOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSentimentOverviewQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

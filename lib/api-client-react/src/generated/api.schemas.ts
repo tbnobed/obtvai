@@ -1579,6 +1579,31 @@ export interface EmotionMomentsPage {
   items: EmotionMoment[];
 }
 
+export interface SentimentAsset {
+  media_id: string;
+  filename: string;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  avg_sentiment: number;
+  scored_segments: number;
+  /** @nullable */
+  dominant_emotion?: string | null;
+}
+
+export interface SentimentOverview {
+  scored_segments: number;
+  total_segments: number;
+  scored_assets: number;
+  /** @nullable */
+  avg_sentiment?: number | null;
+  positive_count: number;
+  neutral_count: number;
+  negative_count: number;
+  emotions: EmotionFacet[];
+  top_positive: SentimentAsset[];
+  top_negative: SentimentAsset[];
+}
+
 export interface SavedSearch {
   id: string;
   name: string;

@@ -744,6 +744,28 @@ class EmotionMomentsOut(BaseModel):
     items: List[EmotionMomentOut]
 
 
+class SentimentAssetOut(BaseModel):
+    media_id: str
+    filename: str
+    thumbnail_url: Optional[str] = None
+    avg_sentiment: float
+    scored_segments: int
+    dominant_emotion: Optional[str] = None
+
+
+class SentimentOverviewOut(BaseModel):
+    scored_segments: int
+    total_segments: int
+    scored_assets: int
+    avg_sentiment: Optional[float] = None
+    positive_count: int
+    neutral_count: int
+    negative_count: int
+    emotions: List[EmotionFacetOut]
+    top_positive: List[SentimentAssetOut]
+    top_negative: List[SentimentAssetOut]
+
+
 class ReanalyzeOut(BaseModel):
     assets_queued: int
     jobs_created: int

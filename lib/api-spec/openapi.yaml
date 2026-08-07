@@ -2457,6 +2457,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/EmotionMomentsPage"
 
+  /search/sentiment/overview:
+    get:
+      operationId: getSentimentOverview
+      summary: Aggregated sentiment & emotion picture of the whole library
+      tags: [search]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SentimentOverview"
+
   /search/sentiment/backfill:
     post:
       operationId: backfillSentiment
@@ -5920,6 +5933,56 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EmotionMoment"
+
+    SentimentAsset:
+      type: object
+      required: [media_id, filename, avg_sentiment, scored_segments]
+      properties:
+        media_id:
+          type: string
+        filename:
+          type: string
+        thumbnail_url:
+          type: ["string", "null"]
+        avg_sentiment:
+          type: number
+        scored_segments:
+          type: integer
+        dominant_emotion:
+          type: ["string", "null"]
+
+    SentimentOverview:
+      type: object
+      required:
+        [scored_segments, total_segments, scored_assets, positive_count,
+         neutral_count, negative_count, emotions, top_positive, top_negative]
+      properties:
+        scored_segments:
+          type: integer
+        total_segments:
+          type: integer
+        scored_assets:
+          type: integer
+        avg_sentiment:
+          type: ["number", "null"]
+        positive_count:
+          type: integer
+        neutral_count:
+          type: integer
+        negative_count:
+          type: integer
+        emotions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmotionFacet"
+        top_positive:
+          type: array
+          items:
+            $ref: "#/components/schemas/SentimentAsset"
+        top_negative:
+          type: array
+          items:
+            $ref: "#/components/schemas/SentimentAsset"
 
     SavedSearch:
       type: object

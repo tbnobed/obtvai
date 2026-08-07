@@ -8,6 +8,8 @@ import {
   getListProjectsQueryKey,
   useGetJobStats,
   getGetJobStatsQueryKey,
+  useGetSentimentOverview,
+  getGetSentimentOverviewQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
@@ -24,7 +26,21 @@ import {
   Clapperboard,
   AlertTriangle,
   Users,
+  HeartPulse,
 } from "lucide-react";
+
+const EMOTION_COLORS: Record<string, string> = {
+  joy: "#facc15",
+  humor: "#fb923c",
+  excitement: "#f97316",
+  warmth: "#4ade80",
+  pride: "#34d399",
+  surprise: "#a78bfa",
+  sadness: "#60a5fa",
+  anger: "#f87171",
+  tension: "#ef4444",
+  fear: "#c084fc",
+};
 import { Button } from "@/components/ui/button";
 import { formatHours } from "@/lib/format";
 
@@ -101,6 +117,7 @@ export default function Dashboard() {
   const { data: insights } = useGetLibraryInsights({ query: { queryKey: getGetLibraryInsightsQueryKey() } });
   const { data: projects } = useListProjects({ query: { queryKey: getListProjectsQueryKey() } });
   const { data: jobStats } = useGetJobStats({ query: { queryKey: getGetJobStatsQueryKey(), refetchInterval: 15000 } });
+  const { data: mood } = useGetSentimentOverview({ query: { queryKey: getGetSentimentOverviewQueryKey() } });
   const [, navigate] = useLocation();
   const [quickQuery, setQuickQuery] = useState("");
   const [promptIdx, setPromptIdx] = useState(0);
@@ -141,6 +158,13 @@ export default function Dashboard() {
   const topPeople = (insights?.top_people ?? []).slice(0, 10);
   const maxSpeaking = topPeople.length > 0 ? Math.max(...topPeople.map((p) => p.speaking_seconds)) : 1;
   const totalTopSpeaking = topPeople.reduce((s, p) => s + p.speaking_seconds, 0);
+
+  const moodScored = mood?.scored_segments ?? 0;
+  const moodPos = mood?.positive_count ?? 0;
+  const moodNeu = mood?.neutral_count ?? 0;
+  const moodNeg = mood?.negative_count ?? 0;
+  const topEmotions = (mood?.emotions ?? []).slice(0, 8);
+  const maxEmotionCount = topEmotions.length > 0 ? Math.max(...topEmotions.map((e) => e.count)) : 1;
 
   const topTopics = (insights?.top_topics ?? []).slice(0, 9);
   const maxTopicCount = topTopics.length > 0 ? Math.max(...topTopics.map((t) => t.asset_count)) : 1;
@@ -430,6 +454,102 @@ export default function Dashboard() {
                   </Card>
                 </Link>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ---- Emotional tone ------------------------------------------- */}
+        {mood && moodScored > 0 && (
+          <div className="mt-10" data-testid="section-sentiment-overview">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold tracking-tight flex items-center gap-2">
+                <HeartPulse className="h-5 w-5 text-primary/70" />
+                Emotional tone of your library
+              </h2>
+              <Link href="/search" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+                Explore moments <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-3">
+              {/* Sentiment balance */}
+              <Card className="h-full">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Sentiment balance</p>
+                  <div className="mt-3 flex h-3 w-full overflow-hidden rounded-full bg-muted" title={`${moodPos} positive · ${moodNeu} neutral · ${moodNeg} negative segments`}>
+                    <div className="bg-emerald-500/80" style={{ width: `${(moodPos / moodScored) * 100}%` }} />
+                    <div className="bg-zinc-500/50" style={{ width: `${(moodNeu / moodScored) * 100}%` }} />
+                    <div className="bg-red-500/80" style={{ width: `${(moodNeg / moodScored) * 100}%` }} />
+                  </div>
+                  <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+                    <span className="text-emerald-500">{Math.round((moodPos / moodScored) * 100)}% positive</span>
+                    <span>{Math.round((moodNeu / moodScored) * 100)}% neutral</span>
+                    <span className="text-red-400">{Math.round((moodNeg / moodScored) * 100)}% negative</span>
+                  </div>
+                  <p className="mt-3 text-2xl font-bold">
+                    {mood.avg_sentiment != null ? (mood.avg_sentiment > 0 ? "+" : "") + mood.avg_sentiment.toFixed(2) : "—"}
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">avg tone (−1 to +1)</span>
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    {moodScored.toLocaleString()} of {mood.total_segments.toLocaleString()} transcript segments scored · {mood.scored_assets} asset{mood.scored_assets === 1 ? "" : "s"}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Emotion breakdown */}
+              <Card className="h-full">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Dominant emotions</p>
+                  {topEmotions.length > 0 ? (
+                    <div className="mt-3 space-y-1.5">
+                      {topEmotions.map((e) => (
+                        <div key={e.emotion} className="flex items-center gap-2 text-xs">
+                          <span className="w-20 capitalize truncate" style={{ color: EMOTION_COLORS[e.emotion] ?? undefined }}>{e.emotion}</span>
+                          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${(e.count / maxEmotionCount) * 100}%`, backgroundColor: EMOTION_COLORS[e.emotion] ?? "#71717a" }} />
+                          </div>
+                          <span className="w-10 text-right text-muted-foreground font-mono">{e.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-muted-foreground">No non-neutral emotions detected yet.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Most positive / negative assets */}
+              <Card className="h-full">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Tone extremes</p>
+                  <div className="mt-3 space-y-1.5">
+                    {mood.top_positive.slice(0, 3).map((a) => (
+                      <Link key={a.media_id} href={`/library/${a.media_id}`}>
+                        <div className="flex items-center gap-2 text-xs rounded-md px-1.5 py-1 -mx-1.5 hover:bg-muted/60 cursor-pointer">
+                          <span className="text-emerald-500 font-mono flex-shrink-0">+{a.avg_sentiment.toFixed(2)}</span>
+                          <span className="truncate" title={a.filename}>{a.filename}</span>
+                          {a.dominant_emotion && (
+                            <span className="ml-auto capitalize flex-shrink-0" style={{ color: EMOTION_COLORS[a.dominant_emotion] ?? undefined }}>{a.dominant_emotion}</span>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                    {mood.top_negative.slice(0, 3).map((a) => (
+                      <Link key={a.media_id} href={`/library/${a.media_id}`}>
+                        <div className="flex items-center gap-2 text-xs rounded-md px-1.5 py-1 -mx-1.5 hover:bg-muted/60 cursor-pointer">
+                          <span className="text-red-400 font-mono flex-shrink-0">{a.avg_sentiment.toFixed(2)}</span>
+                          <span className="truncate" title={a.filename}>{a.filename}</span>
+                          {a.dominant_emotion && (
+                            <span className="ml-auto capitalize flex-shrink-0" style={{ color: EMOTION_COLORS[a.dominant_emotion] ?? undefined }}>{a.dominant_emotion}</span>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                    {mood.top_positive.length === 0 && mood.top_negative.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No assets with a clear tone yet.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         )}

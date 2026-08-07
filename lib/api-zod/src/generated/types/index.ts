@@ -197,6 +197,8 @@ export * from './searchHistoryItem';
 export * from './searchQuery';
 export * from './searchResponse';
 export * from './searchResult';
+export * from './sentimentAsset';
+export * from './sentimentOverview';
 export * from './sessionUser';
 export * from './sessionUserRole';
 export * from './similarMomentQuery';

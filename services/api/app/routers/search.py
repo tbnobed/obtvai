@@ -13,6 +13,7 @@ from ..schemas import (
     ScriptMatchRequest, ScriptMatchLineOut, ScriptMatchResponse,
     ReanalyzeOut, SimilarMomentQuery, SavedSearchCreate, SavedSearchOut,
     EmotionFacetOut, EmotionMomentOut, EmotionMomentsOut,
+    SentimentAssetOut, SentimentOverviewOut,
 )
 from ..config import settings
 
@@ -554,6 +555,90 @@ async def list_emotion_facets(db: AsyncSession = Depends(get_db)):
         .order_by(sa_func.count(TranscriptSegment.id).desc())
     )).all()
     return [EmotionFacetOut(emotion=r[0], count=r[1]) for r in rows]
+
+
+@router.get("/sentiment/overview", response_model=SentimentOverviewOut)
+async def sentiment_overview(db: AsyncSession = Depends(get_db)):
+    """Aggregated sentiment & emotion picture of the whole library."""
+    POS, NEG = 0.15, -0.15
+    scored = TranscriptSegment.sentiment.isnot(None)
+
+    totals = (await db.execute(
+        select(
+            sa_func.count(TranscriptSegment.id),
+            sa_func.count(TranscriptSegment.id).filter(scored),
+            sa_func.count(sa_func.distinct(TranscriptSegment.media_id)).filter(scored),
+            sa_func.avg(TranscriptSegment.sentiment),
+            sa_func.count(TranscriptSegment.id).filter(TranscriptSegment.sentiment > POS),
+            sa_func.count(TranscriptSegment.id).filter(TranscriptSegment.sentiment < NEG),
+        )
+    )).one()
+    total_segments, scored_segments, scored_assets, avg_sentiment, pos, neg = totals
+    neutral = scored_segments - pos - neg
+
+    emotion_rows = (await db.execute(
+        select(TranscriptSegment.emotion, sa_func.count(TranscriptSegment.id))
+        .where(TranscriptSegment.emotion.isnot(None), TranscriptSegment.emotion != "neutral")
+        .group_by(TranscriptSegment.emotion)
+        .order_by(sa_func.count(TranscriptSegment.id).desc())
+    )).all()
+
+    async def _top_assets(descending: bool) -> list[SentimentAssetOut]:
+        avg_col = sa_func.avg(TranscriptSegment.sentiment).label("avg_s")
+        stmt = (
+            select(
+                TranscriptSegment.media_id,
+                MediaAsset.filename,
+                MediaAsset.thumbnail_url,
+                avg_col,
+                sa_func.count(TranscriptSegment.id).label("n"),
+            )
+            .join(MediaAsset, MediaAsset.id == TranscriptSegment.media_id)
+            .where(scored)
+            .group_by(TranscriptSegment.media_id, MediaAsset.filename, MediaAsset.thumbnail_url)
+            .having(sa_func.count(TranscriptSegment.id) >= 5)
+            .order_by(avg_col.desc() if descending else avg_col.asc())
+            .limit(5)
+        )
+        rows = (await db.execute(stmt)).all()
+        rows = [r for r in rows if (r[3] > POS if descending else r[3] < NEG)]
+        if not rows:
+            return []
+        # dominant non-neutral emotion per asset, one query for all of them
+        ids = [r[0] for r in rows]
+        emo_rows = (await db.execute(
+            select(TranscriptSegment.media_id, TranscriptSegment.emotion,
+                   sa_func.count(TranscriptSegment.id))
+            .where(TranscriptSegment.media_id.in_(ids),
+                   TranscriptSegment.emotion.isnot(None),
+                   TranscriptSegment.emotion != "neutral")
+            .group_by(TranscriptSegment.media_id, TranscriptSegment.emotion)
+            .order_by(sa_func.count(TranscriptSegment.id).desc())
+        )).all()
+        dominant: dict[str, str] = {}
+        for mid, emo, _cnt in emo_rows:
+            dominant.setdefault(mid, emo)
+        return [
+            SentimentAssetOut(
+                media_id=mid, filename=fn, thumbnail_url=thumb,
+                avg_sentiment=float(avg_s), scored_segments=n,
+                dominant_emotion=dominant.get(mid),
+            )
+            for mid, fn, thumb, avg_s, n in rows
+        ]
+
+    return SentimentOverviewOut(
+        scored_segments=scored_segments,
+        total_segments=total_segments,
+        scored_assets=scored_assets,
+        avg_sentiment=float(avg_sentiment) if avg_sentiment is not None else None,
+        positive_count=pos,
+        neutral_count=neutral,
+        negative_count=neg,
+        emotions=[EmotionFacetOut(emotion=r[0], count=r[1]) for r in emotion_rows],
+        top_positive=await _top_assets(True),
+        top_negative=await _top_assets(False),
+    )
 
 
 @router.get("/emotion-moments", response_model=EmotionMomentsOut)
