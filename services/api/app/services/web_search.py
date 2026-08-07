@@ -47,15 +47,20 @@ async def search_web(query: str, max_results: int = _MAX_RESULTS) -> list[dict]:
 
 def _tool_system(system: str | None) -> str:
     tool = (
-        "TOOL AVAILABLE — web search. If, and ONLY if, answering well requires "
-        "current or external real-world information that is NOT in the provided "
-        "context (recent news or events, public background on a person, place, or "
-        "organization, dates, facts you are unsure about), reply with NOTHING except "
-        "one or two lines in exactly this form:\n"
+        "TOOL AVAILABLE — web search. Use it whenever live external information "
+        "would improve the answer, not only when the context is empty. Search "
+        "when the user asks about real-world events, dates, people, places, or "
+        "organizations (upcoming or recent events, 'other events we should know "
+        "about', background on someone or something mentioned in the footage), "
+        "when your knowledge might be out of date, or ALWAYS when the user "
+        "explicitly asks you to search the internet/web or look something up. "
+        "To search, reply with NOTHING except one or two lines in exactly this "
+        "form:\n"
         "WEB_SEARCH: <search query>\n"
-        "You will immediately be re-asked with live search results added. "
-        "If the provided context and your own knowledge are sufficient, answer "
-        "normally and do NOT emit WEB_SEARCH."
+        "You will immediately be re-asked with live results added, and can then "
+        "combine them with the footage evidence. Skip the search only for "
+        "questions answerable purely from the provided footage/transcripts "
+        "(what was said or shown, timestamps, speakers)."
     )
     return f"{system}\n\n{tool}" if system else tool
 
