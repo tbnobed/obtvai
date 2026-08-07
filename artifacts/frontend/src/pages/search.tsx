@@ -17,7 +17,6 @@ import {
 import type { SearchResult } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Play, Loader2, ExternalLink, History, Bookmark, BookmarkPlus, X, HeartPulse } from "lucide-react";
@@ -165,63 +164,80 @@ export default function SearchPage() {
     </div>
   );
 
+  const hasResults = !!searchMutation.data;
+
   return (
     <div className="h-full overflow-y-auto">
-    <div className="p-6 space-y-6 w-full">
-      <div>
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <Search className="h-6 w-6" /> Search
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Natural-language search across every indexed asset — transcripts and visual scene content.
-        </p>
+      {/* ---- Hero search ------------------------------------------------ */}
+      <div className="relative border-b border-border overflow-hidden">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 25% 0%, hsl(var(--primary) / 0.22), transparent 45%), radial-gradient(circle at 75% 10%, hsl(280 80% 60% / 0.13), transparent 40%)",
+          }}
+        />
+        <div className={`relative max-w-4xl mx-auto px-6 text-center transition-all ${hasResults ? "pt-5 pb-4" : "pt-12 pb-8"}`}>
+          {!hasResults && (
+            <>
+              <h1 className="text-3xl font-bold tracking-tight">Search every word and frame</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Natural-language search across transcripts, visuals, and people — not just filenames.
+              </p>
+            </>
+          )}
+          <div className={`relative max-w-3xl mx-auto ${hasResults ? "" : "mt-5"}`}>
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder='Try "mayor talks about the housing vote" or "crowd outside city hall at night"'
+              onKeyDown={(e) => e.key === "Enter" && runSearch()}
+              autoFocus
+              className="w-full h-12 pl-12 pr-36 rounded-xl bg-card border border-border text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/70 transition-shadow"
+              data-testid="input-search"
+            />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9"
+                title={alreadySaved ? "Already saved" : "Save this search — it re-runs live, so it grows as new footage is indexed"}
+                disabled={query.trim().length < 2 || !!alreadySaved || createSaved.isPending}
+                onClick={() =>
+                  createSaved.mutate(
+                    { data: { name: query.trim(), query: query.trim(), search_type: scope } },
+                    { onSuccess: invalidateSaved },
+                  )
+                }
+              >
+                <BookmarkPlus className="h-4 w-4" />
+              </Button>
+              <Button className="h-9" onClick={() => runSearch()} disabled={query.trim().length < 2 || searchMutation.isPending}>
+                {searchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+              </Button>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-center gap-1">
+            {SCOPES.map((s) => (
+              <Button
+                key={s.value}
+                size="sm"
+                variant={scope === s.value ? "secondary" : "ghost"}
+                className="h-7 px-3.5 text-xs rounded-full"
+                onClick={() => {
+                  setScope(s.value);
+                  if (query.trim().length >= 2) runSearch(undefined, s.value);
+                }}
+              >
+                {s.label}
+              </Button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex gap-2">
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder='e.g. "mayor talks about the housing vote" or "crowd outside city hall at night"'
-            onKeyDown={(e) => e.key === "Enter" && runSearch()}
-            autoFocus
-          />
-          <Button onClick={() => runSearch()} disabled={query.trim().length < 2 || searchMutation.isPending}>
-            {searchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="outline"
-            title={alreadySaved ? "Already saved" : "Save this search — it re-runs live, so it grows as new footage is indexed"}
-            disabled={query.trim().length < 2 || !!alreadySaved || createSaved.isPending}
-            onClick={() =>
-              createSaved.mutate(
-                { data: { name: query.trim(), query: query.trim(), search_type: scope } },
-                { onSuccess: invalidateSaved },
-              )
-            }
-          >
-            <BookmarkPlus className="h-4 w-4 mr-1.5" /> Save
-          </Button>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1">Search in:</span>
-          {SCOPES.map((s) => (
-            <Button
-              key={s.value}
-              size="sm"
-              variant={scope === s.value ? "secondary" : "ghost"}
-              className="h-7 px-3 text-xs"
-              onClick={() => {
-                setScope(s.value);
-                if (query.trim().length >= 2) runSearch(undefined, s.value);
-              }}
-            >
-              {s.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-
+      <div className="p-6 space-y-5 max-w-7xl mx-auto w-full">
       {!!savedSearches?.length && (
         <div className="flex items-center gap-2 flex-wrap">
           <Bookmark className="h-3.5 w-3.5 text-primary" />
@@ -335,6 +351,7 @@ export default function SearchPage() {
       {!searchMutation.data && !searchMutation.isPending && !!history?.length && (
         <div className="flex items-center gap-2 flex-wrap">
           <History className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Recent:</span>
           {history.slice(0, 8).map((h) => (
             <Badge
               key={h.id}
