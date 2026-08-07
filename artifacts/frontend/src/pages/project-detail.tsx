@@ -28,7 +28,6 @@ import {
   useGetPublishPlatforms,
   getGetPublishPlatformsQueryKey,
   useSemanticSearch,
-  useScriptMatch,
   useListMedia,
   getListMediaQueryKey,
 } from "@workspace/api-client-react";
@@ -59,8 +58,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Search, FileText, Scissors, BookOpen, Wand2, Clapperboard,
-  Play, PlayCircle, Download, Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown,
+  ArrowLeft, Search, Scissors, BookOpen, Clapperboard,
+  Play, PlayCircle, Download, Loader2, Plus, Trash2, ArrowUp, ArrowDown,
   Monitor, Smartphone, ChevronDown, Upload, Archive, ArchiveRestore,
   ExternalLink, Lock, LockOpen, SlidersHorizontal, CheckCircle2, AlertTriangle,
   Clock, Sparkles,
@@ -308,20 +307,6 @@ export default function ProjectDetail() {
     if ([...prev].some((jid) => !cur.has(jid))) invalidateAll();
   }, [activeJobIds]);
 
-  // ---- Script ----
-  const [script, setScript] = useState("");
-  const [scriptDirty, setScriptDirty] = useState(false);
-  useEffect(() => {
-    if (project && !scriptDirty) setScript(project.script ?? "");
-  }, [project, scriptDirty]);
-
-  const saveScript = () => {
-    updateMutation.mutate(
-      { id, data: { script } },
-      { onSuccess: () => { setScriptDirty(false); invalidateAll(); } },
-    );
-  };
-
   const toggleArchive = () => {
     if (!project) return;
     updateMutation.mutate(
@@ -354,7 +339,6 @@ export default function ProjectDetail() {
 
   // ---- Find: search + script match + add-to-list ----
   const searchMutation = useSemanticSearch();
-  const matchMutation = useScriptMatch();
   const createListMutation = useCreateClipList();
   const updateListMutation = useUpdateClipList();
 
@@ -407,18 +391,6 @@ export default function ProjectDetail() {
         query: query.trim(),
         search_type: searchType,
         ...(wholeLibrary ? {} : searchScope),
-      },
-    });
-  };
-
-  const runScriptMatch = () => {
-    if (!script.trim()) return;
-    setSelectedResults({});
-    matchMutation.mutate({
-      data: {
-        script: script.trim(),
-        matches_per_line: 3,
-        ...searchScope,
       },
     });
   };
@@ -762,40 +734,9 @@ export default function ProjectDetail() {
                 onToggle={toggleMediaPool}
                 onToggleMany={toggleMediaPoolMany}
                 togglesDisabled={updateMutation.isPending}
+                selectedStrip
                 onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
                 emptyText="The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <FileText className="h-4 w-4" /> Working Script
-              </CardTitle>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={runScriptMatch}
-                  disabled={!script.trim() || matchMutation.isPending}>
-                  {matchMutation.isPending
-                    ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    : <Wand2 className="h-4 w-4 mr-2" />}
-                  Match script to footage
-                </Button>
-                <Button size="sm" onClick={saveScript} disabled={!scriptDirty || updateMutation.isPending}>
-                  {updateMutation.isPending
-                    ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    : <Save className="h-4 w-4 mr-2" />}
-                  Save
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={script}
-                onChange={(e) => { setScript(e.target.value); setScriptDirty(true); }}
-                placeholder="Paste the script or rundown — every line can be matched against the footage."
-                rows={6}
-                className="font-mono text-sm"
               />
             </CardContent>
           </Card>
@@ -871,30 +812,6 @@ export default function ProjectDetail() {
             </CardContent>
           </Card>
 
-          {matchMutation.data && (
-            <Card>
-              <CardHeader>
-                <div className="flex flex-row items-center justify-between flex-wrap gap-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Wand2 className="h-4 w-4" /> Script Matches
-                  </CardTitle>
-                  {addSelectedButton}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {matchMutation.data.lines.map((line, li) => (
-                  <div key={li}>
-                    <p className="text-sm font-medium mb-2 text-muted-foreground">“{line.line}”</p>
-                    <div className="space-y-2">
-                      {line.matches.length
-                        ? line.matches.map((r, mi) => resultRow(r, `m-${li}-${mi}`))
-                        : <p className="text-xs text-muted-foreground">No footage matches this line.</p>}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
         {/* ----------------------------- DELIVER ---------------------------- */}

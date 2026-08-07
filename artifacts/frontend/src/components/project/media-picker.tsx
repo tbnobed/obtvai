@@ -41,11 +41,14 @@ type MediaPickerProps = {
   togglesDisabled?: boolean;
   gridClass?: string;
   emptyText: string;
+  /** Show selected assets as a prominent thumbnail strip above the library list. */
+  selectedStrip?: boolean;
 };
 
 export function MediaPickerGrid({
   selected, onToggle, onToggleMany, onPreview, restrictTo, requireReady = false,
   togglesDisabled = false, gridClass = "sm:grid-cols-2 lg:grid-cols-3", emptyText,
+  selectedStrip = false,
 }: MediaPickerProps) {
   const [searchText, setSearchText] = useState("");
   const [selectedOnly, setSelectedOnly] = useState(false);
@@ -86,6 +89,16 @@ export function MediaPickerGrid({
       (a, b) => Number(selected.includes(b.id)) - Number(selected.includes(a.id)),
     );
   }, [media?.items, restrictTo, selectedOnly, selected, search]);
+
+  const selectedAssets = useMemo(
+    () => (selectedStrip ? items.filter((a) => selected.includes(a.id)) : []),
+    [items, selected, selectedStrip],
+  );
+  // With the strip shown, the list below only offers what's NOT yet selected.
+  const listItems = useMemo(
+    () => (selectedStrip ? items.filter((a) => !selected.includes(a.id)) : items),
+    [items, selected, selectedStrip],
+  );
 
   const selectableIds = useMemo(
     () => items
@@ -153,7 +166,7 @@ export function MediaPickerGrid({
             Deselect all ({visibleSelectedIds.length})
           </Button>
         )}
-        {selected.length > 0 && (
+        {!selectedStrip && selected.length > 0 && (
           <Button
             size="sm"
             variant={selectedOnly ? "default" : "outline"}
@@ -165,8 +178,66 @@ export function MediaPickerGrid({
         )}
       </div>
 
+      {selectedStrip && selectedAssets.length > 0 && (
+        <div className="rounded-lg border border-primary/25 bg-primary/[0.04] p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+              In this project — {selected.length} asset{selected.length === 1 ? "" : "s"}
+            </p>
+            {onToggleMany && visibleSelectedIds.length > 1 && (
+              <Button
+                size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground"
+                disabled={togglesDisabled}
+                onClick={() => onToggleMany(visibleSelectedIds, false)}
+              >
+                Remove all
+              </Button>
+            )}
+          </div>
+          <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            {selectedAssets.map((a) => (
+              <div
+                key={a.id}
+                className="group relative rounded-md overflow-hidden border border-border/60 bg-muted/40"
+              >
+                <button
+                  type="button"
+                  className="block w-full text-left"
+                  title={a.status === "ready" ? "Preview this asset" : a.filename}
+                  disabled={a.status !== "ready"}
+                  onClick={() => onPreview(a)}
+                >
+                  <div className="relative">
+                    <ClipThumb url={a.thumbnail_url} className="aspect-video w-full" />
+                    {a.status === "ready" && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/35 transition-colors">
+                        <Play className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 px-1.5 py-1">
+                    <span className="truncate text-[11px] leading-tight flex-1">{a.filename}</span>
+                    <MediaStatusBadge status={a.status} />
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${a.filename} from this project`}
+                  title="Remove from this project"
+                  disabled={togglesDisabled}
+                  onClick={() => onToggle(a.id, false)}
+                  className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white/80 hover:text-white hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className={`grid gap-2 max-h-64 overflow-y-auto ${gridClass}`}>
-        {items.length ? items.map((a) => {
+        {listItems.length ? listItems.map((a) => {
           const isSelected = selected.includes(a.id);
           const toggleDisabled = togglesDisabled || (requireReady && !isSelected && a.status !== "ready");
           return (
@@ -202,9 +273,13 @@ export function MediaPickerGrid({
               ? `Couldn't load the media library: ${error instanceof Error ? error.message : "unknown error"}`
               : !media
                 ? "Loading media library…"
-                : search || selectedOnly
-                  ? "No assets match this search."
-                  : emptyText}
+                : selectedStrip && selectedAssets.length > 0
+                  ? search
+                    ? "No other assets match this search."
+                    : "Every other library asset is already in this project."
+                  : search || selectedOnly
+                    ? "No assets match this search."
+                    : emptyText}
           </p>
         )}
       </div>
