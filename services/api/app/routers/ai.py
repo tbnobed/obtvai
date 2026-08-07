@@ -337,7 +337,8 @@ async def _run_qa(
             )
         from ..services.web_search import generate_with_web
         answer = await generate_with_web(
-            generate_response, prompt, history=history, max_new_tokens=1500, system=system
+            generate_response, prompt, history=history, max_new_tokens=1500,
+            system=system, user_text=question,
         )
         answer = _strip_markdown(answer)
     except Exception as e:

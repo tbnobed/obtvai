@@ -12,6 +12,7 @@ prompt. One round only — the second answer is final.
 """
 import logging
 import os
+import re
 
 import httpx
 
@@ -78,6 +79,22 @@ def _parse_tool_call(text: str) -> list[str]:
     return queries[:_MAX_QUERIES]
 
 
+# Questions that clearly reach beyond the footage force a search — the model
+# left to its own discretion is too conservative about using the tool.
+_FORCE_RE = re.compile(
+    r"(search (the )?(web|internet|online)|look (it |this |that )?up"
+    r"|any other .{0,40}(we should|to know|know about)"
+    r"|should (we|i) know about"
+    r"|upcoming|latest|current(ly)?|recent(ly)?|this (year|month|week)"
+    r"|next (year|month|week)|20(2[6-9]|3\d)|news about|what'?s happening)",
+    re.IGNORECASE,
+)
+
+
+def should_force_search(user_text: str | None) -> bool:
+    return bool(SEARXNG_URL and user_text and _FORCE_RE.search(user_text))
+
+
 async def generate_with_web(
     generate_response,
     prompt: str,
@@ -85,23 +102,38 @@ async def generate_with_web(
     history: list[dict] | None = None,
     system: str | None = None,
     max_new_tokens: int = 512,
+    user_text: str | None = None,
 ) -> str:
     """LLM call with an optional single round of web search.
 
     Drop-in replacement for generate_response(); falls back to a plain call
-    when SEARXNG_URL is not configured.
+    when SEARXNG_URL is not configured. When user_text matches an "external
+    info" pattern, the search round is mandatory: the model is first asked
+    only for the queries, so it cannot decline.
     """
     if not SEARXNG_URL:
         return await generate_response(
             prompt, history=history, system=system, max_new_tokens=max_new_tokens
         )
-    first = await generate_response(
-        prompt, history=history, system=_tool_system(system),
-        max_new_tokens=max_new_tokens,
-    )
-    queries = _parse_tool_call(first)
-    if not queries:
-        return first
+    if should_force_search(user_text):
+        q_reply = await generate_response(
+            "Write one or two web search queries (one per line, query text only, "
+            "no numbering, no commentary) that would find current external "
+            "information to help answer this question:\n" + user_text.strip(),
+            history=None, system=None, max_new_tokens=80,
+        )
+        queries = [
+            ln.strip().strip('"').removeprefix("WEB_SEARCH:").strip()
+            for ln in (q_reply or "").strip().splitlines() if ln.strip()
+        ][:_MAX_QUERIES] or [user_text.strip()[:120]]
+    else:
+        first = await generate_response(
+            prompt, history=history, system=_tool_system(system),
+            max_new_tokens=max_new_tokens,
+        )
+        queries = _parse_tool_call(first)
+        if not queries:
+            return first
 
     blocks: list[str] = []
     for q in queries:

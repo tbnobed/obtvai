@@ -1001,6 +1001,7 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                         history=history,
                         system="You are a friendly, sharp video editor who knows this footage well.",
                         max_new_tokens=500,
+                        user_text=user_text,
                     )).strip()
                     await _finish(db, assistant_id, reply or "I couldn't pull anything useful from the footage for that.", None)
                     return
