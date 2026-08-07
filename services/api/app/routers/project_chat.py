@@ -980,7 +980,9 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                             + "\n".join(vis_lines[:12])
                         )
                     context = "\n\n".join(sections)
-                    reply = (await generate_response(
+                    from ..services.web_search import generate_with_web
+                    reply = (await generate_with_web(
+                        generate_response,
                         "The user asked about the footage in their media pool "
                         f"({len(media_ids)} files). QUESTION:\n{user_text}\n\n"
                         f"{context}\n\n"

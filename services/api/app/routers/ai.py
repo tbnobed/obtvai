@@ -335,7 +335,10 @@ async def _run_qa(
                 "the substance itself — no boilerplate openings. Plain text only, "
                 "no markdown."
             )
-        answer = await generate_response(prompt, history=history, max_new_tokens=1500, system=system)
+        from ..services.web_search import generate_with_web
+        answer = await generate_with_web(
+            generate_response, prompt, history=history, max_new_tokens=1500, system=system
+        )
         answer = _strip_markdown(answer)
     except Exception as e:
         transcript_summary = "\n".join(
