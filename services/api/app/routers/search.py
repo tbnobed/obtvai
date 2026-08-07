@@ -234,15 +234,23 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                     if prev is None or hit.score > prev.score:
                         best_hits[sid] = hit
             visual_hits = sorted(best_hits.values(), key=lambda h: h.score, reverse=True)
+            # Bulk-load every candidate scene in ONE query. The previous
+            # per-hit SELECT ran sequentially for every hit (up to 4 prompts
+            # x 1000 hits after dense frame sampling) and dominated search
+            # latency.
+            scene_ids = [h.payload.get("scene_id") for h in visual_hits if h.payload.get("scene_id")]
+            scenes_by_id: dict = {}
+            if scene_ids:
+                rows_bulk = (await db.execute(
+                    select(Scene, MediaAsset)
+                    .join(MediaAsset, Scene.media_id == MediaAsset.id)
+                    .where(Scene.id.in_(scene_ids))
+                )).all()
+                scenes_by_id = {sc.id: (sc, ma) for sc, ma in rows_bulk}
             visual_candidates: list[tuple[float, SearchResultOut]] = []
             for hit in visual_hits:
                 scene_id = hit.payload.get("scene_id")
-                scene_q = await db.execute(
-                    select(Scene, MediaAsset)
-                    .join(MediaAsset, Scene.media_id == MediaAsset.id)
-                    .where(Scene.id == scene_id)
-                )
-                row = scene_q.first()
+                row = scenes_by_id.get(scene_id)
                 if row:
                     scene, asset = row
                     rescaled = _rescale_clip_score(hit.score)
