@@ -665,6 +665,9 @@ _PLAN_SYSTEM = (
     "earlier proposal. The acknowledgment itself is never search material.\n"
     "Modes:\n"
     "- answer: the user asked a question or is chatting — no change to the cut. "
+    "This INCLUDES requests to search the web/internet or look something up "
+    "online: a live web search runs in answer mode, so never treat such a "
+    "request as an edit. "
     "Answer warmly and concretely, referencing the current cut when relevant. "
     "If the question is about the CONTENT of the footage (topics, themes, who "
     "says what, what the episodes cover), stay in answer mode but FILL IN "
@@ -875,6 +878,13 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         plan = _extract_json(plan_raw) or {}
         mode = plan.get("mode") or "edit"
 
+        # An explicit "search the web / look it up" request is a question, not
+        # an editing instruction — never let the planner turn it into a cut.
+        from ..services.web_search import is_explicit_search
+        _web_ask = is_explicit_search(user_text)
+        if _web_ask:
+            mode = "answer"
+
         # Honor a runtime asked for in chat ("make it 3 minutes") over the
         # project default, and persist it so later turns keep the new length.
         req_target = None
@@ -899,7 +909,7 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             r"\s*(?:are|is|was|were|do|does|did|why|how|what|which|who|can|could|would|should)\b",
             user_text, re.IGNORECASE,
         ))
-        if mode == "answer" and not _is_question and (_acts or _UNIFORM_LEN_RE.search(user_text)):
+        if mode == "answer" and not _web_ask and not _is_question and (_acts or _UNIFORM_LEN_RE.search(user_text)):
             # The model wants to talk while the request needs work — force it.
             mode = "adjust" if not plan.get("searches") else "edit"
         if mode == "answer":

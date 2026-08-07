@@ -91,6 +91,18 @@ _FORCE_RE = re.compile(
 )
 
 
+# Explicit "go online" requests — these must never be treated as an editing
+# instruction by the callers' planners.
+_EXPLICIT_RE = re.compile(
+    r"search (the )?(web|internet|online)|look (it |this |that )?up( online)?|google",
+    re.IGNORECASE,
+)
+
+
+def is_explicit_search(user_text: str | None) -> bool:
+    return bool(user_text and _EXPLICIT_RE.search(user_text))
+
+
 def should_force_search(user_text: str | None) -> bool:
     return bool(SEARXNG_URL and user_text and _FORCE_RE.search(user_text))
 
