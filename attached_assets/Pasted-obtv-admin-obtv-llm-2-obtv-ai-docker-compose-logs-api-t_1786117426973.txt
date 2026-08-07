@@ -1,0 +1,51 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs api --tail=50
+api-1  |                           ^^^^^^^^^^^^
+api-1  |   File "/app/app/services/embedding.py", line 86, in _load_clip
+api-1  |     _clip_model = AutoModel.from_pretrained(settings.vision_model).to(device).eval()
+api-1  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/transformers/modeling_utils.py", line 4110, in to
+api-1  |     return super().to(*args, **kwargs)
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1355, in to
+api-1  |     return self._apply(convert)
+api-1  |            ^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/torch/nn/modules/module.py", line 915, in _apply
+api-1  |     module._apply(fn)
+api-1  |   File "/usr/local/lib/python3.11/site-packages/torch/nn/modules/module.py", line 915, in _apply
+api-1  |     module._apply(fn)
+api-1  |   File "/usr/local/lib/python3.11/site-packages/torch/nn/modules/module.py", line 942, in _apply
+api-1  |     param_applied = fn(param)
+api-1  |                     ^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1348, in convert
+api-1  |     raise NotImplementedError(
+api-1  | NotImplementedError: Cannot copy out of meta tensor; no data! Please use torch.nn.Module.to_empty() instead of torch.nn.Module.to() when moving module from meta to a different device.
+api-1  | INFO:     172.18.0.13:54680 - "POST /api/search HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:54690 - "GET /api/search/history HTTP/1.1" 200 OK
+api-1  | Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.52, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+api-1  | INFO:     127.0.0.1:45518 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:54666 - "POST /api/search HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:38014 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:55894 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:35214 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:40238 - "GET /api/auth/me HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:33272 - "GET /api/search/saved HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:33258 - "GET /api/search/history HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:33274 - "GET /api/search/emotions HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:59450 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:33282 - "POST /api/search HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:37862 - "GET /api/search/history HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:47150 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:34420 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:37952 - "POST /api/search HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:37968 - "POST /api/search HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55070 - "GET /api/search/history HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55076 - "GET /api/thumbnails/scene_64f054fd-6fd2-43f0-92fe-fc3f6782ef91.jpg HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55104 - "GET /api/thumbnails/scene_5ab3accb-52c8-4ae1-9c52-32c2e91bf221.jpg HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55084 - "GET /api/thumbnails/scene_f7913873-ff0f-428f-96d5-0c496000ed64.jpg HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55100 - "GET /api/thumbnails/scene_a8ef2fea-5a4b-4a31-b692-affd728bfe09.jpg HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55112 - "GET /api/thumbnails/scene_3eeb56a5-ef0d-4aaf-9482-dfc3e8086fde.jpg HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55120 - "GET /api/thumbnails/scene_eda3119b-5a21-4a4b-bcfe-1442621578b8.jpg HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55130 - "GET /api/thumbnails/scene_de80c3f2-f495-48ce-8317-b2ba0dd6f6da.jpg HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55142 - "GET /api/thumbnails/scene_1b1add4b-be01-4a8c-9a0b-6acf21398721.jpg HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55156 - "GET /api/thumbnails/scene_d1e3ddad-3c3a-4a59-9d1d-50a8f29877df.jpg HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:55162 - "GET /api/thumbnails/scene_e8037d75-fae1-4967-bf2d-fa82995ce41d.jpg HTTP/1.1" 200 OK

@@ -78,14 +78,30 @@ def _load_clip():
     global _clip_model, _clip_processor, _clip_tokenizer
     _touch()
     if _clip_model is None:
-        import torch
-        from transformers import AutoModel, AutoProcessor, AutoTokenizer
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        # AutoModel handles both CLIP and SigLIP/SigLIP-2 checkpoints; both
-        # expose get_image_features / get_text_features in a shared space.
-        _clip_model = AutoModel.from_pretrained(settings.vision_model).to(device).eval()
-        _clip_processor = AutoProcessor.from_pretrained(settings.vision_model)
-        _clip_tokenizer = AutoTokenizer.from_pretrained(settings.vision_model)
+        # Double-checked lock: transformers' from_pretrained is NOT
+        # thread-safe within one process. Two concurrent searches racing
+        # here (e.g. right after an idle release) leave one thread with a
+        # half-materialized model → "Cannot copy out of meta tensor".
+        with _model_lock:
+            if _clip_model is None:
+                import torch
+                from transformers import AutoModel, AutoProcessor, AutoTokenizer
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                # AutoModel handles both CLIP and SigLIP/SigLIP-2 checkpoints; both
+                # expose get_image_features / get_text_features in a shared space.
+                try:
+                    model = AutoModel.from_pretrained(settings.vision_model).to(device).eval()
+                except NotImplementedError:
+                    # Meta-tensor leftovers from an earlier interrupted load:
+                    # force full weight materialization and retry once.
+                    model = AutoModel.from_pretrained(
+                        settings.vision_model, low_cpu_mem_usage=False
+                    ).to(device).eval()
+                _clip_processor = AutoProcessor.from_pretrained(settings.vision_model)
+                _clip_tokenizer = AutoTokenizer.from_pretrained(settings.vision_model)
+                # Assign the model last, fully constructed: other threads
+                # only ever see None or a complete, usable model.
+                _clip_model = model
     return _clip_model, _clip_processor, _clip_tokenizer
 
 
