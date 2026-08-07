@@ -237,7 +237,7 @@ export default function SearchPage() {
         </div>
       </div>
 
-      <div className="p-6 space-y-5 max-w-7xl mx-auto w-full">
+      <div className="p-6 space-y-5 w-full">
       {!!savedSearches?.length && (
         <div className="flex items-center gap-2 flex-wrap">
           <Bookmark className="h-3.5 w-3.5 text-primary" />
