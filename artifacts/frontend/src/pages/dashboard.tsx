@@ -217,8 +217,8 @@ export default function Dashboard() {
               "radial-gradient(circle at 20% 0%, hsl(var(--primary) / 0.25), transparent 45%), radial-gradient(circle at 80% 10%, hsl(280 80% 60% / 0.15), transparent 40%)",
           }}
         />
-        <div className="relative max-w-5xl mx-auto px-8 pt-16 pb-12 text-center">
-          <h1 className="text-4xl font-bold tracking-tight" data-testid="text-hero-title">
+        <div className="relative max-w-5xl mx-auto px-8 pt-8 pb-6 text-center">
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-hero-title">
             Ask your library anything
           </h1>
           {stats && (
@@ -228,14 +228,14 @@ export default function Dashboard() {
               every word and frame indexed
             </p>
           )}
-          <div className="mt-6 relative max-w-3xl mx-auto">
+          <div className="mt-4 relative max-w-3xl mx-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
             <input
               value={quickQuery}
               onChange={(e) => setQuickQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitQuickSearch()}
               placeholder={`Find ${SEARCH_PROMPTS[promptIdx]}`}
-              className="w-full h-14 pl-12 pr-32 rounded-xl bg-card border border-border text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/70 transition-shadow"
+              className="w-full h-12 pl-12 pr-32 rounded-xl bg-card border border-border text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/70 transition-shadow"
               data-testid="input-hero-search"
             />
             <Button
@@ -247,29 +247,29 @@ export default function Dashboard() {
               Search
             </Button>
           </div>
-          <p className="mt-3 text-xs text-muted-foreground/70">
+          <p className="mt-2 text-xs text-muted-foreground/70">
             Semantic search across transcripts, visuals, and people — not just filenames.
           </p>
         </div>
       </div>
 
-      <div className="p-8 max-w-7xl mx-auto">
+      <div className="px-8 py-5 max-w-7xl mx-auto">
         {/* ---- Library vitals ------------------------------------------- */}
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             {[...Array(4)].map((_, i) => (
-              <Card key={i} className="animate-pulse bg-muted h-28" />
+              <Card key={i} className="animate-pulse bg-muted h-24" />
             ))}
           </div>
         ) : stats ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             {/* Assets + status mosaic */}
             <Link href="/library">
               <Card className="h-full hover:border-primary transition-colors cursor-pointer" data-testid="card-vital-assets">
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <div className="flex items-center gap-3">
                     <Film className="h-5 w-5 text-primary/70" />
-                    <div className="text-3xl font-bold tabular-nums">{animAssets}</div>
+                    <div className="text-2xl font-bold tabular-nums">{animAssets}</div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">Assets in the library</p>
                   <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -291,7 +291,7 @@ export default function Dashboard() {
 
             {/* Footage donut */}
             <Card className="h-full" data-testid="card-vital-footage">
-              <CardContent className="p-4 flex items-center gap-4">
+              <CardContent className="p-3 flex items-center gap-4">
                 <Donut frac={searchableFrac}>{Math.round(searchableFrac * 100)}%</Donut>
                 <div className="min-w-0">
                   <div className="text-2xl font-bold leading-tight">{formatHours(stats.total_duration_seconds)}</div>
@@ -305,7 +305,7 @@ export default function Dashboard() {
 
             {/* Storage */}
             <Card className="h-full" data-testid="card-vital-storage">
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="text-2xl font-bold leading-tight">{storageGb.toFixed(1)} <span className="text-base font-semibold text-muted-foreground">GB</span></div>
                 <p className="text-xs text-muted-foreground mt-1">Storage across all qualities</p>
                 <div className="mt-3 h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -321,7 +321,7 @@ export default function Dashboard() {
             {/* Pipeline pulse */}
             <Link href="/jobs">
               <Card className={`h-full hover:border-primary transition-colors cursor-pointer ${errorCount > 0 ? "border-red-500/50" : ""}`} data-testid="card-vital-pipeline">
-                <CardContent className="p-4 flex items-center gap-4">
+                <CardContent className="p-3 flex items-center gap-4">
                   <div className="relative h-12 w-12 flex-shrink-0 flex items-center justify-center">
                     {running > 0 && <span className="absolute inline-flex h-10 w-10 rounded-full bg-primary/20 animate-ping" />}
                     <span className={`relative flex h-10 w-10 items-center justify-center rounded-full ${errorCount > 0 ? "bg-red-500/15" : running > 0 ? "bg-primary/15" : "bg-muted"}`}>
@@ -346,8 +346,8 @@ export default function Dashboard() {
 
         {/* ---- People wall: share-of-voice ------------------------------ */}
         {topPeople.length > 0 && (
-          <div className="mt-10">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-semibold tracking-tight flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary/70" />
                 Voices of your library
@@ -356,10 +356,10 @@ export default function Dashboard() {
                 All people <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <div className="flex flex-wrap items-end justify-center gap-x-5 gap-y-4 rounded-xl border border-border bg-card/50 px-6 pt-6 pb-4">
+            <div className="flex flex-wrap items-end justify-center gap-x-5 gap-y-4 rounded-xl border border-border bg-card/50 px-4 pt-4 pb-3">
               {topPeople.map((p, i) => {
                 const share = p.speaking_seconds / maxSpeaking;
-                const size = 56 + Math.round(share * 40); // 56–96px by share of voice
+                const size = 44 + Math.round(share * 28); // 44–72px by share of voice
                 const ringDeg = totalTopSpeaking > 0 ? (p.speaking_seconds / totalTopSpeaking) * 360 : 0;
                 return (
                   <Link key={p.person_id} href={`/people/${p.person_id}`}>
@@ -398,8 +398,8 @@ export default function Dashboard() {
 
         {/* ---- Topic mosaic --------------------------------------------- */}
         {topTopics.length > 0 && (
-          <div className="mt-10">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-semibold tracking-tight flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary/70" />
                 What your library is about
@@ -408,7 +408,7 @@ export default function Dashboard() {
                 Full insights <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[92px] gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[72px] gap-2.5">
               {topTopics.map((t, i) => {
                 const weight = t.asset_count / maxTopicCount;
                 const big = weight > 0.6 || i === 0;
@@ -437,13 +437,13 @@ export default function Dashboard() {
 
         {/* ---- Insight teasers ------------------------------------------ */}
         {teasers.length > 0 && (
-          <div className="mt-10">
+          <div className="mt-6">
             <h2 className="text-xl font-semibold mb-4 tracking-tight">From your library</h2>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-3">
               {teasers.map((t, i) => (
                 <Link key={i} href="/insights">
                   <Card className="hover:border-primary transition-colors cursor-pointer h-full">
-                    <CardContent className="p-4 flex items-start gap-3">
+                    <CardContent className="p-3 flex items-start gap-3">
                       <t.icon className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium">{t.text}</p>
@@ -460,8 +460,8 @@ export default function Dashboard() {
 
         {/* ---- Emotional tone ------------------------------------------- */}
         {mood && moodScored > 0 && (
-          <div className="mt-10" data-testid="section-sentiment-overview">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mt-6" data-testid="section-sentiment-overview">
+            <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-semibold tracking-tight flex items-center gap-2">
                 <HeartPulse className="h-5 w-5 text-primary/70" />
                 Emotional tone of your library
@@ -470,10 +470,10 @@ export default function Dashboard() {
                 Explore moments <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-3 lg:grid-cols-3">
               {/* Sentiment balance */}
               <Card className="h-full">
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Sentiment balance</p>
                   <div className="mt-3 flex h-3 w-full overflow-hidden rounded-full bg-muted" title={`${moodPos} positive · ${moodNeu} neutral · ${moodNeg} negative segments`}>
                     <div className="bg-emerald-500/80" style={{ width: `${(moodPos / moodScored) * 100}%` }} />
@@ -497,7 +497,7 @@ export default function Dashboard() {
 
               {/* Emotion breakdown */}
               <Card className="h-full">
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Dominant emotions</p>
                   {topEmotions.length > 0 ? (
                     <div className="mt-3 space-y-1.5">
@@ -519,7 +519,7 @@ export default function Dashboard() {
 
               {/* Most positive / negative assets */}
               <Card className="h-full">
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Tone extremes</p>
                   <div className="mt-3 space-y-1.5">
                     {mood.top_positive.slice(0, 3).map((a) => (
@@ -556,18 +556,18 @@ export default function Dashboard() {
 
         {/* ---- Active projects ------------------------------------------ */}
         {activeProjects.length > 0 && (
-          <div className="mt-10">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-semibold tracking-tight">Active Projects</h2>
               <Link href="/studio" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
                 All projects <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               {activeProjects.map((p) => (
                 <Link key={p.id} href={`/studio/${p.id}`}>
                   <Card className="hover:border-primary transition-colors cursor-pointer h-full">
-                    <CardContent className="p-4">
+                    <CardContent className="p-3">
                       <p className="text-sm font-medium truncate" title={p.name}>{p.name}</p>
                       {p.description && (
                         <p className="text-xs text-muted-foreground mt-1 truncate" title={p.description}>{p.description}</p>
