@@ -239,7 +239,7 @@ export default function SearchPage() {
 
       <div className="p-6 space-y-5 w-full">
       {!!savedSearches?.length && (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
           <Bookmark className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs text-muted-foreground">Saved searches:</span>
           {savedSearches.map((sv) => (
@@ -371,7 +371,7 @@ export default function SearchPage() {
       )}
 
       {!searchMutation.data && !searchMutation.isPending && !!history?.length && (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
           <History className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">Recent:</span>
           {history.slice(0, 8).map((h) => (
