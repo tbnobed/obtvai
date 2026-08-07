@@ -1,0 +1,51 @@
+ip route show | grep 10.10.0.1        # three routes back
+findmnt -t cifs,nfs,nfs4              # three mounts back
+nvidia-smi                            # both GPUs clean, no Unknown Error
+cd ~/obtv-ai && docker compose ps     # stack healthy
+default via 10.10.0.1 dev enp9s0f1np1 proto dhcp src 10.10.1.94 metric 102
+10.63.0.0/16 via 10.10.0.1 dev enp9s0f1np1 proto static metric 102
+10.81.0.0/16 via 10.10.0.1 dev enp9s0f1np1 proto static metric 102
+10.100.0.0/16 via 10.10.0.1 dev enp9s0f1np1 proto static metric 102
+Fri Aug  7 16:49:25 2026
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.126.20             Driver Version: 580.126.20     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 5090        On  |   00000000:01:00.0  On |                  N/A |
+|  0%   32C    P8             39W /  575W |     712MiB /  32607MiB |      1%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA RTX PRO 6000 Blac...    On  |   00000000:04:00.0 Off |                  Off |
+| 30%   34C    P8              9W /  300W |    3618MiB /  97887MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            2128      C   /opt/comfyui/venv/bin/python            498MiB |
+|    0   N/A  N/A            2294      G   /usr/lib/xorg/Xorg                       82MiB |
+|    0   N/A  N/A            2662      G   /usr/bin/gnome-shell                     94MiB |
+|    1   N/A  N/A            2126      C   ...orge-worker/.venv/bin/python3       2388MiB |
+|    1   N/A  N/A            2129      C   /opt/comfyui/venv/bin/python            550MiB |
+|    1   N/A  N/A            2294      G   /usr/lib/xorg/Xorg                        4MiB |
+|    1   N/A  N/A            4610      C   /usr/local/bin/python3.11               646MiB |
++-----------------------------------------------------------------------------------------+
+NAME                        IMAGE                     COMMAND                  SERVICE           CREATED          STATUS                   PORTS
+obtv-ai-api-1               obtv-ai-api               "uvicorn app.main:ap…"   api               27 minutes ago   Up 2 minutes (healthy)   8000/tcp
+obtv-ai-flower-1            obtv-ai-flower            "/opt/nvidia/nvidia_…"   flower            2 weeks ago      Up 2 minutes             0.0.0.0:5555->5555/tcp, [::]:5555->5555/tcp
+obtv-ai-frontend-1          obtv-ai-frontend          "/docker-entrypoint.…"   frontend          27 minutes ago   Up 2 minutes             0.0.0.0:5000->80/tcp, [::]:5000->80/tcp
+obtv-ai-postgres-1          postgres:16-alpine        "docker-entrypoint.s…"   postgres          3 weeks ago      Up 2 minutes (healthy)   5432/tcp
+obtv-ai-qdrant-1            qdrant/qdrant:v1.12.4     "./entrypoint.sh"        qdrant            2 weeks ago      Up 2 minutes (healthy)   0.0.0.0:6333->6333/tcp, [::]:6333->6333/tcp, 6334/tcp
+obtv-ai-redis-1             redis:7-alpine            "docker-entrypoint.s…"   redis             3 weeks ago      Up 2 minutes (healthy)   6379/tcp
+obtv-ai-searxng-1           searxng/searxng:latest    "/usr/local/searxng/…"   searxng           2 weeks ago      Up 2 minutes             8080/tcp
+obtv-ai-watcher-1           obtv-ai-watcher           "python watcher.py"      watcher           2 weeks ago      Up 2 minutes
+obtv-ai-worker-cpu-1        obtv-ai-worker-cpu        "/opt/nvidia/nvidia_…"   worker-cpu        32 hours ago     Up 2 minutes
+obtv-ai-worker-gpu-1        obtv-ai-worker-gpu        "/opt/nvidia/nvidia_…"   worker-gpu        32 hours ago     Up 2 minutes
+obtv-ai-worker-gpu-2-1      obtv-ai-worker-gpu-2      "/opt/nvidia/nvidia_…"   worker-gpu-2      32 hours ago     Up 2 minutes
+obtv-ai-worker-graphics-1   obtv-ai-worker-graphics   "/opt/nvidia/nvidia_…"   worker-graphics   32 hours ago     Up 2 minutes
