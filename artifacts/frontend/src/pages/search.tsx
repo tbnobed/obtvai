@@ -312,12 +312,12 @@ export default function SearchPage() {
           </CardHeader>
           <CardContent>
             {emotionMoments?.items.length ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[480px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {emotionMoments.items.map((m, i) => (
                   <button
                     key={`${m.media_id}-${m.start_time}-${i}`}
                     type="button"
-                    className="flex flex-col gap-1 rounded-md border border-border bg-card/50 hover:bg-muted/40 px-3 py-2 text-left"
+                    className="bg-muted/50 rounded overflow-hidden text-sm flex flex-col text-left group cursor-pointer hover:ring-1 hover:ring-primary/50 transition-shadow"
                     onClick={() =>
                       setPlayerClip({
                         media_id: m.media_id,
@@ -328,16 +328,38 @@ export default function SearchPage() {
                       })
                     }
                   >
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-mono text-primary">{formatTC(m.start_time, 25, false)}</span>
-                      <span className="truncate text-muted-foreground">{m.filename}</span>
+                    <div className="relative w-full aspect-video bg-black/40 flex items-center justify-center">
+                      {m.thumbnail_url ? (
+                        <img
+                          src={`/api/thumbnails/${m.thumbnail_url}`}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Play className="h-6 w-6 text-muted-foreground" />
+                      )}
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors">
+                        <Play className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </span>
+                      <span className="absolute bottom-1 left-1 text-[10px] px-1 py-0.5 rounded bg-black/70 text-white font-mono">
+                        {formatTC(m.start_time, 25, false)}
+                      </span>
                       {m.sentiment != null && (
-                        <span className="ml-auto font-mono" style={{ color: EMOTION_COLORS[emotion] }}>
+                        <span
+                          className="absolute bottom-1 right-1 text-[10px] px-1 py-0.5 rounded bg-black/70 font-mono"
+                          style={{ color: EMOTION_COLORS[emotion] ?? "#fff" }}
+                        >
                           {m.sentiment > 0 ? "+" : ""}{m.sentiment.toFixed(2)}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs line-clamp-2">{m.speaker ? `${m.speaker}: ` : ""}{m.text}</p>
+                    <div className="p-2.5 flex-1 flex flex-col gap-1 min-w-0 w-full">
+                      <div className="truncate font-medium text-xs w-full">{m.filename}</div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {m.speaker ? `${m.speaker}: ` : ""}“{m.text}”
+                      </p>
+                    </div>
                   </button>
                 ))}
               </div>
