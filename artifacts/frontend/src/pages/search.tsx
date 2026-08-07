@@ -269,7 +269,7 @@ export default function SearchPage() {
         </div>
       )}
 
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center justify-center gap-2 flex-wrap">
         <HeartPulse className="h-3.5 w-3.5 text-primary" />
         <span className="text-xs text-muted-foreground">Emotions:</span>
         {emotionFacets?.length ? (
