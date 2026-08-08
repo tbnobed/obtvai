@@ -907,27 +907,6 @@ export default function AssetDetail() {
                 )}
               </div>
             )}
-            {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
-              <MomentsTimeline
-                duration={asset.duration_seconds!}
-                keyMoments={(asset.key_moments as { time: number; title: string; description?: string }[] | null) ?? []}
-                clipSuggestions={((asset.creative as CreativeAnalysis | null)?.clip_suggestions as { start: number; end: number; title: string; reason?: string; strength: number }[] | undefined) ?? []}
-                markers={markers ?? []}
-                seekTo={seekTo}
-                onFindSimilar={findSimilar}
-                spriteUrl={asset.sprite_url ?? undefined}
-                spriteMeta={(asset.sprite_meta as SpriteMeta | null) ?? undefined}
-                videoRef={videoRef}
-                segments={transcript ?? []}
-              />
-            )}
-            {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
-              <PeopleTracks
-                mediaId={id!}
-                duration={asset.duration_seconds!}
-                seekTo={seekTo}
-              />
-            )}
           </div>
           
           <div className="p-6">
@@ -1459,6 +1438,37 @@ export default function AssetDetail() {
           </Tabs>
         </div>
       </div>
+
+      {/* ── Full-width NLE timeline band — spans transcript, viewport, and side panel ── */}
+      {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
+        <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[38vh] overflow-y-auto">
+          <div className="grid grid-cols-[92px_1fr] items-start gap-x-2">
+            <div className="pt-2.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[TIMELINE]</div>
+            <div className="min-w-0">
+              <MomentsTimeline
+                duration={asset.duration_seconds!}
+                keyMoments={(asset.key_moments as { time: number; title: string; description?: string }[] | null) ?? []}
+                clipSuggestions={((asset.creative as CreativeAnalysis | null)?.clip_suggestions as { start: number; end: number; title: string; reason?: string; strength: number }[] | undefined) ?? []}
+                markers={markers ?? []}
+                seekTo={seekTo}
+                onFindSimilar={findSimilar}
+                spriteUrl={asset.sprite_url ?? undefined}
+                spriteMeta={(asset.sprite_meta as SpriteMeta | null) ?? undefined}
+                videoRef={videoRef}
+                segments={transcript ?? []}
+              />
+            </div>
+            <div className="pt-2 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[PEOPLE]</div>
+            <div className="min-w-0">
+              <PeopleTracks
+                mediaId={id!}
+                duration={asset.duration_seconds!}
+                seekTo={seekTo}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       <Dialog open={similarOpen} onOpenChange={setSimilarOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
