@@ -117,6 +117,26 @@ export function MediaPoolTab({ project }: { project: Project }) {
               />
             </div>
           )}
+          {pool.length > 0 && !pickerOpen && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {assets.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="flex items-center gap-2 rounded border border-border bg-muted/40 hover:bg-muted/70 p-1.5 text-left transition-colors"
+                  title={`${a.filename} — click to preview`}
+                  onClick={() => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
+                  data-testid={`pool-asset-${a.id}`}
+                >
+                  <ClipThumb url={a.thumbnail_url} mediaId={a.id} time={0} className="h-9 w-14 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium">{a.filename}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono">{formatTC(a.duration_seconds ?? 0)}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
           {pool.length === 0 && !pickerOpen && (
             <div className="text-center text-muted-foreground text-sm py-8 border border-dashed border-border rounded-lg">
               The pool is empty — add footage with “Add media” or from the Find tab.
