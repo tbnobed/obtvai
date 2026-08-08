@@ -132,6 +132,8 @@ export default function AssetDetail() {
   );
   // Sidebar tabs: transcript or the asset's insights (synopsis + key moments).
   const [sideTab, setSideTab] = useState<"transcript" | "insights">("transcript");
+  // Floating Cmd-K style prompt bar over the viewport — routes into the Studio chat.
+  const [floatPrompt, setFloatPrompt] = useState("");
   const langAvailable = transcriptLang !== "original" && (asset?.translated_languages ?? []).includes(transcriptLang);
   const transcriptParams = langAvailable ? { lang: transcriptLang } : undefined;
   const { data: transcript } = useGetMediaTranscript(id!, transcriptParams, { query: { enabled: !!id, queryKey: getGetMediaTranscriptQueryKey(id!, transcriptParams) } });
@@ -477,7 +479,7 @@ export default function AssetDetail() {
             </span>
           </button>
         )}
-        <div className={`${transcriptOpen ? "w-[300px] xl:w-[360px] flex" : "hidden"} shrink-0 border-r border-border bg-card flex-col overflow-hidden`}>
+        <div className={`${transcriptOpen ? "w-[320px] flex" : "hidden"} shrink-0 border-r border-border bg-card flex-col overflow-hidden`}>
           <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-1 text-sm font-medium">
             <button
               type="button"
@@ -890,13 +892,27 @@ export default function AssetDetail() {
             )}
             {asset.status === 'ready' && (
               <div
-                className="absolute top-8 left-8 z-10 pointer-events-none flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm"
+                className="absolute top-8 left-8 z-10 flex rounded-md overflow-hidden border border-zinc-700 text-[11px] font-bold tracking-wider backdrop-blur-sm"
                 data-testid="badge-active-version"
               >
-                <Volume2 className="h-3 w-3 opacity-80" />
-                {dubOn && dubAvailable
-                  ? `${TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()} dub`
-                  : "Original"}
+                <button
+                  type="button"
+                  onClick={() => dubOn && setDubOn(false)}
+                  className={`px-2.5 py-1 transition-colors ${!dubOn ? "bg-white text-black" : "bg-black/60 text-zinc-400 hover:text-white"}`}
+                >
+                  ORIGINAL
+                </button>
+                <button
+                  type="button"
+                  disabled={!dubAvailable}
+                  title={dubAvailable
+                    ? `Switch to the ${TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()} dub`
+                    : "No dub available for the selected language"}
+                  onClick={() => dubAvailable && setDubOn(true)}
+                  className={`px-2.5 py-1 transition-colors ${dubOn && dubAvailable ? "bg-white text-black" : "bg-black/60 text-zinc-400 hover:text-white disabled:opacity-40 disabled:hover:text-zinc-400"}`}
+                >
+                  DUB
+                </button>
               </div>
             )}
             {asset.status !== 'ready' && (
@@ -905,6 +921,27 @@ export default function AssetDetail() {
                 {asset.processing_stage && (
                   <Badge variant="outline">{asset.processing_stage} {asset.processing_progress}%</Badge>
                 )}
+              </div>
+            )}
+            {asset.status === 'ready' && (
+              <div className="absolute bottom-9 left-1/2 -translate-x-1/2 z-10 w-[min(560px,72%)] flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/95 backdrop-blur px-3 py-2 shadow-2xl shadow-black/60">
+                <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                <Input
+                  value={floatPrompt}
+                  onChange={(e) => setFloatPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && floatPrompt.trim()) {
+                      const text = floatPrompt.trim();
+                      setFloatPrompt("");
+                      setActiveTab("studio");
+                      (window as unknown as { __obtvPendingPrompt?: string }).__obtvPendingPrompt = text;
+                      window.dispatchEvent(new CustomEvent("obtv:studio-prompt", { detail: text }));
+                    }
+                  }}
+                  placeholder="Ask AI — build or change a cut from this footage…"
+                  className="h-8 border-0 bg-transparent focus-visible:ring-0 text-sm text-zinc-200 placeholder:text-zinc-500 px-0"
+                  data-testid="input-ask-ai-floating"
+                />
               </div>
             )}
           </div>
@@ -1466,6 +1503,81 @@ export default function AssetDetail() {
                 seekTo={seekTo}
               />
             </div>
+
+            {(scenes?.length ?? 0) > 0 && (
+              <>
+                <div className="pt-1.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[SCENES]</div>
+                <div className="relative h-5 mt-1 rounded-sm bg-white/5 overflow-hidden">
+                  {scenes!.map((sc, i) => (
+                    <div
+                      key={i}
+                      className={`absolute top-0 h-full cursor-pointer border-r border-zinc-950 ${i % 2 ? "bg-zinc-700/70 hover:bg-zinc-600" : "bg-zinc-600/70 hover:bg-zinc-500"} transition-colors`}
+                      style={{
+                        left: `${Math.min(100, Math.max(0, (sc.start_time / asset.duration_seconds!) * 100))}%`,
+                        width: `${Math.max(0.4, Math.min(100, ((sc.end_time - sc.start_time) / asset.duration_seconds!) * 100))}%`,
+                      }}
+                      title={`Scene ${i + 1} — ${formatTimecode(sc.start_time)}`}
+                      onClick={() => seekTo(sc.start_time)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {(transcript?.length ?? 0) > 0 && (
+              <>
+                <div className="pt-1.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[DIALOGUE]</div>
+                <div className="relative h-4 mt-1 rounded-sm bg-sky-950/40 overflow-hidden">
+                  {transcript!.map((s, i) => (
+                    <div
+                      key={i}
+                      className="absolute bottom-0 h-full bg-sky-500/70 hover:bg-sky-400 cursor-pointer rounded-[1px] transition-colors"
+                      style={{
+                        left: `${Math.min(100, Math.max(0, (s.start_time / asset.duration_seconds!) * 100))}%`,
+                        width: `${Math.max(0.3, Math.min(100, ((s.end_time - s.start_time) / asset.duration_seconds!) * 100))}%`,
+                      }}
+                      title={`${formatTimecode(s.start_time)} — ${s.text ?? ""}`}
+                      onClick={() => seekTo(s.start_time)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {((asset.key_moments as { time: number; title: string }[] | null)?.length ?? 0) > 0 && (
+              <>
+                <div className="pt-1.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[AI TAGS]</div>
+                <div className="relative h-6 mt-0.5">
+                  {(asset.key_moments as { time: number; title: string }[]).map((m, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="absolute top-1/2 -translate-y-1/2 max-w-[180px] truncate rounded-full bg-emerald-500/80 hover:bg-emerald-400 text-emerald-950 px-2 py-0.5 text-[9px] font-semibold whitespace-nowrap transition-colors"
+                      style={{ left: `${Math.min(94, Math.max(0, (m.time / asset.duration_seconds!) * 100))}%` }}
+                      title={`${formatTimecode(m.time)} — ${m.title}`}
+                      onClick={() => seekTo(m.time)}
+                    >
+                      ● {m.title}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {(transcript ?? []).some((s) => s.emotion && s.emotion !== "neutral") && (
+              <>
+                <div className="pt-1 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[EMOTION]</div>
+                <div
+                  className="h-3 mt-1 rounded-sm"
+                  style={{
+                    background: `linear-gradient(90deg, ${(transcript ?? [])
+                      .map((s) => `${emotionColor(s.emotion)} ${Math.min(100, Math.max(0, ((s.start_time + s.end_time) / 2 / asset.duration_seconds!) * 100)).toFixed(1)}%`)
+                      .join(", ")})`,
+                  }}
+                  title="Emotion heatmap across the transcript"
+                />
+              </>
+            )}
           </div>
         </div>
       )}

@@ -241,8 +241,8 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
     setViewVersion(null);
   };
 
-  const send = () => {
-    const text = input.trim();
+  const send = (textOverride?: string) => {
+    const text = (textOverride ?? input).trim();
     if (!text || assistantBusy) return;
     setInput("");
     postMutation.mutate(
@@ -257,6 +257,28 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
       },
     );
   };
+
+  // Floating prompt bars elsewhere on the page (e.g. over the asset viewport)
+  // submit into this chat via a window event.
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail;
+      // The dispatcher also queues the prompt for not-yet-mounted chats; we
+      // consumed it here, so clear the queue to avoid a double send.
+      (window as unknown as { __obtvPendingPrompt?: string }).__obtvPendingPrompt = undefined;
+      if (typeof text === "string" && text.trim()) send(text);
+    };
+    // Consume a prompt queued before this chat was mounted (e.g. the floating
+    // bar fired while the Studio session was still opening).
+    const pending = (window as unknown as { __obtvPendingPrompt?: string }).__obtvPendingPrompt;
+    if (typeof pending === "string" && pending.trim() && !assistantBusy) {
+      (window as unknown as { __obtvPendingPrompt?: string }).__obtvPendingPrompt = undefined;
+      send(pending);
+    }
+    window.addEventListener("obtv:studio-prompt", onPrompt);
+    return () => window.removeEventListener("obtv:studio-prompt", onPrompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assistantBusy, projectId]);
 
   const clips = cut?.clips ?? [];
   const latestVersion = cut?.versions?.length ? Math.max(...cut.versions) : 0;
@@ -406,7 +428,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
             disabled={assistantBusy}
             data-testid="input-chat"
           />
-          <Button size="icon" onClick={send} disabled={assistantBusy || !input.trim()} data-testid="button-send-chat">
+          <Button size="icon" onClick={() => send()} disabled={assistantBusy || !input.trim()} data-testid="button-send-chat">
             <Send className="w-4 h-4" />
           </Button>
         </div>
