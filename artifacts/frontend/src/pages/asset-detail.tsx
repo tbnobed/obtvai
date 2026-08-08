@@ -1528,26 +1528,6 @@ export default function AssetDetail() {
               />
             </div>
 
-            {(scenes?.length ?? 0) > 0 && (
-              <>
-                <div className="pt-1.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[SCENES]</div>
-                <div className="relative h-5 mt-1 rounded-sm bg-white/5 overflow-hidden">
-                  {scenes!.map((sc, i) => (
-                    <div
-                      key={i}
-                      className={`absolute top-0 h-full cursor-pointer border-r border-zinc-950 ${i % 2 ? "bg-zinc-700/70 hover:bg-zinc-600" : "bg-zinc-600/70 hover:bg-zinc-500"} transition-colors`}
-                      style={{
-                        left: `${Math.min(100, Math.max(0, (sc.start_time / asset.duration_seconds!) * 100))}%`,
-                        width: `${Math.max(0.4, Math.min(100, ((sc.end_time - sc.start_time) / asset.duration_seconds!) * 100))}%`,
-                      }}
-                      title={`Scene ${i + 1} — ${formatTimecode(sc.start_time)}`}
-                      onClick={() => seekTo(sc.start_time)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
             {(transcript?.length ?? 0) > 0 && (
               <>
                 <div className="pt-1.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[DIALOGUE]</div>
@@ -1588,20 +1568,6 @@ export default function AssetDetail() {
               </>
             )}
 
-            {(transcript ?? []).some((s) => s.emotion && s.emotion !== "neutral") && (
-              <>
-                <div className="pt-1 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[EMOTION]</div>
-                <div
-                  className="h-3 mt-1 rounded-sm"
-                  style={{
-                    background: `linear-gradient(90deg, ${(transcript ?? [])
-                      .map((s) => `${emotionColor(s.emotion)} ${Math.min(100, Math.max(0, ((s.start_time + s.end_time) / 2 / asset.duration_seconds!) * 100)).toFixed(1)}%`)
-                      .join(", ")})`,
-                  }}
-                  title="Emotion heatmap across the transcript"
-                />
-              </>
-            )}
           </div>
         </div>
       )}
@@ -2035,8 +2001,18 @@ function MomentsTimeline({
       return `hsl(${hue.toFixed(0)},${sat.toFixed(0)}%,${light.toFixed(0)}%)`;
     };
     const stops = heat.map((v, i) => `${color(v)} ${((i / (N - 1)) * 100).toFixed(2)}%`);
-    return `linear-gradient(to right, ${stops.join(",")})`;
-  }, [clipSuggestions, keyMoments, duration]);
+    const heatGradient = `linear-gradient(to right, ${stops.join(",")})`;
+    // Emotion gradient replaces the heat strip when the transcript carries emotions.
+    const emo = (segments ?? []).filter((s) => s.emotion && s.emotion !== "neutral");
+    if (emo.length === 0) return heatGradient;
+    const emoStops = (segments ?? [])
+      .map(
+        (s) =>
+          `${emotionColor(s.emotion)} ${Math.min(100, Math.max(0, ((s.start_time + s.end_time) / 2 / duration) * 100)).toFixed(1)}%`,
+      )
+      .join(", ");
+    return `linear-gradient(90deg, ${emoStops})`;
+  }, [clipSuggestions, keyMoments, duration, segments]);
 
   const timeFromEvent = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -2157,12 +2133,9 @@ function MomentsTimeline({
       )}
       <div className="flex gap-4 mt-1 text-[10px] text-zinc-500">
         <span className="font-mono text-zinc-300">{formatTimecode(playhead)}</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, hsl(213,57%,18%), hsl(125,75%,35%), hsl(25,95%,54%))" }} /> cold → hot = AI clip strength &amp; key moments</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, #60a5fa, #ef4444, #facc15, #4ade80)" }} /> emotion heatmap</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-green-500 rounded-sm" /> Select</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-red-500 rounded-sm" /> Reject</span>
-        {(segments ?? []).some((s) => s.emotion && s.emotion !== "neutral") && (
-          <span className="flex items-center gap-1"><span className="inline-block w-6 h-1.5 rounded-sm" style={{ background: "linear-gradient(to right, #60a5fa, #ef4444, #facc15, #4ade80)" }} /> emotion lane</span>
-        )}
         <span className="ml-auto text-zinc-600">right-click anywhere to find similar moments</span>
       </div>
     </div>
