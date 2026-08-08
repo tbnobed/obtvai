@@ -66,6 +66,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - If a change requires ANY server action beyond `git pull && docker compose up -d --build ...` (new `.env` variables, one-time commands, config edits, credentials), state those steps explicitly in the chat next to the deploy command — documenting them only in `.env.example` or elsewhere in the repo is not enough.
 - NEVER attribute a problem to browser caching / stale bundle / "just refresh" — the user rebuilds and reloads properly. Find and state the real root cause with evidence (logs, DB rows) instead.
 - DO NOT waste the user's time and money: follow instructions literally the first time, think through layout/UX consequences BEFORE editing (what overlaps, what loses space, what gets duplicated or orphaned), and when removing/moving UI always delete the leftover old version instead of leaving both.
+- NEVER guess on anything. If an instruction is ambiguous or the intended behavior/placement/design is not 100% clear, ASK and get confirmation BEFORE making any changes — do not implement an interpretation and hope it's right.
 
 ## Gotchas
 
