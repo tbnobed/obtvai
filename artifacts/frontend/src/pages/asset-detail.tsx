@@ -877,12 +877,19 @@ export default function AssetDetail() {
 
         {/* Main Content Area — tabs on top, viewport fills the rest */}
         <Tabs
-          value={activeTab && activeTab !== "studio" ? activeTab : "search"}
+          value={activeTab ?? "studio"}
           onValueChange={setActiveTab}
           className="flex-1 min-w-0 flex flex-col overflow-hidden"
         >
           <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-2">
             <TabsList className="flex flex-wrap h-auto gap-1 justify-start">
+              <TabsTrigger
+                value="studio"
+                className="gap-1.5 text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Clapperboard className="h-3.5 w-3.5" />
+                Studio
+              </TabsTrigger>
               <TabsTrigger value="search" className="gap-1.5">
                 <Search className="h-3.5 w-3.5" />
                 Search
@@ -920,7 +927,7 @@ export default function AssetDetail() {
             </Button>
           </div>
           <div className="flex-1 flex flex-col overflow-y-auto">
-          <div className="p-6 bg-black flex-shrink-0 sticky top-0 z-20 shadow-lg shadow-black/50">
+          <div className={`p-6 bg-black flex-shrink-0 sticky top-0 z-20 shadow-lg shadow-black/50 ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
             {asset.status === 'ready' ? (
               <video 
                 ref={videoRef}
@@ -1012,7 +1019,7 @@ export default function AssetDetail() {
             )}
           </div>
           
-          <div className="p-6">
+          <div className={`p-6 ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
             <div className="flex items-start justify-between gap-4 mb-2">
               <h1 className="text-2xl font-bold">{asset.filename}</h1>
               <Button 
@@ -1508,9 +1515,9 @@ export default function AssetDetail() {
         </div>
       </div>
 
-      {/* ── Full-width NLE timeline band — spans transcript, viewport, and side panel ── */}
+      {/* ── Full-width NLE timeline band — Studio tab only ── */}
       {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
-        <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[38vh] overflow-y-auto">
+        <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[38vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
           <div className="grid grid-cols-[92px_1fr] items-start gap-x-2">
             <div className="pt-2.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[TIMELINE]</div>
             <div className="min-w-0">
