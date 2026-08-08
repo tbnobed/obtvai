@@ -130,6 +130,8 @@ export default function AssetDetail() {
   const [transcriptOpen, setTranscriptOpen] = useState<boolean>(
     () => typeof window === "undefined" || window.innerWidth >= 1440,
   );
+  // Sidebar tabs: transcript or the asset's insights (synopsis + key moments).
+  const [sideTab, setSideTab] = useState<"transcript" | "insights">("transcript");
   const langAvailable = transcriptLang !== "original" && (asset?.translated_languages ?? []).includes(transcriptLang);
   const transcriptParams = langAvailable ? { lang: transcriptLang } : undefined;
   const { data: transcript } = useGetMediaTranscript(id!, transcriptParams, { query: { enabled: !!id, queryKey: getGetMediaTranscriptQueryKey(id!, transcriptParams) } });
@@ -476,18 +478,67 @@ export default function AssetDetail() {
           </button>
         )}
         <div className={`${transcriptOpen ? "w-[300px] xl:w-[360px] flex" : "hidden"} shrink-0 border-r border-border bg-card flex-col overflow-hidden`}>
-          <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-1.5 text-sm font-medium">
-            <Captions className="h-4 w-4 text-muted-foreground" />
-            Transcript
+          <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-1 text-sm font-medium">
+            <button
+              type="button"
+              onClick={() => setSideTab("transcript")}
+              className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors ${sideTab === "transcript" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Captions className="h-3.5 w-3.5" />
+              Transcript
+            </button>
+            <button
+              type="button"
+              onClick={() => setSideTab("insights")}
+              className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors ${sideTab === "insights" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Insights
+            </button>
             <button
               type="button"
               onClick={() => setTranscriptOpen(false)}
-              title="Hide transcript"
+              title="Hide panel"
               className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
             >
               <PanelLeftClose className="h-4 w-4" />
             </button>
           </div>
+              {sideTab === "insights" ? (
+              <ScrollArea className="flex-1 p-4">
+                <div className="space-y-5">
+                  {asset.synopsis ? (
+                    <div>
+                      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Synopsis</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{asset.synopsis}</p>
+                    </div>
+                  ) : null}
+                  {asset.key_moments && asset.key_moments.length > 0 ? (
+                    <div>
+                      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Key Moments</h3>
+                      <div className="space-y-2">
+                        {(asset.key_moments as { time: number; title: string; description?: string }[]).map((m, i) => (
+                          <div
+                            key={i}
+                            className="flex gap-2 items-baseline cursor-pointer hover:bg-muted p-1.5 -mx-1.5 rounded transition-colors"
+                            onClick={() => seekTo(m.time)}
+                          >
+                            <span className="text-xs font-mono text-primary shrink-0">{formatTimecode(m.time)}</span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium leading-snug">{m.title}</p>
+                              {m.description ? <p className="text-xs text-muted-foreground leading-snug">{m.description}</p> : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {!asset.synopsis && !(asset.key_moments && asset.key_moments.length > 0) && (
+                    <p className="text-sm text-muted-foreground text-center mt-10">No AI analysis available yet</p>
+                  )}
+                </div>
+              </ScrollArea>
+              ) : (
               <div className="flex-1 overflow-hidden flex flex-col">
               <div className="px-3 pt-3 shrink-0 flex items-center gap-2">
                 <Languages className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -794,6 +845,7 @@ export default function AssetDetail() {
               </ScrollArea>
               )}
             </div>
+              )}
         </div>
 
         {/* Main Content Area */}
