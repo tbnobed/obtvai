@@ -329,9 +329,16 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
   return (
     <div
       ref={gridRef}
-      className={cutHost ? "flex flex-col gap-4 h-full min-h-0" : "flex flex-col gap-4"}
+      className={
+        cutHost
+          ? "flex flex-col gap-4 h-full min-h-0"
+          : chatOpen
+            ? // Project studio page: 2 columns — chat left, cut/player right (larger)
+              "grid gap-4 items-start lg:grid-cols-[minmax(320px,2fr)_minmax(0,3fr)]"
+            : "flex flex-col gap-4"
+      }
     >
-      {/* ── Chat pane (collapsible; stacked above the cut — no side-by-side split) ── */}
+      {/* ── Chat pane (collapsible; left column on the project studio page) ── */}
       {!chatOpen && !cutHost && (
         <button
           type="button"
