@@ -118,8 +118,7 @@ export function CutStrips({
       }
     });
     return Array.from(byPerson.values())
-      .sort((a, b) => b.speaking - a.speaking)
-      .slice(0, 6);
+      .sort((a, b) => b.speaking - a.speaking);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaIds, ...peopleQueries.map((q) => q.data)]);
 
@@ -147,6 +146,8 @@ export function CutStrips({
         <div className={`${LABEL_W} shrink-0 text-right text-[9px] font-bold tracking-widest text-zinc-600 select-none`}>[EMOTION]</div>
         {track((c, i) => <TranscriptCell clip={c} kind="emotion" onSeek={(t) => onSeek?.(i, t)} />)}
       </div>
+      {/* Person rows: ~4 visible at a time, scroll for the rest */}
+      <div className="space-y-1 max-h-[84px] overflow-y-auto pr-1">
       {people.map(({ person, byMedia }, pi) => {
         const color = PERSON_COLORS[pi % PERSON_COLORS.length];
         return (
@@ -191,6 +192,7 @@ export function CutStrips({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

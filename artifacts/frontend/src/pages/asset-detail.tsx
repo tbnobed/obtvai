@@ -1677,8 +1677,9 @@ function PeopleTracks({
   const widthPct = (a: number, b: number) =>
     `${Math.max(0.5, Math.min(100, ((b - a) / duration) * 100))}%`;
   return (
-    <div className="mt-2 space-y-1" data-testid="people-tracks">
-      {people.slice(0, 6).map((p, i) => (
+    // ~4 rows visible at a time (h-6 rows + gaps); scroll for the rest.
+    <div className="mt-2 space-y-1 max-h-[124px] overflow-y-auto pr-1" data-testid="people-tracks">
+      {people.map((p, i) => (
         <div key={p.person_id} className="flex items-center gap-2">
           <Link
             href={`/people/${p.person_id}`}
