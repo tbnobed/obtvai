@@ -69,6 +69,21 @@ export function MediaPickerGrid({
     query: { queryKey: getListMediaQueryKey(mediaParams), placeholderData: (p) => p },
   });
 
+  // The library page above only covers the newest assets — selected ids can
+  // fall outside it (e.g. picked from search results in an 80k+ library), so
+  // resolve them explicitly or the strip silently shows nothing.
+  const selectedKey = selectedStrip && selected.length ? [...selected].sort().join(",") : "";
+  const selectedParams = selectedKey
+    ? { ids: selectedKey, limit: Math.min(Math.max(selected.length, 1), 200) }
+    : undefined;
+  const { data: selectedMedia } = useListMedia(selectedParams ?? {}, {
+    query: {
+      queryKey: getListMediaQueryKey(selectedParams ?? {}),
+      enabled: !!selectedKey,
+      placeholderData: (p) => p,
+    },
+  });
+
   const items = useMemo(() => {
     let list = media?.items ?? [];
     if (restrictTo && restrictTo.length) list = list.filter((a) => restrictTo.includes(a.id));
@@ -90,10 +105,14 @@ export function MediaPickerGrid({
     );
   }, [media?.items, restrictTo, selectedOnly, selected, search]);
 
-  const selectedAssets = useMemo(
-    () => (selectedStrip ? items.filter((a) => selected.includes(a.id)) : []),
-    [items, selected, selectedStrip],
-  );
+  const selectedAssets = useMemo(() => {
+    if (!selectedStrip) return [];
+    // Prefer the dedicated by-id fetch; fall back to whatever the page has.
+    const byId = new Map<string, MediaAsset>();
+    for (const a of media?.items ?? []) if (selected.includes(a.id)) byId.set(a.id, a);
+    for (const a of selectedMedia?.items ?? []) if (selected.includes(a.id)) byId.set(a.id, a);
+    return selected.map((sid) => byId.get(sid)).filter((a): a is MediaAsset => !!a);
+  }, [selectedStrip, media?.items, selectedMedia?.items, selected]);
   // With the strip shown, the list below only offers what's NOT yet selected.
   const listItems = useMemo(
     () => (selectedStrip ? items.filter((a) => !selected.includes(a.id)) : items),
