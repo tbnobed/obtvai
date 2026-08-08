@@ -2046,11 +2046,14 @@ function MomentsTimeline({
 
   return (
     <div className="relative mt-2 select-none px-0" data-testid="moments-timeline">
-      {hover && spriteUrl && spriteMeta && (
+      {hover && spriteUrl && spriteMeta && barRef.current && (
         <div
-          className="absolute bottom-full mb-1 z-20 pointer-events-none rounded border border-border shadow-lg overflow-hidden bg-black"
+          className="fixed z-50 pointer-events-none rounded border border-border shadow-lg overflow-hidden bg-black"
           style={{
-            left: Math.min(Math.max(hover.x - PREVIEW_W / 2, 0), (barRef.current?.clientWidth ?? 0) - PREVIEW_W),
+            left:
+              barRef.current.getBoundingClientRect().left +
+              Math.min(Math.max(hover.x - PREVIEW_W / 2, 0), barRef.current.clientWidth - PREVIEW_W),
+            top: barRef.current.getBoundingClientRect().top - previewH - 20,
             width: PREVIEW_W,
           }}
         >
@@ -2068,10 +2071,13 @@ function MomentsTimeline({
           </div>
         </div>
       )}
-      {hover && (!spriteUrl || !spriteMeta) && (
+      {hover && (!spriteUrl || !spriteMeta) && barRef.current && (
         <div
-          className="absolute bottom-full mb-1 z-20 pointer-events-none rounded bg-black/85 px-1.5 py-0.5 text-[10px] font-mono text-white"
-          style={{ left: Math.max(0, hover.x - 24) }}
+          className="fixed z-50 pointer-events-none rounded bg-black/85 px-1.5 py-0.5 text-[10px] font-mono text-white"
+          style={{
+            left: barRef.current.getBoundingClientRect().left + Math.max(0, hover.x - 24),
+            top: barRef.current.getBoundingClientRect().top - 22,
+          }}
         >
           {formatTimecode(hover.t)}
         </div>
