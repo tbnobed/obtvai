@@ -70,18 +70,47 @@ export function UnifiedEditor() {
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-zinc-950 text-zinc-200 text-[13px] font-['Inter',sans-serif]">
       {/* Top bar */}
       <div className="h-11 shrink-0 border-b border-zinc-800 flex items-center px-3 gap-3">
-        <div className="flex items-center gap-2 text-zinc-400">
+        {/* Left: breadcrumb */}
+        <div className="flex items-center gap-2 text-zinc-400 shrink-0">
           <Clapperboard className="w-4 h-4 text-sky-400" />
           <span className="font-semibold text-zinc-200 tracking-wide">[PROJECT: HUCKABEE_STAKS]</span>
-          <span className="text-zinc-600">|</span>
-          <span className="uppercase text-xs tracking-wider">Library</span>
+          <span className="text-zinc-700 mx-0.5">›</span>
+          <span className="uppercase text-xs tracking-wider text-zinc-400">Library</span>
         </div>
-        <div className="mx-auto flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1">
-          <span className="font-semibold">[DRAFT CUT v6]</span>
-          <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+
+        {/* Center: page tabs */}
+        <div className="flex items-center h-full mx-auto">
+          {[
+            { label: "Search", active: false },
+            { label: "Studio", active: true },
+            { label: "Creative", active: false },
+            { label: "Socials", active: false },
+            { label: "Selects", active: false },
+            { label: "Scenes", active: false },
+            { label: "Pipeline Jobs", active: false },
+          ].map((t) => (
+            <div
+              key={t.label}
+              className={`h-full flex items-center px-4 text-xs font-semibold tracking-wide border-b-2 cursor-pointer select-none transition-colors ${
+                t.active
+                  ? "border-sky-400 text-sky-300"
+                  : "border-transparent text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {t.label}
+            </div>
+          ))}
         </div>
-        <button className="flex items-center gap-1.5 border border-zinc-700 rounded-md px-2.5 py-1 text-xs hover:bg-zinc-900"><Scissors className="w-3.5 h-3.5" /> TRIM</button>
-        <button className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-md px-3 py-1 text-xs font-semibold"><Download className="w-3.5 h-3.5" /> EXPORT</button>
+
+        {/* Right: draft cut + actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1">
+            <span className="font-semibold text-xs">[DRAFT CUT v6]</span>
+            <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+          </div>
+          <button className="flex items-center gap-1.5 border border-zinc-700 rounded-md px-2.5 py-1 text-xs hover:bg-zinc-900"><Scissors className="w-3.5 h-3.5" /> TRIM</button>
+          <button className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-md px-3 py-1 text-xs font-semibold"><Download className="w-3.5 h-3.5" /> EXPORT</button>
+        </div>
       </div>
 
       <div className="flex-1 flex min-h-0">
