@@ -35,7 +35,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search, Pencil, Check, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search, Pencil, Check, X, ChevronUp, ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -125,6 +125,11 @@ export default function AssetDetail() {
 
   const { data: scenes } = useGetMediaScenes(id!, { query: { enabled: !!id, queryKey: getGetMediaScenesQueryKey(id!) } });
   const [transcriptLang, setTranscriptLang] = useState<string>("original");
+  // Collapsible transcript: open by default on wide screens, closed on laptops
+  // so the player and analysis panels get the width.
+  const [transcriptOpen, setTranscriptOpen] = useState<boolean>(
+    () => typeof window === "undefined" || window.innerWidth >= 1440,
+  );
   const langAvailable = transcriptLang !== "original" && (asset?.translated_languages ?? []).includes(transcriptLang);
   const transcriptParams = langAvailable ? { lang: transcriptLang } : undefined;
   const { data: transcript } = useGetMediaTranscript(id!, transcriptParams, { query: { enabled: !!id, queryKey: getGetMediaTranscriptQueryKey(id!, transcriptParams) } });
@@ -456,11 +461,32 @@ export default function AssetDetail() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div className="flex-1 flex overflow-hidden">
-        {/* Transcript Panel — always visible, independent of the right tabs */}
-        <div className="w-[360px] shrink-0 border-r border-border bg-card flex flex-col overflow-hidden">
+        {/* Transcript Panel — collapsible so laptops keep room for the player */}
+        {!transcriptOpen && (
+          <button
+            type="button"
+            onClick={() => setTranscriptOpen(true)}
+            title="Show transcript"
+            className="w-9 shrink-0 border-r border-border bg-card flex flex-col items-center gap-2 pt-3 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+            <span className="text-[11px] font-medium tracking-wide" style={{ writingMode: "vertical-rl" }}>
+              Transcript
+            </span>
+          </button>
+        )}
+        <div className={`${transcriptOpen ? "w-[300px] xl:w-[360px] flex" : "hidden"} shrink-0 border-r border-border bg-card flex-col overflow-hidden`}>
           <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-1.5 text-sm font-medium">
             <Captions className="h-4 w-4 text-muted-foreground" />
             Transcript
+            <button
+              type="button"
+              onClick={() => setTranscriptOpen(false)}
+              title="Hide transcript"
+              className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
           </div>
               <div className="flex-1 overflow-hidden flex flex-col">
               <div className="px-3 pt-3 shrink-0 flex items-center gap-2">

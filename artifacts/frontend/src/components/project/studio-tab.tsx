@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors, Download, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors, Download, ThumbsUp, ThumbsDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -126,6 +126,10 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
   const { toast } = useToast();
 
   const [input, setInput] = useState("");
+  // Assistant pane collapses to a slim rail so laptops keep room for the cut.
+  const [chatOpen, setChatOpen] = useState<boolean>(
+    () => typeof window === "undefined" || window.innerWidth >= 1440,
+  );
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
@@ -293,9 +297,26 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
   const total = cutDuration(clips);
 
   return (
-    <div ref={gridRef} className="grid gap-4 lg:grid-cols-[minmax(320px,1fr)_2fr]">
-      {/* ── Chat pane ── */}
-      <div className={`min-w-0 flex flex-col border border-border rounded-lg bg-card/50 ${panelH} min-h-[420px]`} style={panelStyle}>
+    <div
+      ref={gridRef}
+      className={`grid gap-4 ${chatOpen ? "lg:grid-cols-[minmax(300px,1fr)_2fr]" : "grid-cols-[auto_1fr]"}`}
+    >
+      {/* ── Chat pane (collapsible so laptops keep room for the cut) ── */}
+      {!chatOpen && (
+        <button
+          type="button"
+          onClick={() => setChatOpen(true)}
+          title="Show the editorial assistant"
+          className={`w-9 border border-border rounded-lg bg-card/50 flex flex-col items-center gap-2 pt-3 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors ${panelH} min-h-[420px]`}
+          style={panelStyle}
+        >
+          <Sparkles className="w-4 h-4 text-primary" />
+          <span className="text-[11px] font-medium tracking-wide" style={{ writingMode: "vertical-rl" }}>
+            Editorial assistant
+          </span>
+        </button>
+      )}
+      <div className={`min-w-0 ${chatOpen ? "flex" : "hidden"} flex-col border border-border rounded-lg bg-card/50 ${panelH} min-h-[420px]`} style={panelStyle}>
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">Editorial assistant</span>
@@ -307,6 +328,14 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
             <Film className="w-3.5 h-3.5 mr-1.5" />
             {mediaPool.length ? `Media pool: ${mediaPool.length}` : "Media pool: all"}
           </Button>
+          <button
+            type="button"
+            onClick={() => setChatOpen(false)}
+            title="Hide the assistant"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
         </div>
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {!(messages ?? []).length && (
