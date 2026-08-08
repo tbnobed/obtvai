@@ -863,7 +863,7 @@ export default function AssetDetail() {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-y-auto">
-          <div className="p-6 bg-black flex-shrink-0 relative">
+          <div className="p-6 bg-black flex-shrink-0 sticky top-0 z-20 shadow-lg shadow-black/50">
             {asset.status === 'ready' ? (
               <video 
                 ref={videoRef}
@@ -919,6 +919,13 @@ export default function AssetDetail() {
                 spriteMeta={(asset.sprite_meta as SpriteMeta | null) ?? undefined}
                 videoRef={videoRef}
                 segments={transcript ?? []}
+              />
+            )}
+            {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
+              <PeopleTracks
+                mediaId={id!}
+                duration={asset.duration_seconds!}
+                seekTo={seekTo}
               />
             )}
           </div>
@@ -1527,6 +1534,69 @@ const QC_FLAG_LABELS: Record<string, string> = {
   black_frames: "Black frames",
   mostly_black: "Mostly black",
 };
+
+/** Compact NLE-style people tracks rendered directly under the player timeline. */
+const TRACK_COLORS = ["bg-emerald-500", "bg-sky-500", "bg-amber-500", "bg-fuchsia-500", "bg-rose-500", "bg-violet-500"];
+
+function PeopleTracks({
+  mediaId,
+  duration,
+  seekTo,
+}: {
+  mediaId: string;
+  duration: number;
+  seekTo: (time: number) => void;
+}) {
+  const { data: people } = useGetAssetPeople(mediaId);
+  if (!people?.length || duration <= 0) return null;
+  const pct = (t: number) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%`;
+  const widthPct = (a: number, b: number) =>
+    `${Math.max(0.5, Math.min(100, ((b - a) / duration) * 100))}%`;
+  return (
+    <div className="mt-2 space-y-1" data-testid="people-tracks">
+      {people.slice(0, 6).map((p, i) => (
+        <div key={p.person_id} className="flex items-center gap-2">
+          <Link
+            href={`/people/${p.person_id}`}
+            className="w-32 shrink-0 flex items-center justify-end gap-1.5 group"
+            title={p.display_name}
+          >
+            <span className="text-[10px] font-medium text-zinc-400 group-hover:text-zinc-200 truncate transition-colors">
+              {p.display_name}
+            </span>
+            {p.thumbnail_url ? (
+              <img
+                src={`/api/thumbnails/${p.thumbnail_url}`}
+                alt=""
+                className="h-4 w-4 rounded-full object-cover shrink-0"
+              />
+            ) : null}
+          </Link>
+          <div className="relative h-3.5 flex-1 rounded-sm bg-white/5 overflow-hidden">
+            {(p.on_camera ?? []).map((r, j) => (
+              <div
+                key={`cam-${j}`}
+                className={`absolute top-0 h-full ${TRACK_COLORS[i % TRACK_COLORS.length]} opacity-25 hover:opacity-40 cursor-pointer transition-opacity`}
+                style={{ left: pct(r.start_time), width: widthPct(r.start_time, r.end_time) }}
+                title={`${p.display_name} on camera ${formatTimecode(r.start_time)} – ${formatTimecode(r.end_time)}`}
+                onClick={() => seekTo(r.start_time)}
+              />
+            ))}
+            {(p.speaking ?? []).map((s, j) => (
+              <div
+                key={`spk-${j}`}
+                className={`absolute bottom-0 h-full ${TRACK_COLORS[i % TRACK_COLORS.length]} opacity-80 hover:opacity-100 cursor-pointer rounded-[1px] transition-opacity`}
+                style={{ left: pct(s.start_time), width: widthPct(s.start_time, s.end_time) }}
+                title={`${p.display_name} — ${formatTimecode(s.start_time)}${s.text ? `\n${s.text}` : ""}`}
+                onClick={() => seekTo(s.start_time)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const QC_FLAG_HINTS: Record<string, string> = {
   audio_clipping: "Audio peaks at or above 0 dBFS — likely distorted",
