@@ -1474,9 +1474,13 @@ export default function AssetDetail() {
             <XCircle className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} cutHost={cutHost} />
-          <AssetRendersSection mediaId={id!} />
+        <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col">
+            <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} cutHost={cutHost} />
+          </div>
+          <div className="shrink-0 max-h-[30%] overflow-y-auto empty:hidden">
+            <AssetRendersSection mediaId={id!} />
+          </div>
         </div>
       </div>
       </div>

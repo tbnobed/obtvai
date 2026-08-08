@@ -329,7 +329,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
   return (
     <div
       ref={gridRef}
-      className="flex flex-col gap-4"
+      className={cutHost ? "flex flex-col gap-4 h-full min-h-0" : "flex flex-col gap-4"}
     >
       {/* ── Chat pane (collapsible; stacked above the cut — no side-by-side split) ── */}
       {!chatOpen && (
@@ -344,7 +344,10 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
           <PanelLeftOpen className="w-3.5 h-3.5 ml-auto" />
         </button>
       )}
-      <div className={`min-w-0 ${chatOpen ? "flex" : "hidden"} flex-col border border-border rounded-lg bg-card/50 ${panelH} min-h-[420px]`} style={panelStyle}>
+      <div
+        className={`min-w-0 ${chatOpen ? "flex" : "hidden"} flex-col border border-border rounded-lg bg-card/50 ${cutHost ? "flex-1 min-h-0" : `${panelH} min-h-[420px]`}`}
+        style={cutHost ? undefined : panelStyle}
+      >
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">Editorial assistant</span>
