@@ -219,7 +219,8 @@ export default function ProjectDetail() {
 
   const [tab, setTab] = useState<string>(() => {
     const t = new URLSearchParams(window.location.search).get("tab") ?? "";
-    return ["find", "pool", "studio", "deliver"].includes(t) ? t : "find";
+    if (t === "pool") return "find"; // Media Pool merged into Find
+    return ["find", "studio", "deliver"].includes(t) ? t : "find";
   });
   const [approvalGate, setApprovalGate] = useState<{ list: ClipList; action: "render" } | null>(null);
   const [studioFocusVersion, setStudioFocusVersion] = useState<number | null>(null);
@@ -693,55 +694,24 @@ export default function ProjectDetail() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6">
-          <TabsTrigger value="find"><Search className="h-4 w-4 mr-2" /> Find</TabsTrigger>
-          <TabsTrigger value="pool"><Clapperboard className="h-4 w-4 mr-2" /> Media Pool</TabsTrigger>
+          <TabsTrigger value="find"><Search className="h-4 w-4 mr-2" /> Find &amp; Media</TabsTrigger>
           <TabsTrigger value="studio"><Sparkles className="h-4 w-4 mr-2" /> Studio</TabsTrigger>
           <TabsTrigger value="deliver"><Clapperboard className="h-4 w-4 mr-2" /> Deliver</TabsTrigger>
         </TabsList>
 
         {/* ------------------------------ FIND ------------------------------ */}
         <TabsContent value="studio">
-          {project && <StudioTab project={project} onOpenPool={() => setTab("pool")} focusVersion={studioFocusVersion} fill />}
+          {project && <StudioTab project={project} onOpenPool={() => setTab("find")} focusVersion={studioFocusVersion} fill />}
         </TabsContent>
 
-        <TabsContent value="pool">
-          {project && <MediaPoolTab project={project} />}
-        </TabsContent>
+        {/* Find & Media — media pool (left) and footage search (right) on one page */}
+        <TabsContent value="find">
+          <div className="grid gap-6 lg:grid-cols-2 items-start">
+          <div className="min-w-0">
+            {project && <MediaPoolTab project={project} />}
+          </div>
 
-        <TabsContent value="find" className="space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 flex-wrap gap-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Clapperboard className="h-4 w-4" /> Project Media
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">
-                  {mediaPool.length ? `${mediaPool.length} selected` : "Whole library"}
-                </Badge>
-                {mediaPool.length > 0 && (
-                  <Button size="sm" variant="ghost" onClick={clearMediaPool} disabled={updateMutation.isPending}>
-                    Use whole library
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground mb-3">
-                Pick the assets this project works with — search and script matching stay within this media.
-              </p>
-              <MediaPickerGrid
-                selected={mediaPool}
-                onToggle={toggleMediaPool}
-                onToggleMany={toggleMediaPoolMany}
-                togglesDisabled={updateMutation.isPending}
-                selectedStrip
-                onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
-                emptyText="The library is empty — drop files in the watch folder or upload from the Library page. They'll appear here once ingested."
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 flex-wrap gap-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Search className="h-4 w-4" /> Search Footage
@@ -811,7 +781,7 @@ export default function ProjectDetail() {
               )}
             </CardContent>
           </Card>
-
+          </div>
         </TabsContent>
 
         {/* ----------------------------- DELIVER ---------------------------- */}
