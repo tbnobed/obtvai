@@ -935,7 +935,7 @@ export default function AssetDetail() {
                   ? `/api/media/${id}/dub/${transcriptLang}/video`
                   : `/api/media/${id}/stream`} 
                 controls 
-                className="w-full max-h-[60vh] object-contain bg-black"
+                className="w-full max-h-[42vh] object-contain bg-black"
                 onTimeUpdate={handleTimeUpdate}
               />
             ) : (
@@ -1487,7 +1487,7 @@ export default function AssetDetail() {
 
       {/* ── Full-width NLE timeline band — Studio tab only ── */}
       {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
-        <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[52vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
+        <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[44vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
           {/* Draft cut panel is portalled here from the Studio session — only visible in preview mode, replacing the lanes */}
           <div ref={setCutHost} className={viewMode === "preview" ? "mb-2 empty:hidden" : "hidden"} />
           {viewMode === "preview" ? null : (
@@ -1508,7 +1508,7 @@ export default function AssetDetail() {
               />
             </div>
             <div className="pt-2 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[PEOPLE]</div>
-            <div className="min-w-0 max-h-48 overflow-y-auto">
+            <div className="min-w-0 max-h-72 overflow-y-auto">
               <PeopleTracks
                 mediaId={id!}
                 duration={asset.duration_seconds!}
@@ -2049,7 +2049,7 @@ function MomentsTimeline({
       )}
       <div
         ref={barRef}
-        className="relative h-16 rounded bg-zinc-900 overflow-hidden cursor-pointer"
+        className="relative h-10 rounded bg-zinc-900 overflow-hidden cursor-pointer"
         title="Hover to preview · click to jump · right-click to find similar moments"
         onMouseMove={(e) => setHover(timeFromEvent(e))}
         onMouseLeave={() => setHover(null)}
