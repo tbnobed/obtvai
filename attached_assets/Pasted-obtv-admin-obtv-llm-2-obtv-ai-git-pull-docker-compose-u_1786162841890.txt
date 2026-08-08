@@ -1,0 +1,79 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull && docker compose up -d --build frontend
+remote: Enumerating objects: 3, done.
+remote: Counting objects: 100% (3/3), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 2 (delta 1), reused 2 (delta 1), pack-reused 0 (from 0)
+Unpacking objects: 100% (2/2), 232 bytes | 232.00 KiB/s, done.
+From https://github.com/tbnobed/obtvai
+   94695e0..d49a2f8  main       -> origin/main
+Updating 94695e0..d49a2f8
+Fast-forward
+ package.json | 19 -------------------
+ 1 file changed, 19 deletions(-)
+ delete mode 100644 package.json
+[+] Building 0.4s (25/33)
+ => [internal] load local bake definitions                                                                                                                                 0.0s
+ => => reading from stdin 965B                                                                                                                                             0.0s
+ => [frontend internal] load build definition from Dockerfile.production                                                                                                   0.0s
+ => => transferring dockerfile: 1.13kB                                                                                                                                     0.0s
+ => [api internal] load build definition from Dockerfile                                                                                                                   0.0s
+ => => transferring dockerfile: 628B                                                                                                                                       0.0s
+ => [frontend internal] load metadata for docker.io/library/nginx:alpine                                                                                                   0.1s
+ => [frontend internal] load metadata for docker.io/library/node:20-slim                                                                                                   0.2s
+ => [api internal] load metadata for docker.io/library/python:3.11-slim                                                                                                    0.0s
+ => [api internal] load .dockerignore                                                                                                                                      0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [api 1/6] FROM docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                              0.0s
+ => => resolve docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                                  0.0s
+ => [api internal] load build context                                                                                                                                      0.0s
+ => => transferring context: 1.77kB                                                                                                                                        0.0s
+ => CACHED [api 2/6] RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libpq-dev     gcc     g++     curl     && rm -rf /var/lib/apt/lists/  0.0s
+ => CACHED [api 3/6] WORKDIR /app                                                                                                                                          0.0s
+ => CACHED [api 4/6] COPY requirements.txt .                                                                                                                               0.0s
+ => CACHED [api 5/6] RUN pip install --no-cache-dir -r requirements.txt                                                                                                    0.0s
+ => CACHED [api 6/6] COPY app/ ./app/                                                                                                                                      0.0s
+ => [api] exporting to image                                                                                                                                               0.1s
+ => => exporting layers                                                                                                                                                    0.0s
+ => => exporting manifest sha256:b8df28342e121afada0644e090998672762d16d00ba1f81548e83ea555031a1a                                                                          0.0s
+ => => exporting config sha256:654042a8bb85b97af0664fb003012f6eee0a7d0bac557138f28517180a874c21                                                                            0.0s
+ => => exporting attestation manifest sha256:687fe9d67b47fd529c1ef56ba4b3af3fe5e2099b9282199b617beec8b90118f6                                                              0.0s
+ => => exporting manifest list sha256:ad86193eb36c77b2a34d60b993ef4d7dece431c82da32f8dcde63ca105e71f48                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-api:latest                                                                                                                      0.0s
+ => => unpacking to docker.io/library/obtv-ai-api:latest                                                                                                                   0.0s
+ => [frontend internal] load .dockerignore                                                                                                                                 0.0s
+ => => transferring context: 186B                                                                                                                                          0.0s
+ => [frontend builder  1/12] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0                                   0.0s
+ => => resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0                                                      0.0s
+ => [frontend internal] load build context                                                                                                                                 0.0s
+ => => transferring context: 27.96kB                                                                                                                                       0.0s
+ => [frontend stage-1 1/3] FROM docker.io/library/nginx:alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752                                     0.0s
+ => => resolve docker.io/library/nginx:alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752                                                      0.0s
+ => [api] resolving provenance for metadata file                                                                                                                           0.0s
+ => CACHED [frontend builder  2/12] WORKDIR /app                                                                                                                           0.0s
+ => CACHED [frontend builder  3/12] RUN npm install -g pnpm@10                                                                                                             0.0s
+ => CACHED [frontend builder  4/12] COPY pnpm-lock.yaml pnpm-workspace.yaml ./                                                                                             0.0s
+ => CACHED [frontend builder  5/12] RUN pnpm fetch                                                                                                                         0.0s
+ => ERROR [frontend builder  6/12] COPY package.json tsconfig.base.json tsconfig.json ./                                                                                   0.0s
+------
+ > [frontend builder  6/12] COPY package.json tsconfig.base.json tsconfig.json ./:
+------
+[+] up 0/2
+ ⠙ Image obtv-ai-frontend Building                                                                                                                                          0.5s
+ ⠙ Image obtv-ai-api      Building                                                                                                                                          0.5s
+Dockerfile.production:13
+
+--------------------
+
+  11 |     RUN pnpm fetch
+
+  12 |
+
+  13 | >>> COPY package.json tsconfig.base.json tsconfig.json ./
+
+  14 |     COPY lib/ ./lib/
+
+  15 |     COPY artifacts/frontend/ ./artifacts/frontend/
+
+--------------------
+
+target frontend: failed to solve: failed to compute cache key: failed to calculate checksum of ref pswnjitubnjpoivphtk0344y5::008cx8rlt2ggo4sxz55t0ehgz: "/package.json": not found
