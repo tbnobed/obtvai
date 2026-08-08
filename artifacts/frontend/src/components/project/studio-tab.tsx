@@ -631,6 +631,13 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
                 ))}
               </div>
               )}
+              <CutStrips
+                clips={events.map((ev) => ev.clip)}
+                onSeek={(i, t) => {
+                  if (cutHost && onSeekSource) onSeekSource(t);
+                  else { setPreviewIndex(i); setPreviewOpen(true); }
+                }}
+              />
               <div className="flex gap-1.5 overflow-x-auto pb-1">
                   {events.map((ev, i) => (
                     <div key={ev.n} className="w-44 shrink-0 rounded border border-border bg-black/30 overflow-hidden" data-testid={`cut-block-${i}`}>
@@ -698,7 +705,6 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
                     </div>
                   ))}
                 </div>
-              <CutStrips clips={events.map((ev) => ev.clip)} />
             </>
           )}
         </div>
