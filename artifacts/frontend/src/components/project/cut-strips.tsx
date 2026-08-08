@@ -147,7 +147,7 @@ export function CutStrips({
         {track((c, i) => <TranscriptCell clip={c} kind="emotion" onSeek={(t) => onSeek?.(i, t)} />)}
       </div>
       {/* Person rows: ~4 visible at a time, scroll for the rest */}
-      <div className="space-y-1 max-h-[84px] overflow-y-auto pr-1">
+      <div className="space-y-1 max-h-[84px] overflow-y-auto no-scrollbar">
       {people.map(({ person, byMedia }, pi) => {
         const color = PERSON_COLORS[pi % PERSON_COLORS.length];
         return (

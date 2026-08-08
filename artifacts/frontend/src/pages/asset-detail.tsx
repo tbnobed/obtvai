@@ -1678,7 +1678,7 @@ function PeopleTracks({
     `${Math.max(0.5, Math.min(100, ((b - a) / duration) * 100))}%`;
   return (
     // ~4 rows visible at a time (h-6 rows + gaps); scroll for the rest.
-    <div className="mt-2 space-y-1 max-h-[124px] overflow-y-auto pr-1" data-testid="people-tracks">
+    <div className="mt-2 space-y-1 max-h-[124px] overflow-y-auto no-scrollbar" data-testid="people-tracks">
       {people.map((p, i) => (
         <div key={p.person_id} className="flex items-center gap-2">
           <Link
