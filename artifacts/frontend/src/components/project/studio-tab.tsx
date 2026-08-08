@@ -105,7 +105,7 @@ function fmtRuntime(s: number) {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 }
 
-export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSource }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null; fill?: boolean; onSeekSource?: (t: number) => void }) {
+export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSource, onCutChange }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null; fill?: boolean; onSeekSource?: (t: number) => void; onCutChange?: (clips: CutClip[]) => void }) {
   // Fill the viewport: measure where the panels actually start and stretch
   // them to the bottom of the window instead of guessing a fixed offset.
   const gridRef = useRef<HTMLDivElement>(null);
@@ -282,6 +282,12 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
 
   const clips = cut?.clips ?? [];
   const latestVersion = cut?.versions?.length ? Math.max(...cut.versions) : 0;
+
+  // Surface the current cut to the host page (asset viewport PREVIEW mode).
+  useEffect(() => {
+    onCutChange?.(clips);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clips]);
   const viewingOld = viewVersion != null && viewVersion !== latestVersion;
 
   const patchClips = (next: CutClip[]) => {

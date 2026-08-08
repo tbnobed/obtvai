@@ -27,7 +27,7 @@ import {
   useListRatings, getListRatingsQueryKey,
   useGetMediaStudioSession
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, Project, SearchResult } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, Project, SearchResult, CutClip } from "@workspace/api-client-react";
 import { useSemanticSearch, useFindSimilarMoments } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -134,6 +134,41 @@ export default function AssetDetail() {
   const [sideTab, setSideTab] = useState<"transcript" | "insights">("transcript");
   // Floating Cmd-K style prompt bar over the viewport — routes into the Studio chat.
   const [floatPrompt, setFloatPrompt] = useState("");
+  // Single-viewport PREVIEW mode: the main player plays the draft cut in place.
+  const [viewMode, setViewMode] = useState<"original" | "preview">("original");
+  const [cutClips, setCutClips] = useState<CutClip[]>([]);
+  const previewClips = useMemo(() => cutClips.filter((c) => c.media_id === id), [cutClips, id]);
+
+  // Preview playback engine: sequence the draft cut's clips in the main player.
+  useEffect(() => {
+    if (viewMode !== "preview") return;
+    const v = videoRef.current;
+    if (!v || !previewClips.length) return;
+    let idx = 0;
+    v.currentTime = previewClips[0].start_time;
+    v.play().catch(() => {});
+    const onTime = () => {
+      const c = previewClips[idx];
+      if (!c) return;
+      if (v.currentTime >= c.end_time - 0.05) {
+        idx += 1;
+        if (idx >= previewClips.length) {
+          idx = 0;
+          v.pause();
+          v.currentTime = previewClips[0].start_time;
+        } else {
+          v.currentTime = previewClips[idx].start_time;
+        }
+      }
+    };
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, [viewMode, previewClips]);
+
+  // If the cut disappears (cleared/reset), fall back to the original.
+  useEffect(() => {
+    if (viewMode === "preview" && !previewClips.length) setViewMode("original");
+  }, [viewMode, previewClips]);
   const langAvailable = transcriptLang !== "original" && (asset?.translated_languages ?? []).includes(transcriptLang);
   const transcriptParams = langAvailable ? { lang: transcriptLang } : undefined;
   const { data: transcript } = useGetMediaTranscript(id!, transcriptParams, { query: { enabled: !!id, queryKey: getGetMediaTranscriptQueryKey(id!, transcriptParams) } });
@@ -897,21 +932,32 @@ export default function AssetDetail() {
               >
                 <button
                   type="button"
-                  onClick={() => dubOn && setDubOn(false)}
-                  className={`px-2.5 py-1 transition-colors ${!dubOn ? "bg-white text-black" : "bg-black/60 text-zinc-400 hover:text-white"}`}
+                  onClick={() => { setViewMode("original"); if (dubOn) setDubOn(false); }}
+                  className={`px-2.5 py-1 transition-colors ${viewMode === "original" && !dubOn ? "bg-white text-black" : "bg-black/60 text-zinc-400 hover:text-white"}`}
+                  data-testid="toggle-original"
                 >
                   ORIGINAL
                 </button>
+                {dubAvailable && (
+                  <button
+                    type="button"
+                    title={`Switch to the ${TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()} dub`}
+                    onClick={() => { setViewMode("original"); setDubOn(true); }}
+                    className={`px-2.5 py-1 transition-colors ${viewMode === "original" && dubOn ? "bg-white text-black" : "bg-black/60 text-zinc-400 hover:text-white"}`}
+                    data-testid="toggle-dub"
+                  >
+                    DUB
+                  </button>
+                )}
                 <button
                   type="button"
-                  disabled={!dubAvailable}
-                  title={dubAvailable
-                    ? `Switch to the ${TRANSLATION_LANGUAGES.find(l => l.code === transcriptLang)?.label ?? transcriptLang.toUpperCase()} dub`
-                    : "No dub available for the selected language"}
-                  onClick={() => dubAvailable && setDubOn(true)}
-                  className={`px-2.5 py-1 transition-colors ${dubOn && dubAvailable ? "bg-white text-black" : "bg-black/60 text-zinc-400 hover:text-white disabled:opacity-40 disabled:hover:text-zinc-400"}`}
+                  disabled={!previewClips.length}
+                  title={previewClips.length ? "Play the current draft cut in this player" : "No draft cut yet — build one in the Studio chat"}
+                  onClick={() => previewClips.length && setViewMode("preview")}
+                  className={`px-2.5 py-1 transition-colors ${viewMode === "preview" ? "bg-white text-black" : "bg-black/60 text-zinc-400 hover:text-white disabled:opacity-40 disabled:hover:text-zinc-400"}`}
+                  data-testid="toggle-preview"
                 >
-                  DUB
+                  PREVIEW
                 </button>
               </div>
             )}
@@ -1201,7 +1247,7 @@ export default function AssetDetail() {
                 />
               </TabsContent>
               <TabsContent value="studio" className="flex-1 overflow-y-auto mt-0 p-4 space-y-6">
-                <AssetStudioSection mediaId={id!} onSeek={seekTo} />
+                <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} />
                 <AssetRendersSection mediaId={id!} />
               </TabsContent>
               <TabsContent value="socials" className="flex-1 overflow-y-auto mt-0 p-4">
@@ -2533,7 +2579,7 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
   );
 }
 
-function AssetStudioSection({ mediaId, onSeek }: { mediaId: string; onSeek?: (t: number) => void }) {
+function AssetStudioSection({ mediaId, onSeek, onCutChange }: { mediaId: string; onSeek?: (t: number) => void; onCutChange?: (clips: CutClip[]) => void }) {
   const [project, setProject] = useState<Project | null>(null);
   const sessionMutation = useGetMediaStudioSession();
   const startedFor = useRef<string | null>(null);
@@ -2568,7 +2614,7 @@ function AssetStudioSection({ mediaId, onSeek }: { mediaId: string; onSeek?: (t:
       </div>
     );
   }
-  return <StudioTab project={project} onSeekSource={onSeek} />;
+  return <StudioTab project={project} onSeekSource={onSeek} onCutChange={onCutChange} />;
 }
 
 type SpriteMeta = {
