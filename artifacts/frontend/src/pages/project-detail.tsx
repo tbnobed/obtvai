@@ -62,7 +62,7 @@ import {
   Play, PlayCircle, Download, Loader2, Plus, Trash2, ArrowUp, ArrowDown,
   Monitor, Smartphone, ChevronDown, Upload, Archive, ArchiveRestore,
   ExternalLink, Lock, LockOpen, SlidersHorizontal, CheckCircle2, AlertTriangle,
-  Clock, Sparkles,
+  Clock, Sparkles, Folder,
 } from "lucide-react";
 import { formatRuntime, parseRuntime } from "@/lib/runtime";
 import { MediaPoolTab } from "@/components/project/media-pool-tab";
@@ -70,6 +70,7 @@ import { StudioTab } from "@/components/project/studio-tab";
 import { ClipThumb } from "@/components/project/clip-thumb";
 import { MediaPickerGrid } from "@/components/project/media-picker";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
+import { LibraryBrowser } from "@/components/project/library-browser";
 import { TimecodeInput } from "@/components/project/timecode-input";
 import { formatTC } from "@/lib/timecode";
 import { useToast } from "@/hooks/use-toast";
@@ -346,6 +347,8 @@ export default function ProjectDetail() {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<"combined" | "transcript" | "visual">("combined");
   const [searchAllMedia, setSearchAllMedia] = useState(false);
+  // Find & Media left pane: browse the library tree (default) or semantic search.
+  const [findMode, setFindMode] = useState<"browse" | "search">("browse");
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   // Rapid "Add" clicks race the project refetch: each click would merge into
   // the stale server pool and drop the previous addition. Track the latest
@@ -714,10 +717,29 @@ export default function ProjectDetail() {
           <Card className="min-w-0 order-1 lg:order-1">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 flex-wrap gap-2">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Search className="h-4 w-4" /> Search Footage
+                {findMode === "browse" ? <Folder className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                {findMode === "browse" ? "Library" : "Search Footage"}
               </CardTitle>
               <div className="flex items-center gap-3 flex-wrap">
-                {mediaPool.length > 0 && (
+                <div className="flex rounded-md border border-border overflow-hidden">
+                  <button
+                    type="button"
+                    className={`px-2.5 py-1 text-xs ${findMode === "browse" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                    onClick={() => setFindMode("browse")}
+                    data-testid="button-find-browse"
+                  >
+                    Browse
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-2.5 py-1 text-xs ${findMode === "search" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                    onClick={() => setFindMode("search")}
+                    data-testid="button-find-search"
+                  >
+                    Search
+                  </button>
+                </div>
+                {findMode === "search" && mediaPool.length > 0 && (
                   <div className="flex items-center gap-2" title="Search every indexed asset in the library instead of only this project's media pool">
                     <Switch id="search-all-media" checked={searchAllMedia} onCheckedChange={setSearchAllMedia} />
                     <Label htmlFor="search-all-media" className="text-xs text-muted-foreground cursor-pointer">
@@ -725,9 +747,23 @@ export default function ProjectDetail() {
                     </Label>
                   </div>
                 )}
-                {addSelectedButton}
+                {findMode === "search" && addSelectedButton}
               </div>
             </CardHeader>
+            {findMode === "browse" && (
+              <CardContent>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Browse the whole library by folder — preview anything, then pull assets (or entire folders) into this project's media pool.
+                </p>
+                <LibraryBrowser
+                  pool={mediaPool}
+                  disabled={updateMutation.isPending}
+                  onAdd={(ids) => toggleMediaPoolMany(ids, true)}
+                  onPreview={(a) => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
+                />
+              </CardContent>
+            )}
+            {findMode === "search" && (
             <CardContent className="space-y-4">
               <div className="flex gap-2">
                 <Input
@@ -780,6 +816,7 @@ export default function ProjectDetail() {
                 </div>
               )}
             </CardContent>
+            )}
           </Card>
           </div>
         </TabsContent>

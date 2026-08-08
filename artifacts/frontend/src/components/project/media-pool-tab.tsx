@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Film, Scissors, RotateCcw, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { Loader2, Film, RotateCcw, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { MediaPickerGrid } from "@/components/project/media-picker";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 import { TrimPlayer } from "@/components/project/trim-player";
@@ -17,6 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 
 type Range = { in: number; out: number };
 
+/** One merged bin: each pool asset row carries its trim state (usable region)
+ *  with a range bar, plus Trim / Remove actions — no duplicate lists. */
 export function MediaPoolTab({ project }: { project: Project }) {
   const projectId = project.id;
   const queryClient = useQueryClient();
@@ -44,6 +46,16 @@ export function MediaPoolTab({ project }: { project: Project }) {
     const byId = new Map((media?.items ?? []).map((a) => [a.id, a]));
     return pool.map((mid) => byId.get(mid)).filter((a): a is MediaAsset => !!a);
   }, [media?.items, pool]);
+
+  // Total usable footage — trimmed assets count their region, others full length.
+  const totalUsable = useMemo(
+    () =>
+      assets.reduce((s, a) => {
+        const r = ranges[a.id];
+        return s + (r ? r.out - r.in : a.duration_seconds ?? 0);
+      }, 0),
+    [assets, ranges],
+  );
 
   const patchProject = (data: Record<string, unknown>, onDone?: () => void) => {
     updateMutation.mutate(
@@ -92,7 +104,9 @@ export function MediaPoolTab({ project }: { project: Project }) {
           </CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">
-              {pool.length ? `${pool.length} asset${pool.length === 1 ? "" : "s"}` : "Whole library"}
+              {pool.length
+                ? `${pool.length} asset${pool.length === 1 ? "" : "s"} · ${formatTC(totalUsable)}`
+                : "Whole library"}
             </Badge>
             <Button size="sm" variant="outline" onClick={() => setPickerOpen((o) => !o)} data-testid="button-toggle-picker">
               {pickerOpen ? <ChevronUp className="h-3.5 w-3.5 mr-1.5" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
@@ -100,10 +114,11 @@ export function MediaPoolTab({ project }: { project: Project }) {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <p className="text-xs text-muted-foreground mb-3">
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground mb-1">
             Everything in this project works from these assets — Studio, search, and script matching stay within this pool.
-            {pool.length === 0 && " No assets picked yet, so the whole library is in play — add footage here or from the Find tab."}
+            Trim an asset to limit its usable region; untrimmed assets are usable end to end.
+            {pool.length === 0 && " No assets picked yet, so the whole library is in play — add footage from the Library browser on the left."}
           </p>
           {pickerOpen && (
             <div className="mb-3 rounded border border-border p-3">
@@ -117,121 +132,105 @@ export function MediaPoolTab({ project }: { project: Project }) {
               />
             </div>
           )}
-          {pool.length > 0 && !pickerOpen && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {assets.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  className="flex items-center gap-2 rounded border border-border bg-muted/40 hover:bg-muted/70 p-1.5 text-left transition-colors"
-                  title={`${a.filename} — click to preview`}
-                  onClick={() => setPlayerClip({ media_id: a.id, start_time: 0, end_time: null, filename: a.filename })}
-                  data-testid={`pool-asset-${a.id}`}
-                >
-                  <ClipThumb url={a.thumbnail_url} mediaId={a.id} time={0} className="h-9 w-14 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-medium">{a.filename}</div>
-                    <div className="text-[10px] text-muted-foreground font-mono">{formatTC(a.duration_seconds ?? 0)}</div>
+          {assets.map((a) => {
+            const r = ranges[a.id];
+            const isOpen = openTrim === a.id;
+            const dur = a.duration_seconds ?? 0;
+            return (
+              <div key={a.id} className="rounded border border-border bg-muted/40" data-testid={`pool-asset-${a.id}`}>
+                <div className="flex items-center gap-2 p-2 text-sm">
+                  <button
+                    type="button"
+                    className="shrink-0"
+                    title="Preview"
+                    onClick={() => setPlayerClip({ media_id: a.id, start_time: r?.in ?? 0, end_time: null, filename: a.filename })}
+                  >
+                    <ClipThumb url={a.thumbnail_url} mediaId={a.id} time={r?.in ?? 0} className="h-9 w-14" />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate">{a.filename}</div>
+                    <div className="text-xs text-muted-foreground font-mono">
+                      {r
+                        ? <span className="text-primary">{formatTC(r.in)} – {formatTC(r.out)} of {formatTC(dur)}</span>
+                        : <span>full asset · {formatTC(dur)}</span>}
+                    </div>
+                    {/* Usable-region bar: highlighted span within the full duration. */}
+                    {dur > 0 && (
+                      <div className="mt-1 h-1 w-full rounded bg-white/10 relative overflow-hidden">
+                        <div
+                          className="absolute top-0 h-full rounded bg-primary/80"
+                          style={{
+                            left: `${r ? (r.in / dur) * 100 : 0}%`,
+                            width: `${r ? Math.max(1, ((r.out - r.in) / dur) * 100) : 100}%`,
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
-                </button>
-              ))}
-            </div>
-          )}
+                  {r && !isOpen && (
+                    <Button
+                      size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground"
+                      title="Clear the trim — use the full asset"
+                      disabled={updateMutation.isPending}
+                      onClick={() => saveRange(a.id, null)}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1" /> Clear
+                    </Button>
+                  )}
+                  <Button
+                    size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={() => (isOpen ? (setOpenTrim(null), setDraft(null)) : startTrim(a))}
+                    data-testid={`button-trim-${a.id}`}
+                  >
+                    {isOpen ? <ChevronUp className="h-3.5 w-3.5 mr-1" /> : <ChevronDown className="h-3.5 w-3.5 mr-1" />}
+                    {isOpen ? "Close" : r ? "Adjust" : "Trim"}
+                  </Button>
+                  <Button
+                    size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                    title="Remove from pool"
+                    disabled={updateMutation.isPending}
+                    onClick={() => togglePool(a.id, false)}
+                    data-testid={`button-remove-pool-${a.id}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {isOpen && draft && (
+                  <div className="border-t border-border p-3 space-y-3">
+                    <TrimPlayer
+                      mediaId={a.id}
+                      clipKey={a.id}
+                      inPoint={draft.in}
+                      outPoint={draft.out}
+                      fps={a.fps}
+                      onChange={(inPoint, outPoint) => setDraft({ in: inPoint, out: outPoint })}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="outline" onClick={() => { setOpenTrim(null); setDraft(null); }}>
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={updateMutation.isPending || draft.out - draft.in < 2}
+                        onClick={() => saveRange(a.id, draft)}
+                        data-testid={`button-save-trim-${a.id}`}
+                      >
+                        {updateMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                        Save region
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {pool.length === 0 && !pickerOpen && (
             <div className="text-center text-muted-foreground text-sm py-8 border border-dashed border-border rounded-lg">
-              The pool is empty — add footage with “Add media” or from the Find tab.
+              The pool is empty — add footage from the Library browser or with “Add media”.
             </div>
           )}
         </CardContent>
       </Card>
-
-      {pool.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Scissors className="h-4 w-4" /> Usable Regions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground mb-2">
-              Set in/out points per asset — the Studio assistant only pulls moments from inside these regions. Untrimmed assets are usable end to end.
-            </p>
-            {assets.map((a) => {
-              const r = ranges[a.id];
-              const isOpen = openTrim === a.id;
-              const dur = a.duration_seconds ?? 0;
-              return (
-                <div key={a.id} className="rounded border border-border bg-muted/40">
-                  <div className="flex items-center gap-2 p-2 text-sm">
-                    <ClipThumb url={a.thumbnail_url} mediaId={a.id} time={r?.in ?? 0} className="h-9 w-14" />
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate">{a.filename}</div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {r
-                          ? <span className="text-primary">{formatTC(r.in)} – {formatTC(r.out)} of {formatTC(dur)}</span>
-                          : <span>full asset · {formatTC(dur)}</span>}
-                      </div>
-                    </div>
-                    {r && !isOpen && (
-                      <Button
-                        size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground"
-                        title="Clear the trim — use the full asset"
-                        disabled={updateMutation.isPending}
-                        onClick={() => saveRange(a.id, null)}
-                      >
-                        <RotateCcw className="h-3.5 w-3.5 mr-1" /> Clear
-                      </Button>
-                    )}
-                    <Button
-                      size="sm" variant="outline" className="h-7 text-xs"
-                      onClick={() => (isOpen ? (setOpenTrim(null), setDraft(null)) : startTrim(a))}
-                      data-testid={`button-trim-${a.id}`}
-                    >
-                      {isOpen ? <ChevronUp className="h-3.5 w-3.5 mr-1" /> : <ChevronDown className="h-3.5 w-3.5 mr-1" />}
-                      {isOpen ? "Close" : r ? "Adjust" : "Trim"}
-                    </Button>
-                    <Button
-                      size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-red-400"
-                      title="Remove from pool"
-                      disabled={updateMutation.isPending}
-                      onClick={() => togglePool(a.id, false)}
-                      data-testid={`button-remove-pool-${a.id}`}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  {isOpen && draft && (
-                    <div className="border-t border-border p-3 space-y-3">
-                      <TrimPlayer
-                        mediaId={a.id}
-                        clipKey={a.id}
-                        inPoint={draft.in}
-                        outPoint={draft.out}
-                        fps={a.fps}
-                        onChange={(inPoint, outPoint) => setDraft({ in: inPoint, out: outPoint })}
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => { setOpenTrim(null); setDraft(null); }}>
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          disabled={updateMutation.isPending || draft.out - draft.in < 2}
-                          onClick={() => saveRange(a.id, draft)}
-                          data-testid={`button-save-trim-${a.id}`}
-                        >
-                          {updateMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-                          Save region
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
 
       <ClipPlayerDialog clip={playerClip} onClose={() => setPlayerClip(null)} />
     </div>
