@@ -1,0 +1,40 @@
+Refactor the existing AI Editor component layout to migrate from the current dual-player structure to the streamlined single-viewport architecture shown in the redesign.
+
+1. Container & Grid Layout Refactor
+Remove Dual Viewports: Replace the current split-screen two-player setup (Source Player on the left + Draft Cut Player on the right) with a single main video container.
+
+Layout Grid: Reconfigure the primary application layout into three core areas:
+
+Left Sidebar (320px fixed width): Merge the transcript list and the Editorial Assistant chat history into a single tabable/scrollable panel (Project & Insights).
+
+Top Viewport Canvas (Flex grow): Center a single responsive video player container with a PREVIEW / SOURCE toggle overlay in the top-left corner.
+
+Bottom Panel (Full-width): Place the multi-track timeline directly under the video player and sidebar, spanning the entire width of the viewport.
+
+2. Refactoring Component Placement & Props
+Move AI Chat Input: Relocate the main prompt input box from the bottom of the right-hand panel to a floating overlay bar centered at the bottom of the main video canvas (Cmd + K prompt bar style).
+
+Consolidate Transcript & Metadata: Move the synopsis paragraph, key moments list, and speaker-tagged transcript into the left sidebar under collapsible sections or tabs (Transcript, AI Key Moments, Synopsis).
+
+Transform Draft Clip List into Semantic Timeline:
+
+Convert the vertical list of draft clips (currently on the bottom-right) into a horizontal timeline track.
+
+Stack the existing metadata tracks vertically beneath the timeline ruler:
+
+Row 1: Visual frame thumbnails strip.
+
+Row 2: Video clip blocks (Flag B-Roll, Huckabee's Line).
+
+Row 3: Dialogue/Audio waveform track.
+
+Row 4: AI Semantic Tag track (color-coded pills for #Israel Flag, #Mention: Trump).
+
+Row 5: Tone & Emotion Heatmap gradient bar (migrate from under the old left player).
+
+3. Styling & Structural Changes (Tailwind)
+Update container classes to use h-screen w-screen flex flex-col overflow-hidden bg-zinc-950.
+
+Replace dark borders with border-zinc-800 for cleaner panel visual division.
+
+Ensure all existing state bindings (currentTime, playhead, transcriptClicks, promptSubmit) connect to the new single video player and unified timeline.
