@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import {
+  useListProjects,
+  getListProjectsQueryKey,
+  useCreateProject,
+  useUpdateProject,
   useSemanticSearch,
   useGetSearchHistory,
   getGetSearchHistoryQueryKey,
@@ -19,7 +23,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Play, Loader2, ExternalLink, History, Bookmark, BookmarkPlus, X, HeartPulse } from "lucide-react";
+import { Search, Play, Loader2, ExternalLink, History, Bookmark, BookmarkPlus, X, HeartPulse, Check, FolderKanban, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 import { formatTC } from "@/lib/timecode";
 
@@ -75,6 +86,58 @@ export default function SearchPage() {
   );
   const backfillSentiment = useBackfillSentiment();
 
+  // ---- Select results → add to / create a project ----
+  const { data: projects } = useListProjects();
+  const createProject = useCreateProject();
+  const updateProject = useUpdateProject();
+  const [selected, setSelected] = useState<Record<string, SearchResult>>({});
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [addedTo, setAddedTo] = useState<{ id: string; name: string } | null>(null);
+  const selectedList = Object.values(selected);
+  const selectedMediaIds = [...new Set(selectedList.map((r) => r.media_id))];
+  const activeProjects = (projects ?? []).filter((p) => p.status === "active");
+  const projectBusy = createProject.isPending || updateProject.isPending;
+
+  const toggleSelected = (key: string, r: SearchResult) =>
+    setSelected((cur) => {
+      const next = { ...cur };
+      if (next[key]) delete next[key];
+      else next[key] = r;
+      return next;
+    });
+
+  const addToProject = (projectId: string, projectName: string) => {
+    const existing = (projects ?? []).find((p) => p.id === projectId);
+    const merged = [...new Set([...(existing?.media_ids ?? []), ...selectedMediaIds])];
+    updateProject.mutate(
+      { id: projectId, data: { media_ids: merged } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+          setSelected({});
+          setAddedTo({ id: projectId, name: projectName });
+        },
+      },
+    );
+  };
+
+  const createProjectWithSelection = () => {
+    if (!newProjectName.trim()) return;
+    createProject.mutate(
+      { data: { name: newProjectName.trim(), media_ids: selectedMediaIds } },
+      {
+        onSuccess: (p) => {
+          queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+          setSelected({});
+          setNewProjectOpen(false);
+          setNewProjectName("");
+          navigate(`/studio/${p.id}`);
+        },
+      },
+    );
+  };
+
   const runSearch = (q?: string, s?: SearchScope) => {
     const term = (q ?? query).trim();
     if (term.length < 2) return;
@@ -84,6 +147,8 @@ export default function SearchPage() {
     const effScope = s ?? scope;
     const url = `/search?q=${encodeURIComponent(term)}${effScope !== "combined" ? `&scope=${effScope}` : ""}`;
     if (window.location.search !== url.slice(url.indexOf("?"))) navigate(url);
+    setSelected({});
+    setAddedTo(null);
     searchMutation.mutate(
       { data: { query: term, search_type: effScope, limit: 500 } },
       {
@@ -112,8 +177,23 @@ export default function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchString]);
 
-  const resultCard = (r: SearchResult, key: string) => (
-    <div key={key} className="bg-muted/50 rounded overflow-hidden text-sm flex flex-col">
+  const resultCard = (r: SearchResult, key: string) => {
+    const isSelected = !!selected[key];
+    return (
+    <div key={key} className={`bg-muted/50 rounded overflow-hidden text-sm flex flex-col relative ${isSelected ? "ring-2 ring-primary" : ""}`}>
+      <button
+        type="button"
+        aria-label={isSelected ? "Deselect this result" : "Select this result"}
+        title={isSelected ? "Deselect" : "Select to add to a project"}
+        onClick={() => toggleSelected(key, r)}
+        className={`absolute top-1.5 left-1.5 z-10 h-6 w-6 rounded-md border flex items-center justify-center transition-colors ${
+          isSelected
+            ? "bg-primary border-primary text-primary-foreground"
+            : "bg-black/60 border-white/40 text-transparent hover:border-white hover:text-white/60"
+        }`}
+      >
+        <Check className="h-4 w-4" />
+      </button>
       <button
         type="button"
         className="relative w-full aspect-video bg-black/40 flex items-center justify-center cursor-pointer group"
@@ -162,7 +242,8 @@ export default function SearchPage() {
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   const hasResults = !!searchMutation.data;
 
@@ -391,12 +472,21 @@ export default function SearchPage() {
         <p className="text-sm text-red-400">Search failed — try again.</p>
       )}
 
+      {addedTo && (
+        <p className="text-sm text-emerald-400 text-center">
+          Added to <Link href={`/studio/${addedTo.id}`} className="underline underline-offset-2 hover:text-emerald-300">{addedTo.name}</Link>.
+        </p>
+      )}
+
       {searchMutation.data && (
         <Card>
-          <CardHeader className="py-3">
+          <CardHeader className="py-3 flex flex-row items-center justify-between space-y-0 flex-wrap gap-2">
             <CardTitle className="text-sm">
               {searchMutation.data.results.length} result{searchMutation.data.results.length === 1 ? "" : "s"} for “{searchMutation.data.query}”
             </CardTitle>
+            <span className="text-xs text-muted-foreground">
+              Tick results to add them to a project
+            </span>
           </CardHeader>
           <CardContent>
             {searchMutation.data.results.length ? (
@@ -409,6 +499,69 @@ export default function SearchPage() {
           </CardContent>
         </Card>
       )}
+
+      {selectedList.length > 0 && (
+        <div className="sticky bottom-4 z-20 flex justify-center">
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card/95 backdrop-blur px-4 py-2.5 shadow-xl">
+            <span className="text-sm">
+              <span className="font-semibold">{selectedList.length}</span> clip{selectedList.length === 1 ? "" : "s"} ·{" "}
+              <span className="font-semibold">{selectedMediaIds.length}</span> file{selectedMediaIds.length === 1 ? "" : "s"}
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" disabled={projectBusy || !activeProjects.length}
+                  title={activeProjects.length ? "Add the selected files to an existing project" : "No active projects yet"}>
+                  {updateProject.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FolderKanban className="h-4 w-4 mr-2" />}
+                  Add to project
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="max-h-72 overflow-y-auto">
+                {activeProjects.map((p) => (
+                  <DropdownMenuItem key={p.id} onClick={() => addToProject(p.id, p.name)}>
+                    {p.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="sm" disabled={projectBusy} onClick={() => { setNewProjectName(query.trim() || ""); setNewProjectOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" /> New project
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected({})}>
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={newProjectOpen} onOpenChange={(o) => !projectBusy && setNewProjectOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New project from selection</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              placeholder="Project name"
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && createProjectWithSelection()}
+            />
+            <p className="text-xs text-muted-foreground">
+              Starts the project with the {selectedMediaIds.length} source file{selectedMediaIds.length === 1 ? "" : "s"} behind your selected clips.
+            </p>
+            {createProject.isError && (
+              <p className="text-xs text-red-400">Couldn't create the project — try again.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setNewProjectOpen(false)} disabled={projectBusy}>Cancel</Button>
+            <Button onClick={createProjectWithSelection} disabled={!newProjectName.trim() || projectBusy}>
+              {createProject.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Create project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ClipPlayerDialog clip={playerClip} onClose={() => setPlayerClip(null)} />
     </div>
