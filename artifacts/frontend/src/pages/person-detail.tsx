@@ -919,13 +919,13 @@ export default function PersonDetail() {
   }
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto">
-      <Link href="/people" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
+    <div className="flex-1 p-6 overflow-y-auto">
+      <Link href="/people" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" />
         People
       </Link>
 
-      <div className="flex flex-col md:flex-row gap-6 mb-8">
+      <div className="flex flex-col md:flex-row gap-5 mb-6">
         <div className="flex-shrink-0">
           <input
             ref={photoInputRef}
@@ -955,7 +955,7 @@ export default function PersonDetail() {
           />
           <button
             type="button"
-            className="group relative w-40 h-40 rounded-md bg-muted overflow-hidden block"
+            className="group relative w-28 h-28 rounded-md bg-muted overflow-hidden block"
             title="Upload a new picture for this person"
             disabled={updatePersonPhoto.isPending}
             onClick={() => photoInputRef.current?.click()}
@@ -989,7 +989,7 @@ export default function PersonDetail() {
           {person.thumbnail_url && (
             <button
               type="button"
-              className="mt-1.5 w-40 text-xs text-muted-foreground hover:text-destructive text-center transition-colors disabled:opacity-50"
+              className="mt-1.5 w-28 text-xs text-muted-foreground hover:text-destructive text-center transition-colors disabled:opacity-50"
               disabled={deletePersonPhoto.isPending}
               onClick={() => {
                 setPhotoError(null);
@@ -1363,7 +1363,7 @@ export default function PersonDetail() {
       )}
 
       {(person.speech_style || person.key_topics?.length) ? (
-        <div className="grid gap-4 md:grid-cols-2 mb-8">
+        <div className="grid gap-3 md:grid-cols-2 mb-4">
           {person.speech_style && (
             <div className="border border-border bg-card rounded-md p-4">
               <h2 className="text-sm font-semibold flex items-center gap-2 mb-2">
@@ -1419,7 +1419,7 @@ export default function PersonDetail() {
         </div>
       </div>
       {mergedGroups.length > 0 && (
-        <div className="border border-border bg-card rounded-md p-4 mb-4">
+        <div className="border border-border bg-card rounded-md p-3 mb-3">
           <p className="text-sm font-medium mb-1">Merged people</p>
           <p className="text-xs text-muted-foreground mb-3">
             These people were merged into {person.display_name}. Undo a merge to move their appearances back out into a restored person.
@@ -1442,14 +1442,14 @@ export default function PersonDetail() {
         </div>
       )}
       {person.appearances?.length ? (appearView === "card" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
           {pagedAppearances.map((a) => {
             const momentsKey = `${a.media_id}-${a.speaker_label ?? ""}-${a.face_cluster_id ?? ""}`;
             const isOpen = !!openMoments[momentsKey];
             return (
               <div
                 key={momentsKey}
-                className={`border border-border bg-card rounded-md overflow-hidden hover:border-primary transition-colors flex flex-col ${isOpen ? "sm:col-span-2 lg:col-span-3 xl:col-span-4" : ""}`}
+                className={`border border-border bg-card rounded-md overflow-hidden hover:border-primary transition-colors flex flex-col ${isOpen ? "col-span-2 sm:col-span-3 lg:col-span-4 xl:col-span-5 2xl:col-span-6" : ""}`}
               >
                 <Link
                   href={`/library/${a.media_id}${a.first_spoken_at != null ? `?t=${Math.floor(a.first_spoken_at)}` : ""}`}
@@ -1468,9 +1468,9 @@ export default function PersonDetail() {
                     </span>
                   </div>
                 </Link>
-                <div className="p-3 flex-1 flex flex-col gap-1 min-w-0">
-                  <p className="text-sm font-medium truncate" title={a.filename}>{a.filename}</p>
-                  <p className="text-xs text-muted-foreground">
+                <div className="p-2 flex-1 flex flex-col gap-0.5 min-w-0">
+                  <p className="text-xs font-medium truncate" title={a.filename}>{a.filename}</p>
+                  <p className="text-[11px] text-muted-foreground">
                     {a.speaker_label ? `${a.speaker_label} · ` : ""}
                     {formatDuration(a.speaking_seconds)} speaking · {a.segment_count ?? 0} segments
                     {a.first_spoken_at != null ? ` · first speaks at ${formatTimecode(a.first_spoken_at)}` : ""}
