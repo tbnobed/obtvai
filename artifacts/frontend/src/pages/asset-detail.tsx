@@ -926,7 +926,7 @@ export default function AssetDetail() {
             </Button>
           </div>
           <div className="flex-1 flex flex-col overflow-y-auto">
-          <div className={`p-6 bg-black flex-shrink-0 sticky top-0 z-20 shadow-lg shadow-black/50 ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
+          <div className={`px-6 pt-3 pb-2 bg-black flex-shrink-0 sticky top-0 z-20 shadow-lg shadow-black/50 ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
             {asset.status === 'ready' ? (
               <video 
                 ref={videoRef}
@@ -997,7 +997,7 @@ export default function AssetDetail() {
             )}
           </div>
           
-          <div className={`p-6 ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
+          <div className={`px-6 py-3 ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
             <div className="flex items-start justify-between gap-4 mb-2">
               <h1 className="text-2xl font-bold">{asset.filename}</h1>
               <Button 
@@ -1480,7 +1480,7 @@ export default function AssetDetail() {
 
       {/* ── Full-width NLE timeline band — Studio tab only ── */}
       {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
-        <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[38vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
+        <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[52vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
           <div className="grid grid-cols-[92px_1fr] items-start gap-x-2">
             <div className="pt-2.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[TIMELINE]</div>
             <div className="min-w-0">
@@ -1498,7 +1498,7 @@ export default function AssetDetail() {
               />
             </div>
             <div className="pt-2 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[PEOPLE]</div>
-            <div className="min-w-0 max-h-28 overflow-y-auto">
+            <div className="min-w-0 max-h-48 overflow-y-auto">
               <PeopleTracks
                 mediaId={id!}
                 duration={asset.duration_seconds!}
@@ -1509,7 +1509,7 @@ export default function AssetDetail() {
             {(transcript?.length ?? 0) > 0 && (
               <>
                 <div className="pt-1.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[DIALOGUE]</div>
-                <div className="relative h-4 mt-1 rounded-sm bg-sky-950/40 overflow-hidden">
+                <div className="relative h-7 mt-1 rounded-sm bg-sky-950/40 overflow-hidden">
                   {transcript!.map((s, i) => (
                     <div
                       key={i}
@@ -1662,7 +1662,7 @@ function PeopleTracks({
               />
             ) : null}
           </Link>
-          <div className="relative h-3.5 flex-1 rounded-sm bg-white/5 overflow-hidden">
+          <div className="relative h-6 flex-1 rounded-sm bg-white/5 overflow-hidden">
             {(p.on_camera ?? []).map((r, j) => (
               <div
                 key={`cam-${j}`}
@@ -2038,7 +2038,7 @@ function MomentsTimeline({
       )}
       <div
         ref={barRef}
-        className="relative h-9 rounded bg-zinc-900 overflow-hidden cursor-pointer"
+        className="relative h-16 rounded bg-zinc-900 overflow-hidden cursor-pointer"
         title="Hover to preview · click to jump · right-click to find similar moments"
         onMouseMove={(e) => setHover(timeFromEvent(e))}
         onMouseLeave={() => setHover(null)}
