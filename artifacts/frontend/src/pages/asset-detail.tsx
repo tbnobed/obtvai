@@ -133,7 +133,6 @@ export default function AssetDetail() {
   // Sidebar tabs: transcript or the asset's insights (synopsis + key moments).
   const [sideTab, setSideTab] = useState<"transcript" | "insights">("transcript");
   // Floating Cmd-K style prompt bar over the viewport — routes into the Studio chat.
-  const [floatPrompt, setFloatPrompt] = useState("");
   // Single-viewport PREVIEW mode: the main player plays the draft cut in place.
   const [viewMode, setViewMode] = useState<"original" | "preview">("original");
   const [cutClips, setCutClips] = useState<CutClip[]>([]);
@@ -996,27 +995,6 @@ export default function AssetDetail() {
                 )}
               </div>
             )}
-            {asset.status === 'ready' && (
-              <div className="absolute bottom-9 left-1/2 -translate-x-1/2 z-10 w-[min(560px,72%)] flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/95 backdrop-blur px-3 py-2 shadow-2xl shadow-black/60">
-                <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                <Input
-                  value={floatPrompt}
-                  onChange={(e) => setFloatPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && floatPrompt.trim()) {
-                      const text = floatPrompt.trim();
-                      setFloatPrompt("");
-                      setChatDrawerOpen(true);
-                      (window as unknown as { __obtvPendingPrompt?: string }).__obtvPendingPrompt = text;
-                      window.dispatchEvent(new CustomEvent("obtv:studio-prompt", { detail: text }));
-                    }
-                  }}
-                  placeholder="Ask AI — build or change a cut from this footage…"
-                  className="h-8 border-0 bg-transparent focus-visible:ring-0 text-sm text-zinc-200 placeholder:text-zinc-500 px-0"
-                  data-testid="input-ask-ai-floating"
-                />
-              </div>
-            )}
           </div>
           
           <div className={`p-6 ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
@@ -1520,7 +1498,7 @@ export default function AssetDetail() {
               />
             </div>
             <div className="pt-2 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[PEOPLE]</div>
-            <div className="min-w-0">
+            <div className="min-w-0 max-h-28 overflow-y-auto">
               <PeopleTracks
                 mediaId={id!}
                 duration={asset.duration_seconds!}
