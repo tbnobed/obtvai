@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors, Download, ThumbsUp, ThumbsDown, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, List } from "lucide-react";
+import { Loader2, Lock, LockOpen, Send, Sparkles, Trash2, Clapperboard, History, Film, Play, Scissors, Download, ThumbsUp, ThumbsDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -132,8 +132,6 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
     () => typeof window === "undefined" || window.innerWidth >= 1440,
   );
   const [viewVersion, setViewVersion] = useState<number | null>(null);
-  // Draft cut layout: thumbnail timeline (NLE-style) or the detailed row list.
-  const [cutView, setCutView] = useState<"timeline" | "list">("timeline");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewLarge, setPreviewLarge] = useState(false);
@@ -442,28 +440,6 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
               {project.target_runtime_seconds ? ` / ${fmtRuntime(project.target_runtime_seconds)}` : ""}
             </Badge>
           )}
-          {clips.length > 0 && (
-            <div className="flex rounded-md border border-border overflow-hidden">
-              <button
-                type="button"
-                title="Timeline view"
-                onClick={() => setCutView("timeline")}
-                className={`px-2 py-1 ${cutView === "timeline" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                data-testid="button-cut-view-timeline"
-              >
-                <GalleryHorizontal className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                title="List view"
-                onClick={() => setCutView("list")}
-                className={`px-2 py-1 border-l border-border ${cutView === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                data-testid="button-cut-view-list"
-              >
-                <List className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
           <div className="ml-auto flex gap-2">
             {viewingOld && (
               <Button
@@ -602,8 +578,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
                   </div>
                 ))}
               </div>
-              {cutView === "timeline" && (
-                <div className="flex gap-1.5 overflow-x-auto pb-1">
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
                   {events.map((ev, i) => (
                     <div key={ev.n} className="w-44 shrink-0 rounded border border-border bg-black/30 overflow-hidden" data-testid={`cut-block-${i}`}>
                       <div
@@ -654,77 +629,6 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
                     </div>
                   ))}
                 </div>
-              )}
-              {cutView === "list" && (
-              <div className="rounded border border-border divide-y divide-border/60">
-                {events.map((ev, i) => (
-                  <div key={ev.n} className="flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-muted/30" data-testid={`cut-clip-${i}`}>
-                    <span className={`inline-block h-2.5 w-2.5 rounded-sm shrink-0 ${ev.color}`} />
-                    <span className="w-6 tabular-nums text-muted-foreground">{ev.n}</span>
-                    <div
-                      className="min-w-0 flex-1 cursor-pointer"
-                      title="Click to preview this clip"
-                      onClick={() => { setPreviewIndex(i); setPreviewOpen(true); }}
-                      data-testid={`clip-row-preview-${i}`}
-                    >
-                      <div className="truncate font-medium">{ev.clip.filename}</div>
-                      {ev.clip.snippet && <div className="truncate text-muted-foreground">{ev.clip.snippet}</div>}
-                    </div>
-                    <Button
-                      size="icon" variant="ghost" className="h-6 w-6 shrink-0"
-                      title="Good clip — more like this"
-                      onClick={() => rateClip(ev.clip, 1)}
-                      disabled={feedbackMutation.isPending}
-                      data-testid={`button-thumbs-up-${i}`}
-                    >
-                      <ThumbsUp className={`w-3.5 h-3.5 ${ratingFor(ev.clip) === 1 ? "text-emerald-400" : "text-muted-foreground"}`} />
-                    </Button>
-                    <Button
-                      size="icon" variant="ghost" className="h-6 w-6 shrink-0"
-                      title="Bad clip — avoid footage like this"
-                      onClick={() => rateClip(ev.clip, -1)}
-                      disabled={feedbackMutation.isPending}
-                      data-testid={`button-thumbs-down-${i}`}
-                    >
-                      <ThumbsDown className={`w-3.5 h-3.5 ${ratingFor(ev.clip) === -1 ? "text-rose-400" : "text-muted-foreground"}`} />
-                    </Button>
-                    <span className="tabular-nums text-muted-foreground shrink-0">
-                      {fmtTime(ev.clip.start_time)}–{fmtTime(ev.clip.end_time)}
-                    </span>
-                    <span className="tabular-nums shrink-0 w-10 text-right">{Math.round(ev.dur)}s</span>
-                    <Button
-                      size="icon" variant="ghost" className="h-6 w-6 shrink-0"
-                      title="Preview & trim this clip"
-                      onClick={() => openClipEditor(i)}
-                      disabled={viewingOld || updateMutation.isPending}
-                      data-testid={`button-edit-clip-${i}`}
-                    >
-                      <Scissors className="w-3.5 h-3.5 text-muted-foreground" />
-                    </Button>
-                    <Button
-                      size="icon" variant="ghost" className="h-6 w-6 shrink-0"
-                      title={ev.clip.locked ? "Unlock — allow the assistant to change this clip" : "Lock — the assistant will keep this clip"}
-                      onClick={() => toggleLock(i)}
-                      disabled={viewingOld || updateMutation.isPending}
-                      data-testid={`button-lock-clip-${i}`}
-                    >
-                      {ev.clip.locked
-                        ? <Lock className="w-3.5 h-3.5 text-amber-400" />
-                        : <LockOpen className="w-3.5 h-3.5 text-muted-foreground" />}
-                    </Button>
-                    <Button
-                      size="icon" variant="ghost" className="h-6 w-6 shrink-0"
-                      title="Remove clip"
-                      onClick={() => removeClip(i)}
-                      disabled={viewingOld || updateMutation.isPending}
-                      data-testid={`button-remove-clip-${i}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              )}
             </>
           )}
         </div>
