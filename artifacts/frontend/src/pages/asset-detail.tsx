@@ -297,31 +297,8 @@ export default function AssetDetail() {
     p.delete("t");
     navigate(`/library/${id}?${p.toString()}`);
   };
-  const [panelWidth, setPanelWidth] = useState<number>(() => {
-    const v = Number(localStorage.getItem("asset-panel-width"));
-    return Number.isFinite(v) && v >= 320 && v <= 1400 ? v : 560;
-  });
-  const startPanelResize = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const onMove = (ev: MouseEvent) => {
-      const max = Math.max(400, window.innerWidth - 480);
-      setPanelWidth(Math.min(Math.max(window.innerWidth - ev.clientX, 320), max));
-    };
-    const onUp = () => {
-      setPanelWidth((w) => {
-        localStorage.setItem("asset-panel-width", String(Math.round(w)));
-        return w;
-      });
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  };
+  // Editorial Assistant lives in an overlay drawer, never a permanent column.
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const cutsMutation = useCreateSocialCuts();
   const [cutsPlatform, setCutsPlatform] = useState<string | null>(null);
   const [cutsCreated, setCutsCreated] = useState<number | null>(null);
@@ -898,8 +875,51 @@ export default function AssetDetail() {
               )}
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
+        {/* Main Content Area — tabs on top, viewport fills the rest */}
+        <Tabs
+          value={activeTab && activeTab !== "studio" ? activeTab : "search"}
+          onValueChange={setActiveTab}
+          className="flex-1 min-w-0 flex flex-col overflow-hidden"
+        >
+          <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-2">
+            <TabsList className="flex flex-wrap h-auto gap-1 justify-start">
+              <TabsTrigger value="search" className="gap-1.5">
+                <Search className="h-3.5 w-3.5" />
+                Search
+              </TabsTrigger>
+              <TabsTrigger value="creative" className="gap-1.5">
+                <Clapperboard className="h-3.5 w-3.5" />
+                Creative
+              </TabsTrigger>
+              <TabsTrigger value="socials" className="gap-1.5">
+                <Share2 className="h-3.5 w-3.5" />
+                Socials
+              </TabsTrigger>
+              <TabsTrigger value="selects" className="gap-1.5">
+                <Star className="h-3.5 w-3.5" />
+                Selects
+              </TabsTrigger>
+              <TabsTrigger value="scenes">Scenes</TabsTrigger>
+              <TabsTrigger value="jobs">Pipeline Jobs</TabsTrigger>
+              {(assetRatings?.total ?? 0) > 0 && (
+                <TabsTrigger value="ratings" className="gap-1.5">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Ratings
+                </TabsTrigger>
+              )}
+            </TabsList>
+            <Button
+              size="sm"
+              variant={chatDrawerOpen ? "default" : "outline"}
+              className="ml-auto gap-1.5 shrink-0"
+              onClick={() => setChatDrawerOpen((v) => !v)}
+              data-testid="button-toggle-assistant"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Assistant
+            </Button>
+          </div>
+          <div className="flex-1 flex flex-col overflow-y-auto">
           <div className="p-6 bg-black flex-shrink-0 sticky top-0 z-20 shadow-lg shadow-black/50">
             {asset.status === 'ready' ? (
               <video 
@@ -979,7 +999,7 @@ export default function AssetDetail() {
                     if (e.key === "Enter" && floatPrompt.trim()) {
                       const text = floatPrompt.trim();
                       setFloatPrompt("");
-                      setActiveTab("studio");
+                      setChatDrawerOpen(true);
                       (window as unknown as { __obtvPendingPrompt?: string }).__obtvPendingPrompt = text;
                       window.dispatchEvent(new CustomEvent("obtv:studio-prompt", { detail: text }));
                     }
@@ -1095,54 +1115,6 @@ export default function AssetDetail() {
               </TabsContent>
             </Tabs>
           </div>
-        </div>
-
-        {/* Right Panel — all tabs beside the player */}
-        <div
-          className="relative shrink-0 border-l border-border bg-card flex flex-col overflow-hidden"
-          style={{ width: panelWidth }}
-        >
-          <div
-            onMouseDown={startPanelResize}
-            title="Drag to resize"
-            className="absolute left-0 top-0 z-20 h-full w-1.5 cursor-col-resize hover:bg-primary/40 active:bg-primary/60"
-          />
-            <Tabs value={activeTab ?? "studio"} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
-              <div className="p-3 border-b border-border shrink-0">
-              <TabsList className="flex flex-wrap h-auto gap-1 justify-start w-full">
-                <TabsTrigger value="search" className="gap-1.5">
-                  <Search className="h-3.5 w-3.5" />
-                  Search
-                </TabsTrigger>
-                <TabsTrigger
-                  value="studio"
-                  className="gap-1.5 text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  <Clapperboard className="h-3.5 w-3.5" />
-                  Studio
-                </TabsTrigger>
-                <TabsTrigger value="creative" className="gap-1.5">
-                  <Clapperboard className="h-3.5 w-3.5" />
-                  Creative
-                </TabsTrigger>
-                <TabsTrigger value="socials" className="gap-1.5">
-                  <Share2 className="h-3.5 w-3.5" />
-                  Socials
-                </TabsTrigger>
-                <TabsTrigger value="selects" className="gap-1.5">
-                  <Star className="h-3.5 w-3.5" />
-                  Selects
-                </TabsTrigger>
-                <TabsTrigger value="scenes">Scenes</TabsTrigger>
-                <TabsTrigger value="jobs">Pipeline Jobs</TabsTrigger>
-                {(assetRatings?.total ?? 0) > 0 && (
-                  <TabsTrigger value="ratings" className="gap-1.5">
-                    <BarChart3 className="h-3.5 w-3.5" />
-                    Ratings
-                  </TabsTrigger>
-                )}
-              </TabsList>
-              </div>
               <TabsContent value="selects" className="flex-1 overflow-y-auto mt-0 p-4">
                 <div className="space-y-4">
                   <div className="flex items-end gap-2 flex-wrap max-w-3xl">
@@ -1245,10 +1217,6 @@ export default function AssetDetail() {
                   onRun={startCreative}
                   seekTo={seekTo}
                 />
-              </TabsContent>
-              <TabsContent value="studio" className="flex-1 overflow-y-auto mt-0 p-4 space-y-6">
-                <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} />
-                <AssetRendersSection mediaId={id!} />
               </TabsContent>
               <TabsContent value="socials" className="flex-1 overflow-y-auto mt-0 p-4">
                 {(asset.social_scores && asset.social_scores.length > 0 && !socialBusy) ? (
@@ -1518,7 +1486,25 @@ export default function AssetDetail() {
             <TabsContent value="search" className="flex-1 overflow-y-auto mt-0 p-4">
                 <AssetSearchTab mediaId={id!} seekTo={seekTo} />
               </TabsContent>
-          </Tabs>
+          </div>
+        </Tabs>
+      </div>
+
+      {/* Editorial Assistant — overlay drawer, always mounted so the cut/preview stays wired */}
+      <div
+        className={`${chatDrawerOpen ? "flex" : "hidden"} fixed right-0 top-0 bottom-0 z-40 w-[440px] max-w-[92vw] flex-col border-l border-border bg-card shadow-2xl shadow-black/60`}
+        data-testid="drawer-assistant"
+      >
+        <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">Editorial assistant</span>
+          <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" onClick={() => setChatDrawerOpen(false)} data-testid="button-close-assistant">
+            <XCircle className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} />
+          <AssetRendersSection mediaId={id!} />
         </div>
       </div>
 
