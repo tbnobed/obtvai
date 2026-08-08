@@ -704,14 +704,14 @@ export default function ProjectDetail() {
           {project && <StudioTab project={project} onOpenPool={() => setTab("find")} focusVersion={studioFocusVersion} fill />}
         </TabsContent>
 
-        {/* Find & Media — media pool (left) and footage search (right) on one page */}
+        {/* Find & Media — footage search (left) and media pool (right) on one page */}
         <TabsContent value="find">
           <div className="grid gap-6 lg:grid-cols-2 items-start">
-          <div className="min-w-0">
+          <div className="min-w-0 order-2 lg:order-2">
             {project && <MediaPoolTab project={project} />}
           </div>
 
-          <Card className="min-w-0">
+          <Card className="min-w-0 order-1 lg:order-1">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 flex-wrap gap-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Search className="h-4 w-4" /> Search Footage
