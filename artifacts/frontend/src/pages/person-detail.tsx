@@ -268,8 +268,8 @@ function VoiceSection({
   const minSeconds = profile?.min_sample_seconds ?? 10;
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
+    <div className="mb-4">
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <AudioWaveform className="h-5 w-5 text-primary" /> Voice Clone
         </h2>
@@ -282,8 +282,8 @@ function VoiceSection({
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="border border-border bg-card rounded-md p-4 space-y-3">
+      <div className="grid gap-3 lg:grid-cols-2 items-start">
+        <div className="border border-border bg-card rounded-md p-3 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h3 className="text-sm font-semibold">Clean Samples</h3>
             <div className="flex gap-2">
@@ -403,7 +403,7 @@ function VoiceSection({
           )}
         </div>
 
-        <div className="border border-border bg-card rounded-md p-4 space-y-3">
+        <div className="border border-border bg-card rounded-md p-3 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-semibold">Voice Generator</h3>
             {voiceSettings ? (
@@ -504,11 +504,11 @@ function VoiceSection({
           )}
 
           {generations?.length ? (
-            <div className="space-y-2 pt-1">
+            <div className="space-y-2 pt-1 max-h-80 overflow-y-auto pr-1">
               {generations.map((g: VoiceGeneration) => (
                 <div key={g.id} className="bg-muted/50 rounded p-2 text-sm space-y-1.5">
                   <div className="flex items-start gap-2">
-                    <p className="flex-1 min-w-0 text-xs leading-relaxed line-clamp-2">&ldquo;{g.text}&rdquo;</p>
+                    <p className="flex-1 min-w-0 text-xs leading-relaxed line-clamp-1" title={g.text}>&ldquo;{g.text}&rdquo;</p>
                     <Button
                       size="icon"
                       variant="ghost"
