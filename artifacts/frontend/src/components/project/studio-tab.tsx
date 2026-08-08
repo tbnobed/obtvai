@@ -334,7 +334,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
           ? "flex flex-col gap-4 h-full min-h-0"
           : chatOpen
             ? // Project studio page: 2 columns — chat left, cut/player right (larger)
-              "grid gap-4 items-start lg:grid-cols-[minmax(320px,2fr)_minmax(0,3fr)]"
+              "grid gap-4 items-start lg:grid-cols-[minmax(260px,1fr)_minmax(0,4fr)]"
             : "flex flex-col gap-4"
       }
     >
@@ -576,12 +576,12 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
               </Button>
             </div>
           )}
-          {previewOpen && clips.length > 0 && !previewLarge && (
+          {(previewOpen || !cutHost) && clips.length > 0 && !previewLarge && (
             // Sticky: the player stays pinned while the clip list scrolls under it.
             <div className="sticky -top-4 z-20 -mx-4 -mt-3 bg-background px-4 pt-3 pb-3 shadow-lg shadow-black/40">
               <CutPreviewPlayer
                 clips={clips}
-                open={previewOpen}
+                open={previewOpen || !cutHost}
                 initialIndex={previewIndex}
                 compact
                 onToggleExpand={() => setPreviewLarge(true)}
