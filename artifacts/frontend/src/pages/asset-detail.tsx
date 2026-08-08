@@ -35,7 +35,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search, Pencil, Check, X, ChevronUp, ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search, Pencil, Check, X, ChevronUp, ChevronDown, PanelLeftClose, PanelLeftOpen, Play } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -137,6 +137,8 @@ export default function AssetDetail() {
   const [viewMode, setViewMode] = useState<"original" | "preview">("original");
   const [cutClips, setCutClips] = useState<CutClip[]>([]);
   const [cutHost, setCutHost] = useState<HTMLDivElement | null>(null);
+  // Pop-up player for Search / Creative tab results (the main player only lives on the Studio tab).
+  const [popPreview, setPopPreview] = useState<number | null>(null);
   const previewClips = useMemo(() => cutClips.filter((c) => c.media_id === id), [cutClips, id]);
 
   // Preview playback engine: sequence the draft cut's clips in the main player.
@@ -1186,7 +1188,7 @@ export default function AssetDetail() {
                   progress={creativeJob?.progress ?? null}
                   error={creativeMutation.isError}
                   onRun={startCreative}
-                  seekTo={seekTo}
+                  seekTo={setPopPreview}
                 />
               </TabsContent>
               <TabsContent value="socials" className="flex-1 overflow-y-auto mt-0 p-4">
@@ -1455,7 +1457,7 @@ export default function AssetDetail() {
                 </div>
               </TabsContent>
             <TabsContent value="search" className="flex-1 overflow-y-auto mt-0 p-4">
-                <AssetSearchTab mediaId={id!} seekTo={seekTo} />
+                <AssetSearchTab mediaId={id!} seekTo={setPopPreview} />
               </TabsContent>
           </div>
         </Tabs>
@@ -1479,9 +1481,6 @@ export default function AssetDetail() {
         <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
           <div className="flex-1 min-h-0 flex flex-col">
             <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} cutHost={cutHost} />
-          </div>
-          <div className="shrink-0 max-h-[30%] overflow-y-auto empty:hidden">
-            <AssetRendersSection mediaId={id!} />
           </div>
         </div>
       </div>
@@ -1565,6 +1564,25 @@ export default function AssetDetail() {
           </>
         )}
       </div>
+      {/* Pop-up player for Search / Creative results */}
+      <Dialog open={popPreview != null} onOpenChange={(o) => { if (!o) setPopPreview(null); }}>
+        <DialogContent className="max-w-4xl p-3" aria-describedby={undefined}>
+          <DialogHeader className="sr-only">
+            <DialogTitle>Preview at {popPreview != null ? formatTimecode(popPreview) : ""}</DialogTitle>
+          </DialogHeader>
+          {popPreview != null && (
+            <video
+              key={popPreview}
+              src={`/api/media/${id}/stream#t=${popPreview}`}
+              controls
+              autoPlay
+              className="w-full max-h-[70vh] rounded bg-black object-contain"
+              data-testid="video-pop-preview"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={similarOpen} onOpenChange={setSimilarOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
@@ -2616,27 +2634,30 @@ function AssetSearchTab({ mediaId, seekTo }: { mediaId: string; seekTo: (t: numb
           {results.length} result{results.length === 1 ? "" : "s"} for “{search.data.query}”
         </p>
       )}
-      <div className="space-y-1.5">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         {results.map((r: SearchResult, i: number) => (
           <button
             key={`${r.start_time}-${i}`}
             type="button"
             onClick={() => seekTo(r.start_time)}
-            className="w-full flex items-start gap-3 rounded-md border border-border bg-card/50 hover:bg-muted/40 px-3 py-2 text-left"
+            className="rounded-md border border-border bg-card/50 hover:bg-muted/40 overflow-hidden text-left group"
             data-testid={`asset-search-result-${i}`}
           >
-            {r.thumbnail_url && (
-              <img src={`/api/thumbnails/${r.thumbnail_url}`} alt="" loading="lazy" className="h-12 w-20 rounded object-cover shrink-0" />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-mono text-primary">
-                  {formatTimecode(r.start_time)}{r.end_time != null ? ` – ${formatTimecode(r.end_time)}` : ""}
-                </span>
-                <span className="text-muted-foreground">
-                  {r.match_type === "visual" ? "Visual" : r.match_type === "person" ? "Person" : "Transcript"}
-                  {r.match_type === "person" ? "" : ` · ${(r.score * 100).toFixed(0)}%`}
-                </span>
+            <div className="relative aspect-video bg-black/40">
+              {r.thumbnail_url && (
+                <img src={`/api/thumbnails/${r.thumbnail_url}`} alt="" loading="lazy" className="w-full h-full object-cover" />
+              )}
+              <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Play className="h-8 w-8 text-white drop-shadow" />
+              </span>
+              <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] rounded px-1 tabular-nums">
+                {formatTimecode(r.start_time)}{r.end_time != null ? `–${formatTimecode(r.end_time)}` : ""}
+              </span>
+            </div>
+            <div className="p-2">
+              <div className="text-[11px] text-muted-foreground">
+                {r.match_type === "visual" ? "Visual" : r.match_type === "person" ? "Person" : "Transcript"}
+                {r.match_type === "person" ? "" : ` · ${(r.score * 100).toFixed(0)}%`}
               </div>
               {r.snippet && <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{r.snippet}</p>}
             </div>
