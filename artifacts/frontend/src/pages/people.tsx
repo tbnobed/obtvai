@@ -225,7 +225,6 @@ export default function People() {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <EnrollPersonDialog />
             <Button
               variant="outline"
               onClick={handleReanalyze}
@@ -321,6 +320,7 @@ export default function People() {
                 </Button>
               </>
             )}
+            {view !== "map" && <EnrollPersonDialog />}
             <div className="flex bg-card/50 p-1 rounded-full border border-border/50 shadow-sm lg:ml-2">
               <Button size="sm" variant={view === "grid" ? "secondary" : "ghost"} className="h-8 rounded-full px-3.5 gap-1.5" onClick={() => switchView("grid")}>
                 <LayoutGrid className="h-4 w-4" /> <span className="hidden sm:inline">Grid</span>
