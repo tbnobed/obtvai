@@ -27,6 +27,7 @@ import remarkGfm from "remark-gfm";
 import { TrimPlayer } from "./trim-player";
 import { ClipThumb } from "./clip-thumb";
 import { CutPreviewPlayer } from "./cut-preview-dialog";
+import { CutStrips } from "./cut-strips";
 import { useToast } from "@/hooks/use-toast";
 import { formatTC } from "@/lib/timecode";
 
@@ -697,6 +698,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
                     </div>
                   ))}
                 </div>
+              <CutStrips clips={events.map((ev) => ev.clip)} />
             </>
           )}
         </div>
