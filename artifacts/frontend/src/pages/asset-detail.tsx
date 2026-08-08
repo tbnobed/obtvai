@@ -1464,7 +1464,7 @@ export default function AssetDetail() {
           Absolutely positioned inside the main row so it matches the transcript sidebar's height
           and never covers the bottom timeline band. */}
       <div
-        className={`${chatDrawerOpen ? "flex" : "hidden"} absolute inset-y-0 right-0 z-40 w-[440px] max-w-[92vw] flex-col border-l border-border bg-card shadow-2xl shadow-black/60`}
+        className={`${chatDrawerOpen ? "flex" : "hidden"} shrink-0 w-[440px] max-w-[40vw] flex-col border-l border-border bg-card`}
         data-testid="drawer-assistant"
       >
         <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
