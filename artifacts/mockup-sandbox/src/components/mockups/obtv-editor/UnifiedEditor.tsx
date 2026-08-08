@@ -1,8 +1,10 @@
+import { useState } from "react";
 import {
   Play, SkipBack, SkipForward, ChevronLeft, ChevronRight, Scissors, Download,
   Sparkles, Send, Film, Search, LayoutGrid, Type, FileText, Settings,
   ChevronDown, Volume2, Maximize2, Gauge, SlidersHorizontal, MonitorPlay,
-  ThumbsUp, ThumbsDown, Lock, Trash2, X, Clapperboard,
+  ThumbsUp, ThumbsDown, Lock, Trash2, X, Clapperboard, Star, Share2,
+  Layers, Cpu, Wand2,
 } from "lucide-react";
 
 /* ── fake data ─────────────────────────────────────────────────────── */
@@ -65,7 +67,30 @@ function Wave() {
 }
 
 /* ── mockup ────────────────────────────────────────────────────────── */
+const TABS = ["Search", "Studio", "Creative", "Socials", "Selects", "Scenes", "Pipeline Jobs"] as const;
+type Tab = typeof TABS[number];
+
+function TabPlaceholder({ tab }: { tab: Tab }) {
+  const icons: Record<Tab, React.ReactNode> = {
+    Search: <Search className="w-8 h-8 text-zinc-600" />,
+    Studio: null,
+    Creative: <Wand2 className="w-8 h-8 text-zinc-600" />,
+    Socials: <Share2 className="w-8 h-8 text-zinc-600" />,
+    Selects: <Star className="w-8 h-8 text-zinc-600" />,
+    Scenes: <Layers className="w-8 h-8 text-zinc-600" />,
+    "Pipeline Jobs": <Cpu className="w-8 h-8 text-zinc-600" />,
+  };
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 gap-3">
+      {icons[tab]}
+      <span className="text-sm font-semibold tracking-widest uppercase">{tab}</span>
+      <span className="text-xs text-zinc-700">Tab content goes here</span>
+    </div>
+  );
+}
+
 export function UnifiedEditor() {
+  const [activeTab, setActiveTab] = useState<Tab>("Studio");
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-zinc-950 text-zinc-200 text-[13px] font-['Inter',sans-serif]">
       {/* Top bar */}
@@ -80,25 +105,19 @@ export function UnifiedEditor() {
 
         {/* Center: page tabs */}
         <div className="flex items-center h-full mx-auto">
-          {[
-            { label: "Search", active: false },
-            { label: "Studio", active: true },
-            { label: "Creative", active: false },
-            { label: "Socials", active: false },
-            { label: "Selects", active: false },
-            { label: "Scenes", active: false },
-            { label: "Pipeline Jobs", active: false },
-          ].map((t) => (
-            <div
-              key={t.label}
+          {TABS.map((label) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setActiveTab(label)}
               className={`h-full flex items-center px-4 text-xs font-semibold tracking-wide border-b-2 cursor-pointer select-none transition-colors ${
-                t.active
+                activeTab === label
                   ? "border-sky-400 text-sky-300"
                   : "border-transparent text-zinc-500 hover:text-zinc-300"
               }`}
             >
-              {t.label}
-            </div>
+              {label}
+            </button>
           ))}
         </div>
 
@@ -113,6 +132,22 @@ export function UnifiedEditor() {
         </div>
       </div>
 
+      {activeTab !== "Studio" && (
+        <div className="flex-1 flex min-h-0">
+          {/* Icon rail */}
+          <div className="w-11 shrink-0 border-r border-zinc-800 flex flex-col items-center gap-4 py-3 text-zinc-500">
+            <MonitorPlay className="w-4 h-4 text-sky-400" />
+            <LayoutGrid className="w-4 h-4" />
+            <Type className="w-4 h-4" />
+            <FileText className="w-4 h-4" />
+            <Search className="w-4 h-4" />
+            <Settings className="w-4 h-4 mt-auto" />
+          </div>
+          <TabPlaceholder tab={activeTab} />
+        </div>
+      )}
+
+      {activeTab === "Studio" && <>
       <div className="flex-1 flex min-h-0">
         {/* Icon rail */}
         <div className="w-11 shrink-0 border-r border-zinc-800 flex flex-col items-center gap-4 py-3 text-zinc-500">
@@ -231,6 +266,7 @@ export function UnifiedEditor() {
       </div>
 
       {/* Timeline */}
+
       <div className="shrink-0 border-t border-zinc-800 bg-zinc-950">
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-zinc-800/70">
           <span className="text-[10px] font-bold tracking-widest text-zinc-300">DRAFT CUT v6</span>
@@ -280,6 +316,7 @@ export function UnifiedEditor() {
           </div>
         </div>
       </div>
+      </>}
     </div>
   );
 }
