@@ -605,6 +605,9 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
             </p>
           ) : (
             <>
+              {/* Proportional EDL strip only in the standalone pane — in the bottom bar the
+                  numbered bar sits on each card so widths always match the cards. */}
+              {!cutHost && (
               <div className="flex h-8 w-full rounded overflow-hidden border border-border bg-black/40">
                 {events.map((ev) => (
                   <div
@@ -619,13 +622,30 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
                   </div>
                 ))}
               </div>
+              )}
               <div className="flex gap-1.5 overflow-x-auto pb-1">
                   {events.map((ev, i) => (
                     <div key={ev.n} className="w-44 shrink-0 rounded border border-border bg-black/30 overflow-hidden" data-testid={`cut-block-${i}`}>
+                      {cutHost && (
+                        <div
+                          className={`${ev.color} h-6 flex items-center justify-center text-[10px] font-semibold text-black/80 tabular-nums cursor-pointer`}
+                          title={`${ev.n}. ${ev.clip.filename} — click to play in the player`}
+                          onClick={() => onSeekSource?.(ev.clip.start_time)}
+                        >
+                          {ev.n}
+                        </div>
+                      )}
                       <div
                         className="relative cursor-pointer"
-                        title={`${ev.clip.filename}\n${fmtTime(ev.clip.start_time)}–${fmtTime(ev.clip.end_time)} — click to preview`}
-                        onClick={() => { setPreviewIndex(i); setPreviewOpen(true); }}
+                        title={`${ev.clip.filename}\n${fmtTime(ev.clip.start_time)}–${fmtTime(ev.clip.end_time)} — click to play`}
+                        onClick={() => {
+                          if (cutHost && onSeekSource) {
+                            // On the asset page the main player IS the preview — jump it there.
+                            onSeekSource(ev.clip.start_time);
+                          } else {
+                            setPreviewIndex(i); setPreviewOpen(true);
+                          }
+                        }}
                       >
                         <ClipThumb url={ev.clip.thumbnail_url} mediaId={ev.clip.media_id} time={ev.clip.start_time} className="aspect-video w-full rounded-none border-0" />
                         <span className={`absolute top-1 left-1 ${ev.color} text-black/80 text-[10px] font-semibold rounded px-1 tabular-nums`}>{ev.n}</span>

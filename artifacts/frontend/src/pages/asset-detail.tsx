@@ -1488,10 +1488,12 @@ export default function AssetDetail() {
       </div>
 
       {/* ── Full-width NLE timeline band — Studio tab only ── */}
-      {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
-        <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[44vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
-          {/* Draft cut panel is portalled here from the Studio session — only visible in preview mode, replacing the lanes */}
-          <div ref={setCutHost} className={viewMode === "preview" ? "mb-2 empty:hidden" : "hidden"} />
+      <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[44vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" && (viewMode === "preview" || (asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0)) ? "" : "hidden"}`}>
+        {/* Draft cut panel is portalled here from the Studio session — only visible in preview mode, replacing the lanes.
+            The host div mounts unconditionally so the cut pane NEVER falls back into the assistant panel. */}
+        <div ref={setCutHost} className={viewMode === "preview" ? "mb-2 empty:hidden" : "hidden"} />
+        {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
+          <>
           {viewMode === "preview" ? null : (
           <div className="grid grid-cols-[92px_1fr] items-start gap-x-2">
             <div className="pt-2.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[TIMELINE]</div>
@@ -1560,8 +1562,9 @@ export default function AssetDetail() {
 
           </div>
           )}
-        </div>
-      )}
+          </>
+        )}
+      </div>
       <Dialog open={similarOpen} onOpenChange={setSimilarOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
