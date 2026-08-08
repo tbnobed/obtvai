@@ -476,7 +476,7 @@ export default function AssetDetail() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Transcript Panel — collapsible so laptops keep room for the player */}
         {!transcriptOpen && (
           <button
@@ -1459,11 +1459,12 @@ export default function AssetDetail() {
               </TabsContent>
           </div>
         </Tabs>
-      </div>
 
-      {/* Editorial Assistant — overlay drawer, always mounted so the cut/preview stays wired */}
+      {/* Editorial Assistant — overlay drawer, always mounted so the cut/preview stays wired.
+          Absolutely positioned inside the main row so it matches the transcript sidebar's height
+          and never covers the bottom timeline band. */}
       <div
-        className={`${chatDrawerOpen ? "flex" : "hidden"} fixed right-0 top-0 bottom-0 z-40 w-[440px] max-w-[92vw] flex-col border-l border-border bg-card shadow-2xl shadow-black/60`}
+        className={`${chatDrawerOpen ? "flex" : "hidden"} absolute inset-y-0 right-0 z-40 w-[440px] max-w-[92vw] flex-col border-l border-border bg-card shadow-2xl shadow-black/60`}
         data-testid="drawer-assistant"
       >
         <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
@@ -1477,6 +1478,7 @@ export default function AssetDetail() {
           <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} cutHost={cutHost} />
           <AssetRendersSection mediaId={id!} />
         </div>
+      </div>
       </div>
 
       {/* ── Full-width NLE timeline band — Studio tab only ── */}
