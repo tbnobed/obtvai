@@ -322,21 +322,19 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
   return (
     <div
       ref={gridRef}
-      className={`grid gap-4 ${chatOpen ? "lg:grid-cols-[minmax(300px,1fr)_2fr]" : "grid-cols-[auto_1fr]"}`}
+      className="flex flex-col gap-4"
     >
-      {/* ── Chat pane (collapsible so laptops keep room for the cut) ── */}
+      {/* ── Chat pane (collapsible; stacked above the cut — no side-by-side split) ── */}
       {!chatOpen && (
         <button
           type="button"
           onClick={() => setChatOpen(true)}
           title="Show the editorial assistant"
-          className={`w-9 border border-border rounded-lg bg-card/50 flex flex-col items-center gap-2 pt-3 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors ${panelH} min-h-[420px]`}
-          style={panelStyle}
+          className="h-9 border border-border rounded-lg bg-card/50 flex items-center gap-2 px-3 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
         >
           <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-[11px] font-medium tracking-wide" style={{ writingMode: "vertical-rl" }}>
-            Editorial assistant
-          </span>
+          <span className="text-[11px] font-medium tracking-wide">Editorial assistant</span>
+          <PanelLeftOpen className="w-3.5 h-3.5 ml-auto" />
         </button>
       )}
       <div className={`min-w-0 ${chatOpen ? "flex" : "hidden"} flex-col border border-border rounded-lg bg-card/50 ${panelH} min-h-[420px]`} style={panelStyle}>
