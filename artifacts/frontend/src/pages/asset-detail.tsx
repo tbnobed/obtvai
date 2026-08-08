@@ -1482,9 +1482,9 @@ export default function AssetDetail() {
       {/* ── Full-width NLE timeline band — Studio tab only ── */}
       {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
         <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[52vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
-          {/* Draft cut panel is portalled here from the Studio session */}
-          <div ref={setCutHost} className="mb-2 empty:hidden" />
-          {viewMode === "preview" && previewClips.length > 0 ? null : (
+          {/* Draft cut panel is portalled here from the Studio session — only visible in preview mode, replacing the lanes */}
+          <div ref={setCutHost} className={viewMode === "preview" ? "mb-2 empty:hidden" : "hidden"} />
+          {viewMode === "preview" ? null : (
           <div className="grid grid-cols-[92px_1fr] items-start gap-x-2">
             <div className="pt-2.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[TIMELINE]</div>
             <div className="min-w-0">
