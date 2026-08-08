@@ -927,7 +927,7 @@ export default function AssetDetail() {
             </Button>
           </div>
           <div className="flex-1 flex flex-col overflow-y-auto">
-          <div className={`px-6 pt-3 pb-2 bg-black flex-shrink-0 sticky top-0 z-20 shadow-lg shadow-black/50 ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
+          <div className={`relative px-6 pt-3 pb-2 bg-black flex-1 min-h-0 flex-col z-20 shadow-lg shadow-black/50 ${(activeTab ?? "studio") === "studio" ? "flex" : "hidden"}`}>
             {asset.status === 'ready' ? (
               <video 
                 ref={videoRef}
@@ -935,7 +935,7 @@ export default function AssetDetail() {
                   ? `/api/media/${id}/dub/${transcriptLang}/video`
                   : `/api/media/${id}/stream`} 
                 controls 
-                className="w-full max-h-[42vh] object-contain bg-black"
+                className="w-full flex-1 min-h-0 object-contain bg-black"
                 onTimeUpdate={handleTimeUpdate}
               />
             ) : (
