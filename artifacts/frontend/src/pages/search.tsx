@@ -94,8 +94,25 @@ export default function SearchPage() {
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [addedTo, setAddedTo] = useState<{ id: string; name: string } | null>(null);
+  // "asset" pulls whole files into the project; "clips" also trims each file's
+  // usable region to span just the selected moments.
+  const [addMode, setAddMode] = useState<"asset" | "clips">("asset");
   const selectedList = Object.values(selected);
   const selectedMediaIds = [...new Set(selectedList.map((r) => r.media_id))];
+
+  type Range = { in: number; out: number };
+  // Span of the selected clips per file (earliest in → latest out).
+  const selectedRanges = (): Record<string, Range> => {
+    const out: Record<string, Range> = {};
+    for (const r of selectedList) {
+      const cur = out[r.media_id];
+      out[r.media_id] = {
+        in: cur ? Math.min(cur.in, r.start_time) : r.start_time,
+        out: cur ? Math.max(cur.out, r.end_time) : r.end_time,
+      };
+    }
+    return out;
+  };
   const activeProjects = (projects ?? []).filter((p) => p.status === "active");
   const projectBusy = createProject.isPending || updateProject.isPending;
 
@@ -110,8 +127,20 @@ export default function SearchPage() {
   const addToProject = (projectId: string, projectName: string) => {
     const existing = (projects ?? []).find((p) => p.id === projectId);
     const merged = [...new Set([...(existing?.media_ids ?? []), ...selectedMediaIds])];
+    let mediaRanges: Record<string, Range> | undefined;
+    if (addMode === "clips") {
+      const existingRanges = (existing?.media_ranges ?? {}) as Record<string, Range>;
+      mediaRanges = { ...existingRanges };
+      for (const [mid, r] of Object.entries(selectedRanges())) {
+        const cur = mediaRanges[mid];
+        // Widen an existing region rather than shrinking what's already usable.
+        mediaRanges[mid] = cur
+          ? { in: Math.min(cur.in, r.in), out: Math.max(cur.out, r.out) }
+          : r;
+      }
+    }
     updateProject.mutate(
-      { id: projectId, data: { media_ids: merged } },
+      { id: projectId, data: { media_ids: merged, ...(mediaRanges ? { media_ranges: mediaRanges } : {}) } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
@@ -125,7 +154,13 @@ export default function SearchPage() {
   const createProjectWithSelection = () => {
     if (!newProjectName.trim()) return;
     createProject.mutate(
-      { data: { name: newProjectName.trim(), media_ids: selectedMediaIds } },
+      {
+        data: {
+          name: newProjectName.trim(),
+          media_ids: selectedMediaIds,
+          ...(addMode === "clips" ? { media_ranges: selectedRanges() } : {}),
+        },
+      },
       {
         onSuccess: (p) => {
           queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
@@ -507,6 +542,24 @@ export default function SearchPage() {
               <span className="font-semibold">{selectedList.length}</span> clip{selectedList.length === 1 ? "" : "s"} ·{" "}
               <span className="font-semibold">{selectedMediaIds.length}</span> file{selectedMediaIds.length === 1 ? "" : "s"}
             </span>
+            <div className="flex items-center rounded-lg border border-border p-0.5" title="Whole files adds the complete assets; Clips only also trims each file's usable region to the selected moments">
+              <Button
+                size="sm"
+                variant={addMode === "asset" ? "secondary" : "ghost"}
+                className="h-7 px-2.5 text-xs rounded-md"
+                onClick={() => setAddMode("asset")}
+              >
+                Whole files
+              </Button>
+              <Button
+                size="sm"
+                variant={addMode === "clips" ? "secondary" : "ghost"}
+                className="h-7 px-2.5 text-xs rounded-md"
+                onClick={() => setAddMode("clips")}
+              >
+                Clips only
+              </Button>
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" disabled={projectBusy || !activeProjects.length}
@@ -547,7 +600,9 @@ export default function SearchPage() {
               onKeyDown={(e) => e.key === "Enter" && createProjectWithSelection()}
             />
             <p className="text-xs text-muted-foreground">
-              Starts the project with the {selectedMediaIds.length} source file{selectedMediaIds.length === 1 ? "" : "s"} behind your selected clips.
+              {addMode === "clips"
+                ? `Starts the project with ${selectedMediaIds.length} source file${selectedMediaIds.length === 1 ? "" : "s"}, trimmed to the region spanning your selected clips.`
+                : `Starts the project with the ${selectedMediaIds.length} whole source file${selectedMediaIds.length === 1 ? "" : "s"} behind your selected clips.`}
             </p>
             {createProject.isError && (
               <p className="text-xs text-red-400">Couldn't create the project — try again.</p>
