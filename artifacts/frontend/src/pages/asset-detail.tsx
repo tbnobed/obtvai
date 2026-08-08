@@ -1464,16 +1464,18 @@ export default function AssetDetail() {
           Absolutely positioned inside the main row so it matches the transcript sidebar's height
           and never covers the bottom timeline band. */}
       <div
-        className={`${chatDrawerOpen ? "flex" : "hidden"} shrink-0 w-[440px] max-w-[40vw] flex-col border-l border-border bg-card`}
+        className={`${chatDrawerOpen ? "flex" : "hidden"} relative shrink-0 w-[440px] max-w-[40vw] flex-col border-l border-border bg-card`}
         data-testid="drawer-assistant"
       >
-        <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">Editorial assistant</span>
-          <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" onClick={() => setChatDrawerOpen(false)} data-testid="button-close-assistant">
-            <XCircle className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-1.5 right-1.5 z-10 h-7 w-7 text-muted-foreground hover:text-foreground"
+          onClick={() => setChatDrawerOpen(false)}
+          data-testid="button-close-assistant"
+        >
+          <XCircle className="h-4 w-4" />
+        </Button>
         <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
           <div className="flex-1 min-h-0 flex flex-col">
             <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} cutHost={cutHost} />

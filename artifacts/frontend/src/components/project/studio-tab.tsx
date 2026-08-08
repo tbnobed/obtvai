@@ -332,7 +332,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
       className={cutHost ? "flex flex-col gap-4 h-full min-h-0" : "flex flex-col gap-4"}
     >
       {/* ── Chat pane (collapsible; stacked above the cut — no side-by-side split) ── */}
-      {!chatOpen && (
+      {!chatOpen && !cutHost && (
         <button
           type="button"
           onClick={() => setChatOpen(true)}
@@ -345,9 +345,10 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
         </button>
       )}
       <div
-        className={`min-w-0 ${chatOpen ? "flex" : "hidden"} flex-col border border-border rounded-lg bg-card/50 ${cutHost ? "flex-1 min-h-0" : `${panelH} min-h-[420px]`}`}
+        className={`min-w-0 ${chatOpen || cutHost ? "flex" : "hidden"} flex-col ${cutHost ? "flex-1 min-h-0" : `border border-border rounded-lg bg-card/50 ${panelH} min-h-[420px]`}`}
         style={cutHost ? undefined : panelStyle}
       >
+        {!cutHost && (
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">Editorial assistant</span>
@@ -368,6 +369,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
             <PanelLeftClose className="w-4 h-4" />
           </button>
         </div>
+        )}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {!(messages ?? []).length && (
             <div className="text-sm text-muted-foreground space-y-3 pt-4">
