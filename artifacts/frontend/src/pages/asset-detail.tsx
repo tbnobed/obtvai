@@ -1991,16 +1991,17 @@ function MomentsTimeline({
     };
     const stops = heat.map((v, i) => `${color(v)} ${((i / (N - 1)) * 100).toFixed(2)}%`);
     const heatGradient = `linear-gradient(to right, ${stops.join(",")})`;
-    // Emotion gradient replaces the heat strip when the transcript carries emotions.
+    // Emotion gradient takes over the main bar when the transcript carries emotions;
+    // the clip-strength heat moves to the thin strip below.
     const emo = (segments ?? []).filter((s) => s.emotion && s.emotion !== "neutral");
-    if (emo.length === 0) return heatGradient;
+    if (emo.length === 0) return { bar: heatGradient, heat: heatGradient, hasEmotion: false };
     const emoStops = (segments ?? [])
       .map(
         (s) =>
           `${emotionColor(s.emotion)} ${Math.min(100, Math.max(0, ((s.start_time + s.end_time) / 2 / duration) * 100)).toFixed(1)}%`,
       )
       .join(", ");
-    return `linear-gradient(90deg, ${emoStops})`;
+    return { bar: `linear-gradient(90deg, ${emoStops})`, heat: heatGradient, hasEmotion: true };
   }, [clipSuggestions, keyMoments, duration, segments]);
 
   const timeFromEvent = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -2060,7 +2061,7 @@ function MomentsTimeline({
           onFindSimilar(timeFromEvent(e).t);
         }}
       >
-        <div className="absolute inset-0" style={{ background: gradient }} />
+        <div className="absolute inset-0" style={{ background: gradient.bar }} />
         {clipSuggestions.map((c, i) => (
           <div
             key={`cs-${i}`}
@@ -2100,29 +2101,19 @@ function MomentsTimeline({
           <div className="absolute -top-0.5 -ml-[5px] w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-white" />
         </div>
       </div>
-      {(segments ?? []).some((s) => s.emotion && s.emotion !== "neutral") && (
-        <div className="relative h-2.5 mt-0.5 rounded-sm bg-zinc-900 overflow-hidden pointer-events-none">
-          {(segments ?? []).map((s) =>
-            s.emotion && s.emotion !== "neutral" ? (
-              <div
-                key={`em-${s.id}`}
-                className="absolute top-0 h-full pointer-events-auto"
-                style={{
-                  left: pct(s.start_time),
-                  width: widthPct(s.start_time, s.end_time),
-                  background: emotionColor(s.emotion),
-                  opacity: 0.35 + 0.6 * Math.min(1, Math.abs(s.sentiment ?? 0.4)),
-                }}
-                title={`${s.emotion}${s.sentiment != null ? ` (${s.sentiment > 0 ? "+" : ""}${s.sentiment.toFixed(2)})` : ""} — ${s.text.slice(0, 120)}`}
-              />
-            ) : null
-          )}
+      {gradient.hasEmotion && (
+        <div
+          className="relative h-2.5 mt-0.5 rounded-sm bg-zinc-900 overflow-hidden pointer-events-none"
+          title="Clip-strength heatmap"
+        >
+          <div className="absolute inset-0" style={{ background: gradient.heat }} />
           <div className="absolute top-0 bottom-0 w-[2px] -ml-[1px] bg-white/80" style={{ left: pct(playhead) }} />
         </div>
       )}
       <div className="flex gap-4 mt-1 text-[10px] text-zinc-500">
         <span className="font-mono text-zinc-300">{formatTimecode(playhead)}</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, #60a5fa, #ef4444, #facc15, #4ade80)" }} /> emotion heatmap</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, #60a5fa, #ef4444, #facc15, #4ade80)" }} /> emotions</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded-sm" style={{ background: "linear-gradient(to right, hsl(225,55%,16%), hsl(125,75%,35%), hsl(25,95%,54%))" }} /> clip strength</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-green-500 rounded-sm" /> Select</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 bg-red-500 rounded-sm" /> Reject</span>
         <span className="ml-auto text-zinc-600">right-click anywhere to find similar moments</span>
