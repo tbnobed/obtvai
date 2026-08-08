@@ -1,4 +1,5 @@
 import { Fragment, cloneElement, isValidElement, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   useListProjectChatMessages, getListProjectChatMessagesQueryKey,
   usePostProjectChatMessage,
@@ -105,7 +106,7 @@ function fmtRuntime(s: number) {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 }
 
-export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSource, onCutChange }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null; fill?: boolean; onSeekSource?: (t: number) => void; onCutChange?: (clips: CutClip[]) => void }) {
+export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSource, onCutChange, cutHost }: { project: Project; onOpenPool?: () => void; focusVersion?: number | null; fill?: boolean; onSeekSource?: (t: number) => void; onCutChange?: (clips: CutClip[]) => void; cutHost?: HTMLElement | null }) {
   // Fill the viewport: measure where the panels actually start and stretch
   // them to the bottom of the window instead of guessing a fixed offset.
   const gridRef = useRef<HTMLDivElement>(null);
@@ -438,8 +439,17 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
         </div>
       </div>
 
-      {/* ── Living cut pane ── */}
-      <div className={`min-w-0 border border-border rounded-lg bg-card/50 flex flex-col ${panelH} min-h-[420px]`} style={panelStyle}>
+      {/* ── Living cut pane — portalled into cutHost (e.g. the asset page's bottom bar) when provided ── */}
+      {(() => {
+      const cutPane = (
+      <div
+        className={
+          cutHost
+            ? "min-w-0 border border-border rounded-lg bg-card/50 flex flex-col max-h-[46vh]"
+            : `min-w-0 border border-border rounded-lg bg-card/50 flex flex-col ${panelH} min-h-[420px]`
+        }
+        style={cutHost ? undefined : panelStyle}
+      >
         <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium">Draft cut</span>
           {latestVersion > 0 && (
@@ -659,6 +669,9 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
           )}
         </div>
       </div>
+      );
+      return cutHost ? createPortal(cutPane, cutHost) : cutPane;
+      })()}
 
       <Dialog open={editIdx != null} onOpenChange={(o) => { if (!o) closeClipEditor(); }}>
         <DialogContent className="max-w-3xl">

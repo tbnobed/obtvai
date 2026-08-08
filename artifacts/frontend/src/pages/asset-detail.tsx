@@ -136,6 +136,7 @@ export default function AssetDetail() {
   // Single-viewport PREVIEW mode: the main player plays the draft cut in place.
   const [viewMode, setViewMode] = useState<"original" | "preview">("original");
   const [cutClips, setCutClips] = useState<CutClip[]>([]);
+  const [cutHost, setCutHost] = useState<HTMLDivElement | null>(null);
   const previewClips = useMemo(() => cutClips.filter((c) => c.media_id === id), [cutClips, id]);
 
   // Preview playback engine: sequence the draft cut's clips in the main player.
@@ -1473,7 +1474,7 @@ export default function AssetDetail() {
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} />
+          <AssetStudioSection mediaId={id!} onSeek={seekTo} onCutChange={setCutClips} cutHost={cutHost} />
           <AssetRendersSection mediaId={id!} />
         </div>
       </div>
@@ -1481,48 +1482,9 @@ export default function AssetDetail() {
       {/* ── Full-width NLE timeline band — Studio tab only ── */}
       {asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0 && (
         <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[52vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
-          {viewMode === "preview" && previewClips.length > 0 ? (
-            <div className="grid grid-cols-[92px_1fr] items-start gap-x-2">
-              <div className="pt-2.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[DRAFT CUT]</div>
-              <div className="min-w-0">
-                <div className="flex h-20 mt-1.5 rounded overflow-hidden border border-zinc-800 bg-zinc-900">
-                  {(() => {
-                    const total = previewClips.reduce((a, c) => a + (c.end_time - c.start_time), 0) || 1;
-                    return previewClips.map((c, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        className="relative h-full border-r border-zinc-950 last:border-r-0 bg-sky-950/60 hover:bg-sky-900/70 transition-colors overflow-hidden text-left"
-                        style={{ width: `${(((c.end_time - c.start_time) / total) * 100).toFixed(2)}%` }}
-                        title={`Clip ${i + 1} — ${formatTimecode(c.start_time)}–${formatTimecode(c.end_time)}${c.snippet ? `\n${c.snippet}` : ""}`}
-                        onClick={() => {
-                          const v = videoRef.current;
-                          if (v) v.currentTime = c.start_time;
-                        }}
-                        data-testid={`draft-cut-clip-${i}`}
-                      >
-                        {c.thumbnail_url && (
-                          <img
-                            src={`/api/thumbnails/${c.thumbnail_url}`}
-                            alt=""
-                            className="absolute inset-0 h-full w-full object-cover opacity-50"
-                          />
-                        )}
-                        <span className="absolute top-1 left-1 z-10 rounded-sm bg-sky-500 px-1 text-[10px] font-bold text-black leading-4">{i + 1}</span>
-                        <span className="absolute bottom-0.5 left-1 right-1 z-10 truncate text-[10px] text-zinc-200 font-mono">
-                          {formatTimecode(c.start_time)} · {(c.end_time - c.start_time).toFixed(1)}s
-                        </span>
-                      </button>
-                    ));
-                  })()}
-                </div>
-                <div className="mt-1 flex items-center gap-3 text-[10px] text-zinc-500">
-                  <span>{previewClips.length} clips · {formatTimecode(previewClips.reduce((a, c) => a + (c.end_time - c.start_time), 0))} total</span>
-                  <span className="text-zinc-600">click a clip to jump · switch to ORIGINAL for the full analysis lanes</span>
-                </div>
-              </div>
-            </div>
-          ) : (
+          {/* Draft cut panel is portalled here from the Studio session */}
+          <div ref={setCutHost} className="mb-2 empty:hidden" />
+          {viewMode === "preview" && previewClips.length > 0 ? null : (
           <div className="grid grid-cols-[92px_1fr] items-start gap-x-2">
             <div className="pt-2.5 text-[9px] font-bold tracking-widest text-zinc-600 select-none">[TIMELINE]</div>
             <div className="min-w-0">
@@ -2557,7 +2519,7 @@ function AssetRendersSection({ mediaId, socialOnly }: { mediaId: string; socialO
   );
 }
 
-function AssetStudioSection({ mediaId, onSeek, onCutChange }: { mediaId: string; onSeek?: (t: number) => void; onCutChange?: (clips: CutClip[]) => void }) {
+function AssetStudioSection({ mediaId, onSeek, onCutChange, cutHost }: { mediaId: string; onSeek?: (t: number) => void; onCutChange?: (clips: CutClip[]) => void; cutHost?: HTMLElement | null }) {
   const [project, setProject] = useState<Project | null>(null);
   const sessionMutation = useGetMediaStudioSession();
   const startedFor = useRef<string | null>(null);
@@ -2592,7 +2554,7 @@ function AssetStudioSection({ mediaId, onSeek, onCutChange }: { mediaId: string;
       </div>
     );
   }
-  return <StudioTab project={project} onSeekSource={onSeek} onCutChange={onCutChange} />;
+  return <StudioTab project={project} onSeekSource={onSeek} onCutChange={onCutChange} cutHost={cutHost} />;
 }
 
 type SpriteMeta = {
