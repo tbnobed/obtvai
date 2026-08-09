@@ -5,6 +5,7 @@ text prefix) and NLLB-200 (legacy — target selected via forced BOS token).
 The engine is picked from the TRANSLATE_MODEL name.
 """
 import json
+import os
 import re
 import time
 from datetime import datetime
@@ -31,6 +32,20 @@ NLLB_LANG_CODES = {
 
 _BATCH_SIZE = 16
 _translator = None
+
+# Human-readable language names for LLM prompts.
+LANG_NAMES = {
+    "es": "Spanish", "fr": "French", "de": "German", "pt": "Portuguese",
+    "it": "Italian", "nl": "Dutch", "ru": "Russian", "ja": "Japanese",
+    "ko": "Korean", "zh": "Simplified Chinese", "ar": "Arabic", "hi": "Hindi",
+}
+
+# LLM path batch limits: small enough that the model can never run out of
+# room and start summarizing, large enough for real conversational context.
+_LLM_BATCH_MAX_SEGS = 40
+_LLM_BATCH_MAX_CHARS = 6000
+_GLOSSARY_CHUNK_CHARS = 9000
+_GLOSSARY_MAX_TERMS = 60
 
 # MADLAD-400 supports all our targets via "<2xx>" ISO-639-1 tags.
 MADLAD_LANGS = set(NLLB_LANG_CODES.keys())
@@ -113,6 +128,136 @@ def _translate_batch(tokenizer, model, texts: list[str], target: str, nllb_code:
     return results
 
 
+# ---------------------------------------------------------------------------
+# LLM-context translation path (remote LLM). Two-pass: a glossary pre-pass
+# fixes names/terms once for the whole show, then conversation batches are
+# translated with rolling context under a strict N-in/N-out contract — the
+# contract is what makes summarization detectable and impossible to accept.
+# MADLAD stays as the per-batch fallback, so a down LLM degrades quality, not
+# availability.
+# ---------------------------------------------------------------------------
+
+def _parse_llm_json(raw: str):
+    """Parse a JSON payload out of an LLM reply (tolerates code fences)."""
+    cleaned = raw.strip()
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.DOTALL).strip()
+    start = cleaned.find("[") if cleaned.lstrip().startswith("[") or "[" in cleaned[:20] else cleaned.find("{")
+    if start > 0:
+        cleaned = cleaned[start:]
+    return json.loads(cleaned)
+
+
+def _llm_glossary(texts: list[str], target: str, log) -> dict:
+    """Pass 1: extract proper nouns / recurring terms with one fixed translation
+    each, so minute 80 uses the same names and terminology as minute 5."""
+    from tasks.llm_remote import remote_chat
+    lang_name = LANG_NAMES.get(target, target)
+    glossary: dict = {}
+    chunk: list[str] = []
+    size = 0
+    chunks: list[str] = []
+    for t in texts:
+        chunk.append(t)
+        size += len(t) + 1
+        if size >= _GLOSSARY_CHUNK_CHARS:
+            chunks.append("\n".join(chunk))
+            chunk, size = [], 0
+    if chunk:
+        chunks.append("\n".join(chunk))
+    for ci, body in enumerate(chunks):
+        try:
+            reply = remote_chat([
+                {"role": "system", "content": (
+                    "You extract a translation glossary from a video transcript. "
+                    f"Target language: {lang_name}. Return ONLY a JSON object mapping "
+                    "source terms to their fixed translation. Include: person names, "
+                    "place names, organization names, show/product titles, and recurring "
+                    "domain terms. Names that should NOT be translated map to themselves. "
+                    "At most 25 entries per reply. No commentary."
+                )},
+                {"role": "user", "content": body},
+            ], max_new_tokens=800)
+            data = _parse_llm_json(reply)
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if isinstance(k, str) and isinstance(v, str) and k.strip() and v.strip():
+                        glossary.setdefault(k.strip(), v.strip())  # first-seen wins
+        except Exception as e:
+            log(f"Glossary pass chunk {ci + 1}/{len(chunks)} failed ({e}) — continuing without it")
+        if len(glossary) >= _GLOSSARY_MAX_TERMS:
+            break
+    return dict(list(glossary.items())[:_GLOSSARY_MAX_TERMS])
+
+
+def _llm_translate_lines(texts: list[str], target: str, glossary: dict, tail: list[str]) -> list[str]:
+    """Translate one batch under the N-in/N-out contract. Raises on any
+    violation (count mismatch, empty line) — the caller decides the fallback."""
+    from tasks.llm_remote import remote_chat
+    lang_name = LANG_NAMES.get(target, target)
+    n = len(texts)
+    glossary_block = ""
+    if glossary:
+        pairs = "\n".join(f"  {k} => {v}" for k, v in glossary.items())
+        glossary_block = f"\nUse these fixed translations consistently:\n{pairs}\n"
+    tail_block = ""
+    if tail:
+        tail_block = "\nThe previous lines were translated as (for continuity only, do not re-output):\n" + "\n".join(tail[-3:]) + "\n"
+    numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(texts))
+    reply = remote_chat([
+        {"role": "system", "content": (
+            f"You are a professional dubbing translator. Translate each numbered line "
+            f"into {lang_name}. Rules: translate line-by-line — NEVER merge, drop, "
+            f"summarize, or reorder lines; keep each translation about as long as the "
+            f"source when spoken aloud (dubbing must fit the timing); preserve tone and "
+            f"register; keep names untranslated unless the glossary says otherwise."
+            f"{glossary_block}{tail_block}"
+            f"Return ONLY a JSON array of exactly {n} strings, where item i is the "
+            f"translation of line i. No commentary, no numbering inside the strings."
+        )},
+        {"role": "user", "content": numbered},
+    ], max_new_tokens=max(1024, min(6000, sum(len(t) for t in texts) * 2)))
+    data = _parse_llm_json(reply)
+    if not isinstance(data, list) or len(data) != n:
+        raise RuntimeError(f"LLM contract violation: {n} lines in, {len(data) if isinstance(data, list) else 'non-list'} out")
+    out = []
+    for i, item in enumerate(data):
+        if not isinstance(item, str) or not item.strip():
+            raise RuntimeError(f"LLM contract violation: empty translation at line {i + 1}")
+        out.append(item.strip())
+    return out
+
+
+def _llm_translate_batch(texts: list[str], target: str, glossary: dict, tail: list[str]) -> list[str]:
+    """Batch translation with a retry, then a split-in-half retry. Raises only
+    when even single lines fail — the caller then falls back to MADLAD."""
+    try:
+        return _llm_translate_lines(texts, target, glossary, tail)
+    except Exception:
+        if len(texts) == 1:
+            # One more direct attempt for a single line before giving up.
+            return _llm_translate_lines(texts, target, glossary, tail)
+        mid = len(texts) // 2
+        left = _llm_translate_batch(texts[:mid], target, glossary, tail)
+        right = _llm_translate_batch(texts[mid:], target, glossary, left)
+        return left + right
+
+
+def _plan_llm_batches(texts: list[str]) -> list[tuple[int, int]]:
+    """(start, end) slices bounded by segment count and character budget.
+    Limits are enforced BEFORE a line is added, so no batch exceeds them."""
+    out: list[tuple[int, int]] = []
+    start = 0
+    size = 0
+    for i, t in enumerate(texts):
+        if i > start and (i - start >= _LLM_BATCH_MAX_SEGS or size + len(t) + 1 > _LLM_BATCH_MAX_CHARS):
+            out.append((start, i))
+            start, size = i, 0
+        size += len(t) + 1
+    if start < len(texts):
+        out.append((start, len(texts)))
+    return out
+
+
 _ELLIPSIS_RE = re.compile(r"\.{4,}")
 
 
@@ -182,30 +327,32 @@ def translate_transcript(self, media_id: str, job_id: str, target_language: str)
                    celery_task_id=self.request.id, progress=0.0)
 
         from sqlalchemy import text
-        rows = db.execute(
+        all_rows = db.execute(
             text("""
-                SELECT id, text FROM transcript_segments
+                SELECT id, text, (translations ->> :lang) IS NOT NULL AS done
+                FROM transcript_segments
                 WHERE media_id = :mid ORDER BY start_time
             """),
-            {"mid": media_id},
+            {"mid": media_id, "lang": target},
         ).fetchall()
-        if not rows:
+        if not all_rows:
             raise RuntimeError("No transcript available — process the media first")
 
-        append_log(db, job_id, f"Loading translation model: {TRANSLATE_MODEL}")
-        update_job(db, job_id, progress=5.0)
-        tokenizer, model = _load_translator()
+        # Resume: a partially translated job (crash/requeue) only translates
+        # the missing segments. A fully translated asset re-translates
+        # everything — that re-run is an explicit user request.
+        done_count = sum(1 for r in all_rows if r[2])
+        if 0 < done_count < len(all_rows):
+            rows = [(r[0], r[1]) for r in all_rows if not r[2]]
+            append_log(db, job_id, f"Resuming — {done_count} of {len(all_rows)} segments already translated")
+        else:
+            rows = [(r[0], r[1]) for r in all_rows]
 
-        append_log(db, job_id, f"Translating {len(rows)} segments to '{target}'")
         total = len(rows)
         last_report = time.monotonic()
 
-        for start in range(0, total, _BATCH_SIZE):
-            batch = rows[start:start + _BATCH_SIZE]
-            translated = _translate_batch(
-                tokenizer, model, [r[1] for r in batch], target, nllb_code
-            )
-            for row, tr in zip(batch, translated):
+        def _persist(batch_rows, translated):
+            for row, tr in zip(batch_rows, translated):
                 db.execute(
                     text("""
                         UPDATE transcript_segments
@@ -216,11 +363,81 @@ def translate_transcript(self, media_id: str, job_id: str, target_language: str)
                 )
             db.commit()
 
-            now = time.monotonic()
-            if now - last_report >= 3 or start + _BATCH_SIZE >= total:
-                progress = 5.0 + 90.0 * min(1.0, (start + len(batch)) / total)
-                update_job(db, job_id, progress=round(progress, 1))
-                last_report = now
+        from tasks.llm_remote import remote_enabled
+        use_llm = remote_enabled() and os.getenv("TRANSLATE_USE_LLM", "1").lower() not in ("0", "false", "no")
+
+        tokenizer = model = None
+
+        def _madlad():
+            nonlocal tokenizer, model
+            if model is None:
+                append_log(db, job_id, f"Loading translation model: {TRANSLATE_MODEL}")
+                tokenizer, model = _load_translator()
+            return tokenizer, model
+
+        if use_llm:
+            # Blank segments never go through the LLM contract (an empty line
+            # would fail N-in/N-out validation and sink its whole batch) —
+            # persist them as intentionally empty translations up front.
+            blank_rows = [r for r in rows if not (r[1] or "").strip()]
+            if blank_rows:
+                _persist(blank_rows, [""] * len(blank_rows))
+            rows = [r for r in rows if (r[1] or "").strip()]
+            total = len(rows)
+            if not total:
+                raise RuntimeError("No non-empty transcript segments to translate")
+
+            # Pass 1: translation bible (names/terms fixed once for the show).
+            append_log(db, job_id, "Building glossary (names & recurring terms) via LLM")
+            update_job(db, job_id, progress=2.0)
+            glossary = _llm_glossary([r[1] for r in rows], target,
+                                     lambda m: append_log(db, job_id, m))
+            if glossary:
+                append_log(db, job_id, f"Glossary: {len(glossary)} term(s) pinned")
+
+            # Pass 2: conversation batches with rolling context.
+            batches = _plan_llm_batches([r[1] for r in rows])
+            append_log(db, job_id, f"Translating {total} segments to '{target}' via LLM in {len(batches)} batches")
+            update_job(db, job_id, progress=5.0)
+            tail: list[str] = []
+            llm_failed_batches = 0
+            for bi, (bs, be) in enumerate(batches):
+                batch = rows[bs:be]
+                texts = [r[1] for r in batch]
+                try:
+                    translated = _llm_translate_batch(texts, target, glossary, tail)
+                except Exception as e:
+                    llm_failed_batches += 1
+                    append_log(db, job_id, f"LLM failed on batch {bi + 1}/{len(batches)} ({e}) — MADLAD fallback for this batch")
+                    tk, md = _madlad()
+                    translated = []
+                    for ms in range(0, len(texts), _BATCH_SIZE):
+                        translated.extend(_translate_batch(tk, md, texts[ms:ms + _BATCH_SIZE], target, nllb_code))
+                _persist(batch, translated)
+                tail = translated[-3:]
+
+                now = time.monotonic()
+                if now - last_report >= 3 or bi + 1 == len(batches):
+                    update_job(db, job_id, progress=round(5.0 + 90.0 * (be / total), 1))
+                    last_report = now
+            if llm_failed_batches:
+                append_log(db, job_id, f"{llm_failed_batches} batch(es) fell back to MADLAD")
+        else:
+            tk, md = _madlad()
+            append_log(db, job_id, f"Translating {total} segments to '{target}'")
+            update_job(db, job_id, progress=5.0)
+            for start in range(0, total, _BATCH_SIZE):
+                batch = rows[start:start + _BATCH_SIZE]
+                translated = _translate_batch(
+                    tk, md, [r[1] for r in batch], target, nllb_code
+                )
+                _persist(batch, translated)
+
+                now = time.monotonic()
+                if now - last_report >= 3 or start + _BATCH_SIZE >= total:
+                    progress = 5.0 + 90.0 * min(1.0, (start + len(batch)) / total)
+                    update_job(db, job_id, progress=round(progress, 1))
+                    last_report = now
 
         db.execute(
             text("""

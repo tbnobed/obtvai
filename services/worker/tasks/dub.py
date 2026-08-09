@@ -32,6 +32,17 @@ MMS_LANG_CODES = {
 # sounds like chipmunk speech; overlong clips instead spill into the following
 # silence (the placement cursor below prevents overlap with the next segment).
 _MAX_ATEMPO = 1.35
+# Drift re-anchor: translated speech runs long and spills forward via the
+# placement cursor. On dense long-form dialogue the spill compounds into
+# seconds of lag. Once placement runs this far behind the true timecode, the
+# clip is force-fitted into the room left before the next segment (harder
+# atempo, then a tail trim) so sync re-anchors instead of drifting forever.
+_MAX_LATENESS_S = float(os.getenv("DUB_MAX_LATENESS", "1.5"))
+_MAX_ATEMPO_FORCE = 1.6
+# Consecutive Chatterbox segment failures before the whole rest of the job
+# switches to XTTS. Per-segment engine fallback flip-flops the voice mid-show;
+# one engine boundary is far less audible than dozens.
+_CHATTERBOX_MAX_FAILURES = 3
 # Loaded (tokenizer, model, sample_rate) per language, one at a time.
 _tts_cache: dict = {}
 
@@ -635,7 +646,19 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
 
         cloned_count = 0
         chatterbox_count = 0
+        chatterbox_failures = 0
+        unknown_gender_speakers: set = set()
+        forced_refits = 0
+        dropped_late = 0
+        cache_hits = 0
         placed_spans: list = []
+        # Per-segment synthesis cache so a crashed/re-queued long-form job
+        # resumes instead of re-synthesizing hours of finished speech. Keyed
+        # by text + engine + speaker, so translation edits invalidate cleanly.
+        import hashlib
+        import shutil
+        cache_dir = os.path.join(DUBS_DIR, f".work_{media_id}_{target}")
+        os.makedirs(cache_dir, exist_ok=True)
         with tempfile.TemporaryDirectory() as workdir:
             if use_xtts_stock:
                 speaker_genders = _speaker_genders(db, media_id, workdir)
@@ -648,20 +671,70 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 if not seg_text:
                     continue
                 cloned = voice_map.get(speaker) if (xtts or chatterbox) else None
-                try:
-                    if cloned:
-                        speaker_wavs, voice_preset, voice_settings = cloned
+                intended_tag = (
+                    "cb" if (cloned and chatterbox is not None)
+                    else "xtts-clone" if cloned
+                    else "stock" if use_xtts_stock
+                    else "mms"
+                )
+                # Voice fingerprint: reference sample paths + mtimes, preset and
+                # settings — editing a voice profile invalidates cached clips.
+                voice_fp = ""
+                if cloned:
+                    _sw, _vp, _vs = cloned
+                    try:
+                        stat = [(p, os.path.getmtime(p)) for p in _sw]
+                    except OSError:
+                        stat = list(_sw)
+                    voice_fp = hashlib.md5(json.dumps([_vp, _vs, stat], default=str, sort_keys=True).encode()).hexdigest()[:10]
+                elif use_xtts_stock:
+                    voice_fp = speaker_genders.get(speaker, "male")
+
+                def _seg_cache_path(tag: str) -> str:
+                    key = hashlib.md5(
+                        f"{seg_text}|{tag}|{speaker}|{target}|{sample_rate}|{voice_fp}".encode()
+                    ).hexdigest()[:16]
+                    return os.path.join(cache_dir, f"{i}_{key}.npy")
+
+                # Only a clip synthesized by the SAME intended engine counts as
+                # a cache hit — a fallback-engine clip cached earlier must not
+                # impersonate the preferred engine on resume.
+                cache_path = _seg_cache_path(intended_tag)
+                actual_tag = intended_tag
+                clip = None
+                if os.path.exists(cache_path):
+                    try:
+                        clip = np.load(cache_path, allow_pickle=False)
+                        cache_hits += 1
+                    except Exception:
                         clip = None
+                try:
+                    if clip is not None:
+                        pass  # resumed from cache
+                    elif cloned:
+                        speaker_wavs, voice_preset, voice_settings = cloned
                         if chatterbox is not None:
-                            try:
-                                clip, clip_rate = _synthesize_chatterbox(
-                                    chatterbox, seg_text, chatterbox_lang,
-                                    speaker_wavs[0], workdir, voice_settings,
-                                )
-                                chatterbox_count += 1
-                            except Exception as e:
-                                append_log(db, job_id, f"Chatterbox failed on segment {i + 1} ({e}) — XTTS fallback")
+                            # Retry once before falling back — a transient
+                            # hiccup must not switch the voice engine.
+                            for attempt in (1, 2):
+                                try:
+                                    clip, clip_rate = _synthesize_chatterbox(
+                                        chatterbox, seg_text, chatterbox_lang,
+                                        speaker_wavs[0], workdir, voice_settings,
+                                    )
+                                    chatterbox_count += 1
+                                    break
+                                except Exception as e:
+                                    if attempt == 2:
+                                        chatterbox_failures += 1
+                                        append_log(db, job_id, f"Chatterbox failed twice on segment {i + 1} ({e}) — XTTS for this segment")
+                                        if chatterbox_failures >= _CHATTERBOX_MAX_FAILURES:
+                                            chatterbox = None
+                                            append_log(db, job_id,
+                                                       f"Chatterbox failed on {chatterbox_failures} segments — "
+                                                       "switching the rest of the job to XTTS for a consistent voice")
                         if clip is None:
+                            actual_tag = "xtts-clone"
                             clip, clip_rate = _synthesize_xtts(
                                 xtts, seg_text, target, speaker_wavs, workdir,
                                 preset=voice_preset, settings=voice_settings,
@@ -669,7 +742,12 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                         clip = _resample(clip, clip_rate, sample_rate, workdir)
                         cloned_count += 1
                     elif use_xtts_stock:
-                        gender = speaker_genders.get(speaker, "male")
+                        gender = speaker_genders.get(speaker)
+                        if gender is None:
+                            gender = "male"
+                            if speaker not in unknown_gender_speakers:
+                                unknown_gender_speakers.add(speaker)
+                                append_log(db, job_id, f"No pitch estimate for speaker '{speaker}' — defaulting to the male stock voice")
                         clip, clip_rate = _synthesize_stock(
                             xtts, seg_text, target, STOCK_VOICES[gender], workdir
                         )
@@ -688,6 +766,13 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                     continue
                 if clip is None or clip.size == 0:
                     continue
+                # Cache under the engine that ACTUALLY produced the clip.
+                save_path = _seg_cache_path(actual_tag)
+                if not os.path.exists(save_path):
+                    try:
+                        np.save(save_path, clip.astype(np.float32), allow_pickle=False)
+                    except Exception:
+                        pass  # cache is best-effort; synthesis result is still used
 
                 start = float(start_time)
                 next_start = float(rows[i + 1][0]) if i + 1 < total else duration
@@ -705,6 +790,36 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 # speech runs longer than the original, so bounded drift
                 # sounds far better than double-talk or 2x chipmunk speed.
                 offset = max(int(start * sample_rate), place_cursor)
+
+                # Drift re-anchor: once we're running more than
+                # _MAX_LATENESS_S behind the true timecode, force this clip
+                # into the room left before the next segment — harder atempo
+                # first, tail trim as the last resort — so lag stops
+                # compounding across dense dialogue.
+                lateness = offset / sample_rate - start
+                if lateness > _MAX_LATENESS_S:
+                    avail = next_start - offset / sample_rate
+                    if avail < 0.3:
+                        # Cursor already at/past the next segment's start —
+                        # there is no room left. Dropping this one late clip
+                        # re-anchors sync; squeezing it in would push the lag
+                        # onto every following segment instead.
+                        dropped_late += 1
+                        continue
+                    clip_len = clip.size / sample_rate
+                    if clip_len > avail:
+                        factor = min(_MAX_ATEMPO_FORCE, clip_len / avail)
+                        if factor > 1.02:
+                            clip = _atempo(clip, sample_rate, factor, workdir)
+                        if clip.size / sample_rate > avail:
+                            keep = max(1, int(avail * sample_rate))
+                            clip = clip[:keep].copy()
+                            # Short fade-out so the trim doesn't click.
+                            fade = min(clip.size, int(0.05 * sample_rate))
+                            if fade > 0:
+                                clip[-fade:] *= np.linspace(1.0, 0.0, fade, dtype=np.float32)
+                        forced_refits += 1
+
                 end = min(offset + clip.size, timeline.size)
                 if offset < timeline.size:
                     timeline[offset:end] += clip[: end - offset]
@@ -840,6 +955,18 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
             {"lang": json.dumps([target]), "mid": media_id},
         )
         db.commit()
+
+        # Job done — drop the per-segment resume cache.
+        try:
+            shutil.rmtree(cache_dir, ignore_errors=True)
+        except Exception:
+            pass
+        if cache_hits:
+            append_log(db, job_id, f"Resumed {cache_hits} segment(s) from the previous attempt's cache")
+        if forced_refits:
+            append_log(db, job_id, f"Re-anchored sync on {forced_refits} segment(s) that had drifted more than {_MAX_LATENESS_S:.1f}s")
+        if dropped_late:
+            append_log(db, job_id, f"Dropped {dropped_late} segment(s) that had no room left after drift — sync re-anchored instead of compounding")
 
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         cloned_note = (
