@@ -585,6 +585,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
                 open={previewOpen || !cutHost}
                 initialIndex={previewIndex}
                 compact
+                autoPlayInitial={false}
                 onToggleExpand={() => setPreviewLarge(true)}
                 onClose={() => setPreviewOpen(false)}
               />

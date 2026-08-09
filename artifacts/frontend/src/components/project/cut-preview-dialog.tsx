@@ -18,6 +18,7 @@ export function CutPreviewPlayer({
   onToggleExpand,
   expanded = false,
   vertical = false,
+  autoPlayInitial = true,
 }: {
   clips: CutClip[];
   open: boolean;
@@ -31,6 +32,8 @@ export function CutPreviewPlayer({
   expanded?: boolean;
   /** Preview the 9:16 center crop the vertical render will apply. */
   vertical?: boolean;
+  /** Autoplay on first open. Set false for the always-docked player so it doesn't start on page load; later clip selections still play. */
+  autoPlayInitial?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -39,6 +42,7 @@ export function CutPreviewPlayer({
   const [clipElapsed, setClipElapsed] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const firstOpen = useRef(true);
   const clip = clips[index];
 
   const durations = useMemo(() => clips.map((c) => Math.max(0.01, c.end_time - c.start_time)), [clips]);
@@ -56,7 +60,10 @@ export function CutPreviewPlayer({
       pendingOffset.current = 0;
       seekedFor.current = -1;
       setClipElapsed(0);
-      setPlaying(true);
+      // Don't autoplay the very first open when autoPlayInitial is off (the
+      // docked player is open on page load); explicit clip picks still play.
+      setPlaying(firstOpen.current ? autoPlayInitial : true);
+      firstOpen.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialIndex]);
