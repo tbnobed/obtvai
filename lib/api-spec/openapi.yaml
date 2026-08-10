@@ -6253,6 +6253,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AICitation"
+        project_id:
+          type: ["string", "null"]
+          description: "Set when the assistant created a project from this turn"
+        project_name:
+          type: ["string", "null"]
 
     Conversation:
       type: object
@@ -6284,6 +6289,11 @@ components:
           type: ["array", "null"]
           items:
             $ref: "#/components/schemas/AICitation"
+        project_id:
+          type: ["string", "null"]
+          description: "Set when the assistant created a project from this turn"
+        project_name:
+          type: ["string", "null"]
         created_at:
           type: string
 

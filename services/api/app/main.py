@@ -40,6 +40,8 @@ _JSONB_MIGRATIONS = [
 
 # Columns added after initial release; create_all does not alter existing tables.
 _COLUMN_MIGRATIONS = [
+    ("ai_messages", "project_id", "VARCHAR"),
+    ("ai_messages", "project_name", "VARCHAR"),
     ("processing_jobs", "params", "JSONB"),
     ("media_assets", "synopsis", "TEXT"),
     ("media_assets", "key_moments", "JSONB"),

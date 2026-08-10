@@ -408,6 +408,9 @@ class AIAnswerOut(BaseModel):
     answer: str
     conversation_id: str
     citations: List[AICitationOut] = []
+    # Set when the assistant CREATED a project from this turn.
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
 
 
 class ConversationOut(BaseModel):
@@ -425,6 +428,8 @@ class AIMessageOut(BaseModel):
     role: str
     content: str
     citations: Optional[List[AICitationOut]] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

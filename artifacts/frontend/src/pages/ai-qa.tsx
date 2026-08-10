@@ -27,6 +27,8 @@ type Message = {
   role: string;
   content: string;
   citations?: any[] | null;
+  projectId?: string | null;
+  projectName?: string | null;
 };
 
 export default function AIQA() {
@@ -91,7 +93,13 @@ export default function AIQA() {
         onSuccess: (res) => {
           setPendingMessages(prev => [
             ...prev,
-            { role: "assistant", content: res.answer, citations: res.citations },
+            {
+              role: "assistant",
+              content: res.answer,
+              citations: res.citations,
+              projectId: (res as any).project_id ?? null,
+              projectName: (res as any).project_name ?? null,
+            },
           ]);
           if (res.conversation_id && res.conversation_id !== conversationId) {
             setConversationId(res.conversation_id);
@@ -197,6 +205,14 @@ export default function AIQA() {
 
                 <div className={`max-w-[80%] rounded-lg p-4 ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
                   <div className="whitespace-pre-wrap text-sm">{msg.content}</div>
+
+                  {(msg.projectId ?? (msg as any).project_id) && (
+                    <Link href={`/studio/${msg.projectId ?? (msg as any).project_id}`}>
+                      <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-xs font-medium text-primary cursor-pointer transition-colors" data-testid="link-open-created-project">
+                        Open project{(msg.projectName ?? (msg as any).project_name) ? ` "${msg.projectName ?? (msg as any).project_name}"` : ""} →
+                      </div>
+                    </Link>
+                  )}
 
                   {msg.citations && msg.citations.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-border/50 space-y-2">

@@ -383,6 +383,10 @@ class AIMessage(Base):
     role: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     citations: Mapped[list] = mapped_column(JSONB, default=list)
+    # Set when the assistant CREATED a project from this turn — keeps the
+    # "Open project" link alive when the conversation is reloaded.
+    project_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    project_name: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     conversation: Mapped["AIConversation"] = relationship("AIConversation", back_populates="messages")

@@ -7,7 +7,7 @@ from sqlalchemy import select, func, desc, delete
 from ..database import get_db
 from ..models import (
     AIConversation, AIMessage, MediaAsset, TranscriptSegment,
-    Person, PersonAppearance,
+    Person, PersonAppearance, Project,
 )
 from ..schemas import AIQuestion, AIAnswerOut, AICitationOut, ConversationOut, AIMessageOut
 from ..config import settings
@@ -368,6 +368,137 @@ async def _run_qa(
     return answer, citations[:5]
 
 
+# ── Project creation from chat ───────────────────────────────────────────────
+# "Combine these into a project / make a scary story" must DO it, not describe
+# it: pick clips from the retrieved evidence, create the project with its
+# media pool, and save the selection as draft-cut revision 1.
+
+_PROJECT_INTENT_RE = re.compile(
+    r"\b(make|create|build|combine|turn|put|assemble|stitch|cut)\b"
+    r".{0,80}\b(project|cut|montage|story|reel|edit|video|compilation)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+_CREATE_SYSTEM = (
+    "You are a video editor building a project from a media library. You are "
+    "given numbered candidate clips (transcript moments and visual scene "
+    "matches) with real timecodes. Decide whether the user is asking you to "
+    "CREATE a project/cut, and if so select and order clips that tell the "
+    "story they asked for.\n"
+    "Rules:\n"
+    "- Only use the numbered candidates. Never invent files or timecodes.\n"
+    "- start/end must stay inside the candidate's window; prefer 3-30s clips "
+    "(trim long windows to the strongest stretch).\n"
+    "- Order clips for narrative arc, not by source file.\n"
+    "- 'answer' is your reply to the user: one short paragraph describing the "
+    "project you built (no markdown).\n"
+    "Return ONLY a JSON object:\n"
+    '{"create": true|false, "name": "<project name, <=60 chars>", '
+    '"description": "<1-2 sentences>", '
+    '"clips": [{"i": <candidate number>, "start": <sec>, "end": <sec>}], '
+    '"answer": "<reply>"}\n'
+    'If the user is NOT asking you to build something, return {"create": false}.'
+)
+
+
+async def _maybe_create_project(
+    db: AsyncSession, question: str, retrieval_question: str,
+    context_segments: list, history: list,
+) -> tuple[str, str, str] | None:
+    """If the question asks to build a project, create it (pool + draft cut v1)
+    and return (answer, project_id, project_name). None = not an action turn."""
+    from .project_chat import _visual_segments, _extract_json, _save_revision, _sanitize_clips
+    from ..services.llm import generate_response
+
+    # Candidates: transcript moments + visual scene segments, numbered.
+    candidates: list[dict] = []
+    for seg, asset in context_segments:
+        candidates.append({
+            "media_id": seg.media_id, "filename": asset.filename,
+            "start": float(seg.start_time), "end": float(seg.end_time),
+            "note": f'says: "{(seg.text or "")[:140]}"',
+            "thumb": asset.thumbnail_url,
+        })
+    try:
+        for _q, mid, fname, segs in await _visual_segments([retrieval_question], None, db):
+            for a, b in segs[:8]:
+                candidates.append({
+                    "media_id": mid, "filename": fname,
+                    "start": float(a), "end": float(b),
+                    "note": f'looks like "{retrieval_question[:80]}"',
+                    "thumb": None,
+                })
+    except Exception:
+        pass  # transcript candidates alone can still build the cut
+    candidates = candidates[:40]
+    if not candidates:
+        return None
+
+    lines = [
+        f"{i + 1}. [{c['filename']}] {c['start']:.1f}-{c['end']:.1f}s — {c['note']}"
+        for i, c in enumerate(candidates)
+    ]
+    reply = await generate_response(
+        f"User request: {question}\n\nCandidate clips:\n" + "\n".join(lines),
+        history=history, system=_CREATE_SYSTEM, max_new_tokens=1200,
+    )
+    data = _extract_json(reply)
+    if not isinstance(data, dict) or not data.get("create"):
+        return None
+
+    raw_clips = data.get("clips") or []
+    thumbs = {c["media_id"]: c["thumb"] for c in candidates if c.get("thumb")}
+    clips: list[dict] = []
+    for item in raw_clips[:30]:
+        try:
+            idx = int(item["i"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if not 1 <= idx <= len(candidates):
+            continue  # reject 0/negative/out-of-range — never wrap around
+        cand = candidates[idx - 1]
+        # Clamp the model's trim into the candidate's real window.
+        try:
+            start = max(cand["start"], float(item.get("start", cand["start"])))
+            end = min(cand["end"], float(item.get("end", cand["end"])))
+        except (ValueError, TypeError):
+            start, end = cand["start"], cand["end"]
+        if end - start < 0.5:
+            start, end = cand["start"], cand["end"]
+        clips.append({
+            "media_id": cand["media_id"], "filename": cand["filename"],
+            "start_time": round(start, 2), "end_time": round(end, 2),
+            "snippet": cand["note"][:200],
+            "thumbnail_url": thumbs.get(cand["media_id"]),
+            "locked": False,
+        })
+    clips = _sanitize_clips(clips)
+    if not clips:
+        return None
+
+    name = (str(data.get("name") or "").strip() or question[:60])[:60]
+    description = str(data.get("description") or "").strip()[:500] or None
+    media_ids: list[str] = []
+    for c in clips:
+        if c["media_id"] not in media_ids:
+            media_ids.append(c["media_id"])
+
+    project = Project(
+        id=str(uuid.uuid4()), name=name, description=description,
+        media_ids=media_ids, media_ranges={},
+    )
+    db.add(project)
+    await db.flush()
+    await _save_revision(db, project.id, clips, summary=f"Created from AI chat: {name}", source="assistant")
+
+    answer = str(data.get("answer") or "").strip() or f"Created the project '{name}'."
+    answer += (
+        f"\n\nProject '{name}' is ready: {len(clips)} clips from "
+        f"{len(media_ids)} assets in the media pool, saved as draft cut v1."
+    )
+    return answer, project.id, name
+
+
 @router.post("/ask", response_model=AIAnswerOut)
 async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
     conv_id = body.conversation_id
@@ -494,11 +625,32 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
         except Exception:
             pass
 
-    answer_text, citations = await _run_qa(
-        body.question, context_segments, db,
-        single_asset=bool(body.media_id), history=history,
-        visual_lines=visual_lines, overview=overview,
-    )
+    # Action turn: "combine these into a project / make a story" creates the
+    # project + draft cut instead of just describing one.
+    project_id = project_name = None
+    answer_text = None
+    citations: list = []
+    if _PROJECT_INTENT_RE.search(body.question):
+        # Savepoint: a failure mid-creation must not leave a half-created
+        # project/revision that the message commit below would persist.
+        try:
+            async with db.begin_nested():
+                created = await _maybe_create_project(
+                    db, body.question, retrieval_question, context_segments, history,
+                )
+            if created:
+                answer_text, project_id, project_name = created
+        except Exception as e:
+            import logging
+            logging.getLogger("ai").warning("project creation from chat failed: %s", e, exc_info=True)
+            # fall through to a normal answer
+
+    if answer_text is None:
+        answer_text, citations = await _run_qa(
+            body.question, context_segments, db,
+            single_asset=bool(body.media_id), history=history,
+            visual_lines=visual_lines, overview=overview,
+        )
 
     assistant_msg = AIMessage(
         id=str(uuid.uuid4()),
@@ -506,6 +658,8 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
         role="assistant",
         content=answer_text,
         citations=[c.model_dump() for c in citations],
+        project_id=project_id,
+        project_name=project_name,
         created_at=datetime.utcnow(),
     )
     db.add(assistant_msg)
@@ -515,6 +669,8 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
         answer=answer_text,
         conversation_id=conv_id,
         citations=citations,
+        project_id=project_id,
+        project_name=project_name,
     )
 
 
