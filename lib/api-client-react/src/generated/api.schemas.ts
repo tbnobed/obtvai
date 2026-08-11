@@ -2458,7 +2458,7 @@ export interface SocialCutsRequest {
 }
 
 export interface ClipExportInput {
-  /** edl | csv | json | fcpxml | otio */
+  /** edl | csv | json | fcpxml | otio | xmeml (xmeml = Export for Curator: Premiere XML with Curator asset IDs as Log Notes) */
   format: string;
 }
 
@@ -2912,6 +2912,7 @@ export const ExportProjectCutBodyFormat = {
   edl: 'edl',
   fcpxml: 'fcpxml',
   otio: 'otio',
+  xmeml: 'xmeml',
 } as const;
 
 export type ExportProjectCutBody = {

@@ -1599,11 +1599,11 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     source_path (hi-res original from the Curator sidecar) wins over the
     ingested proxy path, so the timeline relinks to facility originals.
     """
-    from .clips import _fcpxml, _otio
+    from .clips import _fcpxml, _otio, _xmeml
 
     fmt = (body.get("format") or "").lower()
-    if fmt not in ("edl", "fcpxml", "otio"):
-        raise HTTPException(status_code=400, detail="Format must be edl, fcpxml, or otio")
+    if fmt not in ("edl", "fcpxml", "otio", "xmeml"):
+        raise HTTPException(status_code=400, detail="Format must be edl, fcpxml, otio, or xmeml")
     rev = await _latest_revision(db, project_id)
     clips = _sanitize_clips(rev.clips) if rev is not None else []
     if not clips:
@@ -1616,15 +1616,19 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
 
     media_ids = {c["media_id"] for c in clips}
     rows = await db.execute(
-        select(MediaAsset.id, MediaAsset.filename, MediaAsset.original_path, MediaAsset.source_path)
+        select(MediaAsset.id, MediaAsset.filename, MediaAsset.original_path, MediaAsset.source_path,
+               MediaAsset.curator_asset_id)
         .where(MediaAsset.id.in_(media_ids))
     )
     fnames: dict[str, str] = {}
     paths: dict[str, str] = {}
-    for mid, fname, op, sp in rows.all():
+    lognotes: dict[str, str] = {}
+    for mid, fname, op, sp, cid in rows.all():
         fnames[mid] = fname
         if sp or op:
             paths[mid] = sp or op
+        if cid:
+            lognotes[mid] = cid
 
     ns_clips = [
         SimpleNamespace(
@@ -1638,7 +1642,9 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     ]
     name = f"{project.name or 'Project'} cut v{rev.version}"
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", name)
-    if fmt == "fcpxml":
+    if fmt == "xmeml":
+        content, filename = _xmeml(name, ns_clips, paths, lognotes), f"{safe}.xml"
+    elif fmt == "fcpxml":
         content, filename = _fcpxml(name, ns_clips, paths), f"{safe}.fcpxml"
     elif fmt == "otio":
         content, filename = _otio(name, ns_clips, paths), f"{safe}.otio"

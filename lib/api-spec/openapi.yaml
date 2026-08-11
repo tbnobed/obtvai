@@ -3009,7 +3009,8 @@ paths:
               properties:
                 format:
                   type: string
-                  enum: [edl, fcpxml, otio]
+                  enum: [edl, fcpxml, otio, xmeml]
+                  description: xmeml = "Export for Curator" (Premiere FCP7 XML; Log Note carries each clip's Curator asset ID)
       responses:
         "200":
           description: Exported timeline
@@ -7025,7 +7026,7 @@ components:
       properties:
         format:
           type: string
-          description: "edl | csv | json | fcpxml | otio"
+          description: "edl | csv | json | fcpxml | otio | xmeml (xmeml = Export for Curator: Premiere XML with Curator asset IDs as Log Notes)"
 
     TightenInput:
       type: object

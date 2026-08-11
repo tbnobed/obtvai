@@ -104,6 +104,75 @@ def _fcpxml(name: str, clips, paths: dict[str, str] | None = None) -> str:
     )
 
 
+def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
+           lognotes: dict[str, str] | None = None) -> str:
+    """Premiere Pro XML (FCP7 xmeml v4) — "Export for Curator".
+
+    Curator's Premiere panel matches assets by reading the clip's Log Note
+    field, so each clipitem carries <logginginfo><lognote> = the Curator
+    asset ID linked to that media (blank when the asset isn't linked)."""
+    from xml.sax.saxutils import escape
+    paths = paths or {}
+    lognotes = lognotes or {}
+
+    def fr(seconds: float) -> int:
+        return int(round(seconds * _FPS))
+
+    rate = f"<rate><timebase>{_FPS}</timebase><ntsc>FALSE</ntsc></rate>"
+    file_ids: dict[str, str] = {}
+    items = []
+    rec = 0.0
+    for i, c in enumerate(clips, 1):
+        dur = max(0.04, c.end_time - c.start_time)
+        label = escape(c.label or c.filename or "clip")
+        fname = escape(c.filename or c.media_id)
+        lognote = escape(lognotes.get(c.media_id) or "")
+        if c.media_id in file_ids:
+            file_el = f'<file id="{file_ids[c.media_id]}"/>'
+        else:
+            fid = f"file-{len(file_ids) + 1}"
+            file_ids[c.media_id] = fid
+            src = _translate(paths.get(c.media_id) or c.filename or c.media_id)
+            file_el = (
+                f'<file id="{fid}"><name>{fname}</name>'
+                f'<pathurl>{escape(_file_url(src))}</pathurl>{rate}'
+                f'<media><video><samplecharacteristics>{rate}'
+                f'<width>1920</width><height>1080</height>'
+                f'</samplecharacteristics></video><audio/></media></file>'
+            )
+        items.append(
+            f'        <clipitem id="clipitem-{i}">\n'
+            f'          <name>{label}</name>\n'
+            f'          {rate}\n'
+            f'          <start>{fr(rec)}</start><end>{fr(rec + dur)}</end>\n'
+            f'          <in>{fr(c.start_time)}</in><out>{fr(c.end_time)}</out>\n'
+            f'          {file_el}\n'
+            f'          <logginginfo><lognote>{lognote}</lognote></logginginfo>\n'
+            f'        </clipitem>'
+        )
+        rec += dur
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<!DOCTYPE xmeml>\n'
+        '<xmeml version="4">\n'
+        '<sequence id="sequence-1">\n'
+        f'  <name>{escape(name)}</name>\n'
+        f'  {rate}\n'
+        f'  <duration>{fr(rec)}</duration>\n'
+        '  <media>\n'
+        '    <video>\n'
+        f'      <format><samplecharacteristics>{rate}'
+        '<width>1920</width><height>1080</height></samplecharacteristics></format>\n'
+        '      <track>\n' + "\n".join(items) + '\n'
+        '      </track>\n'
+        '    </video>\n'
+        '    <audio/>\n'
+        '  </media>\n'
+        '</sequence>\n'
+        '</xmeml>\n'
+    )
+
+
 def _otio(name: str, clips, paths: dict[str, str] | None = None) -> str:
     paths = paths or {}
     def rt(seconds: float) -> dict:
@@ -308,22 +377,33 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
     cl_out = await _build_clip_list_out(cl, db)
 
     fmt = body.format.lower()
-    if fmt not in ("edl", "csv", "json", "fcpxml", "otio"):
-        raise HTTPException(status_code=400, detail="Format must be edl, csv, json, fcpxml, or otio")
+    if fmt not in ("edl", "csv", "json", "fcpxml", "otio", "xmeml"):
+        raise HTTPException(status_code=400, detail="Format must be edl, csv, json, fcpxml, otio, or xmeml")
 
     # Map media_id -> original hi-res path so exports relink to source media
     media_ids = {c.media_id for c in cl_out.clips}
     paths: dict[str, str] = {}
+    lognotes: dict[str, str] = {}
     if media_ids:
         rows = await db.execute(
-            select(MediaAsset.id, MediaAsset.original_path, MediaAsset.source_path)
+            select(MediaAsset.id, MediaAsset.original_path, MediaAsset.source_path,
+                   MediaAsset.curator_asset_id)
             .where(MediaAsset.id.in_(media_ids))
         )
-        # source_path (hi-res original from Curator sidecar metadata) wins over
-        # original_path — for Curator-direct ingests original_path IS the proxy.
-        paths = {mid: (sp or op) for mid, op, sp in rows.all() if (sp or op)}
+        for mid, op, sp, cid in rows.all():
+            # source_path (hi-res original from Curator sidecar metadata) wins
+            # over original_path — for Curator-direct ingests original_path IS
+            # the proxy.
+            if sp or op:
+                paths[mid] = sp or op
+            if cid:
+                lognotes[mid] = cid
 
-    if fmt == "fcpxml":
+    if fmt == "xmeml":
+        content = _xmeml(cl_out.name, cl_out.clips, paths, lognotes)
+        filename = f"{cl_out.name.replace(' ', '_')}.xml"
+
+    elif fmt == "fcpxml":
         content = _fcpxml(cl_out.name, cl_out.clips, paths)
         filename = f"{cl_out.name.replace(' ', '_')}.fcpxml"
 

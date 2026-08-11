@@ -76,6 +76,7 @@ import { formatTC } from "@/lib/timecode";
 import { useToast } from "@/hooks/use-toast";
 
 const EXPORT_FORMATS: { format: string; label: string; hint: string }[] = [
+  { format: "xmeml", label: "Export for Curator", hint: "Premiere XML with Curator asset IDs as Log Notes" },
   { format: "edl", label: "EDL", hint: "CMX3600 edit decision list" },
   { format: "fcpxml", label: "FCPXML", hint: "Final Cut Pro / DaVinci Resolve" },
   { format: "otio", label: "OTIO", hint: "OpenTimelineIO timeline" },

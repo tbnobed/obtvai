@@ -185,7 +185,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
   const revertMutation = useRevertProjectCut();
   const exportMutation = useExportProjectCut();
 
-  const exportCut = (format: "fcpxml" | "otio" | "edl") =>
+  const exportCut = (format: "fcpxml" | "otio" | "edl" | "xmeml") =>
     exportMutation.mutate(
       { id: projectId, data: { format } },
       {
@@ -516,6 +516,9 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportCut("xmeml")} data-testid="menu-export-curator">
+                  Export for Curator (Premiere XML)
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => exportCut("fcpxml")} data-testid="menu-export-fcpxml">
                   Premiere (FCPXML)
                 </DropdownMenuItem>
