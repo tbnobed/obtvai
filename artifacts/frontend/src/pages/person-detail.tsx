@@ -19,6 +19,8 @@ import {
   getListVoiceGenerationsQueryKey,
   useDeleteVoiceGeneration,
   useCreateLipsyncVideo,
+  useUploadLipsyncReference,
+  useDeleteLipsyncReference,
   useTuneVoice,
   useSetVoicePreset,
   useSetVoiceSettings,
@@ -160,6 +162,8 @@ function VoiceSection({
   const createGen = useCreateVoiceGeneration();
   const deleteGen = useDeleteVoiceGeneration();
   const lipsync = useCreateLipsyncVideo();
+  const uploadRef = useUploadLipsyncReference();
+  const deleteRef = useDeleteLipsyncReference();
   const tuneVoice = useTuneVoice();
   const setPreset = useSetVoicePreset();
   const saveSettings = useSetVoiceSettings();
@@ -175,6 +179,14 @@ function VoiceSection({
   const [sampleEnd, setSampleEnd] = useState("");
   const [rangeError, setRangeError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const refVideoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleReferenceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadRef.mutate({ id: personId, data: { file } }, { onSuccess: invalidateProfile });
+    e.target.value = "";
+  };
 
   const [genText, setGenText] = useState("");
   const [genLang, setGenLang] = useState("en");
@@ -435,6 +447,63 @@ function VoiceSection({
               </Button>
             ) : null}
           </div>
+          <div className="flex items-center gap-2 flex-wrap rounded border border-border/60 bg-muted/30 px-2.5 py-1.5">
+            <Clapperboard className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="text-xs text-muted-foreground">
+              Lipsync reference:{" "}
+              {profile?.has_lipsync_reference
+                ? "uploaded video"
+                : "none — lipsync uses library footage of this person"}
+            </span>
+            {profile?.has_lipsync_reference ? (
+              <a
+                href={`/api/people/${personId}/lipsync/reference`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-primary hover:underline"
+                data-testid="link-lipsync-reference"
+              >
+                view
+              </a>
+            ) : null}
+            <input
+              ref={refVideoInputRef}
+              type="file"
+              accept=".mp4,.mov,.m4v,.webm,.mkv,video/*"
+              className="hidden"
+              onChange={handleReferenceUpload}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto h-6 gap-1 text-[11px]"
+              disabled={uploadRef.isPending}
+              title="Upload a short video of this person's face (2–30s, front-facing) to use as the lipsync reference"
+              data-testid="button-upload-lipsync-reference"
+              onClick={() => refVideoInputRef.current?.click()}
+            >
+              {uploadRef.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              {profile?.has_lipsync_reference ? "Replace" : "Upload video"}
+            </Button>
+            {profile?.has_lipsync_reference ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 text-muted-foreground hover:text-red-400"
+                disabled={deleteRef.isPending}
+                title="Remove the uploaded reference video"
+                data-testid="button-delete-lipsync-reference"
+                onClick={() => deleteRef.mutate({ id: personId }, { onSuccess: invalidateProfile })}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            ) : null}
+          </div>
+          {uploadRef.isError ? (
+            <p className="text-xs text-red-400">
+              Upload failed — use mp4, mov, m4v, webm, or mkv (500 MB max).
+            </p>
+          ) : null}
           {tuneOpen && profile?.ready ? (
             <div className="rounded border border-border/60 bg-muted/30 p-3 space-y-3">
               {TUNE_SLIDERS.map((s) => (

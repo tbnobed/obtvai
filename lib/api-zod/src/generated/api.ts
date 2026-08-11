@@ -1708,7 +1708,8 @@ export const GetVoiceProfileResponse = zod.object({
   "duration_seconds": zod.number().nullish().describe('Length of the normalized sample once ready'),
   "error_message": zod.string().nullish(),
   "created_at": zod.string()
-}))
+})),
+  "has_lipsync_reference": zod.boolean().optional().describe('True when an uploaded lipsync reference video exists for this person')
 })
 
 
@@ -1989,6 +1990,59 @@ export const StreamLipsyncVideoParams = zod.object({
 })
 
 export const StreamLipsyncVideoResponse = zod.unknown()
+
+
+/**
+ * @summary Upload a reference video of the person's face for lipsync renders
+ */
+export const UploadLipsyncReferenceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UploadLipsyncReferenceBody = zod.object({
+  "file": zod.instanceof(File).describe('Video file of the person\'s face (mp4, mov, m4v, webm, mkv)')
+})
+
+export const UploadLipsyncReferenceResponse = zod.object({
+  "person_id": zod.string(),
+  "ready": zod.boolean().describe('True when enough clean sample audio exists to clone the voice'),
+  "total_sample_seconds": zod.number().describe('Total duration of ready samples'),
+  "min_sample_seconds": zod.number().describe('Minimum sample audio required before cloning unlocks'),
+  "samples": zod.array(zod.object({
+  "id": zod.string(),
+  "person_id": zod.string(),
+  "source": zod.string().describe('segment (cut from an indexed asset) | upload (user-provided file)'),
+  "status": zod.string().describe('pending | ready | error'),
+  "media_id": zod.string().nullish().describe('Source asset when the sample was cut from a segment'),
+  "filename": zod.string().nullish().describe('Source asset filename or original uploaded filename'),
+  "start_time": zod.number().nullish(),
+  "end_time": zod.number().nullish(),
+  "duration_seconds": zod.number().nullish().describe('Length of the normalized sample once ready'),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string()
+})),
+  "has_lipsync_reference": zod.boolean().optional().describe('True when an uploaded lipsync reference video exists for this person')
+})
+
+
+/**
+ * @summary Remove the uploaded lipsync reference video
+ */
+export const DeleteLipsyncReferenceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteLipsyncReferenceResponse = zod.void()
+
+
+/**
+ * @summary Stream the uploaded lipsync reference video
+ */
+export const StreamLipsyncReferenceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StreamLipsyncReferenceResponse = zod.unknown()
 
 
 /**

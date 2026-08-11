@@ -1562,6 +1562,84 @@ paths:
         "404":
           description: Not found or not finished
 
+  /people/{id}/lipsync/reference:
+    post:
+      operationId: uploadLipsyncReference
+      tags: [voice]
+      summary: Upload a reference video of the person's face for lipsync renders
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/LipsyncReferenceUploadInput"
+      responses:
+        "201":
+          description: Reference stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceProfile"
+        "400":
+          description: Unsupported file type, empty file, not a playable video, or shorter than 2 seconds
+        "413":
+          description: File too large (500 MB max)
+        "404":
+          description: Person not found
+    delete:
+      operationId: deleteLipsyncReference
+      tags: [voice]
+      summary: Remove the uploaded lipsync reference video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed
+        "404":
+          description: Person not found
+    get:
+      operationId: streamLipsyncReference
+      tags: [voice]
+      summary: Stream the uploaded lipsync reference video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Video (content type matches the uploaded container — mp4, quicktime, webm, or matroska)
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            video/quicktime:
+              schema:
+                type: string
+                format: binary
+            video/webm:
+              schema:
+                type: string
+                format: binary
+            video/x-matroska:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No reference video uploaded
+
   /voice/generations/{id}/audio:
     get:
       operationId: streamVoiceGeneration
@@ -4884,6 +4962,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/VoiceSample"
+        has_lipsync_reference:
+          type: boolean
+          description: True when an uploaded lipsync reference video exists for this person
 
     VoiceSampleFromSegment:
       type: object
@@ -4906,6 +4987,15 @@ components:
           type: string
           format: binary
           description: Audio file (wav, mp3, m4a, flac, ogg)
+
+    LipsyncReferenceUploadInput:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Video file of the person's face (mp4, mov, m4v, webm, mkv)
 
     VoiceSpeakRequest:
       type: object

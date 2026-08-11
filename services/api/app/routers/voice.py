@@ -97,7 +97,10 @@ async def _get_person(db: AsyncSession, person_id: str) -> Person:
     return person
 
 
-async def _profile(db: AsyncSession, person_id: str) -> VoiceProfileOut:
+async def _profile(db: AsyncSession, person_id: str, person: Person | None = None) -> VoiceProfileOut:
+    if person is None:
+        person = (await db.execute(select(Person).where(Person.id == person_id))).scalar_one_or_none()
+    ref = getattr(person, "lipsync_reference_path", None)
     samples = (
         (await db.execute(
             select(VoiceSample)
@@ -112,6 +115,7 @@ async def _profile(db: AsyncSession, person_id: str) -> VoiceProfileOut:
         total_sample_seconds=total,
         min_sample_seconds=MIN_SAMPLE_SECONDS,
         samples=[_sample_out(s) for s in samples],
+        has_lipsync_reference=bool(ref and os.path.isfile(ref)),
     )
 
 
@@ -185,6 +189,106 @@ async def upload_voice_sample(id: str, file: UploadFile = File(...), db: AsyncSe
     await db.refresh(sample)
     await worker_client.enqueue_voice_sample(sample.id)
     return _sample_out(sample)
+
+
+ALLOWED_VIDEO_EXT = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
+_VIDEO_MIME = {
+    ".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime",
+    ".webm": "video/webm", ".mkv": "video/x-matroska",
+}
+
+
+def _probe_video(path: str) -> float:
+    """Return the duration of a real video file, or raise ValueError if the
+    file has no decodable video stream."""
+    import json as _json
+    import subprocess
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-print_format", "json",
+             "-show_streams", "-show_format", path],
+            capture_output=True, text=True, timeout=60)
+        info = _json.loads(proc.stdout or "{}")
+    except Exception:
+        raise ValueError("Could not read the file")
+    if proc.returncode != 0 or not any(
+            s.get("codec_type") == "video" for s in info.get("streams", [])):
+        raise ValueError("Not a playable video file")
+    try:
+        return float(info.get("format", {}).get("duration") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+@router.post("/people/{id}/lipsync/reference", response_model=VoiceProfileOut, status_code=201)
+async def upload_lipsync_reference(id: str, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    """Upload a reference video of the person's face for lipsync renders.
+    Takes priority over automatically-selected library footage."""
+    person = await _get_person(db, id)
+    original_name = os.path.basename(file.filename or "reference.mp4")
+    ext = os.path.splitext(original_name)[1].lower()
+    if ext not in ALLOWED_VIDEO_EXT:
+        raise HTTPException(status_code=400, detail="Unsupported file type — use mp4, mov, m4v, webm, or mkv")
+
+    ref_dir = os.path.join(VOICES_DIR, "references")
+    os.makedirs(ref_dir, exist_ok=True)
+    ref_path = os.path.join(ref_dir, f"{id}{ext}")
+    tmp_path = ref_path + ".part"
+    size = 0
+    try:
+        with open(tmp_path, "wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > 500 * 1024 * 1024:
+                    raise HTTPException(status_code=400, detail="File too large (500 MB max)")
+                out.write(chunk)
+        if size == 0:
+            raise HTTPException(status_code=400, detail="Empty file")
+        try:
+            duration = _probe_video(tmp_path)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        if duration < 2.0:
+            raise HTTPException(
+                status_code=400,
+                detail="Reference video must be at least 2 seconds (only the first 30s are used)")
+        os.replace(tmp_path, ref_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+    old = person.lipsync_reference_path
+    if old and old != ref_path and os.path.isfile(old):
+        try:
+            os.unlink(old)
+        except OSError:
+            pass
+    person.lipsync_reference_path = ref_path
+    await db.commit()
+    return await _profile(db, id, person)
+
+
+@router.delete("/people/{id}/lipsync/reference", status_code=204)
+async def delete_lipsync_reference(id: str, db: AsyncSession = Depends(get_db)):
+    person = await _get_person(db, id)
+    path = person.lipsync_reference_path
+    if path and os.path.isfile(path):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    person.lipsync_reference_path = None
+    await db.commit()
+
+
+@router.get("/people/{id}/lipsync/reference")
+async def stream_lipsync_reference(id: str, db: AsyncSession = Depends(get_db)):
+    person = await _get_person(db, id)
+    path = person.lipsync_reference_path
+    if not path or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="No reference video uploaded")
+    ext = os.path.splitext(path)[1].lower()
+    return FileResponse(path, media_type=_VIDEO_MIME.get(ext, "video/mp4"))
 
 
 @router.delete("/voice/samples/{id}", status_code=204)

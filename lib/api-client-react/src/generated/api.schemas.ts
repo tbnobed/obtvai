@@ -800,6 +800,8 @@ export interface VoiceProfile {
   /** Minimum sample audio required before cloning unlocks */
   min_sample_seconds: number;
   samples: VoiceSample[];
+  /** True when an uploaded lipsync reference video exists for this person */
+  has_lipsync_reference?: boolean;
 }
 
 export interface VoiceSampleFromSegment {
@@ -812,6 +814,11 @@ export interface VoiceSampleFromSegment {
 
 export interface VoiceSampleUploadInput {
   /** Audio file (wav, mp3, m4a, flac, ogg) */
+  file: Blob;
+}
+
+export interface LipsyncReferenceUploadInput {
+  /** Video file of the person's face (mp4, mov, m4v, webm, mkv) */
   file: Blob;
 }
 

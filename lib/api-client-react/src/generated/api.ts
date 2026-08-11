@@ -66,6 +66,7 @@ import type {
   KeywordHeatmap,
   LibraryInsights,
   LibraryStats,
+  LipsyncReferenceUploadInput,
   ListAuditLogParams,
   ListClipListsParams,
   ListEmotionMomentsParams,
@@ -4942,6 +4943,228 @@ export function useStreamLipsyncVideo<TData = Awaited<ReturnType<typeof streamLi
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getStreamLipsyncVideoQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUploadLipsyncReferenceUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/lipsync/reference`
+}
+
+/**
+ * @summary Upload a reference video of the person's face for lipsync renders
+ */
+export const uploadLipsyncReference = async (id: string,
+    lipsyncReferenceUploadInput: LipsyncReferenceUploadInput, options?: RequestInit): Promise<VoiceProfile> => {
+    const formData = new FormData();
+formData.append(`file`, lipsyncReferenceUploadInput.file);
+
+  return customFetch<VoiceProfile>(getUploadLipsyncReferenceUrl(id),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getUploadLipsyncReferenceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadLipsyncReference>>, TError,{id: string;data: BodyType<LipsyncReferenceUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadLipsyncReference>>, TError,{id: string;data: BodyType<LipsyncReferenceUploadInput>}, TContext> => {
+
+const mutationKey = ['uploadLipsyncReference'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadLipsyncReference>>, {id: string;data: BodyType<LipsyncReferenceUploadInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  uploadLipsyncReference(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadLipsyncReferenceMutationResult = NonNullable<Awaited<ReturnType<typeof uploadLipsyncReference>>>
+    export type UploadLipsyncReferenceMutationBody = BodyType<LipsyncReferenceUploadInput>
+    export type UploadLipsyncReferenceMutationError = ErrorType<void>
+
+    /**
+ * @summary Upload a reference video of the person's face for lipsync renders
+ */
+export const useUploadLipsyncReference = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadLipsyncReference>>, TError,{id: string;data: BodyType<LipsyncReferenceUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadLipsyncReference>>,
+        TError,
+        {id: string;data: BodyType<LipsyncReferenceUploadInput>},
+        TContext
+      > => {
+      return useMutation(getUploadLipsyncReferenceMutationOptions(options));
+    }
+
+export const getDeleteLipsyncReferenceUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/lipsync/reference`
+}
+
+/**
+ * @summary Remove the uploaded lipsync reference video
+ */
+export const deleteLipsyncReference = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteLipsyncReferenceUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteLipsyncReferenceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLipsyncReference>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteLipsyncReference>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteLipsyncReference'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteLipsyncReference>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteLipsyncReference(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteLipsyncReferenceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteLipsyncReference>>>
+
+    export type DeleteLipsyncReferenceMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove the uploaded lipsync reference video
+ */
+export const useDeleteLipsyncReference = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLipsyncReference>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteLipsyncReference>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteLipsyncReferenceMutationOptions(options));
+    }
+
+export const getStreamLipsyncReferenceUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/lipsync/reference`
+}
+
+/**
+ * @summary Stream the uploaded lipsync reference video
+ */
+export const streamLipsyncReference = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getStreamLipsyncReferenceUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamLipsyncReferenceQueryKey = (id: string,) => {
+    return [
+    `/api/people/${id}/lipsync/reference`
+    ] as const;
+    }
+
+
+export const getStreamLipsyncReferenceQueryOptions = <TData = Awaited<ReturnType<typeof streamLipsyncReference>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamLipsyncReference>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamLipsyncReferenceQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamLipsyncReference>>> = ({ signal }) => streamLipsyncReference(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamLipsyncReference>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamLipsyncReferenceQueryResult = NonNullable<Awaited<ReturnType<typeof streamLipsyncReference>>>
+export type StreamLipsyncReferenceQueryError = ErrorType<void>
+
+
+/**
+ * @summary Stream the uploaded lipsync reference video
+ */
+
+export function useStreamLipsyncReference<TData = Awaited<ReturnType<typeof streamLipsyncReference>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamLipsyncReference>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamLipsyncReferenceQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

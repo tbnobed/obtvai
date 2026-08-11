@@ -21,6 +21,7 @@ except OSError:
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
@@ -44,6 +45,7 @@ _COLUMN_MIGRATIONS = [
     ("voice_generations", "video_path", "VARCHAR"),
     ("voice_generations", "video_error", "TEXT"),
     ("voice_generations", "video_task_id", "VARCHAR"),
+    ("people", "lipsync_reference_path", "VARCHAR"),
     ("ai_messages", "project_id", "VARCHAR"),
     ("ai_messages", "project_name", "VARCHAR"),
     ("processing_jobs", "params", "JSONB"),
@@ -522,6 +524,21 @@ app.add_middleware(
 # Session auth for every /api route (including the StaticFiles thumbnail
 # mount, which router-level dependencies would miss).
 app.middleware("http")(auth_middleware)
+
+
+@app.middleware("http")
+async def _lipsync_reference_size_guard(request, call_next):
+    """Reject oversized lipsync-reference uploads BEFORE Starlette's multipart
+    parser spools the whole body to disk — the endpoint's own size check only
+    runs after spooling, so without this a multi-GB request eats the uploads
+    volume before it can 400."""
+    if request.method == "POST" and request.url.path.endswith("/lipsync/reference"):
+        cl = request.headers.get("content-length")
+        if not cl or not cl.isdigit():
+            return JSONResponse(status_code=411, content={"detail": "Content-Length required"})
+        if int(cl) > 510 * 1024 * 1024:
+            return JSONResponse(status_code=413, content={"detail": "File too large (500 MB max)"})
+    return await call_next(request)
 
 app.include_router(auth_router.router, prefix="/api")
 app.include_router(users_router.router, prefix="/api")

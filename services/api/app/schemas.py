@@ -698,6 +698,7 @@ class VoiceProfileOut(BaseModel):
     total_sample_seconds: float
     min_sample_seconds: float
     samples: List[VoiceSampleOut] = []
+    has_lipsync_reference: bool = False
 
 
 class VoiceSampleFromSegmentIn(BaseModel):

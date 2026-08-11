@@ -146,6 +146,7 @@ class Person(Base):
     speech_style: Mapped[str | None] = mapped_column(Text, nullable=True)
     voice_preset: Mapped[str | None] = mapped_column(String, nullable=True)
     voice_settings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    lipsync_reference_path: Mapped[str | None] = mapped_column(String, nullable=True)
     key_topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     face_search: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

@@ -85,6 +85,7 @@ export * from './libraryInsights';
 export * from './libraryInsightsStats';
 export * from './libraryStats';
 export * from './libraryStatsStatusCounts';
+export * from './lipsyncReferenceUploadInput';
 export * from './listAuditLogMethod';
 export * from './listAuditLogParams';
 export * from './listClipListsParams';

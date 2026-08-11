@@ -234,8 +234,17 @@ def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[st
 def _find_reference_clip(db, person_id: str) -> tuple[str, float, float]:
     """Pick footage of the person speaking to use as the MiniMax reference
     video: (media file path, start, end). Prefers the longest footage-based
-    voice sample; falls back to the person's first spoken appearance."""
+    voice sample; falls back to the person's first spoken appearance. An
+    explicitly uploaded reference video always wins."""
     from sqlalchemy import text
+    ref = db.execute(
+        text("SELECT lipsync_reference_path FROM people WHERE id = :pid"),
+        {"pid": person_id},
+    ).scalar()
+    if ref and os.path.isfile(ref):
+        dur = _probe_duration(ref)
+        if dur and dur >= 2.0:
+            return ref, 0.0, min(float(dur), 30.0)
     rows = db.execute(
         text("""
             SELECT m.original_path, s.start_time, s.end_time
