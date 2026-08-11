@@ -52,6 +52,24 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
 
   # ── Media ──────────────────────────────────────────────────────────────────
+  /media/curator-link:
+    post:
+      operationId: curatorLink
+      tags: [media]
+      summary: Link a Curator asset record (from a dropped asset XML) to existing library media (internal watcher endpoint, X-Internal-Token required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuratorLinkInput'
+      responses:
+        '200':
+          description: Link result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuratorLinkResult'
   /media:
     get:
       operationId: listMedia
@@ -3970,6 +3988,12 @@ components:
         curator_id:
           type: ["string", "null"]
           description: IPV Curator clip id (proxy folder name) for Curator-ingested assets
+        curator_asset_id:
+          type: ["string", "null"]
+          description: Curator asset UUID linked from a dropped asset XML sidecar
+        curator_folder_path:
+          type: ["string", "null"]
+          description: Curator library folder path (e.g. Library\TBN-Fast) from the linked asset XML
         proxy_path:
           type: ["string", "null"]
         thumbnail_url:
@@ -4270,6 +4294,34 @@ components:
         title:
           type: string
 
+    CuratorLinkInput:
+      type: object
+      required: [asset_id]
+      properties:
+        asset_id:
+          type: string
+          description: Curator asset UUID (asset.asset_id from the XML)
+        name:
+          type: ["string", "null"]
+        web_proxy_path:
+          type: ["string", "null"]
+          description: UNC WebProxyPath from the XML; its last component is matched against ingested proxy folder paths
+        folder_path:
+          type: ["string", "null"]
+          description: Curator library folder path (asset.folder_path)
+    CuratorLinkResult:
+      type: object
+      required: [asset_id]
+      properties:
+        asset_id:
+          type: string
+        matched_media_ids:
+          type: array
+          items:
+            type: string
+        ambiguous:
+          type: boolean
+          description: True when the fuzzy fallback found multiple candidates and refused to link
     MediaIngestInput:
       type: object
       required: [file_path]

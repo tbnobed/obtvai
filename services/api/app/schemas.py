@@ -16,6 +16,8 @@ class MediaAssetOut(BaseModel):
     original_path: Optional[str] = None
     source_path: Optional[str] = None
     curator_id: Optional[str] = None
+    curator_asset_id: Optional[str] = None
+    curator_folder_path: Optional[str] = None
     proxy_path: Optional[str] = None
     thumbnail_url: Optional[str] = None
     sprite_url: Optional[str] = None
@@ -55,6 +57,21 @@ class MediaAssetOut(BaseModel):
             if base.lower().endswith("_video.mp4"):
                 self.curator_id = os.path.basename(os.path.dirname(self.original_path))
         return self
+
+
+class CuratorLinkInput(BaseModel):
+    asset_id: str
+    name: Optional[str] = None
+    web_proxy_path: Optional[str] = None
+    folder_path: Optional[str] = None
+
+
+class CuratorLinkResult(BaseModel):
+    asset_id: str
+    matched_media_ids: List[str] = []
+    # True when the fuzzy fallback found multiple candidates and refused to
+    # link (nothing written) — caller should retry later or flag for review.
+    ambiguous: bool = False
 
 
 class TranslateRequest(BaseModel):

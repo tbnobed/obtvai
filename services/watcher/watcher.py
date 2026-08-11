@@ -30,6 +30,12 @@ VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wm
 
 pending: dict[str, dict] = {}
 
+# Curator XMLs that parsed fine but had no library match yet (media may still
+# be ingesting): path -> attempts so far. Retried every XML_RETRY_SECONDS.
+XML_RETRY_SECONDS = int(os.getenv("CURATOR_XML_RETRY_SECONDS", "120"))
+XML_MAX_RETRIES = int(os.getenv("CURATOR_XML_MAX_RETRIES", "720"))  # ~24h at 120s
+xml_retries: dict[str, int] = {}
+
 
 def _is_video(path: str) -> bool:
     return os.path.splitext(path)[1].lower() in VIDEO_EXTENSIONS
@@ -42,6 +48,13 @@ def _should_ingest(path: str, dir_files: list[str] | None = None) -> bool:
     """Under the Curator proxy root, only the *_video.mp4 per proxy folder is
     media — audioN.mp4 renditions and thumbnails must not become library
     assets. Outside /curator, every video ingests exactly as before."""
+    if _is_curator_xml(path):
+        # Dropped Curator asset XMLs: watched so they can be linked to
+        # existing library media (not ingested as media themselves). Curator's
+        # own metadata XMLs under the proxy root are excluded — the worker
+        # already consumes those, and rescanning thousands of them on every
+        # start would spam the link endpoint.
+        return not path.startswith(CURATOR_ROOT + "/")
     if not _is_video(path):
         return False
     if not path.startswith(CURATOR_ROOT + "/"):
@@ -54,6 +67,61 @@ def _size(path: str) -> int | None:
         return os.path.getsize(path)
     except OSError:
         return None
+
+
+def _is_curator_xml(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() == ".xml"
+
+
+def _link_curator_xml(path: str) -> bool:
+    """Parse a dropped Curator <assets> XML and post each asset record to the
+    API so it can be linked to existing library media. Non-Curator XMLs
+    (no <asset.asset_id>) are ignored silently.
+
+    Returns True when the file is done (all records linked, or terminally
+    unusable); False when at least one record found no match yet — the XML may
+    have arrived before its media finished ingesting, so the caller should
+    retry later."""
+    import xml.etree.ElementTree as ET
+    try:
+        root = ET.parse(path).getroot()
+    except ET.ParseError as e:
+        log.warning(f"Unparseable XML {path}: {e}")
+        return True
+    if root.tag != "assets":
+        return True
+    done = True
+    for asset in root.findall("asset"):
+        def txt(tag: str) -> str:
+            el = asset.find(tag)
+            return (el.text or "").strip() if el is not None else ""
+        asset_id = txt("asset.asset_id")
+        if not asset_id:
+            continue
+        payload = {
+            "asset_id": asset_id,
+            "name": txt("asset.name") or None,
+            "web_proxy_path": txt("WebProxyPath") or None,
+            "folder_path": txt("asset.folder_path") or None,
+        }
+        try:
+            resp = httpx.post(
+                f"{API_URL}/media/curator-link", json=payload, headers=_HEADERS, timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            matched = data.get("matched_media_ids", [])
+            if matched:
+                log.info(f"Curator link {asset_id}: matched {len(matched)} media asset(s)")
+            elif data.get("ambiguous"):
+                log.warning(f"Curator link {asset_id} ({payload['name']}): ambiguous — multiple candidates, not linked")
+            else:
+                log.warning(f"Curator link {asset_id} ({payload['name']}): no library match yet")
+                done = False
+        except Exception as e:
+            log.error(f"Curator link failed for {asset_id} in {path}: {e}")
+            done = False
+    return done
 
 
 def _ingest(path: str):
@@ -144,7 +212,25 @@ def main():
 
             for path in to_process:
                 del pending[path]
-                _ingest(path)
+                if _is_curator_xml(path):
+                    if not _link_curator_xml(path):
+                        # XML may have arrived before its media finished
+                        # ingesting — retry with backoff until it links or
+                        # the retry budget runs out.
+                        tries = xml_retries.get(path, 0) + 1
+                        if tries <= XML_MAX_RETRIES:
+                            xml_retries[path] = tries
+                            pending[path] = {
+                                "detected_at": now + XML_RETRY_SECONDS - STABLE_SECONDS,
+                                "size": _size(path),
+                            }
+                        else:
+                            log.error(f"Giving up on Curator XML after {tries - 1} retries: {path}")
+                            xml_retries.pop(path, None)
+                    else:
+                        xml_retries.pop(path, None)
+                else:
+                    _ingest(path)
 
             time.sleep(2)
     except KeyboardInterrupt:

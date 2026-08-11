@@ -19,6 +19,10 @@ class MediaAsset(Base):
     # Hi-res original as the facility knows it (from Curator sidecar metadata)
     # when the ingested file is itself a Curator web proxy. Used by NLE exports.
     source_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Curator asset record (from dropped <assets> XML): the MAM's own asset id
+    # and library folder path. Linked by matching WebProxyPath/name to media.
+    curator_asset_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    curator_folder_path: Mapped[str | None] = mapped_column(String, nullable=True)
     proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     # Scrub sprite sheet: one JPEG grid of frames + timing metadata

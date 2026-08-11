@@ -1,8 +1,9 @@
 import os
+import secrets
 import uuid
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, delete, text
 from ..database import get_db
@@ -18,6 +19,7 @@ from ..schemas import (
     MediaMoveInput, MediaMoveResult,
     AssetPersonOut, SpeakingMomentOut, OnCameraRangeOut,
     HighlightRenderIn,
+    CuratorLinkInput, CuratorLinkResult,
 )
 from ..models import ClipList, Clip, ReelJob
 from ..config import settings
@@ -442,6 +444,102 @@ async def ingest_media(body: MediaIngestInput, db: AsyncSession = Depends(get_db
     await enqueue_ingest(asset.id)
 
     return MediaAssetOut.model_validate(asset)
+
+
+import re as _re
+
+# Mirrors the worker's Curator matching rules (services/worker/tasks/curator.py):
+# normalize punctuation runs to "_" and strip the trailing -HHMMSS/_HHMMSS
+# timestamp Curator appends to WebProxy folder names.
+_CURATOR_TS_SUFFIX = _re.compile(r"[-_]\d{6}$")
+
+
+def _curator_norm(name: str) -> str:
+    return _re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+def _require_internal(request: Request) -> None:
+    """Curator linking is a machine-to-machine endpoint (watcher only): it
+    mutates library-wide linkage, so regular user sessions may not call it."""
+    tok = request.headers.get("x-internal-token")
+    if not (tok and settings.internal_api_token and secrets.compare_digest(tok, settings.internal_api_token)):
+        raise HTTPException(status_code=403, detail="Internal endpoint")
+
+
+def _escape_like(s: str) -> str:
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+@router.post("/curator-link", response_model=CuratorLinkResult)
+async def curator_link(
+    body: CuratorLinkInput,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Link a Curator asset record (from a dropped <assets> XML sidecar) to
+    existing library media. Match order:
+    1) exact WebProxy folder name inside original_path (Curator-direct ingests)
+    2) normalized WebProxy-folder/name stem vs. proxy folder or filename stem —
+       applied only when it is unambiguous (exactly one candidate).
+    Stores curator_asset_id + curator_folder_path on matched assets."""
+    _require_internal(request)
+    proxy_folder = ""
+    if body.web_proxy_path:
+        # UNC (\\server\share\...) or POSIX — take the last path component.
+        proxy_folder = body.web_proxy_path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+
+    matched: list[MediaAsset] = []
+    ambiguous = False
+    if proxy_folder:
+        # Literal path-component match (LIKE metacharacters escaped). All hits
+        # share the exact same WebProxy folder, so linking them all is correct.
+        r = await db.execute(
+            select(MediaAsset).where(
+                MediaAsset.original_path.like(f"%/{_escape_like(proxy_folder)}/%", escape="\\")
+            )
+        )
+        matched = list(r.scalars().all())
+
+    if not matched:
+        # Fallback: normalized stem match against Curator proxy folders and
+        # plain filename stems (hi-res ingests from other roots). Fuzzy, so
+        # only link when exactly one asset matches.
+        keys = set()
+        if proxy_folder:
+            keys.add(_curator_norm(_CURATOR_TS_SUFFIX.sub("", proxy_folder)))
+        if body.name:
+            keys.add(_curator_norm(body.name))
+        keys.discard("")
+        if keys:
+            candidates: list[MediaAsset] = []
+            r = await db.execute(select(MediaAsset))
+            for a in r.scalars().all():
+                cand_keys = set()
+                op = a.original_path or ""
+                base = os.path.basename(op)
+                if base.lower().endswith("_video.mp4"):
+                    cand_keys.add(_curator_norm(_CURATOR_TS_SUFFIX.sub("", os.path.basename(os.path.dirname(op)))))
+                cand_keys.add(_curator_norm(os.path.splitext(a.filename)[0]))
+                if base:
+                    cand_keys.add(_curator_norm(os.path.splitext(base)[0]))
+                cand_keys.discard("")
+                if cand_keys & keys:
+                    candidates.append(a)
+            if len(candidates) == 1:
+                matched = candidates
+            elif len(candidates) > 1:
+                ambiguous = True
+
+    for a in matched:
+        a.curator_asset_id = body.asset_id
+        a.curator_folder_path = body.folder_path
+    if matched:
+        await db.commit()
+    return CuratorLinkResult(
+        asset_id=body.asset_id,
+        matched_media_ids=[a.id for a in matched],
+        ambiguous=ambiguous,
+    )
 
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wmv", ".flv", ".webm"}

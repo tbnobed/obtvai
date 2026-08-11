@@ -101,6 +101,8 @@ _COLUMN_MIGRATIONS = [
     ("media_assets", "recorded_at", "TIMESTAMP"),
     ("media_assets", "source_path", "TEXT"),
     ("story_jobs", "script", "TEXT"),
+    ("media_assets", "curator_asset_id", "VARCHAR"),
+    ("media_assets", "curator_folder_path", "VARCHAR"),
 ]
 
 
