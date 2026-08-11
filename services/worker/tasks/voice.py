@@ -231,6 +231,36 @@ def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[st
     )
 
 
+def _split_tts_chunks(text_value: str, max_chars: int = 280) -> list[str]:
+    """Split long scripts into sentence-grouped chunks the TTS engine can
+    handle. Chatterbox caps generation at ~40s of audio per call and silently
+    truncates longer text, so anything long must be synthesized chunk-by-chunk
+    and concatenated."""
+    import re as _re
+    sentences: list[str] = []
+    for para in text_value.split("\n"):
+        para = para.strip()
+        if not para:
+            continue
+        parts = _re.split(r"(?<=[.!?…])\s+", para)
+        sentences.extend(p.strip() for p in parts if p.strip())
+    chunks: list[str] = []
+    cur = ""
+    for s in sentences:
+        if cur and len(cur) + 1 + len(s) > max_chars:
+            chunks.append(cur)
+            cur = s
+        else:
+            cur = f"{cur} {s}".strip()
+        # A single monster sentence still has to go through on its own.
+        while len(cur) > max_chars * 2:
+            chunks.append(cur[:max_chars * 2])
+            cur = cur[max_chars * 2:].strip()
+    if cur:
+        chunks.append(cur)
+    return chunks or [text_value]
+
+
 @celery_app.task(bind=True, name="tasks.voice.generate_speech", queue="gpu")
 def generate_speech(self, generation_id: str):
     db = get_session()
@@ -287,11 +317,31 @@ def generate_speech(self, generation_id: str):
             cb_lang = _to_chatterbox_lang(language)
             if cb_lang:
                 try:
+                    import numpy as np
                     model = _load_chatterbox()
-                    _update_generation(db, generation_id, progress=40.0)
+                    _update_generation(db, generation_id, progress=30.0)
+                    chunks = _split_tts_chunks(text_value)
+                    pieces = []
                     with tempfile.TemporaryDirectory() as workdir:
-                        samples, rate = _synthesize_chatterbox(
-                            model, text_value, cb_lang, speaker_wavs[0], workdir, merged)
+                        rate = None
+                        for ci, chunk in enumerate(chunks):
+                            samples, rate = _synthesize_chatterbox(
+                                model, chunk, cb_lang, speaker_wavs[0], workdir, merged)
+                            pieces.append(samples)
+                            _update_generation(
+                                db, generation_id,
+                                progress=30.0 + 60.0 * (ci + 1) / len(chunks))
+                    if len(pieces) == 1:
+                        samples = pieces[0]
+                    else:
+                        # Short pause between chunks so sentence boundaries breathe.
+                        gap = np.zeros(int(rate * 0.25), dtype=pieces[0].dtype)
+                        joined = []
+                        for pi, p in enumerate(pieces):
+                            if pi:
+                                joined.append(gap)
+                            joined.append(p)
+                        samples = np.concatenate(joined)
                     _write_wav(out_path, samples, rate)
                     used_chatterbox = True
                     print(f"[voice] generated with chatterbox for generation {generation_id}")
