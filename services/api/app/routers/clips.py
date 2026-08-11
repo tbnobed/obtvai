@@ -150,16 +150,17 @@ def _curator_isu_url(path: str | None, asset_id: str | None,
     root = os.environ.get("CURATOR_PROXY_ROOT", "/curator").rstrip("/")
     if not asset_id or not gateway:
         return None
-    # curator_folder_path (stored when the Curator panel links the asset) is
-    # authoritative for the gateway-relative location — the local mount may be
-    # flattened or rooted deeper than the gateway's proxies tree.
+    # curator_web_proxy_path (WebProxyPath sent by the Curator panel when it
+    # links the asset, e.g. \\host\IPV\...\Proxies\WebProxy\2026\08\03\<clip>)
+    # is authoritative: the gateway serves proxies/<everything after WebProxy>.
     if folder:
         f = folder.strip().replace("\\", "/").strip("/")
-        if "proxies/" in f:
-            f = f.split("proxies/", 1)[1].strip("/")
-        if f:
-            stem = f.rsplit("/", 1)[-1]
-            return f"{gateway}/{f}/{stem}.m3u8.isu?assetId={asset_id}.isu"
+        lower = f.lower()
+        if "/webproxy/" in lower:
+            f = f[lower.index("/webproxy/") + len("/webproxy/"):].strip("/")
+            if f:
+                stem = f.rsplit("/", 1)[-1]
+                return f"{gateway}/{f}/{stem}.m3u8.isu?assetId={asset_id}.isu"
     if not path or not path.startswith(root + "/"):
         return None
     d = os.path.dirname(path)
@@ -553,7 +554,7 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
         rows = await db.execute(
             select(MediaAsset.id, MediaAsset.original_path, MediaAsset.source_path,
                    MediaAsset.curator_asset_id, MediaAsset.fps,
-                   MediaAsset.curator_folder_path)
+                   MediaAsset.curator_web_proxy_path)
             .where(MediaAsset.id.in_(media_ids))
         )
         for mid, op, sp, cid, fps_v, cfolder in rows.all():

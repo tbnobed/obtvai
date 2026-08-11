@@ -23,6 +23,9 @@ class MediaAsset(Base):
     # and library folder path. Linked by matching WebProxyPath/name to media.
     curator_asset_id: Mapped[str | None] = mapped_column(String, nullable=True)
     curator_folder_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    # WebProxyPath from the panel link (\\host\...\Proxies\WebProxy\<date>\<clip>)
+    # — source of truth for the gateway ISU streaming URL in NLE exports.
+    curator_web_proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
     proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     # Scrub sprite sheet: one JPEG grid of frames + timing metadata

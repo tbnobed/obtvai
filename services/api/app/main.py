@@ -109,6 +109,7 @@ _COLUMN_MIGRATIONS = [
     ("story_jobs", "script", "TEXT"),
     ("media_assets", "curator_asset_id", "VARCHAR"),
     ("media_assets", "curator_folder_path", "VARCHAR"),
+    ("media_assets", "curator_web_proxy_path", "VARCHAR"),
 ]
 
 

@@ -541,6 +541,7 @@ async def curator_link(
     for a in matched:
         a.curator_asset_id = body.asset_id
         a.curator_folder_path = body.folder_path
+        a.curator_web_proxy_path = body.web_proxy_path
     if matched:
         await db.commit()
     return CuratorLinkResult(

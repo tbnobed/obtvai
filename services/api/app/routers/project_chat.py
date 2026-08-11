@@ -1617,7 +1617,7 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     media_ids = {c["media_id"] for c in clips}
     rows = await db.execute(
         select(MediaAsset.id, MediaAsset.filename, MediaAsset.original_path, MediaAsset.source_path,
-               MediaAsset.curator_asset_id, MediaAsset.fps, MediaAsset.curator_folder_path)
+               MediaAsset.curator_asset_id, MediaAsset.fps, MediaAsset.curator_web_proxy_path)
         .where(MediaAsset.id.in_(media_ids))
     )
     fnames: dict[str, str] = {}
