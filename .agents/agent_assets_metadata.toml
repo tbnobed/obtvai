@@ -14,3 +14,10 @@ uri = "file://attached_assets/Connect_relink_test.xml"
 type = "unspecified"
 title = "Connect relink test XML"
 description = "One-clip sequence referencing a deliberately offline file path, with assetId lognote — import, then use Curator panel Connect to relink."
+
+[[outputs]]
+id = "kuhX-r79QsI7p3Z32iHvf"
+uri = "file://attached_assets/Connect_relink_test_v2.xml"
+type = "unspecified"
+title = "Connect relink test v2"
+description = "Offline-clip test XML with declared media duration and Adobe-style Windows pathurl — import, confirm an offline clip appears, then relink via Curator panel Connect."
