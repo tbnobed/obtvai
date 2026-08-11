@@ -1,0 +1,161 @@
+INFO:     172.18.0.12:37426 - "POST /api/projects/888c3196-7a57-4a37-afb4-d5028a7ce805/cut/export HTTP/1.1" 500 Internal Server Error
+api-1              | ERROR:    Exception in ASGI application
+api-1              |   + Exception Group Traceback (most recent call last):
+api-1              |   |   File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 76, in collapse_excgroups
+api-1              |   |     yield
+api-1              |   |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 186, in __call__
+api-1              |   |     async with anyio.create_task_group() as task_group:
+api-1              |   |   File "/usr/local/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 815, in __aexit__
+api-1              |   |     raise BaseExceptionGroup(
+api-1              |   | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+api-1              |   +-+---------------- 1 ----------------
+api-1              |     | Traceback (most recent call last):
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+api-1              |     |     result = await app(  # type: ignore[func-returns-value]
+api-1              |     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+api-1              |     |     return await self.app(scope, receive, send)
+api-1              |     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+api-1              |     |     await super().__call__(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+api-1              |     |     await self.middleware_stack(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
+api-1              |     |     await self.app(scope, receive, _send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 185, in __call__
+api-1              |     |     with collapse_excgroups():
+api-1              |     |   File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+api-1              |     |     self.gen.throw(typ, value, traceback)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 187, in __call__
+api-1              |     |     response = await self.dispatch_func(request, call_next)
+api-1              |     |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/app/app/auth.py", line 166, in auth_middleware
+api-1              |     |     response = await call_next(request)
+api-1              |     |                ^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 163, in call_next
+api-1              |     |     raise app_exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+api-1              |     |     await self.app(scope, receive_or_disconnect, send_no_error)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 93, in __call__
+api-1              |     |     await self.simple_response(scope, receive, send, request_headers=headers)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 144, in simple_response
+api-1              |     |     await self.app(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+api-1              |     |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     |     await app(scope, receive, sender)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
+api-1              |     |     await self.middleware_stack(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
+api-1              |     |     await route.handle(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+api-1              |     |     await self.app(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+api-1              |     |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     |     raise exc
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     |     await app(scope, receive, sender)
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+api-1              |     |     response = await f(request)
+api-1              |     |                ^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
+api-1              |     |     raw_response = await run_endpoint_function(
+api-1              |     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
+api-1              |     |     return await dependant.call(**values)
+api-1              |     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/app/app/routers/project_chat.py", line 1649, in export_cut
+api-1              |     |     audio_map = {mid: _curator_audio_sidecars(p) for mid, p in paths.items()}
+api-1              |     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/app/app/routers/project_chat.py", line 1649, in <dictcomp>
+api-1              |     |     audio_map = {mid: _curator_audio_sidecars(p) for mid, p in paths.items()}
+api-1              |     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |     |   File "/app/app/routers/clips.py", line 132, in _curator_audio_sidecars
+api-1              |     |     base = os.path.basename(path)
+api-1              |     |            ^^
+api-1              |     | NameError: name 'os' is not defined
+api-1              |     +------------------------------------
+api-1              |
+api-1              | During handling of the above exception, another exception occurred:
+api-1              |
+api-1              | Traceback (most recent call last):
+api-1              |   File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+api-1              |     result = await app(  # type: ignore[func-returns-value]
+api-1              |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+api-1              |     return await self.app(scope, receive, send)
+api-1              |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+api-1              |     await super().__call__(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+api-1              |     await self.middleware_stack(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
+api-1              |     await self.app(scope, receive, _send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 185, in __call__
+api-1              |     with collapse_excgroups():
+api-1              |   File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+api-1              |     self.gen.throw(typ, value, traceback)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 187, in __call__
+api-1              |     response = await self.dispatch_func(request, call_next)
+api-1              |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/app/app/auth.py", line 166, in auth_middleware
+api-1              |     response = await call_next(request)
+api-1              |                ^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 163, in call_next
+api-1              |     raise app_exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+api-1              |     await self.app(scope, receive_or_disconnect, send_no_error)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 93, in __call__
+api-1              |     await self.simple_response(scope, receive, send, request_headers=headers)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 144, in simple_response
+api-1              |     await self.app(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+api-1              |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     await app(scope, receive, sender)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
+api-1              |     await self.middleware_stack(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
+api-1              |     await route.handle(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+api-1              |     await self.app(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+api-1              |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+api-1              |     raise exc
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+api-1              |     await app(scope, receive, sender)
+api-1              |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+api-1              |     response = await f(request)
+api-1              |                ^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
+api-1              |     raw_response = await run_endpoint_function(
+api-1              |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
+api-1              |     return await dependant.call(**values)
+api-1              |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/app/app/routers/project_chat.py", line 1649, in export_cut
+api-1              |     audio_map = {mid: _curator_audio_sidecars(p) for mid, p in paths.items()}
+api-1              |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/app/app/routers/project_chat.py", line 1649, in <dictcomp>
+api-1              |     audio_map = {mid: _curator_audio_sidecars(p) for mid, p in paths.items()}
+api-1              |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1              |   File "/app/app/routers/clips.py", line 132, in _curator_audio_sidecars
+api-1              |     base = os.path.basename(path)
+api-1              |            ^^
+api-1              | NameError: name 'os' is not defined
+frontend-1         | 192.168.200.193 - - [11/Aug/2026:22:18:14 +0000] "POST /api/projects/888c3196-7a57-4a37-afb4-d5028a7ce805/cut/export HTTP/1.1" 500 21 "https://ai.obtv.io/studio/888c3196-7a57-4a37-afb4-d5028a7ce805" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0"
+api-1              | INFO:     172.18.0.12:37428 - "GET /api/reels?project_id=888c3196-7a57-4a37-afb4-d5028a7ce805 HTTP/1.1" 200 OK
