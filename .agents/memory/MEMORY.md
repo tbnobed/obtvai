@@ -33,4 +33,6 @@
 - [Upload spool fills container /tmp](upload-spool-tmp.md) — Starlette spools whole multipart upload to /tmp before the handler runs; unmounted /tmp → ERR_CONNECTION_RESET on large files.
 - [LLM curation fallbacks](llm-curation-fallbacks.md) — valid-but-empty LLM selections are decisions, not failures; `if result:` fallbacks resurrect excluded content; use None vs [] semantics.
 - [Long-form dubbing pitfalls](longform-dubbing.md) — cursor-spill drift needs a lateness budget; never flip TTS engines per segment; MADLAD garbage = zero context, not overflow.
+- [Premiere xmeml limits](premiere-xmeml-interchange.md) — Scale-to-Frame-Size never survives FCP7 XML; declare true dims, never bake a Motion scale %; NTSC = rounded timebase + ntsc TRUE.
+- [TTS generation pitfalls](tts-generation-quality.md) — Chatterbox truncates past ~40s (chunk + concat); ALL-CAPS input garbles output (normalize case, keep acronyms).
 - [Postgres startup DDL locks](postgres-startup-ddl.md) — ADD COLUMN IF NOT EXISTS locks before checking; gate boot migrations on information_schema or busy workers make the API unhealthy.
