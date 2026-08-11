@@ -104,21 +104,42 @@ def _fcpxml(name: str, clips, paths: dict[str, str] | None = None) -> str:
     )
 
 
+def _xmeml_rate(fps_val: float) -> tuple[int, str, str]:
+    """Return (timebase, actual fps used for frame math, <rate> element).
+
+    xmeml timebase is an integer; fractional NTSC rates (29.97, 23.976, 59.94)
+    are expressed as the rounded timebase with ntsc=TRUE."""
+    fps_val = float(fps_val or 0) or float(_FPS)
+    tb = int(round(fps_val))
+    ntsc = "TRUE" if abs(fps_val - tb) > 0.01 else "FALSE"
+    rate = f"<rate><timebase>{tb}</timebase><ntsc>{ntsc}</ntsc></rate>"
+    return tb, ntsc, rate
+
+
 def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
-           lognotes: dict[str, str] | None = None) -> str:
+           lognotes: dict[str, str] | None = None,
+           fps_map: dict[str, float] | None = None) -> str:
     """Premiere Pro XML (FCP7 xmeml v4) — "Export for Curator".
 
     Curator's Premiere panel matches assets by reading the clip's Log Note
-    field, so each clipitem carries <logginginfo><lognote> = the Curator
-    asset ID linked to that media (blank when the asset isn't linked)."""
+    field, so each clipitem carries <logginginfo><lognote> = "assetId=<id>"
+    for the Curator asset linked to that media (blank when unlinked).
+    Each file/clipitem uses its own asset's frame rate; the sequence uses
+    the first clip's rate."""
     from xml.sax.saxutils import escape
     paths = paths or {}
     lognotes = lognotes or {}
+    fps_map = fps_map or {}
 
-    def fr(seconds: float) -> int:
-        return int(round(seconds * _FPS))
+    def clip_fps(media_id: str) -> float:
+        return float(fps_map.get(media_id) or 0) or float(_FPS)
 
-    rate = f"<rate><timebase>{_FPS}</timebase><ntsc>FALSE</ntsc></rate>"
+    seq_fps = clip_fps(clips[0].media_id) if clips else float(_FPS)
+    _, _, seq_rate = _xmeml_rate(seq_fps)
+
+    def fr(seconds: float, fps_val: float) -> int:
+        return int(round(seconds * fps_val))
+
     file_ids: dict[str, str] = {}
     items = []
     rec = 0.0
@@ -128,6 +149,8 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         fname = escape(c.filename or c.media_id)
         _aid = lognotes.get(c.media_id) or ""
         lognote = escape(f"assetId={_aid}" if _aid else "")
+        fps_val = clip_fps(c.media_id)
+        _, _, rate = _xmeml_rate(fps_val)
         if c.media_id in file_ids:
             file_el = f'<file id="{file_ids[c.media_id]}"/>'
         else:
@@ -145,8 +168,8 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
             f'        <clipitem id="clipitem-{i}">\n'
             f'          <name>{label}</name>\n'
             f'          {rate}\n'
-            f'          <start>{fr(rec)}</start><end>{fr(rec + dur)}</end>\n'
-            f'          <in>{fr(c.start_time)}</in><out>{fr(c.end_time)}</out>\n'
+            f'          <start>{fr(rec, seq_fps)}</start><end>{fr(rec + dur, seq_fps)}</end>\n'
+            f'          <in>{fr(c.start_time, fps_val)}</in><out>{fr(c.end_time, fps_val)}</out>\n'
             f'          {file_el}\n'
             f'          <logginginfo><lognote>{lognote}</lognote></logginginfo>\n'
             f'        </clipitem>'
@@ -158,11 +181,11 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         '<xmeml version="4">\n'
         '<sequence id="sequence-1">\n'
         f'  <name>{escape(name)}</name>\n'
-        f'  {rate}\n'
-        f'  <duration>{fr(rec)}</duration>\n'
+        f'  {seq_rate}\n'
+        f'  <duration>{fr(rec, seq_fps)}</duration>\n'
         '  <media>\n'
         '    <video>\n'
-        f'      <format><samplecharacteristics>{rate}'
+        f'      <format><samplecharacteristics>{seq_rate}'
         '<width>1920</width><height>1080</height></samplecharacteristics></format>\n'
         '      <track>\n' + "\n".join(items) + '\n'
         '      </track>\n'
@@ -385,13 +408,14 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
     media_ids = {c.media_id for c in cl_out.clips}
     paths: dict[str, str] = {}
     lognotes: dict[str, str] = {}
+    fps_map: dict[str, float] = {}
     if media_ids:
         rows = await db.execute(
             select(MediaAsset.id, MediaAsset.original_path, MediaAsset.source_path,
-                   MediaAsset.curator_asset_id)
+                   MediaAsset.curator_asset_id, MediaAsset.fps)
             .where(MediaAsset.id.in_(media_ids))
         )
-        for mid, op, sp, cid in rows.all():
+        for mid, op, sp, cid, fps_v in rows.all():
             # source_path (hi-res original from Curator sidecar metadata) wins
             # over original_path — for Curator-direct ingests original_path IS
             # the proxy.
@@ -399,9 +423,11 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
                 paths[mid] = sp or op
             if cid:
                 lognotes[mid] = cid
+            if fps_v:
+                fps_map[mid] = float(fps_v)
 
     if fmt == "xmeml":
-        content = _xmeml(cl_out.name, cl_out.clips, paths, lognotes)
+        content = _xmeml(cl_out.name, cl_out.clips, paths, lognotes, fps_map)
         filename = f"{cl_out.name.replace(' ', '_')}.xml"
 
     elif fmt == "fcpxml":

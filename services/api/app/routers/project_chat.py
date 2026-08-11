@@ -1617,18 +1617,21 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     media_ids = {c["media_id"] for c in clips}
     rows = await db.execute(
         select(MediaAsset.id, MediaAsset.filename, MediaAsset.original_path, MediaAsset.source_path,
-               MediaAsset.curator_asset_id)
+               MediaAsset.curator_asset_id, MediaAsset.fps)
         .where(MediaAsset.id.in_(media_ids))
     )
     fnames: dict[str, str] = {}
     paths: dict[str, str] = {}
     lognotes: dict[str, str] = {}
-    for mid, fname, op, sp, cid in rows.all():
+    fps_map: dict[str, float] = {}
+    for mid, fname, op, sp, cid, fps_v in rows.all():
         fnames[mid] = fname
         if sp or op:
             paths[mid] = sp or op
         if cid:
             lognotes[mid] = cid
+        if fps_v:
+            fps_map[mid] = float(fps_v)
 
     ns_clips = [
         SimpleNamespace(
@@ -1643,7 +1646,7 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     name = f"{project.name or 'Project'} cut v{rev.version}"
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", name)
     if fmt == "xmeml":
-        content, filename = _xmeml(name, ns_clips, paths, lognotes), f"{safe}.xml"
+        content, filename = _xmeml(name, ns_clips, paths, lognotes, fps_map), f"{safe}.xml"
     elif fmt == "fcpxml":
         content, filename = _fcpxml(name, ns_clips, paths), f"{safe}.fcpxml"
     elif fmt == "otio":
