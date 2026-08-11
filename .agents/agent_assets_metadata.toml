@@ -7,3 +7,10 @@ uri = "file://attached_assets/ISU_URL_import_test.xml"
 type = "unspecified"
 title = "ISU URL import test XML"
 description = "Minimal 1-clip xmeml using the exact known-good Curator gateway ISU URL — import in Premiere to test whether ISU URLs work in project XML."
+
+[[outputs]]
+id = "3q-SCbeMJj-sZMsemYV-T"
+uri = "file://attached_assets/Connect_relink_test.xml"
+type = "unspecified"
+title = "Connect relink test XML"
+description = "One-clip sequence referencing a deliberately offline file path, with assetId lognote — import, then use Curator panel Connect to relink."
