@@ -21,3 +21,10 @@ uri = "file://attached_assets/Connect_relink_test_v2.xml"
 type = "unspecified"
 title = "Connect relink test v2"
 description = "Offline-clip test XML with declared media duration and Adobe-style Windows pathurl — import, confirm an offline clip appears, then relink via Curator panel Connect."
+
+[[outputs]]
+id = "WpQ4qMiXMgf696YK_ZSKC"
+uri = "file://attached_assets/Connect_relink_test_v3.xml"
+type = "unspecified"
+title = "Connect relink test v3"
+description = "Same one-clip sequence, but pointing at the real WebProxy _video.mp4 over UNC — should import online; then test Curator panel Connect swap."
