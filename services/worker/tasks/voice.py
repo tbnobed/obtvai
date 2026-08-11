@@ -251,6 +251,32 @@ def _fit_duration(out_path: str, target_seconds: float):
     os.replace(tmp, out_path)
 
 
+def _normalize_tts_text(text_value: str) -> str:
+    """TTS models are trained on normally-cased text; ALL-CAPS input tokenizes
+    into rare tokens and produces garbled audio. Sentence-case shouted text,
+    keeping short probable acronyms (TBN, NASA, U.S.) intact."""
+    import re as _re
+
+    def fix_word(w: str) -> str:
+        core = _re.sub(r"[^A-Za-z]", "", w)
+        if core.isupper() and len(core) > 4:
+            return w.lower()
+        return w
+
+    letters = [c for c in text_value if c.isalpha()]
+    mostly_caps = letters and sum(c.isupper() for c in letters) / len(letters) > 0.7
+    if mostly_caps:
+        # Whole script was pasted in caps — lowercase everything (even short
+        # words, they're not acronyms here) then re-capitalize sentence starts.
+        out = text_value.lower()
+        out = _re.sub(r"(^|[.!?…]\s+|\n\s*)([a-z])",
+                      lambda m: m.group(1) + m.group(2).upper(), out)
+        out = _re.sub(r"\bi\b", "I", out)
+        return out
+    # Mixed text: only defuse individual shouted words.
+    return " ".join(fix_word(w) for w in text_value.split(" "))
+
+
 def _split_tts_chunks(text_value: str, max_chars: int = 280) -> list[str]:
     """Split long scripts into sentence-grouped chunks the TTS engine can
     handle. Chatterbox caps generation at ~40s of audio per call and silently
@@ -320,6 +346,7 @@ def generate_speech(self, generation_id: str):
         else:
             preset, settings = person_preset, person_settings
 
+        text_value = _normalize_tts_text(text_value)
         _update_generation(db, generation_id, status="running", progress=5.0)
 
         speaker_wavs = get_ready_voice_paths(db, person_id)
