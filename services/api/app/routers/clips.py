@@ -51,7 +51,10 @@ def _translate(path: str) -> str:
 def _file_url(path: str) -> str:
     p = path.replace("\\", "/")
     if p.startswith("//"):
-        return "file:" + p            # UNC \\nas\share -> file://nas/share
+        return "file:///" + p         # UNC \\nas\share -> file://///nas/share
+                                      # (Premiere's own Windows form; a 2-slash
+                                      # host URL makes it resolve the server as
+                                      # a web hostname and crash on import)
     if p.startswith("/"):
         return "file://" + p          # POSIX /mnt/media/x -> file:///mnt/...
     return "file:///" + p             # V:/Media/x -> file:///V:/Media/x
