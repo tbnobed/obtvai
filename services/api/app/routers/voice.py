@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import uuid
@@ -198,6 +199,22 @@ _VIDEO_MIME = {
 }
 
 
+def _normalize_reference(src: str, dst: str) -> bool:
+    """Transcode a reference video to browser-playable h264 mp4, trimmed to
+    the 30s the lipsync render uses. Returns False on failure."""
+    import subprocess
+    try:
+        proc = subprocess.run(
+            ["ffmpeg", "-y", "-t", "30", "-i", src,
+             "-vf", "scale='min(1280,iw)':-2", "-an",
+             "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+             "-movflags", "+faststart", dst],
+            capture_output=True, text=True, timeout=600)
+    except Exception:
+        return False
+    return proc.returncode == 0 and os.path.isfile(dst)
+
+
 def _probe_video(path: str) -> float:
     """Return the duration of a real video file, or raise ValueError if the
     file has no decodable video stream."""
@@ -255,14 +272,8 @@ async def upload_lipsync_reference(id: str, file: UploadFile = File(...), db: As
             raise HTTPException(
                 status_code=400,
                 detail="Reference video must be at least 2 seconds (only the first 30s are used)")
-        import subprocess
-        proc = subprocess.run(
-            ["ffmpeg", "-y", "-t", "30", "-i", tmp_path,
-             "-vf", "scale='min(1280,iw)':-2", "-an",
-             "-c:v", "libx264", "-preset", "fast", "-crf", "20",
-             "-movflags", "+faststart", norm_path],
-            capture_output=True, text=True, timeout=600)
-        if proc.returncode != 0 or not os.path.isfile(norm_path):
+        ok = await asyncio.to_thread(_normalize_reference, tmp_path, norm_path)
+        if not ok:
             raise HTTPException(status_code=400, detail="Could not convert the video — try an mp4")
         os.replace(norm_path, ref_path)
     finally:
@@ -300,10 +311,27 @@ async def stream_lipsync_reference(id: str, db: AsyncSession = Depends(get_db)):
     path = person.lipsync_reference_path
     if not path or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="No reference video uploaded")
-    # References are normalized to h264 mp4 on upload; older uploads may
-    # still carry their original container.
-    ext = os.path.splitext(path)[1].lower()
-    return FileResponse(path, media_type=_VIDEO_MIME.get(ext, "video/mp4"))
+    # References are normalized to h264 mp4 on upload; self-heal any stored
+    # before normalization existed (raw .mov/.mkv named by original ext).
+    if not path.lower().endswith(".mp4"):
+        fixed = os.path.join(os.path.dirname(path), f"{id}.mp4")
+        norm_tmp = fixed + ".norm"
+        ok = await asyncio.to_thread(_normalize_reference, path, norm_tmp)
+        if ok:
+            os.replace(norm_tmp, fixed)
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            person.lipsync_reference_path = fixed
+            await db.commit()
+            path = fixed
+        else:
+            if os.path.exists(norm_tmp):
+                os.unlink(norm_tmp)
+            ext = os.path.splitext(path)[1].lower()
+            return FileResponse(path, media_type=_VIDEO_MIME.get(ext, "video/mp4"))
+    return FileResponse(path, media_type="video/mp4")
 
 
 @router.delete("/voice/samples/{id}", status_code=204)
