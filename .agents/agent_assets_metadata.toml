@@ -35,3 +35,10 @@ uri = "file://attached_assets/Sidecar_audio_test.xml"
 type = "unspecified"
 title = "Sidecar audio test XML"
 description = "Video clip declared video-only (<audio/>) + separate _audio1.mp4 sidecar file entry on the audio track, symmetric links."
+
+[[outputs]]
+id = "nlu6SDyJq4W-0248Su90H"
+uri = "file://attached_assets/Video_only_test.xml"
+type = "unspecified"
+title = "Video only test XML"
+description = "One clip, video-only (<audio/>), no audio tracks or links — same structure as the reverted export."
