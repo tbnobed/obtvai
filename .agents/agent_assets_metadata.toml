@@ -42,3 +42,10 @@ uri = "file://attached_assets/Video_only_test.xml"
 type = "unspecified"
 title = "Video only test XML"
 description = "One clip, video-only (<audio/>), no audio tracks or links — same structure as the reverted export."
+
+[[outputs]]
+id = "R2FEhOj7pyuVxqVDuYjLH"
+uri = "file://attached_assets/Video_only_test_v2.xml"
+type = "unspecified"
+title = "Video only test v2 (five-slash UNC)"
+description = "Same video-only clip, pathurl changed to Premiere's Windows UNC form: file://///tustopd.trinity.local/IPV/..."
