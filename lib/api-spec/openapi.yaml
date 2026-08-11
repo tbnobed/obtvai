@@ -1517,6 +1517,53 @@ paths:
         "404":
           description: Not found
 
+  /voice/generations/{id}/lipsync:
+    post:
+      operationId: createLipsyncVideo
+      tags: [voice]
+      summary: Render a lipsynced video of the person speaking this generation's audio (MiniMax H3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Lipsync render queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceGeneration"
+        "400":
+          description: Audio longer than the 15s MiniMax cap
+        "404":
+          description: Generation not found
+        "409":
+          description: Audio not finished yet, or a lipsync render is already in progress
+
+  /voice/generations/{id}/video:
+    get:
+      operationId: streamLipsyncVideo
+      tags: [voice]
+      summary: Stream a finished lipsync video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: MP4 video
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found or not finished
+
   /voice/generations/{id}/audio:
     get:
       operationId: streamVoiceGeneration
@@ -4956,6 +5003,11 @@ components:
           allOf:
             - $ref: "#/components/schemas/VoiceSettings"
           description: Custom synthesis settings this clip was generated with
+        video_status:
+          type: ["string", "null"]
+          description: "MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)"
+        video_error:
+          type: ["string", "null"]
 
     GraphicsPreset:
       type: object

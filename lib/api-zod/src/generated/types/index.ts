@@ -34,6 +34,8 @@ export * from './coMoments';
 export * from './conversation';
 export * from './coverageGap';
 export * from './creativeAnalysis';
+export * from './curatorLinkInput';
+export * from './curatorLinkResult';
 export * from './cutClip';
 export * from './deleteSavedSearch200';
 export * from './dubRequest';

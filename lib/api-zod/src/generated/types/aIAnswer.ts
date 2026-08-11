@@ -11,4 +11,11 @@ export interface AIAnswer {
   answer: string;
   conversation_id: string;
   citations: AICitation[];
+  /**
+     * Set when the assistant created a project from this turn
+     * @nullable
+     */
+  project_id?: string | null;
+  /** @nullable */
+  project_name?: string | null;
 }

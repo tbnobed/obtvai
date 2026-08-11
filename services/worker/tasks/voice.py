@@ -231,6 +231,167 @@ def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[st
     )
 
 
+def _find_reference_clip(db, person_id: str) -> tuple[str, float, float]:
+    """Pick footage of the person speaking to use as the MiniMax reference
+    video: (media file path, start, end). Prefers the longest footage-based
+    voice sample; falls back to the person's first spoken appearance."""
+    from sqlalchemy import text
+    rows = db.execute(
+        text("""
+            SELECT m.original_path, s.start_time, s.end_time
+            FROM voice_samples s JOIN media_assets m ON m.id = s.media_id
+            WHERE s.person_id = :pid AND s.source = 'segment'
+              AND s.media_id IS NOT NULL
+              AND s.start_time IS NOT NULL AND s.end_time IS NOT NULL
+            ORDER BY (s.end_time - s.start_time) DESC
+        """),
+        {"pid": person_id},
+    ).fetchall()
+    for path, start, end in rows:
+        if path and os.path.isfile(path) and (end - start) >= 2.0:
+            return path, float(start), float(end)
+    rows = db.execute(
+        text("""
+            SELECT m.original_path, a.first_spoken_at
+            FROM person_appearances a JOIN media_assets m ON m.id = a.media_id
+            WHERE a.person_id = :pid AND a.first_spoken_at IS NOT NULL
+            ORDER BY a.speaking_seconds DESC NULLS LAST
+        """),
+        {"pid": person_id},
+    ).fetchall()
+    for path, start in rows:
+        if path and os.path.isfile(path):
+            return path, float(start), float(start) + 10.0
+    raise RuntimeError(
+        "No footage of this person available for the reference clip — "
+        "add a voice sample cut from footage first")
+
+
+def _b64_data_uri(path: str, mime: str) -> str:
+    import base64
+    with open(path, "rb") as f:
+        return f"data:{mime};base64," + base64.b64encode(f.read()).decode()
+
+
+@celery_app.task(bind=True, name="tasks.voice.lipsync_video", queue="cpu")
+def lipsync_video(self, generation_id: str):
+    """Render a lipsynced video via MiniMax H3 (reference-to-video): a clip of
+    the person + the generated cloned-voice audio."""
+    import math
+    import subprocess
+    import tempfile
+    import requests
+    from sqlalchemy import text
+
+    db = get_session()
+
+    def _vid(**kw):
+        sets = ", ".join(f"{k} = :{k}" for k in kw)
+        db.execute(text(f"UPDATE voice_generations SET {sets} WHERE id = :gid"),
+                   {**kw, "gid": generation_id})
+        db.commit()
+
+    try:
+        api_key = os.environ.get("MINIMAX_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("MINIMAX_API_KEY is not set — add it to .env and recreate the workers")
+        base = os.environ.get("MINIMAX_API_BASE", "https://api.minimax.io").rstrip("/")
+
+        row = db.execute(
+            text("SELECT person_id, text, audio_path, duration_seconds FROM voice_generations WHERE id = :gid"),
+            {"gid": generation_id},
+        ).fetchone()
+        if not row:
+            return
+        person_id, text_value, audio_path, audio_dur = row
+        if not audio_path or not os.path.isfile(audio_path):
+            raise RuntimeError("Generated audio file is missing")
+        audio_dur = float(audio_dur or _probe_duration(audio_path))
+        if audio_dur > 15.0:
+            raise RuntimeError("MiniMax H3 caps lipsync at 15s of audio — regenerate shorter audio")
+
+        _vid(video_status="running", video_error=None)
+
+        ref_path, ref_start, ref_end = _find_reference_clip(db, person_id)
+        with tempfile.TemporaryDirectory() as workdir:
+            # Reference clip: 2-15s, ≤50MB, h264+aac mp4, ≤720p.
+            ref_len = min(10.0, max(2.0, ref_end - ref_start))
+            ref_mp4 = os.path.join(workdir, "ref.mp4")
+            subprocess.run(
+                ["ffmpeg", "-y", "-ss", f"{ref_start:.3f}", "-t", f"{ref_len:.3f}",
+                 "-i", ref_path,
+                 "-vf", "scale='min(1280,iw)':-2", "-r", "25",
+                 "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                 "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", ref_mp4],
+                check=True, capture_output=True)
+            # Audio: wav→mp3 keeps the payload small (≤15MB limit).
+            ref_mp3 = os.path.join(workdir, "speech.mp3")
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", audio_path, "-codec:a", "libmp3lame",
+                 "-b:a", "160k", ref_mp3],
+                check=True, capture_output=True)
+
+            duration = int(min(15, max(4, math.ceil(audio_dur))))
+            payload = {
+                "model": "MiniMax-H3",
+                "content": [
+                    {"type": "text",
+                     "text": "The person from the reference video speaks the reference audio "
+                             "directly to camera with accurate lip sync, natural facial "
+                             "expressions and subtle head movement. Same person, same framing, "
+                             "same lighting and background as the reference video."},
+                    {"type": "video_url", "role": "reference_video",
+                     "video_url": {"url": _b64_data_uri(ref_mp4, "video/mp4")}},
+                    {"type": "audio_url", "role": "reference_audio",
+                     "audio_url": {"url": _b64_data_uri(ref_mp3, "audio/mpeg")}},
+                ],
+                "resolution": "768P",
+                "duration": duration,
+            }
+            headers = {"Authorization": f"Bearer {api_key}"}
+            resp = requests.post(f"{base}/v2/video_generation", json=payload,
+                                 headers=headers, timeout=120)
+            body = resp.json() if resp.content else {}
+            if resp.status_code != 200 or not body.get("task_id"):
+                err = (body.get("error") or {}).get("message") or resp.text[:300]
+                raise RuntimeError(f"MiniMax create failed ({resp.status_code}): {err}")
+            task_id = body["task_id"]
+            _vid(video_task_id=task_id)
+
+            deadline = time.monotonic() + 20 * 60
+            video_url = None
+            while time.monotonic() < deadline:
+                time.sleep(10)
+                q = requests.get(f"{base}/v2/query/video_generation/{task_id}",
+                                 headers=headers, timeout=60)
+                task = (q.json() or {}).get("task") or {}
+                status = task.get("status")
+                if status == "succeeded":
+                    video_url = ((task.get("content") or {}).get("url"))
+                    break
+                if status in ("failed", "cancelled"):
+                    raise RuntimeError(f"MiniMax task {status}: {task.get('error') or ''}".strip())
+            if not video_url:
+                raise RuntimeError("MiniMax task timed out after 20 minutes")
+
+            gens_dir = os.path.join(VOICES_DIR, "generations")
+            os.makedirs(gens_dir, exist_ok=True)
+            out_path = os.path.join(gens_dir, f"{generation_id}.mp4")
+            with requests.get(video_url, stream=True, timeout=300) as dl:
+                dl.raise_for_status()
+                with open(out_path, "wb") as f:
+                    for chunk in dl.iter_content(1 << 20):
+                        f.write(chunk)
+        _vid(video_status="success", video_path=out_path, video_error=None)
+        print(f"[voice] lipsync video ready for generation {generation_id}")
+    except Exception as e:
+        db.rollback()
+        _vid(video_status="error", video_error=str(e)[:500])
+        raise
+    finally:
+        db.close()
+
+
 def _fit_duration(out_path: str, target_seconds: float):
     """Pitch-preserving time-stretch so the finished audio matches a requested
     total runtime. atempo is clamped to 0.5-2.0x — beyond that speech sounds

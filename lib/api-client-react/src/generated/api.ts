@@ -35,6 +35,8 @@ import type {
   CoAppearanceGraph,
   CoMoments,
   Conversation,
+  CuratorLinkInput,
+  CuratorLinkResult,
   DeleteSavedSearch200,
   DubRequest,
   EmotionFacet,
@@ -279,6 +281,77 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+
+export const getCuratorLinkUrl = () => {
+
+
+
+
+  return `/api/media/curator-link`
+}
+
+/**
+ * @summary Link a Curator asset record (from a dropped asset XML) to existing library media (internal watcher endpoint, X-Internal-Token required)
+ */
+export const curatorLink = async (curatorLinkInput: CuratorLinkInput, options?: RequestInit): Promise<CuratorLinkResult> => {
+
+  return customFetch<CuratorLinkResult>(getCuratorLinkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(curatorLinkInput)
+  }
+);}
+
+
+
+
+
+export const getCuratorLinkMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof curatorLink>>, TError,{data: BodyType<CuratorLinkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof curatorLink>>, TError,{data: BodyType<CuratorLinkInput>}, TContext> => {
+
+const mutationKey = ['curatorLink'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof curatorLink>>, {data: BodyType<CuratorLinkInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  curatorLink(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CuratorLinkMutationResult = NonNullable<Awaited<ReturnType<typeof curatorLink>>>
+    export type CuratorLinkMutationBody = BodyType<CuratorLinkInput>
+    export type CuratorLinkMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Link a Curator asset record (from a dropped asset XML) to existing library media (internal watcher endpoint, X-Internal-Token required)
+ */
+export const useCuratorLink = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof curatorLink>>, TError,{data: BodyType<CuratorLinkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof curatorLink>>,
+        TError,
+        {data: BodyType<CuratorLinkInput>},
+        TContext
+      > => {
+      return useMutation(getCuratorLinkMutationOptions(options));
+    }
 
 export const getListMediaUrl = (params?: ListMediaParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -4732,6 +4805,154 @@ export const useDeleteVoiceGeneration = <TError = ErrorType<void>,
       > => {
       return useMutation(getDeleteVoiceGenerationMutationOptions(options));
     }
+
+export const getCreateLipsyncVideoUrl = (id: string,) => {
+
+
+
+
+  return `/api/voice/generations/${id}/lipsync`
+}
+
+/**
+ * @summary Render a lipsynced video of the person speaking this generation's audio (MiniMax H3)
+ */
+export const createLipsyncVideo = async (id: string, options?: RequestInit): Promise<VoiceGeneration> => {
+
+  return customFetch<VoiceGeneration>(getCreateLipsyncVideoUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateLipsyncVideoMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLipsyncVideo>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLipsyncVideo>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['createLipsyncVideo'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLipsyncVideo>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  createLipsyncVideo(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLipsyncVideoMutationResult = NonNullable<Awaited<ReturnType<typeof createLipsyncVideo>>>
+
+    export type CreateLipsyncVideoMutationError = ErrorType<void>
+
+    /**
+ * @summary Render a lipsynced video of the person speaking this generation's audio (MiniMax H3)
+ */
+export const useCreateLipsyncVideo = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLipsyncVideo>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createLipsyncVideo>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCreateLipsyncVideoMutationOptions(options));
+    }
+
+export const getStreamLipsyncVideoUrl = (id: string,) => {
+
+
+
+
+  return `/api/voice/generations/${id}/video`
+}
+
+/**
+ * @summary Stream a finished lipsync video
+ */
+export const streamLipsyncVideo = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getStreamLipsyncVideoUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamLipsyncVideoQueryKey = (id: string,) => {
+    return [
+    `/api/voice/generations/${id}/video`
+    ] as const;
+    }
+
+
+export const getStreamLipsyncVideoQueryOptions = <TData = Awaited<ReturnType<typeof streamLipsyncVideo>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamLipsyncVideo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamLipsyncVideoQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamLipsyncVideo>>> = ({ signal }) => streamLipsyncVideo(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamLipsyncVideo>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamLipsyncVideoQueryResult = NonNullable<Awaited<ReturnType<typeof streamLipsyncVideo>>>
+export type StreamLipsyncVideoQueryError = ErrorType<void>
+
+
+/**
+ * @summary Stream a finished lipsync video
+ */
+
+export function useStreamLipsyncVideo<TData = Awaited<ReturnType<typeof streamLipsyncVideo>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamLipsyncVideo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamLipsyncVideoQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getStreamVoiceGenerationUrl = (id: string,) => {
 

@@ -742,6 +742,8 @@ class VoiceGenerationOut(BaseModel):
     created_at: datetime
     preset: Optional[str] = None
     settings: Optional[dict] = None
+    video_status: Optional[str] = None
+    video_error: Optional[str] = None
 
 
 class RunStageIn(BaseModel):

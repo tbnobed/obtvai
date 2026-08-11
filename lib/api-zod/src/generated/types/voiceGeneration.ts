@@ -27,4 +27,11 @@ export interface VoiceGeneration {
   preset?: string | null;
   /** Custom synthesis settings this clip was generated with */
   settings?: VoiceSettings;
+  /**
+     * MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)
+     * @nullable
+     */
+  video_status?: string | null;
+  /** @nullable */
+  video_error?: string | null;
 }

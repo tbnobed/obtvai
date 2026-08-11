@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * xmeml = "Export for Curator" (Premiere FCP7 XML; Log Note carries each clip's Curator asset ID)
+ */
 export type ExportProjectCutBodyFormat = typeof ExportProjectCutBodyFormat[keyof typeof ExportProjectCutBodyFormat];
 
 
@@ -13,4 +16,5 @@ export const ExportProjectCutBodyFormat = {
   edl: 'edl',
   fcpxml: 'fcpxml',
   otio: 'otio',
+  xmeml: 'xmeml',
 } as const;

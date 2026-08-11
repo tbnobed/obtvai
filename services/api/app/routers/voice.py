@@ -85,6 +85,8 @@ def _gen_out(g: VoiceGeneration) -> VoiceGenerationOut:
         created_at=g.created_at,
         preset=g.preset,
         settings=g.settings,
+        video_status=g.video_status,
+        video_error=g.video_error,
     )
 
 
@@ -247,6 +249,39 @@ async def create_voice_generation(id: str, body: VoiceSpeakIn, db: AsyncSession 
     await db.refresh(gen)
     await worker_client.enqueue_voice_speak(gen.id)
     return _gen_out(gen)
+
+
+@router.post("/voice/generations/{id}/lipsync", response_model=VoiceGenerationOut, status_code=202)
+async def create_lipsync_video(id: str, db: AsyncSession = Depends(get_db)):
+    """Queue a MiniMax H3 lipsync video render for a finished voice generation:
+    the person (from a reference clip of their footage) speaks the generated audio."""
+    gen = (await db.execute(select(VoiceGeneration).where(VoiceGeneration.id == id))).scalar_one_or_none()
+    if not gen:
+        raise HTTPException(status_code=404, detail="Generation not found")
+    if gen.status != "success" or not gen.audio_path:
+        raise HTTPException(status_code=409, detail="Generate the audio first")
+    if gen.video_status in ("pending", "running"):
+        raise HTTPException(status_code=409, detail="Lipsync video already in progress")
+    if gen.duration_seconds and gen.duration_seconds > 15.0:
+        raise HTTPException(
+            status_code=400,
+            detail="MiniMax H3 caps lipsync videos at 15 seconds — regenerate with shorter text or a Match runtime of 15s or less",
+        )
+    gen.video_status = "pending"
+    gen.video_error = None
+    gen.video_path = None
+    await db.commit()
+    await db.refresh(gen)
+    await worker_client.enqueue_voice_lipsync(gen.id)
+    return _gen_out(gen)
+
+
+@router.get("/voice/generations/{id}/video")
+async def stream_lipsync_video(id: str, db: AsyncSession = Depends(get_db)):
+    gen = (await db.execute(select(VoiceGeneration).where(VoiceGeneration.id == id))).scalar_one_or_none()
+    if not gen or gen.video_status != "success" or not gen.video_path or not os.path.isfile(gen.video_path):
+        raise HTTPException(status_code=404, detail="Lipsync video not available")
+    return FileResponse(gen.video_path, media_type="video/mp4")
 
 
 @router.post("/people/{id}/voice/tune", response_model=list[VoiceGenerationOut], status_code=202)

@@ -15,5 +15,12 @@ export interface AIMessage {
   content: string;
   /** @nullable */
   citations?: AICitation[] | null;
+  /**
+     * Set when the assistant created a project from this turn
+     * @nullable
+     */
+  project_id?: string | null;
+  /** @nullable */
+  project_name?: string | null;
   created_at: string;
 }

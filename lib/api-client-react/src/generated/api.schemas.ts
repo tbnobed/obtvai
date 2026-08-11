@@ -148,7 +148,7 @@ export interface MediaAsset {
      */
   curator_asset_id?: string | null;
   /**
-     * Curator library folder path from the linked asset XML
+     * Curator library folder path (e.g. Library\TBN-Fast) from the linked asset XML
      * @nullable
      */
   curator_folder_path?: string | null;
@@ -379,6 +379,30 @@ export interface MediaListResponse {
 export interface MediaUploadInput {
   file: Blob;
   title?: string;
+}
+
+export interface CuratorLinkInput {
+  /** Curator asset UUID (asset.asset_id from the XML) */
+  asset_id: string;
+  /** @nullable */
+  name?: string | null;
+  /**
+     * UNC WebProxyPath from the XML; its last component is matched against ingested proxy folder paths
+     * @nullable
+     */
+  web_proxy_path?: string | null;
+  /**
+     * Curator library folder path (asset.folder_path)
+     * @nullable
+     */
+  folder_path?: string | null;
+}
+
+export interface CuratorLinkResult {
+  asset_id: string;
+  matched_media_ids?: string[];
+  /** True when the fuzzy fallback found multiple candidates and refused to link */
+  ambiguous?: boolean;
 }
 
 export interface MediaIngestInput {
@@ -804,7 +828,7 @@ export interface VoiceSpeakRequest {
   /**
      * Playback speed multiplier (overrides settings.speed)
      * @minimum 0.5
-     * @maximum 2.0
+     * @maximum 2
      */
   speed?: number;
   /**
@@ -849,6 +873,13 @@ export interface VoiceGeneration {
   preset?: string | null;
   /** Custom synthesis settings this clip was generated with */
   settings?: VoiceSettings;
+  /**
+     * MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)
+     * @nullable
+     */
+  video_status?: string | null;
+  /** @nullable */
+  video_error?: string | null;
 }
 
 export interface GraphicsPreset {
@@ -1783,7 +1814,10 @@ export interface AIAnswer {
   answer: string;
   conversation_id: string;
   citations: AICitation[];
-  /** Set when the assistant created a project from this turn @nullable */
+  /**
+     * Set when the assistant created a project from this turn
+     * @nullable
+     */
   project_id?: string | null;
   /** @nullable */
   project_name?: string | null;
@@ -1805,7 +1839,10 @@ export interface AIMessage {
   content: string;
   /** @nullable */
   citations?: AICitation[] | null;
-  /** Set when the assistant created a project from this turn @nullable */
+  /**
+     * Set when the assistant created a project from this turn
+     * @nullable
+     */
   project_id?: string | null;
   /** @nullable */
   project_name?: string | null;
@@ -2917,6 +2954,9 @@ export type RevertProjectCutBody = {
   version: number;
 };
 
+/**
+ * xmeml = "Export for Curator" (Premiere FCP7 XML; Log Note carries each clip's Curator asset ID)
+ */
 export type ExportProjectCutBodyFormat = typeof ExportProjectCutBodyFormat[keyof typeof ExportProjectCutBodyFormat];
 
 
@@ -2928,6 +2968,7 @@ export const ExportProjectCutBodyFormat = {
 } as const;
 
 export type ExportProjectCutBody = {
+  /** xmeml = "Export for Curator" (Premiere FCP7 XML; Log Note carries each clip's Curator asset ID) */
   format: ExportProjectCutBodyFormat;
 };
 

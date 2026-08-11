@@ -8,5 +8,6 @@
 import type { ExportProjectCutBodyFormat } from './exportProjectCutBodyFormat';
 
 export type ExportProjectCutBody = {
+  /** xmeml = "Export for Curator" (Premiere FCP7 XML; Log Note carries each clip's Curator asset ID) */
   format: ExportProjectCutBodyFormat;
 };

@@ -210,6 +210,11 @@ class VoiceGeneration(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     preset: Mapped[str | None] = mapped_column(String, nullable=True)
     settings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # MiniMax H3 lipsync video render (optional second stage)
+    video_status: Mapped[str | None] = mapped_column(String, nullable=True)  # pending | running | success | error
+    video_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    video_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    video_task_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class GraphicsGeneration(Base):

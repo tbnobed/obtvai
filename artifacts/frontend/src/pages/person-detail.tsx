@@ -578,6 +578,17 @@ function VoiceSection({
                         <a href={`/api/voice/generations/${g.id}/audio`} download className="shrink-0">
                           <Button size="icon" variant="ghost" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
                         </a>
+                        {!g.video_status || g.video_status === "error" ? (
+                          <Button size="sm" variant="outline" className="h-7 text-xs shrink-0 gap-1"
+                            disabled={lipsync.isPending || (g.duration_seconds ?? 0) > 15}
+                            title={(g.duration_seconds ?? 0) > 15
+                              ? "MiniMax H3 caps lipsync at 15s — regenerate shorter audio (use Match runtime ≤ 15)"
+                              : "Render a lipsynced video of this person speaking this audio (MiniMax H3)"}
+                            data-testid={`button-lipsync-${g.id}`}
+                            onClick={() => lipsync.mutate({ id: g.id }, { onSuccess: invalidateGens })}>
+                            <Clapperboard className="h-3 w-3" /> Lipsync
+                          </Button>
+                        ) : null}
                       </>
                     ) : g.status === "error" ? (
                       <span className="text-xs text-red-400 truncate">{g.error_message || "Generation failed"}</span>

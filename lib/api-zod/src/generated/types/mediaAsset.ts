@@ -26,6 +26,16 @@ export interface MediaAsset {
      * @nullable
      */
   curator_id?: string | null;
+  /**
+     * Curator asset UUID linked from a dropped asset XML sidecar
+     * @nullable
+     */
+  curator_asset_id?: string | null;
+  /**
+     * Curator library folder path (e.g. Library\TBN-Fast) from the linked asset XML
+     * @nullable
+     */
+  curator_folder_path?: string | null;
   /** @nullable */
   proxy_path?: string | null;
   /** @nullable */

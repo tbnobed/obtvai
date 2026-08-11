@@ -17,6 +17,23 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Link a Curator asset record (from a dropped asset XML) to existing library media (internal watcher endpoint, X-Internal-Token required)
+ */
+export const CuratorLinkBody = zod.object({
+  "asset_id": zod.string().describe('Curator asset UUID (asset.asset_id from the XML)'),
+  "name": zod.string().nullish(),
+  "web_proxy_path": zod.string().nullish().describe('UNC WebProxyPath from the XML; its last component is matched against ingested proxy folder paths'),
+  "folder_path": zod.string().nullish().describe('Curator library folder path (asset.folder_path)')
+})
+
+export const CuratorLinkResponse = zod.object({
+  "asset_id": zod.string(),
+  "matched_media_ids": zod.array(zod.string()).optional(),
+  "ambiguous": zod.boolean().optional().describe('True when the fuzzy fallback found multiple candidates and refused to link')
+})
+
+
+/**
  * @summary List all media assets
  */
 export const ListMediaQueryParams = zod.object({
@@ -38,6 +55,8 @@ export const ListMediaResponse = zod.object({
   "original_path": zod.string().nullish(),
   "source_path": zod.string().nullish().describe('Hi-res original path (e.g. from Curator sidecar metadata); NLE exports prefer this over original_path'),
   "curator_id": zod.string().nullish().describe('IPV Curator clip id (proxy folder name) for Curator-ingested assets'),
+  "curator_asset_id": zod.string().nullish().describe('Curator asset UUID linked from a dropped asset XML sidecar'),
+  "curator_folder_path": zod.string().nullish().describe('Curator library folder path (e.g. Library\\TBN-Fast) from the linked asset XML'),
   "proxy_path": zod.string().nullish(),
   "thumbnail_url": zod.string().nullish(),
   "sprite_url": zod.string().nullish().describe('Scrub sprite sheet filename (served from \/api\/thumbnails)'),
@@ -120,6 +139,8 @@ export const IngestMediaResponse = zod.object({
   "original_path": zod.string().nullish(),
   "source_path": zod.string().nullish().describe('Hi-res original path (e.g. from Curator sidecar metadata); NLE exports prefer this over original_path'),
   "curator_id": zod.string().nullish().describe('IPV Curator clip id (proxy folder name) for Curator-ingested assets'),
+  "curator_asset_id": zod.string().nullish().describe('Curator asset UUID linked from a dropped asset XML sidecar'),
+  "curator_folder_path": zod.string().nullish().describe('Curator library folder path (e.g. Library\\TBN-Fast) from the linked asset XML'),
   "proxy_path": zod.string().nullish(),
   "thumbnail_url": zod.string().nullish(),
   "sprite_url": zod.string().nullish().describe('Scrub sprite sheet filename (served from \/api\/thumbnails)'),
@@ -200,6 +221,8 @@ export const UploadMediaResponse = zod.object({
   "original_path": zod.string().nullish(),
   "source_path": zod.string().nullish().describe('Hi-res original path (e.g. from Curator sidecar metadata); NLE exports prefer this over original_path'),
   "curator_id": zod.string().nullish().describe('IPV Curator clip id (proxy folder name) for Curator-ingested assets'),
+  "curator_asset_id": zod.string().nullish().describe('Curator asset UUID linked from a dropped asset XML sidecar'),
+  "curator_folder_path": zod.string().nullish().describe('Curator library folder path (e.g. Library\\TBN-Fast) from the linked asset XML'),
   "proxy_path": zod.string().nullish(),
   "thumbnail_url": zod.string().nullish(),
   "sprite_url": zod.string().nullish().describe('Scrub sprite sheet filename (served from \/api\/thumbnails)'),
@@ -280,6 +303,8 @@ export const ImportMediaFromLinkResponse = zod.object({
   "original_path": zod.string().nullish(),
   "source_path": zod.string().nullish().describe('Hi-res original path (e.g. from Curator sidecar metadata); NLE exports prefer this over original_path'),
   "curator_id": zod.string().nullish().describe('IPV Curator clip id (proxy folder name) for Curator-ingested assets'),
+  "curator_asset_id": zod.string().nullish().describe('Curator asset UUID linked from a dropped asset XML sidecar'),
+  "curator_folder_path": zod.string().nullish().describe('Curator library folder path (e.g. Library\\TBN-Fast) from the linked asset XML'),
   "proxy_path": zod.string().nullish(),
   "thumbnail_url": zod.string().nullish(),
   "sprite_url": zod.string().nullish().describe('Scrub sprite sheet filename (served from \/api\/thumbnails)'),
@@ -359,6 +384,8 @@ export const GetMediaResponse = zod.object({
   "original_path": zod.string().nullish(),
   "source_path": zod.string().nullish().describe('Hi-res original path (e.g. from Curator sidecar metadata); NLE exports prefer this over original_path'),
   "curator_id": zod.string().nullish().describe('IPV Curator clip id (proxy folder name) for Curator-ingested assets'),
+  "curator_asset_id": zod.string().nullish().describe('Curator asset UUID linked from a dropped asset XML sidecar'),
+  "curator_folder_path": zod.string().nullish().describe('Curator library folder path (e.g. Library\\TBN-Fast) from the linked asset XML'),
   "proxy_path": zod.string().nullish(),
   "thumbnail_url": zod.string().nullish(),
   "sprite_url": zod.string().nullish().describe('Scrub sprite sheet filename (served from \/api\/thumbnails)'),
@@ -1147,6 +1174,8 @@ export const GetLibraryStatsResponse = zod.object({
   "original_path": zod.string().nullish(),
   "source_path": zod.string().nullish().describe('Hi-res original path (e.g. from Curator sidecar metadata); NLE exports prefer this over original_path'),
   "curator_id": zod.string().nullish().describe('IPV Curator clip id (proxy folder name) for Curator-ingested assets'),
+  "curator_asset_id": zod.string().nullish().describe('Curator asset UUID linked from a dropped asset XML sidecar'),
+  "curator_folder_path": zod.string().nullish().describe('Curator library folder path (e.g. Library\\TBN-Fast) from the linked asset XML'),
   "proxy_path": zod.string().nullish(),
   "thumbnail_url": zod.string().nullish(),
   "sprite_url": zod.string().nullish().describe('Scrub sprite sheet filename (served from \/api\/thumbnails)'),
@@ -1771,6 +1800,12 @@ export const CreateVoiceGenerationParams = zod.object({
 export const createVoiceGenerationBodyTextMax = 2000;
 
 export const createVoiceGenerationBodyLanguageDefault = `en`;
+export const createVoiceGenerationBodySpeedMin = 0.5;
+export const createVoiceGenerationBodySpeedMax = 2;
+
+export const createVoiceGenerationBodyTargetSecondsMax = 3600;
+
+
 
 export const CreateVoiceGenerationBody = zod.object({
   "text": zod.string().min(1).max(createVoiceGenerationBodyTextMax),
@@ -1781,8 +1816,8 @@ export const CreateVoiceGenerationBody = zod.object({
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
 }).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Optional per-generation synthesis overrides'),
-  "speed": zod.number().min(0.5).max(2).optional().describe('Playback speed multiplier (overrides settings.speed)'),
-  "target_seconds": zod.number().min(1).max(3600).optional().describe('Desired total runtime — the finished audio is time-stretched (pitch-preserving, 0.5-2x) to match')
+  "speed": zod.number().min(createVoiceGenerationBodySpeedMin).max(createVoiceGenerationBodySpeedMax).optional().describe('Playback speed multiplier (overrides settings.speed)'),
+  "target_seconds": zod.number().min(1).max(createVoiceGenerationBodyTargetSecondsMax).optional().describe('Desired total runtime — the finished audio is time-stretched (pitch-preserving, 0.5-2x) to match')
 })
 
 export const CreateVoiceGenerationResponse = zod.object({
@@ -1801,7 +1836,9 @@ export const CreateVoiceGenerationResponse = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with'),
+  "video_status": zod.string().nullish().describe('MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)'),
+  "video_error": zod.string().nullish()
 })
 
 
@@ -1837,7 +1874,9 @@ export const TuneVoiceResponseItem = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with'),
+  "video_status": zod.string().nullish().describe('MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)'),
+  "video_error": zod.string().nullish()
 })
 export const TuneVoiceResponse = zod.array(TuneVoiceResponseItem)
 
@@ -1896,7 +1935,9 @@ export const ListVoiceGenerationsResponseItem = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with'),
+  "video_status": zod.string().nullish().describe('MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)'),
+  "video_error": zod.string().nullish()
 })
 export const ListVoiceGenerationsResponse = zod.array(ListVoiceGenerationsResponseItem)
 
@@ -1909,6 +1950,45 @@ export const DeleteVoiceGenerationParams = zod.object({
 })
 
 export const DeleteVoiceGenerationResponse = zod.void()
+
+
+/**
+ * @summary Render a lipsynced video of the person speaking this generation's audio (MiniMax H3)
+ */
+export const CreateLipsyncVideoParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateLipsyncVideoResponse = zod.object({
+  "id": zod.string(),
+  "person_id": zod.string(),
+  "text": zod.string(),
+  "language": zod.string(),
+  "status": zod.string().describe('pending | running | success | error'),
+  "progress": zod.number(),
+  "duration_seconds": zod.number().nullish(),
+  "error_message": zod.string().nullish(),
+  "created_at": zod.string(),
+  "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)'),
+  "settings": zod.object({
+  "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
+  "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
+  "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
+  "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with'),
+  "video_status": zod.string().nullish().describe('MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)'),
+  "video_error": zod.string().nullish()
+})
+
+
+/**
+ * @summary Stream a finished lipsync video
+ */
+export const StreamLipsyncVideoParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StreamLipsyncVideoResponse = zod.unknown()
 
 
 /**
@@ -2132,6 +2212,8 @@ export const AddGraphicsToLibraryResponse = zod.object({
   "original_path": zod.string().nullish(),
   "source_path": zod.string().nullish().describe('Hi-res original path (e.g. from Curator sidecar metadata); NLE exports prefer this over original_path'),
   "curator_id": zod.string().nullish().describe('IPV Curator clip id (proxy folder name) for Curator-ingested assets'),
+  "curator_asset_id": zod.string().nullish().describe('Curator asset UUID linked from a dropped asset XML sidecar'),
+  "curator_folder_path": zod.string().nullish().describe('Curator library folder path (e.g. Library\\TBN-Fast) from the linked asset XML'),
   "proxy_path": zod.string().nullish(),
   "thumbnail_url": zod.string().nullish(),
   "sprite_url": zod.string().nullish().describe('Scrub sprite sheet filename (served from \/api\/thumbnails)'),
@@ -3329,7 +3411,9 @@ export const AskAIResponse = zod.object({
   "start_time": zod.number(),
   "end_time": zod.number(),
   "snippet": zod.string().nullish()
-}))
+})),
+  "project_id": zod.string().nullish().describe('Set when the assistant created a project from this turn'),
+  "project_name": zod.string().nullish()
 })
 
 
@@ -3374,6 +3458,8 @@ export const GetConversationMessagesResponseItem = zod.object({
   "end_time": zod.number(),
   "snippet": zod.string().nullish()
 })).nullish(),
+  "project_id": zod.string().nullish().describe('Set when the assistant created a project from this turn'),
+  "project_name": zod.string().nullish(),
   "created_at": zod.string()
 })
 export const GetConversationMessagesResponse = zod.array(GetConversationMessagesResponseItem)
@@ -3703,7 +3789,7 @@ export const ExportProjectCutParams = zod.object({
 })
 
 export const ExportProjectCutBody = zod.object({
-  "format": zod.enum(['edl', 'fcpxml', 'otio'])
+  "format": zod.enum(['edl', 'fcpxml', 'otio', 'xmeml']).describe('xmeml = \"Export for Curator\" (Premiere FCP7 XML; Log Note carries each clip\'s Curator asset ID)')
 })
 
 export const ExportProjectCutResponse = zod.object({
@@ -3977,7 +4063,7 @@ export const ExportClipListParams = zod.object({
 })
 
 export const ExportClipListBody = zod.object({
-  "format": zod.string().describe('edl | csv | json | fcpxml | otio')
+  "format": zod.string().describe('edl | csv | json | fcpxml | otio | xmeml (xmeml = Export for Curator: Premiere XML with Curator asset IDs as Log Notes)')
 })
 
 export const ExportClipListResponse = zod.object({
