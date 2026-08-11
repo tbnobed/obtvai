@@ -228,6 +228,16 @@ async def create_voice_generation(id: str, body: VoiceSpeakIn, db: AsyncSession 
         )
 
     settings = _validate_settings(body.settings) if body.settings else None
+    if body.speed is not None:
+        if not (0.5 <= body.speed <= 2.0):
+            raise HTTPException(status_code=400, detail="speed must be between 0.5 and 2.0")
+        settings = {**(settings or {}), "speed": float(body.speed)}
+    if body.target_seconds is not None:
+        if not (1.0 <= body.target_seconds <= 3600.0):
+            raise HTTPException(status_code=400, detail="target_seconds must be between 1 and 3600")
+        # Stored alongside synthesis settings; the worker pops it out and
+        # time-stretches the finished audio to match.
+        settings = {**(settings or {}), "target_seconds": float(body.target_seconds)}
     gen = VoiceGeneration(
         person_id=id, text=text, language=language,
         status="pending", progress=0.0, settings=settings,

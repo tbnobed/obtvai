@@ -4878,6 +4878,16 @@ components:
           allOf:
             - $ref: "#/components/schemas/VoiceSettings"
           description: Optional per-generation synthesis overrides
+        speed:
+          type: number
+          minimum: 0.5
+          maximum: 2.0
+          description: Playback speed multiplier (overrides settings.speed)
+        target_seconds:
+          type: number
+          minimum: 1
+          maximum: 3600
+          description: Desired total runtime — the finished audio is time-stretched (pitch-preserving, 0.5-2x) to match
 
     VoiceSettings:
       type: object

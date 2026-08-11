@@ -1780,7 +1780,9 @@ export const CreateVoiceGenerationBody = zod.object({
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
-}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Optional per-generation synthesis overrides')
+}).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Optional per-generation synthesis overrides'),
+  "speed": zod.number().min(0.5).max(2).optional().describe('Playback speed multiplier (overrides settings.speed)'),
+  "target_seconds": zod.number().min(1).max(3600).optional().describe('Desired total runtime — the finished audio is time-stretched (pitch-preserving, 0.5-2x) to match')
 })
 
 export const CreateVoiceGenerationResponse = zod.object({

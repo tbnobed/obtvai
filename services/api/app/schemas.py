@@ -717,6 +717,8 @@ class VoiceSpeakIn(BaseModel):
     text: str
     language: str = "en"
     settings: Optional[VoiceSettingsIn] = None
+    speed: Optional[float] = None
+    target_seconds: Optional[float] = None
 
 
 class VoiceTuneIn(BaseModel):

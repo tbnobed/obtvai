@@ -231,6 +231,26 @@ def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[st
     )
 
 
+def _fit_duration(out_path: str, target_seconds: float):
+    """Pitch-preserving time-stretch so the finished audio matches a requested
+    total runtime. atempo is clamped to 0.5-2.0x — beyond that speech sounds
+    broken anyway."""
+    import subprocess
+    duration = _probe_duration(out_path)
+    if not duration or duration <= 0 or target_seconds <= 0:
+        return
+    tempo = duration / target_seconds
+    tempo = min(2.0, max(0.5, tempo))
+    if abs(tempo - 1.0) < 0.02:
+        return
+    tmp = out_path + ".fit.wav"
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", out_path, "-filter:a", f"atempo={tempo:.5f}", tmp],
+        check=True, capture_output=True,
+    )
+    os.replace(tmp, out_path)
+
+
 def _split_tts_chunks(text_value: str, max_chars: int = 280) -> list[str]:
     """Split long scripts into sentence-grouped chunks the TTS engine can
     handle. Chatterbox caps generation at ~40s of audio per call and silently
@@ -278,6 +298,19 @@ def generate_speech(self, generation_id: str):
         if not row:
             return
         person_id, text_value, language, gen_preset, gen_settings, person_preset, person_settings = row
+        # target_seconds rides in the generation settings but is a
+        # post-processing knob, not a synthesis knob — pop it before the
+        # settings/preset precedence so a target-only request keeps the
+        # person's saved style.
+        target_seconds = None
+        if gen_settings:
+            gen_settings = dict(gen_settings)
+            try:
+                target_seconds = float(gen_settings.pop("target_seconds", None) or 0) or None
+            except (TypeError, ValueError):
+                target_seconds = None
+            if not gen_settings:
+                gen_settings = None
         # Precedence: per-generation settings > per-generation preset (tuning
         # run) > person's saved custom settings > person's saved preset.
         if gen_settings:
@@ -353,6 +386,8 @@ def generate_speech(self, generation_id: str):
             # Longest 1-2 clean references beat a pile of mixed recordings.
             synthesize_cloned(tts, text_value, language, speaker_wavs[:2], out_path,
                               preset=preset, settings=settings)
+        if target_seconds:
+            _fit_duration(out_path, target_seconds)
         elapsed = time.monotonic() - started
 
         duration = _probe_duration(out_path)

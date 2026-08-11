@@ -801,6 +801,18 @@ export interface VoiceSpeakRequest {
   language?: string;
   /** Optional per-generation synthesis overrides */
   settings?: VoiceSettings;
+  /**
+     * Playback speed multiplier (overrides settings.speed)
+     * @minimum 0.5
+     * @maximum 2.0
+     */
+  speed?: number;
+  /**
+     * Desired total runtime — the finished audio is time-stretched (pitch-preserving, 0.5-2x) to match
+     * @minimum 1
+     * @maximum 3600
+     */
+  target_seconds?: number;
 }
 
 export interface VoiceTuneRequest {

@@ -174,6 +174,8 @@ function VoiceSection({
 
   const [genText, setGenText] = useState("");
   const [genLang, setGenLang] = useState("en");
+  const [genSpeed, setGenSpeed] = useState(1.0);
+  const [genTarget, setGenTarget] = useState("");
   const [tuneOpen, setTuneOpen] = useState(false);
   const [tune, setTune] = useState<typeof DEFAULT_TUNE>({
     ...DEFAULT_TUNE,
@@ -222,6 +224,7 @@ function VoiceSection({
 
   const submitGeneration = () => {
     if (!genText.trim()) return;
+    const target = parseFloat(genTarget);
     createGen.mutate(
       {
         id: personId,
@@ -229,6 +232,8 @@ function VoiceSection({
           text: genText.trim(),
           language: genLang,
           ...(tuneOpen && tuneChanged ? { settings: tune } : {}),
+          ...(genSpeed !== 1.0 ? { speed: genSpeed } : {}),
+          ...(Number.isFinite(target) && target >= 1 ? { target_seconds: target } : {}),
         },
       },
       { onSuccess: () => { setGenText(""); invalidateGens(); } },
@@ -470,6 +475,35 @@ function VoiceSection({
                 placeholder={`Type anything — hear it in ${personName}'s voice`}
                 maxLength={2000}
               />
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2 min-w-52 flex-1">
+                  <span className="text-xs text-muted-foreground shrink-0">Speed</span>
+                  <Slider
+                    min={0.5}
+                    max={2.0}
+                    step={0.05}
+                    value={[genSpeed]}
+                    onValueChange={([v]) => setGenSpeed(v)}
+                    className="flex-1"
+                    data-testid="slider-gen-speed"
+                  />
+                  <span className="text-xs font-mono w-10 text-right">{genSpeed.toFixed(2)}x</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground shrink-0" title="Time-stretches the finished audio (pitch-preserving) to hit an exact total runtime">Match runtime</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={3600}
+                    step="any"
+                    value={genTarget}
+                    onChange={(e) => setGenTarget(e.target.value)}
+                    placeholder="sec"
+                    className="w-20 h-8 text-xs"
+                    data-testid="input-gen-target-seconds"
+                  />
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 <Select value={genLang} onValueChange={setGenLang}>
                   <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
