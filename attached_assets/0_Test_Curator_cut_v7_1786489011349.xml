@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="4">
+<sequence id="sequence-1">
+  <name>Test Curator cut v1</name>
+  <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+  <duration>1025</duration>
+  <media>
+    <video>
+      <format><samplecharacteristics><rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate><width>1920</width><height>1080</height></samplecharacteristics></format>
+      <track>
+        <clipitem id="clipitem-1">
+          <name>It's wherever you can be, where you can be still and where y</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>0</start><end>127</end><in>5876</in><out>6004</out>
+          <file id="file-1"><name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439_video.mp4</name><pathurl>https://curator.tbn.tv/CuratorGateway/proxies/BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439.m3u8.isu?assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6.isu</pathurl><rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate><media><video><samplecharacteristics><rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate></samplecharacteristics></video><audio><samplecharacteristics><depth>16</depth><samplerate>48000</samplerate></samplecharacteristics><channelcount>2</channelcount></audio></media></file>
+          <logginginfo><lognote>assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6</lognote></logginginfo>
+          <link><linkclipref>clipitem-1</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>1</clipindex></link>
+          <link><linkclipref>clipitem-a1-1</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>1</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-2">
+          <name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439_video.mp4</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>127</start><end>255</end><in>6004</in><out>6131</out>
+          <file id="file-1"/>
+          <logginginfo><lognote>assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6</lognote></logginginfo>
+          <link><linkclipref>clipitem-2</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>2</clipindex></link>
+          <link><linkclipref>clipitem-a1-2</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>2</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-3">
+          <name>Conversation two, God is your refuge.</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>255</start><end>405</end><in>6166</in><out>6316</out>
+          <file id="file-1"/>
+          <logginginfo><lognote>assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6</lognote></logginginfo>
+          <link><linkclipref>clipitem-3</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>3</clipindex></link>
+          <link><linkclipref>clipitem-a1-3</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>3</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-4">
+          <name>Like, I'm with you in person, and I'm still struggling to be</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>405</start><end>522</end><in>13569</in><out>13686</out>
+          <file id="file-1"/>
+          <logginginfo><lognote>assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6</lognote></logginginfo>
+          <link><linkclipref>clipitem-4</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>4</clipindex></link>
+          <link><linkclipref>clipitem-a1-4</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>4</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-5">
+          <name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439_video.mp4</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>522</start><end>639</end><in>13686</in><out>13804</out>
+          <file id="file-1"/>
+          <logginginfo><lognote>assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6</lognote></logginginfo>
+          <link><linkclipref>clipitem-5</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>5</clipindex></link>
+          <link><linkclipref>clipitem-a1-5</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>5</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-6">
+          <name>spend eternity with God. If he doesn't do anything else for </name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>639</start><end>768</end><in>16112</in><out>16241</out>
+          <file id="file-1"/>
+          <logginginfo><lognote>assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6</lognote></logginginfo>
+          <link><linkclipref>clipitem-6</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>6</clipindex></link>
+          <link><linkclipref>clipitem-a1-6</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>6</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-7">
+          <name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439_video.mp4</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>768</start><end>896</end><in>16241</in><out>16370</out>
+          <file id="file-1"/>
+          <logginginfo><lognote>assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6</lognote></logginginfo>
+          <link><linkclipref>clipitem-7</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>7</clipindex></link>
+          <link><linkclipref>clipitem-a1-7</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>7</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-8">
+          <name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439_video.mp4</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>896</start><end>1025</end><in>16370</in><out>16499</out>
+          <file id="file-1"/>
+          <logginginfo><lognote>assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6</lognote></logginginfo>
+          <link><linkclipref>clipitem-8</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>8</clipindex></link>
+          <link><linkclipref>clipitem-a1-8</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>8</clipindex></link>
+        </clipitem>
+      </track>
+    </video>
+    <audio>
+      <format><samplecharacteristics><depth>16</depth><samplerate>48000</samplerate></samplecharacteristics></format>
+      <track>
+        <clipitem id="clipitem-a1-1">
+          <name>It's wherever you can be, where you can be still and where y</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>0</start><end>127</end><in>5876</in><out>6004</out>
+          <file id="file-1"/>
+          <sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>
+          <link><linkclipref>clipitem-1</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>1</clipindex></link>
+          <link><linkclipref>clipitem-a1-1</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>1</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-a1-2">
+          <name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439_video.mp4</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>127</start><end>255</end><in>6004</in><out>6131</out>
+          <file id="file-1"/>
+          <sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>
+          <link><linkclipref>clipitem-2</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>2</clipindex></link>
+          <link><linkclipref>clipitem-a1-2</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>2</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-a1-3">
+          <name>Conversation two, God is your refuge.</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>255</start><end>405</end><in>6166</in><out>6316</out>
+          <file id="file-1"/>
+          <sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>
+          <link><linkclipref>clipitem-3</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>3</clipindex></link>
+          <link><linkclipref>clipitem-a1-3</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>3</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-a1-4">
+          <name>Like, I'm with you in person, and I'm still struggling to be</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>405</start><end>522</end><in>13569</in><out>13686</out>
+          <file id="file-1"/>
+          <sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>
+          <link><linkclipref>clipitem-4</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>4</clipindex></link>
+          <link><linkclipref>clipitem-a1-4</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>4</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-a1-5">
+          <name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439_video.mp4</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>522</start><end>639</end><in>13686</in><out>13804</out>
+          <file id="file-1"/>
+          <sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>
+          <link><linkclipref>clipitem-5</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>5</clipindex></link>
+          <link><linkclipref>clipitem-a1-5</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>5</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-a1-6">
+          <name>spend eternity with God. If he doesn't do anything else for </name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>639</start><end>768</end><in>16112</in><out>16241</out>
+          <file id="file-1"/>
+          <sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>
+          <link><linkclipref>clipitem-6</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>6</clipindex></link>
+          <link><linkclipref>clipitem-a1-6</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>6</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-a1-7">
+          <name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439_video.mp4</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>768</start><end>896</end><in>16241</in><out>16370</out>
+          <file id="file-1"/>
+          <sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>
+          <link><linkclipref>clipitem-7</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>7</clipindex></link>
+          <link><linkclipref>clipitem-a1-7</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>7</clipindex></link>
+        </clipitem>
+        <clipitem id="clipitem-a1-8">
+          <name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439_video.mp4</name>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>896</start><end>1025</end><in>16370</in><out>16499</out>
+          <file id="file-1"/>
+          <sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>
+          <link><linkclipref>clipitem-8</linkclipref><mediatype>video</mediatype><trackindex>1</trackindex><clipindex>8</clipindex></link>
+          <link><linkclipref>clipitem-a1-8</linkclipref><mediatype>audio</mediatype><trackindex>1</trackindex><clipindex>8</clipindex></link>
+        </clipitem>
+      </track>
+    </audio>
+  </media>
+</sequence>
+</xmeml>

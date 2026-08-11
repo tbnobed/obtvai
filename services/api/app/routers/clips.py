@@ -138,7 +138,8 @@ def _curator_audio_sidecars(path: str | None) -> list[str]:
     return sorted(_glob.glob(pattern))
 
 
-def _curator_isu_url(path: str | None, asset_id: str | None) -> str | None:
+def _curator_isu_url(path: str | None, asset_id: str | None,
+                     folder: str | None = None) -> str | None:
     """Build the Curator gateway ISU streaming URL for a proxy — the same URL
     the Curator panel hands Premiere (imported via Curator's ISU plugin, with
     audio embedded in the stream). Returns None when the media isn't a
@@ -147,9 +148,19 @@ def _curator_isu_url(path: str | None, asset_id: str | None) -> str | None:
     gateway = os.environ.get(
         "CURATOR_GATEWAY_URL", "https://curator.tbn.tv/CuratorGateway/proxies").rstrip("/")
     root = os.environ.get("CURATOR_PROXY_ROOT", "/curator").rstrip("/")
-    if not path or not asset_id or not gateway:
+    if not asset_id or not gateway:
         return None
-    if not path.startswith(root + "/"):
+    # curator_folder_path (stored when the Curator panel links the asset) is
+    # authoritative for the gateway-relative location — the local mount may be
+    # flattened or rooted deeper than the gateway's proxies tree.
+    if folder:
+        f = folder.strip().replace("\\", "/").strip("/")
+        if "proxies/" in f:
+            f = f.split("proxies/", 1)[1].strip("/")
+        if f:
+            stem = f.rsplit("/", 1)[-1]
+            return f"{gateway}/{f}/{stem}.m3u8.isu?assetId={asset_id}.isu"
+    if not path or not path.startswith(root + "/"):
         return None
     d = os.path.dirname(path)
     playlists = sorted(_glob.glob(os.path.join(_glob.escape(d), "*.m3u8")))
@@ -162,7 +173,8 @@ def _curator_isu_url(path: str | None, asset_id: str | None) -> str | None:
 def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
            lognotes: dict[str, str] | None = None,
            fps_map: dict[str, float] | None = None,
-           audio_map: dict[str, list[str]] | None = None) -> str:
+           audio_map: dict[str, list[str]] | None = None,
+           folders: dict[str, str] | None = None) -> str:
     """Premiere Pro XML (FCP7 xmeml v4) — "Export for Curator".
 
     Curator's Premiere panel matches assets by reading the clip's Log Note
@@ -181,6 +193,7 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
     lognotes = lognotes or {}
     fps_map = fps_map or {}
     audio_map = audio_map or {}
+    folders = folders or {}
 
     def clip_fps(media_id: str) -> float:
         return float(fps_map.get(media_id) or 0) or float(_FPS)
@@ -210,7 +223,8 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         # carries its own audio, so the video-only fMP4 + _audioN sidecar
         # files are never touched (importing those raw fragments natively is
         # what crashes Premiere).
-        isu = _curator_isu_url(paths.get(c.media_id), lognotes.get(c.media_id))
+        isu = _curator_isu_url(paths.get(c.media_id), lognotes.get(c.media_id),
+                               folders.get(c.media_id))
         sidecars = [] if isu else (audio_map.get(c.media_id) or [])
         if c.media_id in file_ids:
             file_el = f'<file id="{file_ids[c.media_id]}"/>'
@@ -534,13 +548,15 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
     paths: dict[str, str] = {}
     lognotes: dict[str, str] = {}
     fps_map: dict[str, float] = {}
+    folders: dict[str, str] = {}
     if media_ids:
         rows = await db.execute(
             select(MediaAsset.id, MediaAsset.original_path, MediaAsset.source_path,
-                   MediaAsset.curator_asset_id, MediaAsset.fps)
+                   MediaAsset.curator_asset_id, MediaAsset.fps,
+                   MediaAsset.curator_folder_path)
             .where(MediaAsset.id.in_(media_ids))
         )
-        for mid, op, sp, cid, fps_v in rows.all():
+        for mid, op, sp, cid, fps_v, cfolder in rows.all():
             # source_path (hi-res original from Curator sidecar metadata) wins
             # over original_path — for Curator-direct ingests original_path IS
             # the proxy.
@@ -550,10 +566,12 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
                 lognotes[mid] = cid
             if fps_v:
                 fps_map[mid] = float(fps_v)
+            if cfolder:
+                folders[mid] = cfolder
 
     if fmt == "xmeml":
         audio_map = {mid: _curator_audio_sidecars(p) for mid, p in paths.items()}
-        content = _xmeml(cl_out.name, cl_out.clips, paths, lognotes, fps_map, audio_map)
+        content = _xmeml(cl_out.name, cl_out.clips, paths, lognotes, fps_map, audio_map, folders)
         filename = f"{cl_out.name.replace(' ', '_')}.xml"
 
     elif fmt == "fcpxml":
