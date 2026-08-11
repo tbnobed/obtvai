@@ -1837,7 +1837,7 @@ export const CreateVoiceGenerationResponse = zod.object({
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
 }).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with'),
-  "video_status": zod.string().nullish().describe('MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)'),
+  "video_status": zod.string().nullish().describe('Lipsync video render: pending | running | success | error (null = not requested)'),
   "video_error": zod.string().nullish()
 })
 
@@ -1875,7 +1875,7 @@ export const TuneVoiceResponseItem = zod.object({
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
 }).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with'),
-  "video_status": zod.string().nullish().describe('MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)'),
+  "video_status": zod.string().nullish().describe('Lipsync video render: pending | running | success | error (null = not requested)'),
   "video_error": zod.string().nullish()
 })
 export const TuneVoiceResponse = zod.array(TuneVoiceResponseItem)
@@ -1936,7 +1936,7 @@ export const ListVoiceGenerationsResponseItem = zod.object({
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
 }).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with'),
-  "video_status": zod.string().nullish().describe('MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)'),
+  "video_status": zod.string().nullish().describe('Lipsync video render: pending | running | success | error (null = not requested)'),
   "video_error": zod.string().nullish()
 })
 export const ListVoiceGenerationsResponse = zod.array(ListVoiceGenerationsResponseItem)
@@ -1953,7 +1953,7 @@ export const DeleteVoiceGenerationResponse = zod.void()
 
 
 /**
- * @summary Render a lipsynced video of the person speaking this generation's audio (MiniMax H3)
+ * @summary Render a lipsynced video of the person speaking this generation's audio (LatentSync, local GPU)
  */
 export const CreateLipsyncVideoParams = zod.object({
   "id": zod.coerce.string()
@@ -1976,7 +1976,7 @@ export const CreateLipsyncVideoResponse = zod.object({
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
   "repetition_penalty": zod.number().nullish().describe('Clarity\/anti-mumble, 1.5-12 (higher = crisper, can clip words)')
 }).describe('XTTS synthesis knobs. Omitted\/null fields fall back to stock defaults.').optional().describe('Custom synthesis settings this clip was generated with'),
-  "video_status": zod.string().nullish().describe('MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)'),
+  "video_status": zod.string().nullish().describe('Lipsync video render: pending | running | success | error (null = not requested)'),
   "video_error": zod.string().nullish()
 })
 

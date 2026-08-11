@@ -18,6 +18,7 @@ import {
   useListVoiceGenerations,
   getListVoiceGenerationsQueryKey,
   useDeleteVoiceGeneration,
+  useCreateLipsyncVideo,
   useTuneVoice,
   useSetVoicePreset,
   useSetVoiceSettings,
@@ -52,7 +53,7 @@ import {
   AudioWaveform, Upload, Trash2, Loader2, Play, Download, Plus, Sparkles,
   SlidersHorizontal, ChevronDown, ChevronUp, Eye, Undo2, Check, Search,
   RefreshCw, Globe, ScanSearch, ExternalLink, AlertTriangle,
-  LayoutGrid, List, ChevronLeft, ChevronRight,
+  LayoutGrid, List, ChevronLeft, ChevronRight, Clapperboard,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -147,7 +148,9 @@ function VoiceSection({
       queryKey: getListVoiceGenerationsQueryKey(personId),
       enabled: !!personId,
       refetchInterval: (q) =>
-        q.state.data?.some((g) => g.status === "pending" || g.status === "running") ? 2000 : false,
+        q.state.data?.some((g) =>
+          g.status === "pending" || g.status === "running" ||
+          g.video_status === "pending" || g.video_status === "running") ? 2000 : false,
     },
   });
 
@@ -156,6 +159,7 @@ function VoiceSection({
   const deleteSample = useDeleteVoiceSample();
   const createGen = useCreateVoiceGeneration();
   const deleteGen = useDeleteVoiceGeneration();
+  const lipsync = useCreateLipsyncVideo();
   const tuneVoice = useTuneVoice();
   const setPreset = useSetVoicePreset();
   const saveSettings = useSetVoiceSettings();
@@ -580,10 +584,8 @@ function VoiceSection({
                         </a>
                         {!g.video_status || g.video_status === "error" ? (
                           <Button size="sm" variant="outline" className="h-7 text-xs shrink-0 gap-1"
-                            disabled={lipsync.isPending || (g.duration_seconds ?? 0) > 15}
-                            title={(g.duration_seconds ?? 0) > 15
-                              ? "MiniMax H3 caps lipsync at 15s — regenerate shorter audio (use Match runtime ≤ 15)"
-                              : "Render a lipsynced video of this person speaking this audio (MiniMax H3)"}
+                            disabled={lipsync.isPending}
+                            title="Render a lipsynced video of this person speaking this audio (runs locally on the GPU workers)"
                             data-testid={`button-lipsync-${g.id}`}
                             onClick={() => lipsync.mutate({ id: g.id }, { onSuccess: invalidateGens })}>
                             <Clapperboard className="h-3 w-3" /> Lipsync
@@ -598,6 +600,23 @@ function VoiceSection({
                       </span>
                     )}
                   </div>
+                  {g.video_status === "pending" || g.video_status === "running" ? (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Rendering lipsync video on the GPU workers — this can take several minutes…
+                    </p>
+                  ) : g.video_status === "error" ? (
+                    <p className="text-xs text-red-400 truncate" title={g.video_error ?? undefined}>
+                      Lipsync failed: {g.video_error || "unknown error"}
+                    </p>
+                  ) : g.video_status === "success" ? (
+                    <div className="flex items-center gap-2">
+                      <video controls preload="metadata" src={`/api/voice/generations/${g.id}/video`}
+                        className="h-40 rounded bg-black" data-testid={`video-lipsync-${g.id}`} />
+                      <a href={`/api/voice/generations/${g.id}/video`} download className="shrink-0">
+                        <Button size="icon" variant="ghost" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
+                      </a>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

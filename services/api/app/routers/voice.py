@@ -253,7 +253,7 @@ async def create_voice_generation(id: str, body: VoiceSpeakIn, db: AsyncSession 
 
 @router.post("/voice/generations/{id}/lipsync", response_model=VoiceGenerationOut, status_code=202)
 async def create_lipsync_video(id: str, db: AsyncSession = Depends(get_db)):
-    """Queue a MiniMax H3 lipsync video render for a finished voice generation:
+    """Queue a LatentSync lipsync video render for a finished voice generation:
     the person (from a reference clip of their footage) speaks the generated audio."""
     gen = (await db.execute(select(VoiceGeneration).where(VoiceGeneration.id == id))).scalar_one_or_none()
     if not gen:
@@ -262,10 +262,12 @@ async def create_lipsync_video(id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Generate the audio first")
     if gen.video_status in ("pending", "running"):
         raise HTTPException(status_code=409, detail="Lipsync video already in progress")
-    if gen.duration_seconds and gen.duration_seconds > 15.0:
+    max_secs = float(os.environ.get("LIPSYNC_MAX_SECONDS", "120"))
+    if gen.duration_seconds and gen.duration_seconds > max_secs:
         raise HTTPException(
             status_code=400,
-            detail="MiniMax H3 caps lipsync videos at 15 seconds — regenerate with shorter text or a Match runtime of 15s or less",
+            detail=f"Lipsync is capped at {int(max_secs)}s of audio — diffusion runs per frame "
+                   "and longer clips would occupy a GPU for hours",
         )
     gen.video_status = "pending"
     gen.video_error = None

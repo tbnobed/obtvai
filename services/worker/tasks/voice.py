@@ -267,20 +267,64 @@ def _find_reference_clip(db, person_id: str) -> tuple[str, float, float]:
         "add a voice sample cut from footage first")
 
 
-def _b64_data_uri(path: str, mime: str) -> str:
-    import base64
-    with open(path, "rb") as f:
-        return f"data:{mime};base64," + base64.b64encode(f.read()).decode()
+_LATENTSYNC_DIR = "/opt/latentsync"
+_LATENTSYNC_PY = "/opt/latentsync-venv/bin/python"
+_LATENTSYNC_CKPT_DIR = os.path.join(
+    os.environ.get("HF_HOME") or os.path.expanduser("~/.cache"), "latentsync-checkpoints")
 
 
-@celery_app.task(bind=True, name="tasks.voice.lipsync_video", queue="cpu")
+def _ensure_latentsync_checkpoints() -> str:
+    """Download LatentSync 1.6 weights (~5GB) into the persistent models cache
+    on first use, and point the repo's relative checkpoints/ dir at them (the
+    unet config references checkpoints/whisper/tiny.pt relative to the repo).
+
+    Both GPU workers share the models_cache volume, so the download is
+    serialized with a cross-container flock and published atomically (download
+    to a temp dir, validate, rename) so a partial download can never be used."""
+    import fcntl
+    import shutil
+    from huggingface_hub import snapshot_download
+
+    unet = os.path.join(_LATENTSYNC_CKPT_DIR, "latentsync_unet.pt")
+    whisper = os.path.join(_LATENTSYNC_CKPT_DIR, "whisper", "tiny.pt")
+    if not (os.path.isfile(unet) and os.path.isfile(whisper)):
+        os.makedirs(os.path.dirname(_LATENTSYNC_CKPT_DIR), exist_ok=True)
+        lock_path = _LATENTSYNC_CKPT_DIR + ".lock"
+        with open(lock_path, "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                # Re-check under the lock — the other worker may have finished.
+                if not (os.path.isfile(unet) and os.path.isfile(whisper)):
+                    print("[voice] downloading LatentSync 1.6 checkpoints (first run, ~5GB)")
+                    tmp_dir = _LATENTSYNC_CKPT_DIR + ".tmp"
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    snapshot_download(
+                        "ByteDance/LatentSync-1.6",
+                        allow_patterns=["latentsync_unet.pt", "whisper/tiny.pt"],
+                        local_dir=tmp_dir,
+                    )
+                    for rel in ("latentsync_unet.pt", os.path.join("whisper", "tiny.pt")):
+                        p = os.path.join(tmp_dir, rel)
+                        if not os.path.isfile(p) or os.path.getsize(p) < 1_000_000:
+                            raise RuntimeError(f"LatentSync checkpoint download incomplete: {rel}")
+                    shutil.rmtree(_LATENTSYNC_CKPT_DIR, ignore_errors=True)
+                    os.rename(tmp_dir, _LATENTSYNC_CKPT_DIR)
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+    link = os.path.join(_LATENTSYNC_DIR, "checkpoints")
+    try:
+        os.symlink(_LATENTSYNC_CKPT_DIR, link)
+    except FileExistsError:
+        pass
+    return unet
+
+
+@celery_app.task(bind=True, name="tasks.voice.lipsync_video", queue="gpu")
 def lipsync_video(self, generation_id: str):
-    """Render a lipsynced video via MiniMax H3 (reference-to-video): a clip of
-    the person + the generated cloned-voice audio."""
-    import math
+    """Render a lipsynced video locally with LatentSync 1.6: a reference clip
+    of the person's footage + the generated cloned-voice audio."""
     import subprocess
     import tempfile
-    import requests
     from sqlalchemy import text
 
     db = get_session()
@@ -292,11 +336,6 @@ def lipsync_video(self, generation_id: str):
         db.commit()
 
     try:
-        api_key = os.environ.get("MINIMAX_API_KEY", "").strip()
-        if not api_key:
-            raise RuntimeError("MINIMAX_API_KEY is not set — add it to .env and recreate the workers")
-        base = os.environ.get("MINIMAX_API_BASE", "https://api.minimax.io").rstrip("/")
-
         row = db.execute(
             text("SELECT person_id, text, audio_path, duration_seconds FROM voice_generations WHERE id = :gid"),
             {"gid": generation_id},
@@ -307,81 +346,60 @@ def lipsync_video(self, generation_id: str):
         if not audio_path or not os.path.isfile(audio_path):
             raise RuntimeError("Generated audio file is missing")
         audio_dur = float(audio_dur or _probe_duration(audio_path))
-        if audio_dur > 15.0:
-            raise RuntimeError("MiniMax H3 caps lipsync at 15s of audio — regenerate shorter audio")
+        max_secs = float(os.environ.get("LIPSYNC_MAX_SECONDS", "120"))
+        if audio_dur > max_secs:
+            raise RuntimeError(
+                f"Lipsync is capped at {int(max_secs)}s of audio ({audio_dur:.0f}s requested) — "
+                "512px diffusion runs per frame and longer clips would occupy a GPU for hours")
 
         _vid(video_status="running", video_error=None)
+        unet_ckpt = _ensure_latentsync_checkpoints()
 
         ref_path, ref_start, ref_end = _find_reference_clip(db, person_id)
         with tempfile.TemporaryDirectory() as workdir:
-            # Reference clip: 2-15s, ≤50MB, h264+aac mp4, ≤720p.
-            ref_len = min(10.0, max(2.0, ref_end - ref_start))
+            # Reference clip normalized to what LatentSync expects: 25fps
+            # h264, no audio track needed. No manual looping — LatentSync
+            # itself loops the reference frames when the audio is longer.
+            ref_len = max(2.0, min(30.0, ref_end - ref_start))
             ref_mp4 = os.path.join(workdir, "ref.mp4")
             subprocess.run(
                 ["ffmpeg", "-y", "-ss", f"{ref_start:.3f}", "-t", f"{ref_len:.3f}",
                  "-i", ref_path,
-                 "-vf", "scale='min(1280,iw)':-2", "-r", "25",
-                 "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                 "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", ref_mp4],
-                check=True, capture_output=True)
-            # Audio: wav→mp3 keeps the payload small (≤15MB limit).
-            ref_mp3 = os.path.join(workdir, "speech.mp3")
-            subprocess.run(
-                ["ffmpeg", "-y", "-i", audio_path, "-codec:a", "libmp3lame",
-                 "-b:a", "160k", ref_mp3],
+                 "-vf", "scale='min(1280,iw)':-2", "-r", "25", "-an",
+                 "-c:v", "libx264", "-preset", "fast", "-crf", "20", ref_mp4],
                 check=True, capture_output=True)
 
-            duration = int(min(15, max(4, math.ceil(audio_dur))))
-            payload = {
-                "model": "MiniMax-H3",
-                "content": [
-                    {"type": "text",
-                     "text": "The person from the reference video speaks the reference audio "
-                             "directly to camera with accurate lip sync, natural facial "
-                             "expressions and subtle head movement. Same person, same framing, "
-                             "same lighting and background as the reference video."},
-                    {"type": "video_url", "role": "reference_video",
-                     "video_url": {"url": _b64_data_uri(ref_mp4, "video/mp4")}},
-                    {"type": "audio_url", "role": "reference_audio",
-                     "audio_url": {"url": _b64_data_uri(ref_mp3, "audio/mpeg")}},
-                ],
-                "resolution": "768P",
-                "duration": duration,
+            out_tmp = os.path.join(workdir, "out.mp4")
+            env = {
+                **os.environ,
+                # LatentSync checkpoints predate torch 2.6's weights_only
+                # default; force the old torch.load behavior in the venv.
+                "TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1",
             }
-            headers = {"Authorization": f"Bearer {api_key}"}
-            resp = requests.post(f"{base}/v2/video_generation", json=payload,
-                                 headers=headers, timeout=120)
-            body = resp.json() if resp.content else {}
-            if resp.status_code != 200 or not body.get("task_id"):
-                err = (body.get("error") or {}).get("message") or resp.text[:300]
-                raise RuntimeError(f"MiniMax create failed ({resp.status_code}): {err}")
-            task_id = body["task_id"]
-            _vid(video_task_id=task_id)
-
-            deadline = time.monotonic() + 20 * 60
-            video_url = None
-            while time.monotonic() < deadline:
-                time.sleep(10)
-                q = requests.get(f"{base}/v2/query/video_generation/{task_id}",
-                                 headers=headers, timeout=60)
-                task = (q.json() or {}).get("task") or {}
-                status = task.get("status")
-                if status == "succeeded":
-                    video_url = ((task.get("content") or {}).get("url"))
-                    break
-                if status in ("failed", "cancelled"):
-                    raise RuntimeError(f"MiniMax task {status}: {task.get('error') or ''}".strip())
-            if not video_url:
-                raise RuntimeError("MiniMax task timed out after 20 minutes")
+            proc = subprocess.run(
+                [_LATENTSYNC_PY, "-m", "scripts.inference",
+                 "--unet_config_path", "configs/unet/stage2_512.yaml",
+                 "--inference_ckpt_path", unet_ckpt,
+                 "--inference_steps", "20",
+                 "--guidance_scale", "1.5",
+                 "--enable_deepcache",
+                 "--video_path", ref_mp4,
+                 "--audio_path", audio_path,
+                 "--video_out_path", out_tmp],
+                cwd=_LATENTSYNC_DIR, env=env,
+                capture_output=True, text=True, timeout=3600)
+            if proc.returncode != 0 or not os.path.isfile(out_tmp):
+                tail = (proc.stderr or proc.stdout or "")[-1500:]
+                raise RuntimeError(f"LatentSync inference failed: {tail}")
 
             gens_dir = os.path.join(VOICES_DIR, "generations")
             os.makedirs(gens_dir, exist_ok=True)
             out_path = os.path.join(gens_dir, f"{generation_id}.mp4")
-            with requests.get(video_url, stream=True, timeout=300) as dl:
-                dl.raise_for_status()
-                with open(out_path, "wb") as f:
-                    for chunk in dl.iter_content(1 << 20):
-                        f.write(chunk)
+            # Re-mux to faststart for browser playback.
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", out_tmp, "-c", "copy",
+                 "-movflags", "+faststart", out_path],
+                check=True, capture_output=True)
         _vid(video_status="success", video_path=out_path, video_error=None)
         print(f"[voice] lipsync video ready for generation {generation_id}")
     except Exception as e:

@@ -94,8 +94,8 @@ async def enqueue_voice_speak(generation_id: str) -> str:
 
 
 async def enqueue_voice_lipsync(generation_id: str) -> str:
-    # Network/ffmpeg-bound, no GPU needed.
-    await _publish("cpu", "tasks.voice.lipsync_video", {"generation_id": generation_id}, str(uuid.uuid4()))
+    # LatentSync diffusion inference — needs a GPU.
+    await _publish("gpu", "tasks.voice.lipsync_video", {"generation_id": generation_id}, str(uuid.uuid4()))
     return generation_id
 
 

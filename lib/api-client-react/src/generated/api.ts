@@ -4815,7 +4815,7 @@ export const getCreateLipsyncVideoUrl = (id: string,) => {
 }
 
 /**
- * @summary Render a lipsynced video of the person speaking this generation's audio (MiniMax H3)
+ * @summary Render a lipsynced video of the person speaking this generation's audio (LatentSync, local GPU)
  */
 export const createLipsyncVideo = async (id: string, options?: RequestInit): Promise<VoiceGeneration> => {
 
@@ -4864,7 +4864,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateLipsyncVideoMutationError = ErrorType<void>
 
     /**
- * @summary Render a lipsynced video of the person speaking this generation's audio (MiniMax H3)
+ * @summary Render a lipsynced video of the person speaking this generation's audio (LatentSync, local GPU)
  */
 export const useCreateLipsyncVideo = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLipsyncVideo>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}

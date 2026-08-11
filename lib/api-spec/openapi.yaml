@@ -1521,7 +1521,7 @@ paths:
     post:
       operationId: createLipsyncVideo
       tags: [voice]
-      summary: Render a lipsynced video of the person speaking this generation's audio (MiniMax H3)
+      summary: Render a lipsynced video of the person speaking this generation's audio (LatentSync, local GPU)
       parameters:
         - name: id
           in: path
@@ -1535,8 +1535,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VoiceGeneration"
-        "400":
-          description: Audio longer than the 15s MiniMax cap
         "404":
           description: Generation not found
         "409":
@@ -5005,7 +5003,7 @@ components:
           description: Custom synthesis settings this clip was generated with
         video_status:
           type: ["string", "null"]
-          description: "MiniMax H3 lipsync video render: pending | running | success | error (null = not requested)"
+          description: "Lipsync video render: pending | running | success | error (null = not requested)"
         video_error:
           type: ["string", "null"]
 
