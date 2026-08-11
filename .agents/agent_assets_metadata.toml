@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "5IOdb5jk3QJHV7Yo8xDdQ"
+uri = "file://attached_assets/ISU_URL_import_test.xml"
+type = "unspecified"
+title = "ISU URL import test XML"
+description = "Minimal 1-clip xmeml using the exact known-good Curator gateway ISU URL — import in Premiere to test whether ISU URLs work in project XML."
