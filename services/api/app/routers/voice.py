@@ -232,8 +232,11 @@ async def upload_lipsync_reference(id: str, file: UploadFile = File(...), db: As
 
     ref_dir = os.path.join(VOICES_DIR, "references")
     os.makedirs(ref_dir, exist_ok=True)
-    ref_path = os.path.join(ref_dir, f"{id}{ext}")
-    tmp_path = ref_path + ".part"
+    # Always normalized to browser-playable h264 mp4 (mov/mkv won't play in
+    # the preview) and trimmed to the 30s the lipsync render actually uses.
+    ref_path = os.path.join(ref_dir, f"{id}.mp4")
+    tmp_path = os.path.join(ref_dir, f".{id}{ext}.upload")
+    norm_path = os.path.join(ref_dir, f".{id}.norm.mp4")
     size = 0
     try:
         with open(tmp_path, "wb") as out:
@@ -252,10 +255,20 @@ async def upload_lipsync_reference(id: str, file: UploadFile = File(...), db: As
             raise HTTPException(
                 status_code=400,
                 detail="Reference video must be at least 2 seconds (only the first 30s are used)")
-        os.replace(tmp_path, ref_path)
+        import subprocess
+        proc = subprocess.run(
+            ["ffmpeg", "-y", "-t", "30", "-i", tmp_path,
+             "-vf", "scale='min(1280,iw)':-2", "-an",
+             "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+             "-movflags", "+faststart", norm_path],
+            capture_output=True, text=True, timeout=600)
+        if proc.returncode != 0 or not os.path.isfile(norm_path):
+            raise HTTPException(status_code=400, detail="Could not convert the video — try an mp4")
+        os.replace(norm_path, ref_path)
     finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        for p in (tmp_path, norm_path):
+            if os.path.exists(p):
+                os.unlink(p)
 
     old = person.lipsync_reference_path
     if old and old != ref_path and os.path.isfile(old):
@@ -287,6 +300,8 @@ async def stream_lipsync_reference(id: str, db: AsyncSession = Depends(get_db)):
     path = person.lipsync_reference_path
     if not path or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="No reference video uploaded")
+    # References are normalized to h264 mp4 on upload; older uploads may
+    # still carry their original container.
     ext = os.path.splitext(path)[1].lower()
     return FileResponse(path, media_type=_VIDEO_MIME.get(ext, "video/mp4"))
 
