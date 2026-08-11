@@ -1,0 +1,43 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull && docker compose up -d --build api
+remote: Enumerating objects: 5, done.
+remote: Counting objects: 100% (5/5), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 3 (delta 2), reused 3 (delta 2), pack-reused 0 (from 0)
+Unpacking objects: 100% (3/3), 328 bytes | 36.00 KiB/s, done.
+From https://github.com/tbnobed/obtvai
+   67f53f1..519967a  main       -> origin/main
+Updating 67f53f1..519967a
+Fast-forward
+ attached_assets/Test_Curator_cut_v1_(3)_1786490170590.xml | 165 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 165 insertions(+)
+ create mode 100644 attached_assets/Test_Curator_cut_v1_(3)_1786490170590.xml
+[+] Building 0.6s (13/13) FINISHED
+ => [internal] load local bake definitions                                                                     0.0s
+ => => reading from stdin 514B                                                                                 0.0s
+ => [internal] load build definition from Dockerfile                                                           0.0s
+ => => transferring dockerfile: 628B                                                                           0.0s
+ => [internal] load metadata for docker.io/library/python:3.11-slim                                            0.0s
+ => [internal] load .dockerignore                                                                              0.0s
+ => => transferring context: 2B                                                                                0.0s
+ => [1/6] FROM docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627ac  0.1s
+ => => resolve docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627ac  0.0s
+ => [internal] load build context                                                                              0.0s
+ => => transferring context: 1.77kB                                                                            0.0s
+ => CACHED [2/6] RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libpq-dev     0.0s
+ => CACHED [3/6] WORKDIR /app                                                                                  0.0s
+ => CACHED [4/6] COPY requirements.txt .                                                                       0.0s
+ => CACHED [5/6] RUN pip install --no-cache-dir -r requirements.txt                                            0.0s
+ => CACHED [6/6] COPY app/ ./app/                                                                              0.0s
+ => exporting to image                                                                                         0.2s
+ => => exporting layers                                                                                        0.0s
+ => => exporting manifest sha256:95d1616c2e399b7405aacee59a8c25c1a51e6df4a30c4f6aa08f77a2624bf020              0.0s
+ => => exporting config sha256:08548da7145f8d1d8d0cf74bcbe4cbe7099b6245b849d55be753650353791a89                0.0s
+ => => exporting attestation manifest sha256:5f37229e2aa36125fd0a233d76e2f30ae3421a5af3905502ea9f74ec08b7a92c  0.0s
+ => => exporting manifest list sha256:6d02770ace3541a5fe4195a7bddf73e0c13e1b70b2edba42cf2c9acb304c880d         0.0s
+ => => naming to docker.io/library/obtv-ai-api:latest                                                          0.0s
+ => => unpacking to docker.io/library/obtv-ai-api:latest                                                       0.0s
+ => resolving provenance for metadata file                                                                     0.0s
+[+] up 5/5
+ ✔ Image obtv-ai-api            Built                                                                           0.6s
+ ✔ Container obtv-ai-postgres-1 Healthy                                                                         2.0s
+ ✔ Container obtv-ai-qdrant-1   Healthy                     

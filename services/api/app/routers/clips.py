@@ -219,28 +219,21 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         lognote = escape(f"assetId={_aid}" if _aid else "")
         fps_val = clip_fps(c.media_id)
         _, _, rate = _xmeml_rate(fps_val)
-        # Curator-linked proxies are referenced by their gateway ISU streaming
-        # URL — exactly what the Curator panel hands Premiere. The ISU stream
-        # carries its own audio, so the video-only fMP4 + _audioN sidecar
-        # files are never touched (importing those raw fragments natively is
-        # what crashes Premiere).
-        isu = _curator_isu_url(paths.get(c.media_id), lognotes.get(c.media_id),
-                               folders.get(c.media_id))
-        sidecars = [] if isu else (audio_map.get(c.media_id) or [])
+        # Media is referenced by plain file path only. Premiere crashes if the
+        # XML makes it open Curator's raw fMP4 fragments (video-only proxy +
+        # _audioN sidecars) or an https gateway URL — the panel streams media
+        # through its own importer, never via project-XML paths. Clips that
+        # resolve offline are reconnected in Premiere via the Curator panel's
+        # Connect function (matched through the assetId lognote).
+        sidecars: list[str] = []
         if c.media_id in file_ids:
             file_el = f'<file id="{file_ids[c.media_id]}"/>'
         else:
             file_seq += 1
             fid = f"file-{file_seq}"
             file_ids[c.media_id] = fid
-            if isu:
-                url = isu
-            else:
-                src = _translate(paths.get(c.media_id) or c.filename or c.media_id)
-                url = _file_url(src)
-            # Embedded audio only when there are no Curator sidecars.
-            audio_decl = (f'<audio>{_AUDIO_CHARS}<channelcount>2</channelcount></audio>'
-                          if not sidecars else '')
+            url = _file_url(_translate(paths.get(c.media_id) or c.filename or c.media_id))
+            audio_decl = f'<audio>{_AUDIO_CHARS}<channelcount>2</channelcount></audio>'
             file_el = (
                 f'<file id="{fid}"><name>{fname}</name>'
                 f'<pathurl>{escape(url)}</pathurl>{rate}'
