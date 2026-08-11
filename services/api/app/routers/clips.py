@@ -205,6 +205,18 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
             f'<start>{fr(rec, seq_fps)}</start><end>{fr(rec + dur, seq_fps)}</end>'
             f'<in>{fr(c.start_time, fps_val)}</in><out>{fr(c.end_time, fps_val)}</out>'
         )
+        # Link group for this clip: the video item plus every audio item.
+        # Premiere's FCP7-XML importer requires the COMPLETE link set to be
+        # repeated identically on every member — asymmetric links crash it.
+        n_audio = len(sidecars) if sidecars else 1
+        group_ids = [f"clipitem-{i}"] + [f"clipitem-a{t}-{i}" for t in range(1, n_audio + 1)]
+        links = f'          <link><linkclipref>clipitem-{i}</linkclipref>' \
+                f'<mediatype>video</mediatype><trackindex>1</trackindex>' \
+                f'<clipindex>{i}</clipindex></link>\n' + "".join(
+            f'          <link><linkclipref>clipitem-a{t}-{i}</linkclipref>'
+            f'<mediatype>audio</mediatype><trackindex>{t}</trackindex>'
+            f'<clipindex>{i}</clipindex></link>\n'
+            for t in range(1, n_audio + 1))
         items.append(
             f'        <clipitem id="clipitem-{i}">\n'
             f'          <name>{label}</name>\n'
@@ -212,6 +224,7 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
             f'          {timing}\n'
             f'          {file_el}\n'
             f'          <logginginfo><lognote>{lognote}</lognote></logginginfo>\n'
+            + links +
             f'        </clipitem>'
         )
         # Audio clip items: one per sidecar (each on its own track), or one
@@ -245,12 +258,7 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
                 f'          {afe}\n'
                 f'          <sourcetrack><mediatype>audio</mediatype>'
                 f'<trackindex>1</trackindex></sourcetrack>\n'
-                f'          <link><linkclipref>clipitem-{i}</linkclipref>'
-                f'<mediatype>video</mediatype><trackindex>1</trackindex>'
-                f'<clipindex>{i}</clipindex></link>\n'
-                f'          <link><linkclipref>{acid}</linkclipref>'
-                f'<mediatype>audio</mediatype><trackindex>{t}</trackindex>'
-                f'<clipindex>{i}</clipindex></link>\n'
+                + links +
                 f'        </clipitem>'
             )
         rec += dur
