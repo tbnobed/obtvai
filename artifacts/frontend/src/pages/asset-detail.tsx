@@ -1024,12 +1024,19 @@ export default function AssetDetail() {
                 </Badge>
               ))}
             </div>
-            {asset.curator_id && (
+            {(asset.curator_id || asset.curator_asset_id) && (
               <div className="flex gap-x-4 gap-y-1 items-center text-sm mb-6 flex-wrap">
                 <Badge variant="outline" className="gap-1 text-sky-400 border-sky-400/40">Curator</Badge>
-                <span className="text-muted-foreground">
-                  ID: <span className="font-mono text-foreground">{asset.curator_id}</span>
-                </span>
+                {asset.curator_asset_id && (
+                  <span className="text-muted-foreground" title="Curator asset ID (from the linked asset XML) — written to Log Note on Export for Curator">
+                    Asset ID: <span className="font-mono text-foreground" data-testid="text-curator-asset-id">{asset.curator_asset_id}</span>
+                  </span>
+                )}
+                {asset.curator_id && (
+                  <span className="text-muted-foreground">
+                    Clip: <span className="font-mono text-foreground">{asset.curator_id}</span>
+                  </span>
+                )}
                 {asset.source_path && (
                   <span className="text-muted-foreground" title="Hi-res source path — NLE exports relink to this file">
                     Source: <span className="font-mono text-foreground break-all">{asset.source_path}</span>

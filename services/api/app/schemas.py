@@ -55,7 +55,14 @@ class MediaAssetOut(BaseModel):
         if self.curator_id is None and self.original_path:
             base = os.path.basename(self.original_path)
             if base.lower().endswith("_video.mp4"):
-                self.curator_id = os.path.basename(os.path.dirname(self.original_path))
+                parent = os.path.dirname(self.original_path)
+                root = os.getenv("CURATOR_PROXY_ROOT", "/curator").rstrip("/")
+                if parent.rstrip("/") == root:
+                    # Flat layout (share mounted at the clip-folder level):
+                    # the clip name is the filename prefix, not the parent dir.
+                    self.curator_id = base[: -len("_video.mp4")]
+                else:
+                    self.curator_id = os.path.basename(parent)
         return self
 
 
