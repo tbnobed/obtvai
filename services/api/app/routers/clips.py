@@ -119,27 +119,6 @@ def _xmeml_rate(fps_val: float) -> tuple[int, str, str]:
 _SEQ_W, _SEQ_H = 1920, 1080
 
 
-def _xmeml_scale_filter(w: int, h: int) -> str:
-    """Basic Motion scale so a clip fills the sequence frame (fit-inside).
-
-    Premiere doesn't round-trip the "Scale to Frame Size" flag through FCP7
-    XML, so we bake the equivalent Motion > Scale value instead."""
-    if not w or not h:
-        return ""
-    pct = round(min(_SEQ_W / w, _SEQ_H / h) * 100, 2)
-    if abs(pct - 100.0) < 0.01:
-        return ""
-    return (
-        '<filter><effect><name>Basic Motion</name><effectid>basic</effectid>'
-        '<effectcategory>motion</effectcategory><effecttype>motion</effecttype>'
-        '<mediatype>video</mediatype>'
-        '<parameter authoringApp="PremierePro"><parameterid>scale</parameterid>'
-        '<name>Scale</name><valuemin>0</valuemin><valuemax>1000</valuemax>'
-        f'<value>{pct}</value></parameter>'
-        '</effect></filter>'
-    )
-
-
 def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
            lognotes: dict[str, str] | None = None,
            fps_map: dict[str, float] | None = None,
@@ -178,7 +157,6 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         fps_val = clip_fps(c.media_id)
         _, _, rate = _xmeml_rate(fps_val)
         w, h = dims_map.get(c.media_id) or (0, 0)
-        scale_filter = _xmeml_scale_filter(w, h)
         if c.media_id in file_ids:
             file_el = f'<file id="{file_ids[c.media_id]}"/>'
         else:
@@ -199,8 +177,7 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
             f'          <start>{fr(rec, seq_fps)}</start><end>{fr(rec + dur, seq_fps)}</end>\n'
             f'          <in>{fr(c.start_time, fps_val)}</in><out>{fr(c.end_time, fps_val)}</out>\n'
             f'          {file_el}\n'
-            + (f'          {scale_filter}\n' if scale_filter else '')
-            + f'          <logginginfo><lognote>{lognote}</lognote></logginginfo>\n'
+            f'          <logginginfo><lognote>{lognote}</lognote></logginginfo>\n'
             f'        </clipitem>'
         )
         rec += dur
