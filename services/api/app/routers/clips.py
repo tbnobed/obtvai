@@ -138,6 +138,27 @@ def _curator_audio_sidecars(path: str | None) -> list[str]:
     return sorted(_glob.glob(pattern))
 
 
+def _curator_isu_url(path: str | None, asset_id: str | None) -> str | None:
+    """Build the Curator gateway ISU streaming URL for a proxy — the same URL
+    the Curator panel hands Premiere (imported via Curator's ISU plugin, with
+    audio embedded in the stream). Returns None when the media isn't a
+    Curator proxy or no .m3u8 playlist exists next to it."""
+    import glob as _glob
+    gateway = os.environ.get(
+        "CURATOR_GATEWAY_URL", "https://curator.tbn.tv/CuratorGateway/proxies").rstrip("/")
+    root = os.environ.get("CURATOR_PROXY_ROOT", "/curator").rstrip("/")
+    if not path or not asset_id or not gateway:
+        return None
+    if not path.startswith(root + "/"):
+        return None
+    d = os.path.dirname(path)
+    playlists = sorted(_glob.glob(os.path.join(_glob.escape(d), "*.m3u8")))
+    if not playlists:
+        return None
+    rel = os.path.relpath(playlists[0], root).replace(os.sep, "/")
+    return f"{gateway}/{rel}.isu?assetId={asset_id}.isu"
+
+
 def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
            lognotes: dict[str, str] | None = None,
            fps_map: dict[str, float] | None = None,
@@ -184,20 +205,30 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         lognote = escape(f"assetId={_aid}" if _aid else "")
         fps_val = clip_fps(c.media_id)
         _, _, rate = _xmeml_rate(fps_val)
-        sidecars = audio_map.get(c.media_id) or []
+        # Curator-linked proxies are referenced by their gateway ISU streaming
+        # URL — exactly what the Curator panel hands Premiere. The ISU stream
+        # carries its own audio, so the video-only fMP4 + _audioN sidecar
+        # files are never touched (importing those raw fragments natively is
+        # what crashes Premiere).
+        isu = _curator_isu_url(paths.get(c.media_id), lognotes.get(c.media_id))
+        sidecars = [] if isu else (audio_map.get(c.media_id) or [])
         if c.media_id in file_ids:
             file_el = f'<file id="{file_ids[c.media_id]}"/>'
         else:
             file_seq += 1
             fid = f"file-{file_seq}"
             file_ids[c.media_id] = fid
-            src = _translate(paths.get(c.media_id) or c.filename or c.media_id)
+            if isu:
+                url = isu
+            else:
+                src = _translate(paths.get(c.media_id) or c.filename or c.media_id)
+                url = _file_url(src)
             # Embedded audio only when there are no Curator sidecars.
             audio_decl = (f'<audio>{_AUDIO_CHARS}<channelcount>2</channelcount></audio>'
                           if not sidecars else '')
             file_el = (
                 f'<file id="{fid}"><name>{fname}</name>'
-                f'<pathurl>{escape(_file_url(src))}</pathurl>{rate}'
+                f'<pathurl>{escape(url)}</pathurl>{rate}'
                 f'<media><video><samplecharacteristics>{rate}'
                 f'</samplecharacteristics></video>{audio_decl}</media></file>'
             )
