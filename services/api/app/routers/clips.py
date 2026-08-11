@@ -126,7 +126,8 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         dur = max(0.04, c.end_time - c.start_time)
         label = escape(c.label or c.filename or "clip")
         fname = escape(c.filename or c.media_id)
-        lognote = escape(lognotes.get(c.media_id) or "")
+        _aid = lognotes.get(c.media_id) or ""
+        lognote = escape(f"assetId={_aid}" if _aid else "")
         if c.media_id in file_ids:
             file_el = f'<file id="{file_ids[c.media_id]}"/>'
         else:
