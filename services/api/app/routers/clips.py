@@ -206,10 +206,8 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         return int(round(seconds * fps_val))
 
     file_ids: dict[str, str] = {}          # media_id -> video file id
-    audio_file_ids: dict[tuple[str, int], str] = {}  # (media_id, n) -> sidecar file id
     file_seq = 0
     items = []
-    audio_tracks: dict[int, list[str]] = {}
     rec = 0.0
     for i, c in enumerate(clips, 1):
         dur = max(0.04, c.end_time - c.start_time)
@@ -219,13 +217,13 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         lognote = escape(f"assetId={_aid}" if _aid else "")
         fps_val = clip_fps(c.media_id)
         _, _, rate = _xmeml_rate(fps_val)
-        # Media is referenced by plain file path only. Premiere crashes if the
-        # XML makes it open Curator's raw fMP4 fragments (video-only proxy +
-        # _audioN sidecars) or an https gateway URL — the panel streams media
-        # through its own importer, never via project-XML paths. Clips that
-        # resolve offline are reconnected in Premiere via the Curator panel's
-        # Connect function (matched through the assetId lognote).
-        sidecars: list[str] = []
+        # Media is referenced by plain file path only, declared video-only
+        # (<audio/>). Premiere crashes if the XML claims audio on Curator's
+        # video-only fMP4 proxies, makes it open the raw _audioN sidecar
+        # fragments, or hands it an https gateway URL — the panel streams
+        # media through its own importer, never via project-XML paths. Audio
+        # comes in after the editor reconnects clips to Curator via the
+        # panel's Connect function (matched through the assetId lognote).
         if c.media_id in file_ids:
             file_el = f'<file id="{file_ids[c.media_id]}"/>'
         else:
@@ -233,29 +231,16 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
             fid = f"file-{file_seq}"
             file_ids[c.media_id] = fid
             url = _file_url(_translate(paths.get(c.media_id) or c.filename or c.media_id))
-            audio_decl = f'<audio>{_AUDIO_CHARS}<channelcount>2</channelcount></audio>'
             file_el = (
                 f'<file id="{fid}"><name>{fname}</name>'
                 f'<pathurl>{escape(url)}</pathurl>{rate}'
                 f'<media><video><samplecharacteristics>{rate}'
-                f'</samplecharacteristics></video>{audio_decl}</media></file>'
+                f'</samplecharacteristics></video><audio/></media></file>'
             )
         timing = (
             f'<start>{fr(rec, seq_fps)}</start><end>{fr(rec + dur, seq_fps)}</end>'
             f'<in>{fr(c.start_time, fps_val)}</in><out>{fr(c.end_time, fps_val)}</out>'
         )
-        # Link group for this clip: the video item plus every audio item.
-        # Premiere's FCP7-XML importer requires the COMPLETE link set to be
-        # repeated identically on every member — asymmetric links crash it.
-        n_audio = len(sidecars) if sidecars else 1
-        group_ids = [f"clipitem-{i}"] + [f"clipitem-a{t}-{i}" for t in range(1, n_audio + 1)]
-        links = f'          <link><linkclipref>clipitem-{i}</linkclipref>' \
-                f'<mediatype>video</mediatype><trackindex>1</trackindex>' \
-                f'<clipindex>{i}</clipindex></link>\n' + "".join(
-            f'          <link><linkclipref>clipitem-a{t}-{i}</linkclipref>'
-            f'<mediatype>audio</mediatype><trackindex>{t}</trackindex>'
-            f'<clipindex>{i}</clipindex></link>\n'
-            for t in range(1, n_audio + 1))
         items.append(
             f'        <clipitem id="clipitem-{i}">\n'
             f'          <name>{label}</name>\n'
@@ -263,48 +248,9 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
             f'          {timing}\n'
             f'          {file_el}\n'
             f'          <logginginfo><lognote>{lognote}</lognote></logginginfo>\n'
-            + links +
             f'        </clipitem>'
         )
-        # Audio clip items: one per sidecar (each on its own track), or one
-        # from the file's embedded audio.
-        sources: list[tuple[str, str]] = []  # (file element, clipitem id)
-        if sidecars:
-            for n, spath in enumerate(sidecars, 1):
-                key = (c.media_id, n)
-                if key in audio_file_ids:
-                    afe = f'<file id="{audio_file_ids[key]}"/>'
-                else:
-                    file_seq += 1
-                    afid = f"file-{file_seq}"
-                    audio_file_ids[key] = afid
-                    a_src = _translate(spath)
-                    afe = (
-                        f'<file id="{afid}"><name>{escape(os.path.basename(spath))}</name>'
-                        f'<pathurl>{escape(_file_url(a_src))}</pathurl>{rate}'
-                        f'<media><audio>{_AUDIO_CHARS}'
-                        f'<channelcount>2</channelcount></audio></media></file>'
-                    )
-                sources.append((afe, f"clipitem-a{n}-{i}"))
-        else:
-            sources.append((f'<file id="{file_ids[c.media_id]}"/>', f"clipitem-a1-{i}"))
-        for t, (afe, acid) in enumerate(sources, 1):
-            audio_tracks.setdefault(t, []).append(
-                f'        <clipitem id="{acid}">\n'
-                f'          <name>{label}</name>\n'
-                f'          {rate}\n'
-                f'          {timing}\n'
-                f'          {afe}\n'
-                f'          <sourcetrack><mediatype>audio</mediatype>'
-                f'<trackindex>1</trackindex></sourcetrack>\n'
-                + links +
-                f'        </clipitem>'
-            )
         rec += dur
-    audio_track_xml = "".join(
-        '      <track>\n' + "\n".join(audio_tracks[t]) + '\n      </track>\n'
-        for t in sorted(audio_tracks)
-    )
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<!DOCTYPE xmeml>\n'
@@ -322,7 +268,6 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         '    </video>\n'
         '    <audio>\n'
         f'      <format>{_AUDIO_CHARS}</format>\n'
-        + audio_track_xml +
         '    </audio>\n'
         '  </media>\n'
         '</sequence>\n'

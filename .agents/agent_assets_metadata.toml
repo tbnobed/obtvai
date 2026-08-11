@@ -28,3 +28,10 @@ uri = "file://attached_assets/Connect_relink_test_v3.xml"
 type = "unspecified"
 title = "Connect relink test v3"
 description = "Same one-clip sequence, but pointing at the real WebProxy _video.mp4 over UNC — should import online; then test Curator panel Connect swap."
+
+[[outputs]]
+id = "7997Ji9INs8WHKB-hEhQJ"
+uri = "file://attached_assets/Sidecar_audio_test.xml"
+type = "unspecified"
+title = "Sidecar audio test XML"
+description = "Video clip declared video-only (<audio/>) + separate _audio1.mp4 sidecar file entry on the audio track, symmetric links."
