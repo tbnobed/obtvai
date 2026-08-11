@@ -491,11 +491,16 @@ async def curator_link(
     matched: list[MediaAsset] = []
     ambiguous = False
     if proxy_folder:
-        # Literal path-component match (LIKE metacharacters escaped). All hits
-        # share the exact same WebProxy folder, so linking them all is correct.
+        # Literal match (LIKE metacharacters escaped) on the WebProxy clip
+        # name, either as a path component (real share layout:
+        # .../<clip>/<id>_video.mp4) or as the file prefix (flat test copies:
+        # .../<clip>_video.mp4). All hits share the exact same WebProxy clip,
+        # so linking them all is correct.
+        esc = _escape_like(proxy_folder)
         r = await db.execute(
             select(MediaAsset).where(
-                MediaAsset.original_path.like(f"%/{_escape_like(proxy_folder)}/%", escape="\\")
+                MediaAsset.original_path.like(f"%/{esc}/%", escape="\\")
+                | MediaAsset.original_path.like(f"%/{esc}\\_video.mp4", escape="\\")
             )
         )
         matched = list(r.scalars().all())
@@ -518,7 +523,10 @@ async def curator_link(
                 op = a.original_path or ""
                 base = os.path.basename(op)
                 if base.lower().endswith("_video.mp4"):
+                    # Foldered layout: the parent dir is the WebProxy clip name.
                     cand_keys.add(_curator_norm(_CURATOR_TS_SUFFIX.sub("", os.path.basename(os.path.dirname(op)))))
+                    # Flat layout: the clip name is the filename prefix.
+                    cand_keys.add(_curator_norm(_CURATOR_TS_SUFFIX.sub("", base[: -len("_video.mp4")])))
                 cand_keys.add(_curator_norm(os.path.splitext(a.filename)[0]))
                 if base:
                     cand_keys.add(_curator_norm(os.path.splitext(base)[0]))

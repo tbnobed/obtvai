@@ -49,12 +49,11 @@ def _should_ingest(path: str, dir_files: list[str] | None = None) -> bool:
     media — audioN.mp4 renditions and thumbnails must not become library
     assets. Outside /curator, every video ingests exactly as before."""
     if _is_curator_xml(path):
-        # Dropped Curator asset XMLs: watched so they can be linked to
-        # existing library media (not ingested as media themselves). Curator's
-        # own metadata XMLs under the proxy root are excluded — the worker
-        # already consumes those, and rescanning thousands of them on every
-        # start would spam the link endpoint.
-        return not path.startswith(CURATOR_ROOT + "/")
+        # Dropped Curator asset XMLs (any root, incl. the proxy share): watched
+        # so they can be linked to existing library media, not ingested as
+        # media. Non-<assets> XMLs are parsed locally and dropped without an
+        # API call, so rescans stay cheap.
+        return True
     if not _is_video(path):
         return False
     if not path.startswith(CURATOR_ROOT + "/"):
@@ -69,8 +68,16 @@ def _size(path: str) -> int | None:
         return None
 
 
+# Curator's own per-clip metadata sidecars — parsed by the worker for source
+# discovery, never asset-link XMLs. Cheap name filter so the initial rescan of
+# a large proxy share doesn't parse thousands of them.
+_CURATOR_NOISE_XML = ("_index.xml", "_metadata_initial.xml", "_metadata_complete.xml")
+
+
 def _is_curator_xml(path: str) -> bool:
-    return os.path.splitext(path)[1].lower() == ".xml"
+    if os.path.splitext(path)[1].lower() != ".xml":
+        return False
+    return not os.path.basename(path).lower().endswith(_CURATOR_NOISE_XML)
 
 
 def _link_curator_xml(path: str) -> bool:
