@@ -118,23 +118,47 @@ def _xmeml_rate(fps_val: float) -> tuple[int, str, str]:
 
 _SEQ_W, _SEQ_H = 1920, 1080
 
+_AUDIO_CHARS = ('<samplecharacteristics><depth>16</depth>'
+                '<samplerate>48000</samplerate></samplecharacteristics>')
+
+
+def _curator_audio_sidecars(path: str | None) -> list[str]:
+    """Curator WebProxy proxies are video-only fMP4 with the audio split into
+    separate `<clip>_audioN` sidecar files next to the video. Return the
+    sidecar paths in track order; empty for normal files (embedded audio)."""
+    import glob as _glob
+    if not path:
+        return []
+    base = os.path.basename(path)
+    stem, ext = os.path.splitext(base)
+    if "_video" not in stem:
+        return []
+    pattern = os.path.join(os.path.dirname(path), stem.replace("_video", "_audio*") + ext)
+    return sorted(_glob.glob(pattern))
+
 
 def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
            lognotes: dict[str, str] | None = None,
            fps_map: dict[str, float] | None = None,
-           dims_map: dict[str, tuple[int, int]] | None = None) -> str:
+           audio_map: dict[str, list[str]] | None = None) -> str:
     """Premiere Pro XML (FCP7 xmeml v4) — "Export for Curator".
 
     Curator's Premiere panel matches assets by reading the clip's Log Note
     field, so each clipitem carries <logginginfo><lognote> = "assetId=<id>"
     for the Curator asset linked to that media (blank when unlinked).
     Each file/clipitem uses its own asset's frame rate; the sequence uses
-    the first clip's rate."""
+    the first clip's rate.
+
+    No frame dimensions or scaling are declared anywhere — Premiere probes
+    the actual media, so nothing breaks when Curator relinks proxies to
+    hi-res originals. Audio comes from Curator `_audioN` sidecar files when
+    present (WebProxy proxies are video-only), otherwise from the file's own
+    embedded audio."""
     from xml.sax.saxutils import escape
     paths = paths or {}
     lognotes = lognotes or {}
     fps_map = fps_map or {}
-    dims_map = dims_map or {}
+    audio_map = audio_map or {}
 
     def clip_fps(media_id: str) -> float:
         return float(fps_map.get(media_id) or 0) or float(_FPS)
@@ -145,8 +169,11 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
     def fr(seconds: float, fps_val: float) -> int:
         return int(round(seconds * fps_val))
 
-    file_ids: dict[str, str] = {}
+    file_ids: dict[str, str] = {}          # media_id -> video file id
+    audio_file_ids: dict[tuple[str, int], str] = {}  # (media_id, n) -> sidecar file id
+    file_seq = 0
     items = []
+    audio_tracks: dict[int, list[str]] = {}
     rec = 0.0
     for i, c in enumerate(clips, 1):
         dur = max(0.04, c.end_time - c.start_time)
@@ -156,31 +183,80 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         lognote = escape(f"assetId={_aid}" if _aid else "")
         fps_val = clip_fps(c.media_id)
         _, _, rate = _xmeml_rate(fps_val)
-        w, h = dims_map.get(c.media_id) or (0, 0)
+        sidecars = audio_map.get(c.media_id) or []
         if c.media_id in file_ids:
             file_el = f'<file id="{file_ids[c.media_id]}"/>'
         else:
-            fid = f"file-{len(file_ids) + 1}"
+            file_seq += 1
+            fid = f"file-{file_seq}"
             file_ids[c.media_id] = fid
             src = _translate(paths.get(c.media_id) or c.filename or c.media_id)
+            # Embedded audio only when there are no Curator sidecars.
+            audio_decl = (f'<audio>{_AUDIO_CHARS}<channelcount>2</channelcount></audio>'
+                          if not sidecars else '')
             file_el = (
                 f'<file id="{fid}"><name>{fname}</name>'
                 f'<pathurl>{escape(_file_url(src))}</pathurl>{rate}'
                 f'<media><video><samplecharacteristics>{rate}'
-                f'<width>{w or _SEQ_W}</width><height>{h or _SEQ_H}</height>'
-                f'</samplecharacteristics></video><audio/></media></file>'
+                f'</samplecharacteristics></video>{audio_decl}</media></file>'
             )
+        timing = (
+            f'<start>{fr(rec, seq_fps)}</start><end>{fr(rec + dur, seq_fps)}</end>'
+            f'<in>{fr(c.start_time, fps_val)}</in><out>{fr(c.end_time, fps_val)}</out>'
+        )
         items.append(
             f'        <clipitem id="clipitem-{i}">\n'
             f'          <name>{label}</name>\n'
             f'          {rate}\n'
-            f'          <start>{fr(rec, seq_fps)}</start><end>{fr(rec + dur, seq_fps)}</end>\n'
-            f'          <in>{fr(c.start_time, fps_val)}</in><out>{fr(c.end_time, fps_val)}</out>\n'
+            f'          {timing}\n'
             f'          {file_el}\n'
             f'          <logginginfo><lognote>{lognote}</lognote></logginginfo>\n'
             f'        </clipitem>'
         )
+        # Audio clip items: one per sidecar (each on its own track), or one
+        # from the file's embedded audio.
+        sources: list[tuple[str, str]] = []  # (file element, clipitem id)
+        if sidecars:
+            for n, spath in enumerate(sidecars, 1):
+                key = (c.media_id, n)
+                if key in audio_file_ids:
+                    afe = f'<file id="{audio_file_ids[key]}"/>'
+                else:
+                    file_seq += 1
+                    afid = f"file-{file_seq}"
+                    audio_file_ids[key] = afid
+                    a_src = _translate(spath)
+                    afe = (
+                        f'<file id="{afid}"><name>{escape(os.path.basename(spath))}</name>'
+                        f'<pathurl>{escape(_file_url(a_src))}</pathurl>{rate}'
+                        f'<media><audio>{_AUDIO_CHARS}'
+                        f'<channelcount>2</channelcount></audio></media></file>'
+                    )
+                sources.append((afe, f"clipitem-a{n}-{i}"))
+        else:
+            sources.append((f'<file id="{file_ids[c.media_id]}"/>', f"clipitem-a1-{i}"))
+        for t, (afe, acid) in enumerate(sources, 1):
+            audio_tracks.setdefault(t, []).append(
+                f'        <clipitem id="{acid}">\n'
+                f'          <name>{label}</name>\n'
+                f'          {rate}\n'
+                f'          {timing}\n'
+                f'          {afe}\n'
+                f'          <sourcetrack><mediatype>audio</mediatype>'
+                f'<trackindex>1</trackindex></sourcetrack>\n'
+                f'          <link><linkclipref>clipitem-{i}</linkclipref>'
+                f'<mediatype>video</mediatype><trackindex>1</trackindex>'
+                f'<clipindex>{i}</clipindex></link>\n'
+                f'          <link><linkclipref>{acid}</linkclipref>'
+                f'<mediatype>audio</mediatype><trackindex>{t}</trackindex>'
+                f'<clipindex>{i}</clipindex></link>\n'
+                f'        </clipitem>'
+            )
         rec += dur
+    audio_track_xml = "".join(
+        '      <track>\n' + "\n".join(audio_tracks[t]) + '\n      </track>\n'
+        for t in sorted(audio_tracks)
+    )
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<!DOCTYPE xmeml>\n'
@@ -196,7 +272,10 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         '      <track>\n' + "\n".join(items) + '\n'
         '      </track>\n'
         '    </video>\n'
-        '    <audio/>\n'
+        '    <audio>\n'
+        f'      <format>{_AUDIO_CHARS}</format>\n'
+        + audio_track_xml +
+        '    </audio>\n'
         '  </media>\n'
         '</sequence>\n'
         '</xmeml>\n'
@@ -415,15 +494,13 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
     paths: dict[str, str] = {}
     lognotes: dict[str, str] = {}
     fps_map: dict[str, float] = {}
-    dims_map: dict[str, tuple[int, int]] = {}
     if media_ids:
         rows = await db.execute(
             select(MediaAsset.id, MediaAsset.original_path, MediaAsset.source_path,
-                   MediaAsset.curator_asset_id, MediaAsset.fps,
-                   MediaAsset.width, MediaAsset.height)
+                   MediaAsset.curator_asset_id, MediaAsset.fps)
             .where(MediaAsset.id.in_(media_ids))
         )
-        for mid, op, sp, cid, fps_v, w_v, h_v in rows.all():
+        for mid, op, sp, cid, fps_v in rows.all():
             # source_path (hi-res original from Curator sidecar metadata) wins
             # over original_path — for Curator-direct ingests original_path IS
             # the proxy.
@@ -433,11 +510,10 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
                 lognotes[mid] = cid
             if fps_v:
                 fps_map[mid] = float(fps_v)
-            if w_v and h_v:
-                dims_map[mid] = (int(w_v), int(h_v))
 
     if fmt == "xmeml":
-        content = _xmeml(cl_out.name, cl_out.clips, paths, lognotes, fps_map, dims_map)
+        audio_map = {mid: _curator_audio_sidecars(p) for mid, p in paths.items()}
+        content = _xmeml(cl_out.name, cl_out.clips, paths, lognotes, fps_map, audio_map)
         filename = f"{cl_out.name.replace(' ', '_')}.xml"
 
     elif fmt == "fcpxml":

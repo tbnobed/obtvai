@@ -1599,7 +1599,7 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     source_path (hi-res original from the Curator sidecar) wins over the
     ingested proxy path, so the timeline relinks to facility originals.
     """
-    from .clips import _fcpxml, _otio, _xmeml
+    from .clips import _curator_audio_sidecars, _fcpxml, _otio, _xmeml
 
     fmt = (body.get("format") or "").lower()
     if fmt not in ("edl", "fcpxml", "otio", "xmeml"):
@@ -1617,16 +1617,14 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     media_ids = {c["media_id"] for c in clips}
     rows = await db.execute(
         select(MediaAsset.id, MediaAsset.filename, MediaAsset.original_path, MediaAsset.source_path,
-               MediaAsset.curator_asset_id, MediaAsset.fps,
-               MediaAsset.width, MediaAsset.height)
+               MediaAsset.curator_asset_id, MediaAsset.fps)
         .where(MediaAsset.id.in_(media_ids))
     )
     fnames: dict[str, str] = {}
     paths: dict[str, str] = {}
     lognotes: dict[str, str] = {}
     fps_map: dict[str, float] = {}
-    dims_map: dict[str, tuple[int, int]] = {}
-    for mid, fname, op, sp, cid, fps_v, w_v, h_v in rows.all():
+    for mid, fname, op, sp, cid, fps_v in rows.all():
         fnames[mid] = fname
         if sp or op:
             paths[mid] = sp or op
@@ -1634,8 +1632,6 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
             lognotes[mid] = cid
         if fps_v:
             fps_map[mid] = float(fps_v)
-        if w_v and h_v:
-            dims_map[mid] = (int(w_v), int(h_v))
 
     ns_clips = [
         SimpleNamespace(
@@ -1650,7 +1646,8 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     name = f"{project.name or 'Project'} cut v{rev.version}"
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", name)
     if fmt == "xmeml":
-        content, filename = _xmeml(name, ns_clips, paths, lognotes, fps_map, dims_map), f"{safe}.xml"
+        audio_map = {mid: _curator_audio_sidecars(p) for mid, p in paths.items()}
+        content, filename = _xmeml(name, ns_clips, paths, lognotes, fps_map, audio_map), f"{safe}.xml"
     elif fmt == "fcpxml":
         content, filename = _fcpxml(name, ns_clips, paths), f"{safe}.fcpxml"
     elif fmt == "otio":
