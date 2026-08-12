@@ -146,10 +146,15 @@ def _curator_isu_url(path: str | None, asset_id: str | None,
     """Build the Curator gateway ISU streaming URL for a proxy — the same URL
     the Curator panel hands Premiere (imported via Curator's ISU plugin, with
     audio embedded in the stream). Returns None when the media isn't a
-    Curator proxy or no .m3u8 playlist exists next to it."""
+    Curator proxy or no .m3u8 playlist exists next to it.
+
+    The returned URL is https://... — the xmeml export prefixes it with
+    omdci:// (IPV's registered protocol). A plain https/file URL crashes
+    Premiere; omdci:// routes the open to IPV's importer plugin, exactly
+    how the panel imports streams ("IPV Server URL" in clip properties)."""
     import glob as _glob
     gateway = os.environ.get(
-        "CURATOR_GATEWAY_URL", "https://curator.tbn.tv/CuratorGateway/proxies").rstrip("/")
+        "CURATOR_GATEWAY_URL", "https://curator.tbn.tv/CuratorGateway/Proxies").rstrip("/")
     root = os.environ.get("CURATOR_PROXY_ROOT", "/curator").rstrip("/")
     if not asset_id or not gateway:
         return None
@@ -209,8 +214,10 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         return int(round(seconds * fps_val))
 
     file_ids: dict[str, str] = {}          # media_id -> video file id
+    streamed: dict[str, bool] = {}         # media_id -> file is an omdci stream
     file_seq = 0
     items = []
+    audio_items = []
     rec = 0.0
     for i, c in enumerate(clips, 1):
         dur = max(0.04, c.end_time - c.start_time)
@@ -220,30 +227,63 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         lognote = escape(f"assetId={_aid}" if _aid else "")
         fps_val = clip_fps(c.media_id)
         _, _, rate = _xmeml_rate(fps_val)
-        # Media is referenced by plain file path only, declared video-only
-        # (<audio/>). Premiere crashes if the XML claims audio on Curator's
-        # video-only fMP4 proxies, makes it open the raw _audioN sidecar
-        # fragments, or hands it an https gateway URL — the panel streams
-        # media through its own importer, never via project-XML paths. Audio
-        # comes in after the editor reconnects clips to Curator via the
-        # panel's Connect function (matched through the assetId lognote).
+        # Curator-linked media streams via omdci://<gateway ISU url> — IPV's
+        # registered protocol, opened by its importer plugin exactly like a
+        # panel import (video + audio in one stream). The stream carries mono
+        # 48 kHz audio, declared on the file plus a linked audio clipitem so
+        # cuts land with sound. Anything Premiere would open itself (plain
+        # https URLs, raw fMP4 sidecars, audio declared on a video-only file)
+        # crashes its import — non-Curator media therefore stays a plain file
+        # path, declared video-only (<audio/>, no audio clipitems); editors
+        # reconnect those via the panel's Connect (assetId lognote match).
         if c.media_id in file_ids:
             file_el = f'<file id="{file_ids[c.media_id]}"/>'
         else:
             file_seq += 1
             fid = f"file-{file_seq}"
             file_ids[c.media_id] = fid
-            url = _file_url(_translate(paths.get(c.media_id) or c.filename or c.media_id))
+            isu = _curator_isu_url(paths.get(c.media_id), _aid or None,
+                                   folders.get(c.media_id))
+            streamed[c.media_id] = bool(isu)
+            if isu:
+                url = "omdci://" + isu
+                audio_decl = (f'<audio>{_AUDIO_CHARS}'
+                              f'<channelcount>1</channelcount></audio>')
+            else:
+                url = _file_url(_translate(paths.get(c.media_id) or c.filename or c.media_id))
+                audio_decl = '<audio/>'
             file_el = (
                 f'<file id="{fid}"><name>{fname}</name>'
                 f'<pathurl>{escape(url)}</pathurl>{rate}'
                 f'<media><video><samplecharacteristics>{rate}'
-                f'</samplecharacteristics></video><audio/></media></file>'
+                f'</samplecharacteristics></video>{audio_decl}</media></file>'
             )
         timing = (
             f'<start>{fr(rec, seq_fps)}</start><end>{fr(rec + dur, seq_fps)}</end>'
             f'<in>{fr(c.start_time, fps_val)}</in><out>{fr(c.end_time, fps_val)}</out>'
         )
+        if streamed.get(c.media_id):
+            links = (
+                f'          <link><linkclipref>clipitem-{i}</linkclipref>'
+                f'<mediatype>video</mediatype><trackindex>1</trackindex>'
+                f'<clipindex>{i}</clipindex></link>\n'
+                f'          <link><linkclipref>clipitem-a1-{i}</linkclipref>'
+                f'<mediatype>audio</mediatype><trackindex>1</trackindex>'
+                f'<clipindex>{i}</clipindex></link>\n'
+            )
+            audio_items.append(
+                f'        <clipitem id="clipitem-a1-{i}">\n'
+                f'          <name>{label}</name>\n'
+                f'          {rate}\n'
+                f'          {timing}\n'
+                f'          <file id="{file_ids[c.media_id]}"/>\n'
+                f'          <sourcetrack><mediatype>audio</mediatype>'
+                f'<trackindex>1</trackindex></sourcetrack>\n'
+                + links +
+                f'        </clipitem>'
+            )
+        else:
+            links = ''
         items.append(
             f'        <clipitem id="clipitem-{i}">\n'
             f'          <name>{label}</name>\n'
@@ -251,9 +291,13 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
             f'          {timing}\n'
             f'          {file_el}\n'
             f'          <logginginfo><lognote>{lognote}</lognote></logginginfo>\n'
+            + links +
             f'        </clipitem>'
         )
         rec += dur
+    audio_track_xml = (
+        '      <track>\n' + "\n".join(audio_items) + '\n      </track>\n'
+    ) if audio_items else ''
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<!DOCTYPE xmeml>\n'
@@ -271,6 +315,7 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
         '    </video>\n'
         '    <audio>\n'
         f'      <format>{_AUDIO_CHARS}</format>\n'
+        + audio_track_xml +
         '    </audio>\n'
         '  </media>\n'
         '</sequence>\n'
