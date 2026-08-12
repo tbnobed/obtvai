@@ -9,6 +9,24 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface CuratorFolderOut {
+  path: string;
+  name: string;
+  parent?: string | null;
+  clip_count: number;
+  selected: boolean;
+}
+
+export interface CuratorFolderListOut {
+  items: CuratorFolderOut[];
+  truncated?: boolean;
+}
+
+export interface CuratorFolderSelectInput {
+  path: string;
+  selected: boolean;
+}
+
 export interface TranslateRequest {
   /** ISO code: es | fr | de | pt | it | nl | ru | ja | ko | zh | ar | hi */
   target_language: string;

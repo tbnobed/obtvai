@@ -43,11 +43,51 @@ def _is_video(path: str) -> bool:
 
 CURATOR_ROOT = os.getenv("CURATOR_PROXY_ROOT", "/curator").rstrip("/")
 
+# Selective Curator ingest: only clips under admin-selected folders (polled
+# from the API) are ingested. CURATOR_DIRECT_INGEST=1 keeps the old
+# ingest-everything behavior.
+CURATOR_INGEST_ALL = os.getenv("CURATOR_DIRECT_INGEST", "") in ("1", "true", "yes")
+CURATOR_SELECTED_REFRESH = int(os.getenv("CURATOR_SELECTED_REFRESH", "45"))
+curator_selected: set[str] = set()
+
+
+def _curator_selected(path: str) -> bool:
+    """True when the file lives under an admin-selected Curator folder."""
+    rel = path[len(CURATOR_ROOT) + 1:]
+    return any(rel == s or rel.startswith(s + "/") for s in curator_selected)
+
+
+def _refresh_curator_selected() -> None:
+    """Poll the selected-folder list; newly selected folders get an immediate
+    rescan so their existing clips ingest without waiting for FS events."""
+    global curator_selected
+    try:
+        resp = httpx.get(f"{API_URL}/curator/selected", headers=_HEADERS, timeout=15)
+        resp.raise_for_status()
+        new = set(resp.json().get("paths", []))
+    except Exception as e:
+        log.warning(f"Could not refresh Curator selections: {e}")
+        return
+    added = new - curator_selected
+    curator_selected = new
+    for rel in added:
+        root = os.path.join(CURATOR_ROOT, rel)
+        count = 0
+        for dirpath, _dirnames, filenames in os.walk(root):
+            for fn in filenames:
+                p = os.path.join(dirpath, fn)
+                if p not in pending and _should_ingest(p):
+                    pending[p] = {"detected_at": time.time(), "size": _size(p)}
+                    count += 1
+        log.info(f"Curator folder selected '{rel}': {count} file(s) queued")
+
 
 def _should_ingest(path: str, dir_files: list[str] | None = None) -> bool:
     """Under the Curator proxy root, only the *_video.mp4 per proxy folder is
     media — audioN.mp4 renditions and thumbnails must not become library
-    assets. Outside /curator, every video ingests exactly as before."""
+    assets, and (unless CURATOR_DIRECT_INGEST=1) only clips under
+    admin-selected folders ingest. Outside /curator, every video ingests
+    exactly as before."""
     if _is_curator_xml(path):
         # Dropped Curator asset XMLs (any root, incl. the proxy share): watched
         # so they can be linked to existing library media, not ingested as
@@ -58,7 +98,9 @@ def _should_ingest(path: str, dir_files: list[str] | None = None) -> bool:
         return False
     if not path.startswith(CURATOR_ROOT + "/"):
         return True
-    return os.path.basename(path).lower().endswith("_video.mp4")
+    if not os.path.basename(path).lower().endswith("_video.mp4"):
+        return False
+    return CURATOR_INGEST_ALL or _curator_selected(path)
 
 
 def _size(path: str) -> int | None:
@@ -193,12 +235,20 @@ def main():
         observer.schedule(handler, root, recursive=True)
     observer.start()
 
+    curator_watched = any(os.path.realpath(r) == os.path.realpath(CURATOR_ROOT) for r in MEDIA_ROOTS)
+    if curator_watched and not CURATOR_INGEST_ALL:
+        _refresh_curator_selected()
+
     if SCAN_ON_START:
         _initial_scan()
 
+    last_selected_refresh = time.time()
     try:
         while True:
             now = time.time()
+            if curator_watched and not CURATOR_INGEST_ALL and now - last_selected_refresh >= CURATOR_SELECTED_REFRESH:
+                last_selected_refresh = now
+                _refresh_curator_selected()
             to_process = []
             for path, info in list(pending.items()):
                 age = now - info["detected_at"]

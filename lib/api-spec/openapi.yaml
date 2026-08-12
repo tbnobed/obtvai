@@ -864,6 +864,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/MediaMoveResult"
 
+  /curator/folders:
+    get:
+      operationId: listCuratorFolders
+      tags: [curator]
+      summary: Scan the Curator share's folder tree (admin only) — reports structure and selection state, ingests nothing
+      responses:
+        "200":
+          description: Curator folder tree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CuratorFolderListOut"
+        "403":
+          description: Admin only
+        "503":
+          description: Curator share is not mounted
+
+  /curator/folders/select:
+    post:
+      operationId: selectCuratorFolder
+      tags: [curator]
+      summary: Enable or disable ingest for a Curator folder (admin only) — enabling ingests existing clips within about a minute and keeps watching for new ones
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CuratorFolderSelectInput"
+      responses:
+        "204":
+          description: Updated
+        "403":
+          description: Admin only
+        "404":
+          description: Folder not found on the Curator share
+
   /folders:
     get:
       operationId: listFolders
@@ -4054,6 +4090,43 @@ components:
         status:
           type: string
       required: [status]
+
+    # ── Curator selective ingest ─────────────────────────────────────────────
+    CuratorFolderOut:
+      type: object
+      required: [path, name, clip_count, selected]
+      properties:
+        path:
+          type: string
+        name:
+          type: string
+        parent:
+          type: string
+          nullable: true
+        clip_count:
+          type: integer
+        selected:
+          type: boolean
+
+    CuratorFolderListOut:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CuratorFolderOut"
+        truncated:
+          type: boolean
+
+    CuratorFolderSelectInput:
+      type: object
+      required: [path, selected]
+      properties:
+        path:
+          type: string
+        selected:
+          type: boolean
 
     # ── Media ────────────────────────────────────────────────────────────────
     TranslateRequest:

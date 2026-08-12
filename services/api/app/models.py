@@ -78,6 +78,18 @@ class MediaFolder(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class CuratorFolderSelection(Base):
+    """Curator proxy-share folders an admin enabled for ingest.
+
+    `path` is relative to the Curator proxy mount (e.g. "Shows/SMJ"). The
+    watcher only ingests *_video.mp4 files that live under a selected folder;
+    everything else on the share is scanned/browsable but left alone."""
+    __tablename__ = "curator_folder_selections"
+
+    path: Mapped[str] = mapped_column(String, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Marker(Base):
     """Editor selects/rejects and timecoded notes (plus AI-suggested beats)."""
     __tablename__ = "markers"

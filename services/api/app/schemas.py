@@ -121,6 +121,24 @@ class MediaFolderUpdate(BaseModel):
     parent_id: Optional[str] = None
 
 
+class CuratorFolderOut(BaseModel):
+    path: str
+    name: str
+    parent: Optional[str] = None
+    clip_count: int
+    selected: bool
+
+
+class CuratorFolderListOut(BaseModel):
+    items: List[CuratorFolderOut]
+    truncated: bool = False
+
+
+class CuratorFolderSelectInput(BaseModel):
+    path: str = Field(min_length=1, max_length=1024)
+    selected: bool
+
+
 class MediaMoveInput(BaseModel):
     media_ids: List[str] = Field(min_length=1)
     folder_id: Optional[str] = None

@@ -35,6 +35,8 @@ import type {
   CoAppearanceGraph,
   CoMoments,
   Conversation,
+  CuratorFolderListOut,
+  CuratorFolderSelectInput,
   CuratorLinkInput,
   CuratorLinkResult,
   DeleteSavedSearch200,
@@ -2786,6 +2788,154 @@ export const useMoveMedia = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getMoveMediaMutationOptions(options));
+    }
+
+export const getListCuratorFoldersUrl = () => {
+
+
+
+
+  return `/api/curator/folders`
+}
+
+/**
+ * @summary Scan the Curator share's folder tree (admin only) — reports structure and selection state, ingests nothing
+ */
+export const listCuratorFolders = async ( options?: RequestInit): Promise<CuratorFolderListOut> => {
+
+  return customFetch<CuratorFolderListOut>(getListCuratorFoldersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCuratorFoldersQueryKey = () => {
+    return [
+    `/api/curator/folders`
+    ] as const;
+    }
+
+
+export const getListCuratorFoldersQueryOptions = <TData = Awaited<ReturnType<typeof listCuratorFolders>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCuratorFolders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCuratorFoldersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCuratorFolders>>> = ({ signal }) => listCuratorFolders({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCuratorFolders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCuratorFoldersQueryResult = NonNullable<Awaited<ReturnType<typeof listCuratorFolders>>>
+export type ListCuratorFoldersQueryError = ErrorType<void>
+
+
+/**
+ * @summary Scan the Curator share's folder tree (admin only) — reports structure and selection state, ingests nothing
+ */
+
+export function useListCuratorFolders<TData = Awaited<ReturnType<typeof listCuratorFolders>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCuratorFolders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCuratorFoldersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSelectCuratorFolderUrl = () => {
+
+
+
+
+  return `/api/curator/folders/select`
+}
+
+/**
+ * @summary Enable or disable ingest for a Curator folder (admin only) — enabling ingests existing clips within about a minute and keeps watching for new ones
+ */
+export const selectCuratorFolder = async (curatorFolderSelectInput: CuratorFolderSelectInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getSelectCuratorFolderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(curatorFolderSelectInput)
+  }
+);}
+
+
+
+
+
+export const getSelectCuratorFolderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof selectCuratorFolder>>, TError,{data: BodyType<CuratorFolderSelectInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof selectCuratorFolder>>, TError,{data: BodyType<CuratorFolderSelectInput>}, TContext> => {
+
+const mutationKey = ['selectCuratorFolder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof selectCuratorFolder>>, {data: BodyType<CuratorFolderSelectInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  selectCuratorFolder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SelectCuratorFolderMutationResult = NonNullable<Awaited<ReturnType<typeof selectCuratorFolder>>>
+    export type SelectCuratorFolderMutationBody = BodyType<CuratorFolderSelectInput>
+    export type SelectCuratorFolderMutationError = ErrorType<void>
+
+    /**
+ * @summary Enable or disable ingest for a Curator folder (admin only) — enabling ingests existing clips within about a minute and keeps watching for new ones
+ */
+export const useSelectCuratorFolder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof selectCuratorFolder>>, TError,{data: BodyType<CuratorFolderSelectInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof selectCuratorFolder>>,
+        TError,
+        {data: BodyType<CuratorFolderSelectInput>},
+        TContext
+      > => {
+      return useMutation(getSelectCuratorFolderMutationOptions(options));
     }
 
 export const getListFoldersUrl = () => {

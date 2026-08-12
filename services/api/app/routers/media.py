@@ -413,6 +413,38 @@ async def list_media(
     )
 
 
+_CURATOR_FS_ROOT = os.getenv("CURATOR_PROXY_ROOT", "/curator").rstrip("/")
+
+
+async def _mirror_curator_folder(file_path: str, db: AsyncSession) -> str | None:
+    """For Curator-share ingests, mirror the share's folder structure as
+    library folders under a top-level "Curator" folder and return the leaf
+    folder id. The per-clip proxy folder (the dir holding *_video.mp4) is not
+    mirrored — its clips land in the content folder above it."""
+    if not file_path.startswith(_CURATOR_FS_ROOT + "/"):
+        return None
+    from ..models import MediaFolder
+    rel_dir = os.path.dirname(file_path[len(_CURATOR_FS_ROOT) + 1:])
+    parts = [p for p in rel_dir.split("/") if p]
+    if parts and os.path.basename(file_path).lower().endswith("_video.mp4"):
+        # Foldered proxy layout: drop the clip folder itself.
+        parts = parts[:-1]
+    parent_id: str | None = None
+    for name in ["Curator"] + parts:
+        row = (await db.execute(
+            select(MediaFolder).where(
+                MediaFolder.name == name, MediaFolder.parent_id.is_(None) if parent_id is None
+                else MediaFolder.parent_id == parent_id
+            ).limit(1)
+        )).scalar_one_or_none()
+        if row is None:
+            row = MediaFolder(id=str(uuid.uuid4()), name=name, parent_id=parent_id)
+            db.add(row)
+            await db.flush()
+        parent_id = row.id
+    return parent_id
+
+
 @router.post("", response_model=MediaAssetOut, status_code=202)
 async def ingest_media(body: MediaIngestInput, db: AsyncSession = Depends(get_db)):
     if not os.path.exists(body.file_path):
@@ -435,6 +467,7 @@ async def ingest_media(body: MediaIngestInput, db: AsyncSession = Depends(get_db
         file_size_bytes=os.path.getsize(body.file_path),
         recorded_at=datetime.utcfromtimestamp(os.path.getmtime(body.file_path)),
         created_at=datetime.utcnow(),
+        folder_id=await _mirror_curator_folder(body.file_path, db),
     )
     db.add(asset)
     await db.commit()

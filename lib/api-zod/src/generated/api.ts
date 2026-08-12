@@ -1091,6 +1091,32 @@ export const MoveMediaResponse = zod.object({
 
 
 /**
+ * @summary Scan the Curator share's folder tree (admin only) — reports structure and selection state, ingests nothing
+ */
+export const ListCuratorFoldersResponse = zod.object({
+  "items": zod.array(zod.object({
+  "path": zod.string(),
+  "name": zod.string(),
+  "parent": zod.string().nullish(),
+  "clip_count": zod.number(),
+  "selected": zod.boolean()
+})),
+  "truncated": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Enable or disable ingest for a Curator folder (admin only) — enabling ingests existing clips within about a minute and keeps watching for new ones
+ */
+export const SelectCuratorFolderBody = zod.object({
+  "path": zod.string(),
+  "selected": zod.boolean()
+})
+
+export const SelectCuratorFolderResponse = zod.void()
+
+
+/**
  * @summary List media folders with asset counts
  */
 export const ListFoldersResponseItem = zod.object({

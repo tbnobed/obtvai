@@ -5,8 +5,10 @@ import {
   useMoveMedia, useListProjects, getListProjectsQueryKey, useUpdateProject, getGetProjectQueryKey,
   useCreateProject,
   useDeleteMedia,
+  useListCuratorFolders, getListCuratorFoldersQueryKey, useSelectCuratorFolder,
 } from "@workspace/api-client-react";
-import type { MediaAsset, MediaFolder } from "@workspace/api-client-react";
+import type { MediaAsset, MediaFolder, CuratorFolderOut } from "@workspace/api-client-react";
+import { useIsAdmin } from "@/lib/auth";
 
 type LibSpriteMeta = {
   interval: number;
@@ -89,7 +91,7 @@ import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
   ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent,
 } from "@/components/ui/context-menu";
-import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox, Download } from "lucide-react";
+import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox, Download, HardDrive, Loader2, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -225,6 +227,69 @@ export default function Library() {
       localStorage.setItem("library-folders-expanded", JSON.stringify(Array.from(next)));
       return next;
     });
+  };
+
+  // ── Curator selective ingest (admins only) ──────────────────────────────
+  const isAdmin = useIsAdmin();
+  const { data: curatorTree, isLoading: curatorLoading, isError: curatorError, refetch: refetchCurator, isFetching: curatorFetching } =
+    useListCuratorFolders({ query: { queryKey: getListCuratorFoldersQueryKey(), enabled: isAdmin, staleTime: 60_000, retry: false } });
+  const selectCuratorFolder = useSelectCuratorFolder();
+  const [curatorExpanded, setCuratorExpanded] = useState<Set<string>>(new Set());
+  const curatorChildren = (parent: string | null) =>
+    (curatorTree?.items ?? []).filter(c => (c.parent ?? null) === parent);
+  const toggleCuratorIngest = (c: CuratorFolderOut) => {
+    selectCuratorFolder.mutate(
+      { data: { path: c.path, selected: !c.selected } },
+      {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListCuratorFoldersQueryKey() }),
+        onError: () => toast({ title: "Could not update Curator folder", variant: "destructive" }),
+      }
+    );
+  };
+  const renderCuratorNode = (c: CuratorFolderOut, depth: number): React.ReactElement => {
+    const kids = curatorChildren(c.path);
+    const isOpen = curatorExpanded.has(c.path);
+    return (
+      <div key={c.path}>
+        <div
+          className="flex items-center gap-1 h-7 px-1.5 rounded-md text-sm select-none text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          style={{ paddingLeft: `${6 + depth * 14}px` }}
+          title={c.path}
+        >
+          {kids.length ? (
+            <button
+              type="button"
+              className="h-4 w-4 flex items-center justify-center shrink-0"
+              onClick={() =>
+                setCuratorExpanded(prev => {
+                  const next = new Set(prev);
+                  if (next.has(c.path)) next.delete(c.path); else next.add(c.path);
+                  return next;
+                })
+              }
+            >
+              {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </button>
+          ) : (
+            <span className="h-4 w-4 shrink-0" />
+          )}
+          <Folder className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1 truncate">{c.name}</span>
+          {c.clip_count > 0 && (
+            <span className="text-[11px] tabular-nums">{c.clip_count}</span>
+          )}
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 accent-primary cursor-pointer shrink-0"
+            checked={c.selected}
+            disabled={selectCuratorFolder.isPending}
+            onChange={() => toggleCuratorIngest(c)}
+            title={c.selected ? "Stop ingesting this folder (existing media stays)" : "Ingest this folder — existing clips import within a minute and new ones auto-import"}
+          />
+        </div>
+        {isOpen && kids.map(k => renderCuratorNode(k, depth + 1))}
+      </div>
+    );
   };
 
   // Folder tree helpers — folders are flat rows with parent_id; build a tree.
@@ -822,6 +887,39 @@ export default function Library() {
               <p className="text-xs text-muted-foreground px-1.5 py-2">No folders yet — create one, then drag files onto it.</p>
             )}
           </div>
+          {isAdmin && (
+            <div className="pt-2 mt-1 border-t border-border/60">
+              <div className="flex items-center gap-1.5 px-1.5 py-1">
+                <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex-1">Curator</span>
+                <button
+                  type="button"
+                  className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+                  title="Rescan the Curator share"
+                  onClick={() => refetchCurator()}
+                >
+                  <RefreshCw className={`h-3 w-3 ${curatorFetching ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+              {curatorLoading ? (
+                <p className="text-xs text-muted-foreground px-1.5 py-1 flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Scanning share...
+                </p>
+              ) : curatorError ? (
+                <p className="text-xs text-muted-foreground px-1.5 py-1">Curator share not available.</p>
+              ) : curatorChildren(null).length ? (
+                <>
+                  <p className="text-[11px] text-muted-foreground px-1.5 pb-1">Check a folder to ingest it — new files keep importing automatically.</p>
+                  {curatorChildren(null).map(c => renderCuratorNode(c, 0))}
+                  {curatorTree?.truncated && (
+                    <p className="text-[11px] text-muted-foreground px-1.5 py-1">Share is large — some folders not shown.</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground px-1.5 py-1">No folders found on the Curator share.</p>
+              )}
+            </div>
+          )}
         </div>
         {selected.size > 0 && (
           <div className="border-t border-border p-2 flex items-center justify-between shrink-0">
