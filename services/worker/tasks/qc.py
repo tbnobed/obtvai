@@ -201,7 +201,9 @@ def run_editorial_qc(self, media_id: str, job_id: str = None):
                 ocr_min_conf = float(os.getenv("QC_OCR_MIN_CONFIDENCE", "0.5"))
                 for si, (start_t, tf) in enumerate(thumbs):
                     try:
-                        results = reader.readtext(tf, detail=1, paragraph=False)
+                        # mag_ratio upscales small lower-third text before
+                        # recognition — cuts letter-drop misreads markedly.
+                        results = reader.readtext(tf, detail=1, paragraph=False, mag_ratio=1.5)
                     except Exception as fe:
                         append_log(db, job_id, f"OCR failed on frame @{start_t:.1f}s: {fe}")
                         continue
@@ -244,8 +246,12 @@ def run_editorial_qc(self, media_id: str, job_id: str = None):
                             "Each line below is `index|text` — OCR output of text visible in "
                             "video frames (segments separated by ' | '). List genuine English "
                             "misspellings only. Ignore proper nouns, names, brands, acronyms, "
-                            "stylized casing, punctuation, grammar, and obvious OCR artifacts "
-                            "(cut-off words, single letters, garbled fragments). Reply with "
+                            "stylized casing, punctuation, grammar, and OCR artifacts. "
+                            "OCR frequently drops or substitutes single letters (WHITE→WHTE, "
+                            "HOUSE→HUUSE) — these are NOT typos. If the correctly spelled "
+                            "version of the word or phrase also appears anywhere in the same "
+                            "line, it is OCR noise: skip it. Only report a word a viewer "
+                            "would actually see misspelled in the graphic. Reply with "
                             'ONLY a JSON array like [{"line": 3, "word": "recieve", '
                             '"suggestion": "receive"}]. Reply [] if none.\n\n' + "\n".join(ch)
                         )
@@ -254,17 +260,37 @@ def run_editorial_qc(self, media_id: str, job_id: str = None):
                             m = re.search(r"\[.*\]", resp, re.DOTALL)
                             for item in (json.loads(m.group(0)) if m else []):
                                 idx = int(item.get("line", -1))
-                                if 0 <= idx < len(ocr_lines) and item.get("word"):
-                                    typos.append({
-                                        "time": round(ocr_lines[idx][0], 2),
-                                        "word": str(item["word"])[:80],
-                                        "suggestion": str(item.get("suggestion") or "")[:80],
-                                        "context": ocr_lines[idx][1][:160],
-                                    })
+                                if not (0 <= idx < len(ocr_lines) and item.get("word")):
+                                    continue
+                                word = str(item["word"])[:80]
+                                sugg = str(item.get("suggestion") or "")[:80]
+                                line_text = ocr_lines[idx][1]
+                                # OCR-misread guard: if the corrected word is
+                                # also present in the same frame's text, the
+                                # "typo" is a garbled duplicate read.
+                                if sugg and sugg.lower() in line_text.lower():
+                                    continue
+                                typos.append({
+                                    "time": round(ocr_lines[idx][0], 2),
+                                    "word": word,
+                                    "suggestion": sugg,
+                                    "context": line_text[:160],
+                                })
                         except Exception as e:
                             append_log(db, job_id, f"Typo check chunk {ci + 1}/{len(chunks)} failed: {e}")
                             notes.append(f"On-screen typo check incomplete: {str(e)[:160]}")
                         update_job(db, job_id, progress=60.0 + 15.0 * (ci + 1) / max(1, len(chunks)))
+        # The same graphic persists across many scenes — report each
+        # misspelling once (first occurrence).
+        seen = set()
+        deduped = []
+        for t in typos:
+            key = (t["word"].lower(), t["suggestion"].lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(t)
+        typos = deduped
         qc["typos"] = typos[:100]
         if typos:
             ed_flags.append("typos")
