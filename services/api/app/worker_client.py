@@ -41,6 +41,7 @@ async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: d
         "scene_detect": ("cpu", "tasks.scene_detect.detect_scenes"),
         "sprite": ("cpu", "tasks.sprites.generate_sprite"),
         "qc": ("cpu", "tasks.qc.run_qc"),
+        "qc_editorial": ("cpu", "tasks.qc.run_editorial_qc"),
         "visual_embed": ("gpu", "tasks.visual_embed.embed_scenes"),
         "face_detect": ("gpu", "tasks.face_detect.detect_faces"),
         "index": ("cpu", "tasks.index.build_index"),

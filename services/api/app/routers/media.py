@@ -92,7 +92,7 @@ async def move_media(payload: MediaMoveInput, db: AsyncSession = Depends(get_db)
 
 
 RUNNABLE_STAGES = {
-    "proxy", "audio_extract", "transcribe", "diarize", "scene_detect", "qc",
+    "proxy", "audio_extract", "transcribe", "diarize", "scene_detect", "qc", "qc_editorial",
     "visual_embed", "face_detect", "index", "analyze", "creative", "identify",
     "sprite",
 }

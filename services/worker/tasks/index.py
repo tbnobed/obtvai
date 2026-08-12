@@ -71,6 +71,13 @@ def build_index(self, media_id: str, job_id: str):
         from tasks.analyze import analyze_media
         analyze_media.delay(media_id, analyze_job_id)
 
+        # Editorial QC (flash frames, short shots, typos, similar shots) —
+        # queued by whichever of index/visual_embed finishes last, so scene
+        # vectors exist for the similar-shot check.
+        from tasks.qc import maybe_queue_editorial_qc
+        if maybe_queue_editorial_qc(db, media_id):
+            append_log(db, job_id, "Queued editorial QC")
+
     except Exception as e:
         db.rollback()
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())

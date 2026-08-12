@@ -420,6 +420,14 @@ export default function AssetDetail() {
   const lastDubStatus = lastDubJob?.status;
   const lastSentimentStatus = jobs?.filter(j => j.job_type === "sentiment")
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
+  const lastQcEditorialStatus = jobs?.filter(j => j.job_type === "qc_editorial")
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))[0]?.status;
+  // When editorial QC finishes, refresh the asset so the QC tab shows results.
+  useEffect(() => {
+    if (lastQcEditorialStatus === "success" && id) {
+      queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
+    }
+  }, [lastQcEditorialStatus, id, queryClient]);
   useEffect(() => {
     if ((lastHighlightStatus === "success" || lastSocialStatus === "success" || lastCreativeStatus === "success" || lastTranslateStatus === "success" || lastDubStatus === "success") && id) {
       queryClient.invalidateQueries({ queryKey: getGetMediaQueryKey(id) });
@@ -909,6 +917,10 @@ export default function AssetDetail() {
                 Selects
               </TabsTrigger>
               <TabsTrigger value="scenes">Scenes</TabsTrigger>
+              <TabsTrigger value="qc" className="gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                QC
+              </TabsTrigger>
               <TabsTrigger value="jobs">Pipeline Jobs</TabsTrigger>
               {(assetRatings?.total ?? 0) > 0 && (
                 <TabsTrigger value="ratings" className="gap-1.5">
@@ -1365,6 +1377,20 @@ export default function AssetDetail() {
                   ))}
                 </div>
               </TabsContent>
+              <TabsContent value="qc" className="flex-1 overflow-y-auto mt-0 p-4">
+                <AssetQC
+                  qc={asset.qc_flags as QcData | null}
+                  scenes={scenes}
+                  seekTo={seekTo}
+                  onRun={() => {
+                    runStageMutation.mutate({ id: id!, data: { job_type: "qc_editorial" as any } }, {
+                      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id! }) }),
+                    });
+                  }}
+                  running={runStageMutation.isPending || (jobs ?? []).some(j => j.job_type === "qc_editorial" && (j.status === "pending" || j.status === "running"))}
+                  runError={runStageMutation.isError ? ((runStageMutation.error as any)?.data?.detail || "Failed to queue QC") : null}
+                />
+              </TabsContent>
               <TabsContent value="jobs" className="flex-1 overflow-y-auto mt-0 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Select value={runStageType} onValueChange={setRunStageType}>
@@ -1372,7 +1398,7 @@ export default function AssetDetail() {
                       <SelectValue placeholder="Run a pipeline stage…" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["proxy", "audio_extract", "transcribe", "diarize", "scene_detect", "qc", "visual_embed", "face_detect", "index", "analyze", "creative", "identify"].map(s => (
+                      {["proxy", "audio_extract", "transcribe", "diarize", "scene_detect", "qc", "qc_editorial", "visual_embed", "face_detect", "index", "analyze", "creative", "identify"].map(s => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1658,6 +1684,10 @@ export default function AssetDetail() {
 }
 
 const QC_FLAG_LABELS: Record<string, string> = {
+  flash_frames: "Flash frames",
+  short_shots: "Short shots",
+  typos: "Typos",
+  similar_shots: "Similar shots",
   audio_clipping: "Audio clipping",
   audio_silent: "Silent audio",
   audio_low: "Low audio",
@@ -1730,7 +1760,160 @@ function PeopleTracks({
   );
 }
 
+type QcData = {
+  flags?: string[];
+  flash_frames?: { start: number; end: number; frames: number }[];
+  short_shots?: { start: number; end: number; frames: number }[];
+  typos?: { time: number; word: string; suggestion?: string; context?: string }[];
+  similar_shots?: { a_start: number; b_start: number; a_scene_id: string; b_scene_id: string; similarity: number }[];
+  editorial_notes?: string[];
+  editorial_checked_at?: string;
+  black_segments?: { start: number; end: number; duration: number }[];
+  max_volume_db?: number | null;
+  mean_volume_db?: number | null;
+};
+
+function AssetQC({
+  qc,
+  scenes,
+  seekTo,
+  onRun,
+  running,
+  runError,
+}: {
+  qc: QcData | null;
+  scenes: { id: string; thumbnail_url?: string | null }[] | undefined;
+  seekTo: (t: number) => void;
+  onRun: () => void;
+  running: boolean;
+  runError: string | null;
+}) {
+  const thumbById = new Map((scenes ?? []).map(s => [s.id, s.thumbnail_url]));
+  const checked = !!qc?.editorial_checked_at;
+  const techFlags = (qc?.flags ?? []).filter(f =>
+    !["flash_frames", "short_shots", "typos", "similar_shots"].includes(f));
+
+  const Section = ({ title, count, hint, children }: { title: string; count: number; hint: string; children?: React.ReactNode }) => (
+    <div className="border border-border rounded-md p-3">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-sm font-medium">{title}</span>
+        <Badge variant={count > 0 ? "destructive" : "secondary"} className="text-[10px]">
+          {checked ? (count > 0 ? count : "Pass") : "—"}
+        </Badge>
+      </div>
+      <p className="text-xs text-muted-foreground mb-2">{hint}</p>
+      {count > 0 && children}
+    </div>
+  );
+
+  return (
+    <div className="max-w-3xl space-y-3">
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" disabled={running} onClick={onRun} data-testid="button-run-qc">
+          {running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          <span className="ml-1">{running ? "QC running…" : "Run QC checks"}</span>
+        </Button>
+        {qc?.editorial_checked_at && (
+          <span className="text-xs text-muted-foreground">
+            Last checked {new Date(qc.editorial_checked_at).toLocaleString()}
+          </span>
+        )}
+        {runError && <span className="text-xs text-destructive">{runError}</span>}
+      </div>
+      {!checked && (
+        <p className="text-xs text-muted-foreground">
+          Editorial QC hasn't run on this asset yet — run it above. It checks for flash frames,
+          shots under 2 seconds, transcript misspellings, and adjacent shots that are too similar.
+        </p>
+      )}
+      {(qc?.editorial_notes ?? []).map((n, i) => (
+        <p key={i} className="text-xs text-amber-500 flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3 shrink-0" /> {n}
+        </p>
+      ))}
+
+      <Section title="Flash frames" count={qc?.flash_frames?.length ?? 0}
+        hint="Cuts lasting only 1–4 frames — usually stray frames left in the edit.">
+        <div className="flex flex-wrap gap-1.5">
+          {(qc?.flash_frames ?? []).map((f, i) => (
+            <button key={i} onClick={() => seekTo(Math.max(0, f.start - 0.5))}
+              className="text-xs font-mono px-2 py-0.5 rounded bg-muted hover:bg-accent">
+              {formatTimecode(f.start)} · {f.frames}f
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Short shots" count={qc?.short_shots?.length ?? 0}
+        hint="Shots shorter than 2 seconds.">
+        <div className="flex flex-wrap gap-1.5">
+          {(qc?.short_shots ?? []).map((s, i) => (
+            <button key={i} onClick={() => seekTo(Math.max(0, s.start - 0.5))}
+              className="text-xs font-mono px-2 py-0.5 rounded bg-muted hover:bg-accent">
+              {formatTimecode(s.start)} · {(s.end - s.start).toFixed(2)}s
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Typos" count={qc?.typos?.length ?? 0}
+        hint="Misspellings found in the transcript.">
+        <div className="space-y-1">
+          {(qc?.typos ?? []).map((t, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs">
+              <button onClick={() => seekTo(t.time)} className="font-mono text-primary shrink-0">
+                {formatTimecode(t.time)}
+              </button>
+              <span>
+                <span className="text-destructive font-medium">{t.word}</span>
+                {t.suggestion && <span className="text-muted-foreground"> → {t.suggestion}</span>}
+                {t.context && <span className="text-muted-foreground block truncate max-w-md">“{t.context}”</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Similar adjacent shots" count={qc?.similar_shots?.length ?? 0}
+        hint="Back-to-back shots that look nearly identical (e.g. wide shot into jib of the same framing).">
+        <div className="space-y-2">
+          {(qc?.similar_shots ?? []).map((p, i) => (
+            <div key={i} className="flex items-center gap-2">
+              {[{ id: p.a_scene_id, t: p.a_start }, { id: p.b_scene_id, t: p.b_start }].map((sc, j) => (
+                <button key={j} onClick={() => seekTo(sc.t)} className="relative w-28 aspect-video bg-muted rounded overflow-hidden shrink-0 group">
+                  {thumbById.get(sc.id) && (
+                    <img src={`/api/thumbnails/${thumbById.get(sc.id)}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  )}
+                  <span className="absolute bottom-0.5 right-0.5 bg-black/80 px-1 rounded text-[10px] text-white font-mono">
+                    {formatTimecode(sc.t)}
+                  </span>
+                </button>
+              ))}
+              <span className="text-xs text-muted-foreground">{Math.round(p.similarity * 100)}% similar</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Technical checks" count={techFlags.length}
+        hint="Audio levels and black-frame detection from the ingest QC pass.">
+        <div className="flex flex-wrap gap-1.5">
+          {techFlags.map(f => (
+            <Badge key={f} variant="outline" className="text-amber-500 border-amber-500/40 text-[10px]" title={QC_FLAG_HINTS[f]}>
+              {QC_FLAG_LABELS[f] ?? f}
+            </Badge>
+          ))}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
 const QC_FLAG_HINTS: Record<string, string> = {
+  flash_frames: "One or more cuts lasting only 1-4 frames",
+  short_shots: "One or more shots shorter than 2 seconds",
+  typos: "Possible misspellings in the transcript",
+  similar_shots: "Adjacent shots that look nearly identical",
   audio_clipping: "Audio peaks at or above 0 dBFS — likely distorted",
   audio_silent: "Mean audio level below -50 dB — effectively silent",
   audio_low: "Mean audio level below -35 dB — may need a gain boost",

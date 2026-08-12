@@ -42,6 +42,8 @@ def embed_scenes(self, media_id: str, job_id: str):
         if not scenes:
             update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
             append_log(db, job_id, "No scenes to embed")
+            from tasks.qc import maybe_queue_editorial_qc
+            maybe_queue_editorial_qc(db, media_id)
             return
 
         import torch
@@ -202,6 +204,12 @@ def embed_scenes(self, media_id: str, job_id: str):
             f"Embedded {embedded} scene thumbnails + {frame_points} sampled frames "
             f"({skipped_black} near-black skipped)"
         )
+
+        # Editorial QC needs these scene vectors — queue it if the transcript
+        # path already finished (otherwise build_index queues it).
+        from tasks.qc import maybe_queue_editorial_qc
+        if maybe_queue_editorial_qc(db, media_id):
+            append_log(db, job_id, "Queued editorial QC")
 
     except Exception as e:
         db.rollback()
