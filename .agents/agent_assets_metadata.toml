@@ -63,3 +63,10 @@ uri = "file://attached_assets/No_audio_with_path_test.xml"
 type = "unspecified"
 title = "No audio + path test XML"
 description = "Zero audio elements anywhere, real WebProxy file via five-slash UNC pathurl, assetId lognote intact."
+
+[[outputs]]
+id = "1jU859jBrSiM5Q2npABjj"
+uri = "file://attached_assets/OMDCI_URL_test.xml"
+type = "unspecified"
+title = "OMDCI URL test XML"
+description = "Pathurl uses the exact omdci://https://... IPV Server URL from the panel-imported clip's properties; no audio declarations."
