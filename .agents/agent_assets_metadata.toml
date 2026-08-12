@@ -77,3 +77,10 @@ uri = "file://attached_assets/OMDCI_audio_test.xml"
 type = "unspecified"
 title = "OMDCI audio test XML"
 description = "Same omdci stream URL, now with mono audio declared (channelcount 1) and a linked audio clipitem — should land video + audio on the timeline."
+
+[[outputs]]
+id = "5hyZShqONxvudkZrofV1x"
+uri = "file://attached_assets/OMDCI_audio_decl_only_test.xml"
+type = "unspecified"
+title = "OMDCI audio-decl-only test"
+description = "Streaming omdci URL with mono audio declared on the file, but NO audio clipitems or links — isolates which piece crashed."
