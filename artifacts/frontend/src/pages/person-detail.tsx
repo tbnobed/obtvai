@@ -304,6 +304,7 @@ function VoiceSection({
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2 items-start">
+        <div className="space-y-3">
         <div className="border border-border bg-card rounded-md p-3 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h3 className="text-sm font-semibold">Clean Samples</h3>
@@ -609,9 +610,13 @@ function VoiceSection({
               Locked until the voice profile is ready — add {Math.max(0, Math.ceil(minSeconds - readySeconds))} more seconds of clean samples.
             </p>
           )}
+        </div>
+        </div>
 
+        <div className="border border-border bg-card rounded-md p-3 space-y-3">
+          <h3 className="text-sm font-semibold">Generated Results</h3>
           {generations?.length ? (
-            <div className="space-y-2 pt-1 max-h-80 overflow-y-auto pr-1">
+            <div className="space-y-2 pt-1 max-h-[36rem] overflow-y-auto pr-1">
               {generations.map((g: VoiceGeneration) => (
                 <div key={g.id} className="bg-muted/50 rounded p-2 text-sm space-y-1.5">
                   <div className="flex items-start gap-2">
@@ -689,7 +694,9 @@ function VoiceSection({
                 </div>
               ))}
             </div>
-          ) : null}
+          ) : (
+            <p className="text-sm text-muted-foreground">Nothing generated yet — type a prompt on the left and hit Generate.</p>
+          )}
         </div>
       </div>
     </div>
