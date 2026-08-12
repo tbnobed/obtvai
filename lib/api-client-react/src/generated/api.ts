@@ -6073,6 +6073,77 @@ export const useFaceSearchPerson = <TError = ErrorType<void>,
       return useMutation(getFaceSearchPersonMutationOptions(options));
     }
 
+export const getClearFaceSearchUrl = (id: string,) => {
+
+
+
+
+  return `/api/people/${id}/face-search`
+}
+
+/**
+ * @summary Clear the stored web face-search results for this person
+ */
+export const clearFaceSearch = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getClearFaceSearchUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getClearFaceSearchMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearFaceSearch>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearFaceSearch>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['clearFaceSearch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearFaceSearch>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  clearFaceSearch(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearFaceSearchMutationResult = NonNullable<Awaited<ReturnType<typeof clearFaceSearch>>>
+
+    export type ClearFaceSearchMutationError = ErrorType<void>
+
+    /**
+ * @summary Clear the stored web face-search results for this person
+ */
+export const useClearFaceSearch = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearFaceSearch>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof clearFaceSearch>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getClearFaceSearchMutationOptions(options));
+    }
+
 export const getUpdatePersonPhotoUrl = (id: string,) => {
 
 

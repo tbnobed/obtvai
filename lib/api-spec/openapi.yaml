@@ -1895,6 +1895,21 @@ paths:
           description: Not found
         "409":
           description: Person has no face thumbnail to search with
+    delete:
+      operationId: clearFaceSearch
+      tags: [people]
+      summary: Clear the stored web face-search results for this person
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Cleared
+        "404":
+          description: Not found
 
   /people/{id}/photo:
     post:

@@ -903,6 +903,17 @@ async def face_search_person(id: str, db: AsyncSession = Depends(get_db)):
     return None
 
 
+@router.delete("/{id}/face-search", status_code=204)
+async def clear_face_search(id: str, db: AsyncSession = Depends(get_db)):
+    """Clear the stored web face-search results for this person."""
+    person = (await db.execute(select(Person).where(Person.id == id))).scalar_one_or_none()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+    person.face_search = None
+    await db.commit()
+    return None
+
+
 @router.delete("/{id}", status_code=204)
 async def delete_person(id: str, db: AsyncSession = Depends(get_db)):
     """Remove a person entirely — for deleting false-positive detections.

@@ -28,6 +28,7 @@ import {
   getGetPersonAssetMomentsQueryKey,
   useReprofilePerson,
   useFaceSearchPerson,
+  useClearFaceSearch,
   useUpdatePersonPhoto,
   useDeletePersonPhoto,
 } from "@workspace/api-client-react";
@@ -895,6 +896,7 @@ export default function PersonDetail() {
   const updatePerson = useUpdatePerson();
   const reprofilePerson = useReprofilePerson();
   const faceSearchPerson = useFaceSearchPerson();
+  const clearFaceSearch = useClearFaceSearch();
   const updatePersonPhoto = useUpdatePersonPhoto();
   const deletePersonPhoto = useDeletePersonPhoto();
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -1428,8 +1430,67 @@ export default function PersonDetail() {
         </div>
       </div>
 
+      {(person.speech_style || person.key_topics?.length) ? (
+        <div className="grid gap-3 md:grid-cols-2 mb-4">
+          {person.speech_style && (
+            <div className="border border-border bg-card rounded-md p-4">
+              <h2 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                <MessageSquareQuote className="h-4 w-4 text-primary" />
+                Speech Style
+              </h2>
+              <p className="text-sm text-muted-foreground">{person.speech_style}</p>
+            </div>
+          )}
+          {person.key_topics?.length ? (
+            <div className="border border-border bg-card rounded-md p-4">
+              <h2 className="text-sm font-semibold mb-2">Key Topics</h2>
+              <div className="flex flex-wrap gap-1.5">
+                {person.key_topics.map((t) => (
+                  <Badge key={t} variant="outline" className="text-xs">
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="flex items-center gap-1 border-b border-border mb-5">
+        <button
+          type="button"
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            mainTab === "voice"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => { setMainTab("voice"); localStorage.setItem("person-main-tab", "voice"); }}
+        >
+          Voice
+        </button>
+        <button
+          type="button"
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            mainTab === "appearances"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => { setMainTab("appearances"); localStorage.setItem("person-main-tab", "appearances"); }}
+        >
+          Appearances
+          {(person.appearances?.length ?? 0) > 0 && (
+            <span className="ml-1.5 text-xs text-muted-foreground">{person.appearances!.length}</span>
+          )}
+        </button>
+      </div>
+
+      <div className={mainTab === "voice" ? "" : "hidden"}>
+        <VoiceSection personId={id} personName={person.display_name} appearances={person.appearances ?? []} voicePreset={person.voice_preset} voiceSettings={person.voice_settings} />
+      </div>
+
+      <div className={mainTab === "appearances" ? "" : "hidden"}>
       {person.face_search && (
-        <div className="border border-border bg-card rounded-md p-4 mb-8">
+        <div className="border border-border bg-card rounded-md p-4 mb-4">
           <h2 className="text-sm font-semibold flex items-center gap-2 mb-1">
             <ScanSearch className="h-4 w-4 text-primary" />
             Web Face Search
@@ -1438,6 +1499,15 @@ export default function PersonDetail() {
                 {new Date(person.face_search.searched_at).toLocaleString()}
               </span>
             )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto h-6 px-2 gap-1.5 text-xs text-muted-foreground hover:text-destructive"
+              disabled={clearFaceSearch.isPending || faceSearchActive(person.face_search)}
+              onClick={() => clearFaceSearch.mutate({ id }, { onSuccess: invalidate })}
+            >
+              <Trash2 className="h-3 w-3" /> Clear
+            </Button>
           </h2>
           {person.face_search.status === "pending" && (
             faceSearchActive(person.face_search) ? (
@@ -1504,66 +1574,6 @@ export default function PersonDetail() {
           )}
         </div>
       )}
-
-      {(person.speech_style || person.key_topics?.length) ? (
-        <div className="grid gap-3 md:grid-cols-2 mb-4">
-          {person.speech_style && (
-            <div className="border border-border bg-card rounded-md p-4">
-              <h2 className="text-sm font-semibold flex items-center gap-2 mb-2">
-                <MessageSquareQuote className="h-4 w-4 text-primary" />
-                Speech Style
-              </h2>
-              <p className="text-sm text-muted-foreground">{person.speech_style}</p>
-            </div>
-          )}
-          {person.key_topics?.length ? (
-            <div className="border border-border bg-card rounded-md p-4">
-              <h2 className="text-sm font-semibold mb-2">Key Topics</h2>
-              <div className="flex flex-wrap gap-1.5">
-                {person.key_topics.map((t) => (
-                  <Badge key={t} variant="outline" className="text-xs">
-                    {t}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="flex items-center gap-1 border-b border-border mb-5">
-        <button
-          type="button"
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            mainTab === "voice"
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => { setMainTab("voice"); localStorage.setItem("person-main-tab", "voice"); }}
-        >
-          Voice
-        </button>
-        <button
-          type="button"
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            mainTab === "appearances"
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => { setMainTab("appearances"); localStorage.setItem("person-main-tab", "appearances"); }}
-        >
-          Appearances
-          {(person.appearances?.length ?? 0) > 0 && (
-            <span className="ml-1.5 text-xs text-muted-foreground">{person.appearances!.length}</span>
-          )}
-        </button>
-      </div>
-
-      <div className={mainTab === "voice" ? "" : "hidden"}>
-        <VoiceSection personId={id} personName={person.display_name} appearances={person.appearances ?? []} voicePreset={person.voice_preset} voiceSettings={person.voice_settings} />
-      </div>
-
-      <div className={mainTab === "appearances" ? "" : "hidden"}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">
           Appearances

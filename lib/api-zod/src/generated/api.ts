@@ -2361,6 +2361,16 @@ export const FaceSearchPersonResponse = zod.void()
 
 
 /**
+ * @summary Clear the stored web face-search results for this person
+ */
+export const ClearFaceSearchParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ClearFaceSearchResponse = zod.void()
+
+
+/**
  * @summary Replace this person's picture with an uploaded photo — a detected face is cropped, otherwise the whole image is used (voice-over talent); face matching signatures are not changed
  */
 export const UpdatePersonPhotoParams = zod.object({
