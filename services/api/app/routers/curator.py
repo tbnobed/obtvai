@@ -55,37 +55,19 @@ def _scan_tree() -> tuple[list[dict], bool]:
                         continue
         except OSError:
             return
-        # Foldered layout nests exactly one *_video.mp4 per clip folder —
-        # those count toward the parent and are not browsable. A dir with
-        # several *_video.mp4 files is a flat content folder and stays
-        # browsable/selectable (same heuristic as ingest mirroring).
-        child_clip_dirs = 0
-        deeper: list[tuple[str, str]] = []
-        for sub_abs, sub_name in subdirs:
-            videos = 0
-            try:
-                with os.scandir(sub_abs) as it:
-                    for e in it:
-                        if e.is_file(follow_symlinks=False) and e.name.lower().endswith("_video.mp4"):
-                            videos += 1
-                            if videos > 1:
-                                break
-            except OSError:
-                continue
-            if videos == 1:
-                child_clip_dirs += 1
-            else:
-                deeper.append((sub_abs, sub_name))
+        # Every directory is shown and selectable — Explorer parity. Selecting
+        # a parent covers all descendants, so picking a date folder ingests
+        # every clip folder under it. clip_count = *_video.mp4 directly inside.
         if rel:
             items.append({
                 "path": rel,
                 "name": os.path.basename(rel),
                 "parent": os.path.dirname(rel) or None,
-                "clip_count": clip_count + child_clip_dirs,
+                "clip_count": clip_count,
             })
         if depth >= MAX_DEPTH:
             return
-        for sub_abs, sub_name in sorted(deeper, key=lambda t: t[1].lower()):
+        for sub_abs, sub_name in sorted(subdirs, key=lambda t: t[1].lower()):
             walk(sub_abs, os.path.join(rel, sub_name) if rel else sub_name, depth + 1)
 
     walk(CURATOR_ROOT, "", 0)
