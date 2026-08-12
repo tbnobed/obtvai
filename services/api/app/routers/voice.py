@@ -206,8 +206,10 @@ def _normalize_reference(src: str, dst: str) -> bool:
     try:
         proc = subprocess.run(
             ["ffmpeg", "-y", "-t", "30", "-i", src,
-             "-vf", "scale='min(1280,iw)':-2", "-an",
-             "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+             # Keep full HD: the lipsync output inherits this file's
+             # resolution, so never downscale below 1920 wide.
+             "-vf", "scale='min(1920,iw)':-2", "-an",
+             "-c:v", "libx264", "-preset", "fast", "-crf", "18",
              "-movflags", "+faststart", dst],
             capture_output=True, text=True, timeout=600)
     except Exception:
