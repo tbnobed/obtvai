@@ -84,3 +84,10 @@ uri = "file://attached_assets/OMDCI_audio_decl_only_test.xml"
 type = "unspecified"
 title = "OMDCI audio-decl-only test"
 description = "Streaming omdci URL with mono audio declared on the file, but NO audio clipitems or links — isolates which piece crashed."
+
+[[outputs]]
+id = "Z2TmYuYff7m3gH0hB_GgQ"
+uri = "file://attached_assets/image_1786511174970.png"
+type = "image"
+title = "Your example screenshot"
+description = "The screenshot you attached with the 'people page face lift' request — Cody Crouch's person page with Voice Clone left, Voice Generator right."
