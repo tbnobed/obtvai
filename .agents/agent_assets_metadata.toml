@@ -56,3 +56,10 @@ uri = "file://attached_assets/No_path_test.xml"
 type = "unspecified"
 title = "No path test XML"
 description = "One clip with no pathurl at all — file declared only by name + duration, offline by design, assetId lognote intact."
+
+[[outputs]]
+id = "z0-LSRKYqDDa5D9jbdij3"
+uri = "file://attached_assets/No_audio_with_path_test.xml"
+type = "unspecified"
+title = "No audio + path test XML"
+description = "Zero audio elements anywhere, real WebProxy file via five-slash UNC pathurl, assetId lognote intact."
