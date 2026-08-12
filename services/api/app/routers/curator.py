@@ -55,24 +55,24 @@ def _scan_tree() -> tuple[list[dict], bool]:
                         continue
         except OSError:
             return
-        if rel and clip_count == 0:
-            # Flat layout puts _video.mp4 files directly in the content
-            # folder; foldered layout nests one clip folder per proxy. Count
-            # child clip folders without recording them as browsable folders.
-            pass
+        # Foldered layout nests exactly one *_video.mp4 per clip folder —
+        # those count toward the parent and are not browsable. A dir with
+        # several *_video.mp4 files is a flat content folder and stays
+        # browsable/selectable (same heuristic as ingest mirroring).
         child_clip_dirs = 0
         deeper: list[tuple[str, str]] = []
         for sub_abs, sub_name in subdirs:
-            has_video = False
+            videos = 0
             try:
                 with os.scandir(sub_abs) as it:
                     for e in it:
                         if e.is_file(follow_symlinks=False) and e.name.lower().endswith("_video.mp4"):
-                            has_video = True
-                            break
+                            videos += 1
+                            if videos > 1:
+                                break
             except OSError:
                 continue
-            if has_video:
+            if videos == 1:
                 child_clip_dirs += 1
             else:
                 deeper.append((sub_abs, sub_name))

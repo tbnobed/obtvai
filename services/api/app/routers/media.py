@@ -423,12 +423,26 @@ async def _mirror_curator_folder(file_path: str, db: AsyncSession) -> str | None
     mirrored — its clips land in the content folder above it."""
     if not file_path.startswith(_CURATOR_FS_ROOT + "/"):
         return None
+    from sqlalchemy import text as _text
     from ..models import MediaFolder
     rel_dir = os.path.dirname(file_path[len(_CURATOR_FS_ROOT) + 1:])
     parts = [p for p in rel_dir.split("/") if p]
     if parts and os.path.basename(file_path).lower().endswith("_video.mp4"):
-        # Foldered proxy layout: drop the clip folder itself.
-        parts = parts[:-1]
+        # Foldered proxy layout keeps one clip per folder — drop that clip
+        # folder. Flat layout (many *_video.mp4 in one content folder) keeps
+        # the folder. Same exactly-one heuristic as the sidebar scanner.
+        try:
+            videos = [
+                f for f in os.listdir(os.path.dirname(file_path))
+                if f.lower().endswith("_video.mp4")
+            ]
+            if len(videos) == 1:
+                parts = parts[:-1]
+        except OSError:
+            parts = parts[:-1]
+    # Serialize concurrent get-or-create chains (watcher can post many clips
+    # at once) so the mirrored tree never gets duplicate folders.
+    await db.execute(_text("SELECT pg_advisory_xact_lock(hashtext('obtv_curator_mirror'))"))
     parent_id: str | None = None
     for name in ["Curator"] + parts:
         row = (await db.execute(

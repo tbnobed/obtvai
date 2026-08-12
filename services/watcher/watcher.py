@@ -286,7 +286,9 @@ def main():
                             xml_retries.pop(path, None)
                     else:
                         xml_retries.pop(path, None)
-                else:
+                elif _should_ingest(path):
+                    # Re-checked at ingest time: an admin may have deselected
+                    # the folder while the file sat in the stability window.
                     _ingest(path)
 
             time.sleep(2)
