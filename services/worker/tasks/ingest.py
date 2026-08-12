@@ -336,12 +336,19 @@ def repair_link_imports(self):
 
 def _ffprobe(path: str) -> dict:
     cmd = [
-        "ffprobe", "-v", "quiet", "-print_format", "json",
+        "ffprobe", "-v", "error", "-print_format", "json",
         "-show_streams", "-show_format", path,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if result.returncode != 0:
-        raise RuntimeError(f"ffprobe failed: {result.stderr}")
+        # Include the actual reason (missing file, truncated moov, zero bytes)
+        # instead of a blank message from "-v quiet".
+        try:
+            size = os.path.getsize(path)
+        except OSError as e:
+            size = f"unreadable ({e})"
+        err = (result.stderr or "").strip()[-400:] or "no error output"
+        raise RuntimeError(f"ffprobe failed (size={size}): {err}")
     data = json.loads(result.stdout)
 
     video_stream = next((s for s in data.get("streams", []) if s.get("codec_type") == "video"), None)
