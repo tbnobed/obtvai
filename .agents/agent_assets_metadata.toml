@@ -70,3 +70,10 @@ uri = "file://attached_assets/OMDCI_URL_test.xml"
 type = "unspecified"
 title = "OMDCI URL test XML"
 description = "Pathurl uses the exact omdci://https://... IPV Server URL from the panel-imported clip's properties; no audio declarations."
+
+[[outputs]]
+id = "o4CsOmM7K_X_sByYAxMYr"
+uri = "file://attached_assets/OMDCI_audio_test.xml"
+type = "unspecified"
+title = "OMDCI audio test XML"
+description = "Same omdci stream URL, now with mono audio declared (channelcount 1) and a linked audio clipitem — should land video + audio on the timeline."
