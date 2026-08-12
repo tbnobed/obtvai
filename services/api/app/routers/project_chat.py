@@ -1617,7 +1617,8 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     media_ids = {c["media_id"] for c in clips}
     rows = await db.execute(
         select(MediaAsset.id, MediaAsset.filename, MediaAsset.original_path, MediaAsset.source_path,
-               MediaAsset.curator_asset_id, MediaAsset.fps, MediaAsset.curator_web_proxy_path)
+               MediaAsset.curator_asset_id, MediaAsset.fps, MediaAsset.curator_web_proxy_path,
+               MediaAsset.duration_seconds)
         .where(MediaAsset.id.in_(media_ids))
     )
     fnames: dict[str, str] = {}
@@ -1625,8 +1626,11 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     lognotes: dict[str, str] = {}
     fps_map: dict[str, float] = {}
     folders: dict[str, str] = {}
-    for mid, fname, op, sp, cid, fps_v, cfolder in rows.all():
+    durations: dict[str, float] = {}
+    for mid, fname, op, sp, cid, fps_v, cfolder, dsec in rows.all():
         fnames[mid] = fname
+        if dsec:
+            durations[mid] = float(dsec)
         if sp or op:
             paths[mid] = sp or op
         if cid:
@@ -1650,7 +1654,7 @@ async def export_cut(project_id: str, body: dict, db: AsyncSession = Depends(get
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", name)
     if fmt == "xmeml":
         audio_map = {mid: _curator_audio_sidecars(p) for mid, p in paths.items()}
-        content, filename = _xmeml(name, ns_clips, paths, lognotes, fps_map, audio_map, folders), f"{safe}.xml"
+        content, filename = _xmeml(name, ns_clips, paths, lognotes, fps_map, audio_map, folders, durations), f"{safe}.xml"
     elif fmt == "fcpxml":
         content, filename = _fcpxml(name, ns_clips, paths), f"{safe}.fcpxml"
     elif fmt == "otio":

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="5">
+<sequence id="sequence-1">
+  <name>OMDCI audio decl only test</name>
+  <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+  <duration>128</duration>
+  <timecode>
+    <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+    <string>01:00:00:00</string>
+    <frame>107892</frame>
+    <displayformat>DF</displayformat>
+  </timecode>
+  <media>
+    <video>
+      <format>
+        <samplecharacteristics>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <width>1920</width>
+          <height>1080</height>
+          <pixelaspectratio>square</pixelaspectratio>
+        </samplecharacteristics>
+      </format>
+      <track>
+        <enabled>TRUE</enabled>
+        <locked>FALSE</locked>
+        <clipitem id="clipitem-1">
+          <masterclipid>masterclip-1</masterclipid>
+          <name>OMDCI audio decl only clip</name>
+          <enabled>TRUE</enabled>
+          <duration>18000</duration>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>0</start>
+          <end>128</end>
+          <in>5876</in>
+          <out>6004</out>
+
+          <file id="file-1">
+            <name>BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439</name>
+            <pathurl>omdci://https://curator.tbn.tv/CuratorGateway/Proxies/2026/08/03/BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439/BT_20260728_PLEX_STU-O_DCP_CHRYSTAL_JLColor-150439.m3u8.isu?assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6.isu</pathurl>
+            <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+            <!-- Replace 18000 with the real source frame count from Curator. -->
+            <duration>18000</duration>
+            <timecode>
+              <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+              <string>00:00:00:00</string>
+              <frame>0</frame>
+              <displayformat>DF</displayformat>
+            </timecode>
+            <media>
+              <video>
+                <samplecharacteristics>
+                  <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+                  <width>1920</width>
+                  <height>1080</height>
+                </samplecharacteristics>
+              </video>
+              <audio>
+                <samplecharacteristics>
+                  <depth>16</depth>
+                  <samplerate>48000</samplerate>
+                </samplecharacteristics>
+                <channelcount>1</channelcount>
+              </audio>
+            </media>
+          </file>
+
+          <sourcetrack>
+            <mediatype>video</mediatype>
+            <trackindex>1</trackindex>
+          </sourcetrack>
+
+          <link>
+            <linkclipref>clipitem-1</linkclipref>
+            <mediatype>video</mediatype>
+            <trackindex>1</trackindex>
+            <clipindex>1</clipindex>
+          </link>
+          <link>
+            <linkclipref>clipitem-2</linkclipref>
+            <mediatype>audio</mediatype>
+            <trackindex>1</trackindex>
+            <clipindex>1</clipindex>
+            <groupindex>1</groupindex>
+          </link>
+
+          <logginginfo><lognote>assetId=f3ff5dc0-e049-4203-9657-1efca62b62a6</lognote></logginginfo>
+        </clipitem>
+      </track>
+    </video>
+
+    <audio>
+      <numOutputChannels>2</numOutputChannels>
+      <format>
+        <samplecharacteristics>
+          <depth>16</depth>
+          <samplerate>48000</samplerate>
+        </samplecharacteristics>
+      </format>
+      <track>
+        <enabled>TRUE</enabled>
+        <locked>FALSE</locked>
+        <clipitem id="clipitem-2">
+          <masterclipid>masterclip-1</masterclipid>
+          <name>OMDCI audio decl only clip</name>
+          <enabled>TRUE</enabled>
+          <duration>18000</duration>
+          <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+          <start>0</start>
+          <end>128</end>
+          <in>5876</in>
+          <out>6004</out>
+
+          <!-- Empty self-closing reference. Do NOT redeclare the file. -->
+          <file id="file-1"/>
+
+          <sourcetrack>
+            <mediatype>audio</mediatype>
+            <trackindex>1</trackindex>
+          </sourcetrack>
+
+          <link>
+            <linkclipref>clipitem-1</linkclipref>
+            <mediatype>video</mediatype>
+            <trackindex>1</trackindex>
+            <clipindex>1</clipindex>
+          </link>
+          <link>
+            <linkclipref>clipitem-2</linkclipref>
+            <mediatype>audio</mediatype>
+            <trackindex>1</trackindex>
+            <clipindex>1</clipindex>
+            <groupindex>1</groupindex>
+          </link>
+        </clipitem>
+      </track>
+    </audio>
+  </media>
+</sequence>
+</xmeml>
