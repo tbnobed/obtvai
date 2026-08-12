@@ -371,11 +371,15 @@ def lipsync_video(self, generation_id: str):
             # itself loops the reference frames when the audio is longer.
             ref_len = max(2.0, min(30.0, ref_end - ref_start))
             ref_mp4 = os.path.join(workdir, "ref.mp4")
+            # Keep the reference near source resolution (cap 1920): LatentSync
+            # only diffuses the 512px face crop, but the pasted-back frame and
+            # the affine crop quality both come from this input.
+            max_w = int(os.environ.get("LIPSYNC_MAX_WIDTH", "1920"))
             subprocess.run(
                 ["ffmpeg", "-y", "-ss", f"{ref_start:.3f}", "-t", f"{ref_len:.3f}",
                  "-i", ref_path,
-                 "-vf", "scale='min(1280,iw)':-2", "-r", "25", "-an",
-                 "-c:v", "libx264", "-preset", "fast", "-crf", "20", ref_mp4],
+                 "-vf", f"scale='min({max_w},iw)':-2", "-r", "25", "-an",
+                 "-c:v", "libx264", "-preset", "fast", "-crf", "18", ref_mp4],
                 check=True, capture_output=True)
 
             out_tmp = os.path.join(workdir, "out.mp4")
@@ -385,18 +389,26 @@ def lipsync_video(self, generation_id: str):
                 # default; force the old torch.load behavior in the venv.
                 "TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1",
             }
+            # Quality-first defaults (tunable via env): more denoising steps
+            # and no DeepCache — DeepCache reuses cached U-Net features across
+            # steps, which visibly softens teeth/lips. ~4-5x slower than the
+            # old 20-step DeepCache config, so the timeout scales too.
+            steps = os.environ.get("LIPSYNC_INFERENCE_STEPS", "50")
+            guidance = os.environ.get("LIPSYNC_GUIDANCE_SCALE", "1.5")
+            cmd = [_LATENTSYNC_PY, "-m", "scripts.inference",
+                   "--unet_config_path", "configs/unet/stage2_512.yaml",
+                   "--inference_ckpt_path", unet_ckpt,
+                   "--inference_steps", steps,
+                   "--guidance_scale", guidance,
+                   "--video_path", ref_mp4,
+                   "--audio_path", audio_path,
+                   "--video_out_path", out_tmp]
+            if os.environ.get("LIPSYNC_DEEPCACHE", "0") == "1":
+                cmd.insert(-6, "--enable_deepcache")
             proc = subprocess.run(
-                [_LATENTSYNC_PY, "-m", "scripts.inference",
-                 "--unet_config_path", "configs/unet/stage2_512.yaml",
-                 "--inference_ckpt_path", unet_ckpt,
-                 "--inference_steps", "20",
-                 "--guidance_scale", "1.5",
-                 "--enable_deepcache",
-                 "--video_path", ref_mp4,
-                 "--audio_path", audio_path,
-                 "--video_out_path", out_tmp],
-                cwd=_LATENTSYNC_DIR, env=env,
-                capture_output=True, text=True, timeout=3600)
+                cmd, cwd=_LATENTSYNC_DIR, env=env,
+                capture_output=True, text=True,
+                timeout=int(os.environ.get("LIPSYNC_TIMEOUT_SECONDS", "10800")))
             if proc.returncode != 0 or not os.path.isfile(out_tmp):
                 tail = (proc.stderr or proc.stdout or "")[-1500:]
                 raise RuntimeError(f"LatentSync inference failed: {tail}")
