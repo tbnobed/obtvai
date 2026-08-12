@@ -173,67 +173,104 @@ def run_editorial_qc(self, media_id: str, job_id: str = None):
         append_log(db, job_id, f"{len(shots)} shots — {len(flash_frames)} flash, {len(short_shots)} short (<{short_shot_secs}s)")
         update_job(db, job_id, progress=40.0)
 
-        # ── Typos in transcript ──────────────────────────────────────────
-        typos = []
-        segs = db.execute(
-            text("SELECT start_time, text FROM transcript_segments WHERE media_id = :mid ORDER BY start_time"),
+        scenes = db.execute(
+            text("SELECT id, start_time, end_time, thumbnail_url FROM scenes WHERE media_id = :mid ORDER BY start_time"),
             {"mid": media_id},
         ).fetchall()
-        if not segs:
-            notes.append("No transcript — typo check skipped")
+
+        # ── Typos in on-screen text (OCR of scene keyframes) ─────────────
+        typos = []
+        thumbs = []
+        from config import THUMBNAILS_DIR
+        for s in scenes:
+            if s[3]:
+                tf = os.path.join(THUMBNAILS_DIR, os.path.basename(s[3]))
+                if os.path.exists(tf):
+                    thumbs.append((float(s[1]), tf))
+        if not thumbs:
+            notes.append("No scene keyframes — on-screen typo check skipped")
         else:
-            from tasks.llm_remote import remote_enabled, remote_chat
-            if not remote_enabled():
-                notes.append("Remote LLM not configured (LLM_BASE_URL) — typo check skipped")
-            else:
-                append_log(db, job_id, f"Checking {len(segs)} transcript segments for misspellings...")
-                lines = [f"{i}|{(s[1] or '').strip()[:1500]}" for i, s in enumerate(segs)]
-                # Chunk so a long transcript never blows the prompt budget;
-                # every line is sent exactly once (no break-and-drop).
-                chunk, chunks, size = [], [], 0
-                for ln in lines:
-                    if size + len(ln) > 6000 and chunk:
-                        chunks.append(chunk)
-                        chunk, size = [], 0
-                    chunk.append(ln)
-                    size += len(ln) + 1
-                if chunk:
-                    chunks.append(chunk)
-                for ci, ch in enumerate(chunks):
-                    prompt = (
-                        "You are a broadcast QC proofreader. Each line below is `index|text` "
-                        "from a speech transcript. List genuine English misspellings only — "
-                        "ignore proper nouns, names, brands, slang, casing, punctuation and "
-                        "grammar. Reply with ONLY a JSON array like "
-                        '[{"line": 3, "word": "recieve", "suggestion": "receive"}]. '
-                        "Reply [] if none.\n\n" + "\n".join(ch)
-                    )
+            ocr_lines = []  # (scene start, text)
+            try:
+                append_log(db, job_id, f"Running OCR on {len(thumbs)} scene keyframes...")
+                import easyocr
+                reader = easyocr.Reader(
+                    ["en"], gpu=False, verbose=False,
+                    model_storage_directory="/root/.cache/easyocr",
+                )
+                ocr_min_conf = float(os.getenv("QC_OCR_MIN_CONFIDENCE", "0.5"))
+                for si, (start_t, tf) in enumerate(thumbs):
                     try:
-                        resp = remote_chat([{"role": "user", "content": prompt}], max_new_tokens=1024)
-                        m = re.search(r"\[.*\]", resp, re.DOTALL)
-                        for item in (json.loads(m.group(0)) if m else []):
-                            idx = int(item.get("line", -1))
-                            if 0 <= idx < len(segs) and item.get("word"):
-                                typos.append({
-                                    "time": round(float(segs[idx][0]), 2),
-                                    "word": str(item["word"])[:80],
-                                    "suggestion": str(item.get("suggestion") or "")[:80],
-                                    "context": (segs[idx][1] or "")[:160],
-                                })
-                    except Exception as e:
-                        append_log(db, job_id, f"Typo check chunk {ci + 1}/{len(chunks)} failed: {e}")
-                        notes.append(f"Typo check incomplete: {str(e)[:160]}")
-                    update_job(db, job_id, progress=40.0 + 30.0 * (ci + 1) / max(1, len(chunks)))
+                        results = reader.readtext(tf, detail=1, paragraph=False)
+                    except Exception as fe:
+                        append_log(db, job_id, f"OCR failed on frame @{start_t:.1f}s: {fe}")
+                        continue
+                    texts = [t for (_box, t, conf) in results
+                             if conf >= ocr_min_conf and t and t.strip()]
+                    if texts:
+                        ocr_lines.append((start_t, " | ".join(t.strip() for t in texts)[:500]))
+                    if si % 10 == 0:
+                        update_job(db, job_id, progress=40.0 + 20.0 * (si + 1) / len(thumbs))
+            except Exception as e:
+                append_log(db, job_id, f"OCR unavailable: {e}")
+                notes.append(f"OCR unavailable — on-screen typo check skipped: {str(e)[:120]}")
+                ocr_lines = None
+
+            if ocr_lines is None:
+                pass
+            elif not ocr_lines:
+                append_log(db, job_id, "No on-screen text detected")
+            else:
+                from tasks.llm_remote import remote_enabled, remote_chat
+                if not remote_enabled():
+                    notes.append("Remote LLM not configured (LLM_BASE_URL) — on-screen typo check skipped")
+                else:
+                    append_log(db, job_id, f"Checking on-screen text from {len(ocr_lines)} frames for misspellings...")
+                    lines = [f"{i}|{t}" for i, (_st, t) in enumerate(ocr_lines)]
+                    # Chunk so long text never blows the prompt budget; every
+                    # line is sent exactly once (no break-and-drop).
+                    chunk, chunks, size = [], [], 0
+                    for ln in lines:
+                        if size + len(ln) > 6000 and chunk:
+                            chunks.append(chunk)
+                            chunk, size = [], 0
+                        chunk.append(ln)
+                        size += len(ln) + 1
+                    if chunk:
+                        chunks.append(chunk)
+                    for ci, ch in enumerate(chunks):
+                        prompt = (
+                            "You are a broadcast QC proofreader checking on-screen graphics. "
+                            "Each line below is `index|text` — OCR output of text visible in "
+                            "video frames (segments separated by ' | '). List genuine English "
+                            "misspellings only. Ignore proper nouns, names, brands, acronyms, "
+                            "stylized casing, punctuation, grammar, and obvious OCR artifacts "
+                            "(cut-off words, single letters, garbled fragments). Reply with "
+                            'ONLY a JSON array like [{"line": 3, "word": "recieve", '
+                            '"suggestion": "receive"}]. Reply [] if none.\n\n' + "\n".join(ch)
+                        )
+                        try:
+                            resp = remote_chat([{"role": "user", "content": prompt}], max_new_tokens=1024)
+                            m = re.search(r"\[.*\]", resp, re.DOTALL)
+                            for item in (json.loads(m.group(0)) if m else []):
+                                idx = int(item.get("line", -1))
+                                if 0 <= idx < len(ocr_lines) and item.get("word"):
+                                    typos.append({
+                                        "time": round(ocr_lines[idx][0], 2),
+                                        "word": str(item["word"])[:80],
+                                        "suggestion": str(item.get("suggestion") or "")[:80],
+                                        "context": ocr_lines[idx][1][:160],
+                                    })
+                        except Exception as e:
+                            append_log(db, job_id, f"Typo check chunk {ci + 1}/{len(chunks)} failed: {e}")
+                            notes.append(f"On-screen typo check incomplete: {str(e)[:160]}")
+                        update_job(db, job_id, progress=60.0 + 15.0 * (ci + 1) / max(1, len(chunks)))
         qc["typos"] = typos[:100]
         if typos:
             ed_flags.append("typos")
 
         # ── Too-similar adjacent shots (wide → jib etc.) ─────────────────
         similar = []
-        scenes = db.execute(
-            text("SELECT id, start_time, end_time FROM scenes WHERE media_id = :mid ORDER BY start_time"),
-            {"mid": media_id},
-        ).fetchall()
         if len(scenes) < 2:
             notes.append("Fewer than 2 scenes — similar-shot check skipped")
         else:

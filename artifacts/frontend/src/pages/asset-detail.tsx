@@ -1823,7 +1823,7 @@ function AssetQC({
       {!checked && (
         <p className="text-xs text-muted-foreground">
           Editorial QC hasn't run on this asset yet — run it above. It checks for flash frames,
-          shots under 2 seconds, transcript misspellings, and adjacent shots that are too similar.
+          shots under 2 seconds, on-screen text misspellings, and adjacent shots that are too similar.
         </p>
       )}
       {(qc?.editorial_notes ?? []).map((n, i) => (
@@ -1857,7 +1857,7 @@ function AssetQC({
       </Section>
 
       <Section title="Typos" count={qc?.typos?.length ?? 0}
-        hint="Misspellings found in the transcript.">
+        hint="Misspellings found in on-screen text (OCR of scene keyframes).">
         <div className="space-y-1">
           {(qc?.typos ?? []).map((t, i) => (
             <div key={i} className="flex items-start gap-2 text-xs">
@@ -1912,7 +1912,7 @@ function AssetQC({
 const QC_FLAG_HINTS: Record<string, string> = {
   flash_frames: "One or more cuts lasting only 1-4 frames",
   short_shots: "One or more shots shorter than 2 seconds",
-  typos: "Possible misspellings in the transcript",
+  typos: "Possible misspellings in on-screen text",
   similar_shots: "Adjacent shots that look nearly identical",
   audio_clipping: "Audio peaks at or above 0 dBFS — likely distorted",
   audio_silent: "Mean audio level below -50 dB — effectively silent",
