@@ -1381,7 +1381,7 @@ export default function AssetDetail() {
                 <AssetQC
                   qc={asset.qc_flags as QcData | null}
                   scenes={scenes}
-                  seekTo={seekTo}
+                  streamSrc={asset.status === "ready" ? `/api/media/${id}/stream` : null}
                   onRun={() => {
                     runStageMutation.mutate({ id: id!, data: { job_type: "qc_editorial" as any } }, {
                       onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id! }) }),
@@ -1776,18 +1776,25 @@ type QcData = {
 function AssetQC({
   qc,
   scenes,
-  seekTo,
+  streamSrc,
   onRun,
   running,
   runError,
 }: {
   qc: QcData | null;
   scenes: { id: string; thumbnail_url?: string | null }[] | undefined;
-  seekTo: (t: number) => void;
+  streamSrc: string | null;
   onRun: () => void;
   running: boolean;
   runError: string | null;
 }) {
+  const qcVideoRef = useRef<HTMLVideoElement>(null);
+  const seekTo = (t: number) => {
+    const v = qcVideoRef.current;
+    if (!v) return;
+    v.currentTime = t;
+    v.play().catch(() => {});
+  };
   const thumbById = new Map((scenes ?? []).map(s => [s.id, s.thumbnail_url]));
   const checked = !!qc?.editorial_checked_at;
   const techFlags = (qc?.flags ?? []).filter(f =>
@@ -1807,7 +1814,8 @@ function AssetQC({
   );
 
   return (
-    <div className="max-w-3xl space-y-3">
+    <div className="flex gap-4 items-start">
+    <div className="w-[380px] xl:w-[440px] shrink-0 space-y-3">
       <div className="flex items-center gap-2">
         <Button size="sm" variant="outline" disabled={running} onClick={onRun} data-testid="button-run-qc">
           {running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -1905,6 +1913,24 @@ function AssetQC({
           ))}
         </div>
       </Section>
+    </div>
+
+    <div className="flex-1 min-w-0 sticky top-4">
+      {streamSrc ? (
+        <video
+          ref={qcVideoRef}
+          src={streamSrc}
+          controls
+          preload="metadata"
+          className="w-full rounded-md bg-black aspect-video object-contain"
+          data-testid="video-qc-preview"
+        />
+      ) : (
+        <div className="w-full aspect-video rounded-md bg-muted flex items-center justify-center text-sm text-muted-foreground">
+          Preview available once the asset is ready
+        </div>
+      )}
+    </div>
     </div>
   );
 }
