@@ -49,3 +49,10 @@ uri = "file://attached_assets/Video_only_test_v2.xml"
 type = "unspecified"
 title = "Video only test v2 (five-slash UNC)"
 description = "Same video-only clip, pathurl changed to Premiere's Windows UNC form: file://///tustopd.trinity.local/IPV/..."
+
+[[outputs]]
+id = "bBKahkvfOBeAthijftJaU"
+uri = "file://attached_assets/No_path_test.xml"
+type = "unspecified"
+title = "No path test XML"
+description = "One clip with no pathurl at all — file declared only by name + duration, offline by design, assetId lognote intact."
