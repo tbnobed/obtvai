@@ -10,3 +10,8 @@ description: IPV Curator WebProxy layout (video-only fMP4 + audio sidecars) and 
   - **Why:** the "video never loads" incident — proxy was a symlink into `/curator`.
   - **How to apply:** materialize a local file (stream-copy remux is enough — no re-encode). A `-c copy -movflags +faststart` remux also converts fragmented MP4 into progressive MP4, which browsers buffer properly.
 - A/V from separate Curator render files muxes cleanly (`-map 0:v:0` + sidecar audio → AAC); both are rendered from the same source so timestamps align from 0.
+
+## Selective ingest (Aug 2026)
+- /curator is always watched; watcher polls `/api/curator/selected` (internal token) every ~45s and only ingests *_video.mp4 under admin-selected folders. `CURATOR_DIRECT_INGEST=1` = ingest everything (legacy).
+- Layout heuristic everywhere (sidebar scanner + folder mirroring): a dir with exactly ONE *_video.mp4 is a clip folder (counts toward parent, not browsable); multiple = flat content folder (browsable, keeps its mirrored library folder).
+- Re-check selection at ingest time, not just enqueue time (deselect race); mirror get-or-create chain runs under pg_advisory_xact_lock('obtv_curator_mirror').
