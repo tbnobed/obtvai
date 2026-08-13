@@ -46,7 +46,10 @@ async def login(body: LoginIn, request: Request, response: Response, db: AsyncSe
     await create_session(db, user.id, token)
     await db.commit()
     set_session_cookie(response, token)
-    return _session_user(user)
+    out = _session_user(user)
+    if body.return_token:
+        out.token = token
+    return out
 
 
 @router.post("/logout", status_code=204)

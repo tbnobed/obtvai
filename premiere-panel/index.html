@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 12px; font-size: 12px;
+    color: #d6d6d6; background: #1d1d1d;
+  }
+  h1 { font-size: 13px; margin: 0 0 10px; color: #fff; }
+  label.field { display: block; font-size: 11px; color: #9a9a9a; margin: 8px 0 3px; }
+  input, select {
+    width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid #3a3a3a;
+    background: #262626; color: #e8e8e8; font-size: 12px;
+  }
+  button {
+    width: 100%; margin-top: 10px; padding: 7px 10px; border-radius: 4px; border: none;
+    background: #2d8ceb; color: #fff; font-size: 12px; font-weight: 600;
+  }
+  button:disabled { background: #3a3a3a; color: #7a7a7a; }
+  button.secondary { background: #333; color: #ccc; font-weight: 400; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .row label { display: flex; gap: 6px; align-items: center; color: #bbb; }
+  .row input[type=checkbox] { width: auto; }
+  #status { margin-top: 10px; font-size: 11px; white-space: pre-wrap; color: #9a9a9a; }
+  #status.err { color: #e5534b; }
+  #status.ok { color: #57ab5a; }
+  .hidden { display: none; }
+  .who { font-size: 11px; color: #7a7a7a; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .who span.link { color: #2d8ceb; cursor: pointer; }
+</style>
+</head>
+<body>
+  <h1>OBTV AI — Cut Delivery</h1>
+
+  <div id="login-view">
+    <label class="field">Server URL</label>
+    <input id="server" placeholder="http://obtv-server">
+    <label class="field">Username</label>
+    <input id="username">
+    <label class="field">Password</label>
+    <input id="password" type="password">
+    <button id="btn-login">Sign in</button>
+  </div>
+
+  <div id="main-view" class="hidden">
+    <div class="who"><span id="who"></span><span class="link" id="btn-logout">sign out</span></div>
+    <label class="field">Studio project</label>
+    <select id="project"></select>
+    <div class="row">
+      <label><input type="checkbox" id="opt-scale" checked> Scale to frame size</label>
+    </div>
+    <button id="btn-deliver">Import cut into Premiere</button>
+    <button id="btn-refresh" class="secondary">Refresh projects</button>
+  </div>
+
+  <div id="status"></div>
+
+  <script src="main.js"></script>
+</body>
+</html>

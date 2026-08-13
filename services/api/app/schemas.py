@@ -1323,6 +1323,9 @@ class GraphicsGenerationListOut(BaseModel):
 class LoginIn(BaseModel):
     username: str
     password: str
+    # External tools (Premiere panel) set this to receive the session token
+    # in the response body for Authorization: Bearer use.
+    return_token: bool = False
 
 
 class SessionUserOut(BaseModel):
@@ -1330,6 +1333,8 @@ class SessionUserOut(BaseModel):
     username: str
     display_name: Optional[str] = None
     role: str
+    # Only populated on login when the client asked for a bearer token.
+    token: Optional[str] = None
 
 
 class PasswordChangeIn(BaseModel):

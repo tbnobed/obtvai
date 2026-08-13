@@ -148,7 +148,13 @@ async def auth_middleware(request: Request, call_next):
 
     from fastapi.responses import JSONResponse
 
+    # Session cookie (web app) or Bearer token (Premiere panel / external
+    # tools) — both resolve against the same user_sessions store.
     token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        authz = request.headers.get("authorization", "")
+        if authz.lower().startswith("bearer "):
+            token = authz[7:].strip()
     user = await _resolve_user(token) if token else None
     if user is None:
         return JSONResponse({"detail": "Not authenticated"}, status_code=401)

@@ -1,0 +1,26 @@
+{
+  "manifestVersion": 5,
+  "id": "tv.obtv.panel",
+  "name": "OBTV AI",
+  "version": "1.0.0",
+  "main": "index.html",
+  "host": {
+    "app": "premierepro",
+    "minVersion": "25.0"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "obtv.main",
+      "label": { "default": "OBTV AI" },
+      "minimumSize": { "width": 240, "height": 220 },
+      "preferredDockedSize": { "width": 320, "height": 460 },
+      "preferredFloatingSize": { "width": 320, "height": 460 }
+    }
+  ],
+  "requiredPermissions": {
+    "network": { "domains": "all" },
+    "localFileSystem": "fullAccess"
+  },
+  "icons": []
+}
