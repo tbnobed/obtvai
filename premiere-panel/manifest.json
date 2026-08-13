@@ -22,5 +22,14 @@
     "network": { "domains": "all" },
     "localFileSystem": "fullAccess"
   },
-  "icons": []
+  "icons": [
+    {
+      "width": 24,
+      "height": 24,
+      "path": "icons/icon.png",
+      "scale": [1, 2],
+      "theme": ["all"],
+      "species": ["generic"]
+    }
+  ]
 }
