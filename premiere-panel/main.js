@@ -116,6 +116,11 @@ async function deliver() {
     const xmlPath = await writeTempXml(out.filename, out.content);
 
     setStatus("Importing into Premiere…");
+    // Snapshot sequences so we can spot the one the import creates.
+    let seqIdsBefore = new Set();
+    try {
+      for (const s of (await project.getSequences()) || []) seqIdsBefore.add(String(s.guid || s.id || s.name));
+    } catch {}
     const root = await project.getRootItem();
     // Bin named after the cut so we only touch what we bring in.
     const binName = (out.filename || "OBTV cut").replace(/\.xml$/i, "");
@@ -149,10 +154,46 @@ async function deliver() {
       }
     }
 
+    // Sequence settings can NOT be set via FCP7 XML — Premiere ignores the
+    // format block for editing mode/previews. Instead we clone the full
+    // settings from a donor sequence named "OBTV HOUSE" (create it once from
+    // the house preset and keep it in the project template).
+    let settingsMsg = "";
+    try {
+      const sequences = (await project.getSequences()) || [];
+      const donor = sequences.find((s) => /^obtv house$/i.test(String(s.name || "").trim()));
+      const imported = sequences.filter((s) => !seqIdsBefore.has(String(s.guid || s.id || s.name)));
+      if (!donor) {
+        settingsMsg = ' No "OBTV HOUSE" sequence found — sequence settings NOT applied. Create one from the house preset (AVC-Intra 100 1080i / 29.97).';
+      } else if (imported.length) {
+        const donorSettings = await donor.getSettings();
+        let applied = 0;
+        for (const seq of imported) {
+          try {
+            if (typeof seq.setSettings === "function") {
+              await seq.setSettings(donorSettings);
+              applied++;
+            } else if (typeof seq.createSetSettingsAction === "function") {
+              await project.executeTransaction((tx) => {
+                tx.addAction(seq.createSetSettingsAction(donorSettings));
+              });
+              applied++;
+            }
+          } catch (eSet) { /* keep going; reported below */ }
+        }
+        settingsMsg = applied
+          ? ` House settings applied to ${applied} sequence(s).`
+          : " Could not apply house settings (Premiere API refused) — check the sequence manually.";
+      }
+    } catch (eSeq) {
+      settingsMsg = " Sequence settings step failed: " + String((eSeq && eSeq.message) || eSeq);
+    }
+
     let msg = `Imported "${binName}": ${items.length} item(s)`;
     if (scaled) msg += `, scale-to-frame on ${scaled}`;
     if (offline) msg += `, ${offline} OFFLINE — check your media mounts`;
-    setStatus(msg + ".", offline ? "err" : "ok");
+    const bad = offline || /NOT applied|refused|failed/.test(settingsMsg);
+    setStatus(msg + "." + settingsMsg, bad ? "err" : "ok");
   } catch (e) {
     fail(e);
   } finally {
