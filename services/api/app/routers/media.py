@@ -467,6 +467,55 @@ async def _mirror_curator_folder(file_path: str, db: AsyncSession) -> str | None
     return await _ensure_folder_chain(["Curator"] + parts, db)
 
 
+async def _relink_curator_record(asset: MediaAsset, db: AsyncSession) -> None:
+    """On (re-)ingest, match the new asset against persisted Curator XML
+    records so linking + folder placement survive delete-and-reingest cycles
+    (the watcher only re-posts an XML when it changes on disk). Mirrors the
+    curator-link matching rules; fuzzy stem matches must be unambiguous."""
+    from ..models import CuratorAssetRecord
+    recs = (await db.execute(select(CuratorAssetRecord))).scalars().all()
+    if not recs:
+        return
+    op = asset.original_path or ""
+    base = os.path.basename(op)
+    asset_keys = {_curator_norm(os.path.splitext(asset.filename or "")[0])}
+    if base:
+        asset_keys.add(_curator_norm(os.path.splitext(base)[0]))
+    if base.lower().endswith("_video.mp4"):
+        asset_keys.add(_curator_norm(_CURATOR_TS_SUFFIX.sub("", os.path.basename(os.path.dirname(op)))))
+        asset_keys.add(_curator_norm(_CURATOR_TS_SUFFIX.sub("", base[: -len("_video.mp4")])))
+    asset_keys.discard("")
+
+    exact: CuratorAssetRecord | None = None
+    fuzzy: list[CuratorAssetRecord] = []
+    for r in recs:
+        proxy_folder = ""
+        if r.web_proxy_path:
+            proxy_folder = r.web_proxy_path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        if proxy_folder and (f"/{proxy_folder}/" in op or base == f"{proxy_folder}_video.mp4"):
+            exact = r
+            break
+        keys = set()
+        if proxy_folder:
+            keys.add(_curator_norm(_CURATOR_TS_SUFFIX.sub("", proxy_folder)))
+        if r.name:
+            keys.add(_curator_norm(r.name))
+        keys.discard("")
+        if keys & asset_keys:
+            fuzzy.append(r)
+    rec = exact or (fuzzy[0] if len(fuzzy) == 1 else None)
+    if rec is None:
+        return
+    asset.curator_asset_id = rec.asset_id
+    asset.curator_folder_path = rec.folder_path
+    asset.curator_web_proxy_path = rec.web_proxy_path
+    if rec.folder_path:
+        parts = [p for p in rec.folder_path.replace("\\", "/").split("/") if p]
+        fid = await _ensure_folder_chain(["Curator"] + parts, db)
+        if fid:
+            asset.folder_id = fid
+
+
 @router.post("", response_model=MediaAssetOut, status_code=202)
 async def ingest_media(body: MediaIngestInput, db: AsyncSession = Depends(get_db)):
     if not os.path.exists(body.file_path):
@@ -492,6 +541,7 @@ async def ingest_media(body: MediaIngestInput, db: AsyncSession = Depends(get_db
         folder_id=await _mirror_curator_folder(body.file_path, db),
     )
     db.add(asset)
+    await _relink_curator_record(asset, db)
     await db.commit()
     await db.refresh(asset)
 
@@ -593,6 +643,18 @@ async def curator_link(
             elif len(candidates) > 1:
                 ambiguous = True
 
+    # Persist the record so re-ingested media can re-link at ingest time
+    # without the XML being dropped again.
+    from ..models import CuratorAssetRecord
+    rec = await db.get(CuratorAssetRecord, body.asset_id)
+    if rec is None:
+        rec = CuratorAssetRecord(asset_id=body.asset_id)
+        db.add(rec)
+    rec.name = body.name
+    rec.web_proxy_path = body.web_proxy_path
+    rec.folder_path = body.folder_path
+    rec.updated_at = datetime.utcnow()
+
     # Place matched media in the library tree per the Curator asset record's
     # folder_path (e.g. "Library\\TBN-Fast" -> Curator > Library > TBN-Fast).
     # This overrides the filesystem-mirrored placement from ingest time.
@@ -606,8 +668,7 @@ async def curator_link(
         a.curator_web_proxy_path = body.web_proxy_path
         if folder_id:
             a.folder_id = folder_id
-    if matched:
-        await db.commit()
+    await db.commit()
     return CuratorLinkResult(
         asset_id=body.asset_id,
         matched_media_ids=[a.id for a in matched],

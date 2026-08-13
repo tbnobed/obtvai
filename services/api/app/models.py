@@ -90,6 +90,19 @@ class CuratorFolderSelection(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class CuratorAssetRecord(Base):
+    """Curator <assets> XML records, persisted at link time so re-ingested
+    media can be re-linked (and re-foldered) without the XML being dropped
+    again — the watcher only re-posts XMLs when they change on disk."""
+    __tablename__ = "curator_asset_records"
+
+    asset_id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    web_proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    folder_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Marker(Base):
     """Editor selects/rejects and timecoded notes (plus AI-suggested beats)."""
     __tablename__ = "markers"
