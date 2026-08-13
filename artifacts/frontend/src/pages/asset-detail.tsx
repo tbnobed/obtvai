@@ -463,6 +463,12 @@ export default function AssetDetail() {
   };
 
   const seekTo = (time: number) => {
+    // The main player only exists on the Studio tab; from any other tab a
+    // click opens a popup preview player at that timecode instead.
+    if ((activeTab ?? "studio") !== "studio") {
+      setPopPreview(time);
+      return;
+    }
     if (videoRef.current) {
       videoRef.current.currentTime = time;
       videoRef.current.play();
@@ -854,7 +860,7 @@ export default function AssetDetail() {
                         <p className="text-sm">{segment.text}</p>
                       )}
                       {editingSegId !== String(segment.id) && (
-                        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100">
+                        <div className="absolute top-1 right-1 z-30 flex gap-1 opacity-0 group-hover:opacity-100">
                           <Button
                             size="sm" variant="secondary"
                             className="h-6 px-2 gap-1 text-[11px]"
@@ -911,10 +917,6 @@ export default function AssetDetail() {
               <TabsTrigger value="socials" className="gap-1.5">
                 <Share2 className="h-3.5 w-3.5" />
                 Socials
-              </TabsTrigger>
-              <TabsTrigger value="selects" className="gap-1.5">
-                <Star className="h-3.5 w-3.5" />
-                Selects
               </TabsTrigger>
               <TabsTrigger value="scenes">Scenes</TabsTrigger>
               <TabsTrigger value="qc" className="gap-1.5">
@@ -1107,99 +1109,6 @@ export default function AssetDetail() {
             </Dialog>
 
           </div>
-              <TabsContent value="selects" className="flex-1 overflow-y-auto mt-0 p-4">
-                <div className="space-y-4">
-                  <div className="flex items-end gap-2 flex-wrap max-w-3xl">
-                    <div className="flex-1 min-w-48">
-                      <Label htmlFor="marker-note" className="text-xs text-muted-foreground">Note (optional)</Label>
-                      <Input
-                        id="marker-note"
-                        value={markerNote}
-                        onChange={(e) => setMarkerNote(e.target.value)}
-                        placeholder="Why this moment matters..."
-                        className="mt-1"
-                      />
-                    </div>
-                    <Button size="sm" variant="outline" className="gap-1.5 text-green-500" disabled={createMarkerMutation.isPending} onClick={() => addMarkerAtPlayhead("select")}>
-                      <Star className="h-3.5 w-3.5" /> Select
-                    </Button>
-                    <Button size="sm" variant="outline" className="gap-1.5 text-red-500" disabled={createMarkerMutation.isPending} onClick={() => addMarkerAtPlayhead("reject")}>
-                      <XCircle className="h-3.5 w-3.5" /> Reject
-                    </Button>
-                    <Button size="sm" variant="outline" className="gap-1.5 text-sky-400" disabled={createMarkerMutation.isPending} onClick={() => addMarkerAtPlayhead("marker")}>
-                      <Flag className="h-3.5 w-3.5" /> Marker
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Marks are placed at the current playhead position. AI-suggested beats appear on the heat strip under the player — promote the good ones to selects here or from the AI Analysis tab.
-                  </p>
-                  <div className="grid gap-8 lg:grid-cols-2">
-                  {asset.key_moments && asset.key_moments.length > 0 && (
-                    <div>
-                      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">AI Suggestions</h3>
-                      <div className="space-y-1">
-                        {(asset.key_moments as { time: number; title: string; description?: string }[]).map((moment, i) => {
-                          const already = (markers ?? []).some(m => m.source === "editor" && Math.abs(m.time - moment.time) < 2);
-                          return (
-                            <div key={i} className="flex items-center gap-2 p-2 -mx-2 rounded hover:bg-muted transition-colors">
-                              <span className="text-xs font-mono text-primary shrink-0 w-14 text-right cursor-pointer" onClick={() => seekTo(moment.time)}>
-                                {formatTimecode(moment.time)}
-                              </span>
-                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => seekTo(moment.time)}>
-                                <div className="text-sm font-medium truncate">{moment.title}</div>
-                                {moment.description && <div className="text-xs text-muted-foreground truncate">{moment.description}</div>}
-                              </div>
-                              {already ? (
-                                <Badge variant="secondary" className="text-[10px]">marked</Badge>
-                              ) : (
-                                <>
-                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-green-500" title="Promote to select" onClick={() => promoteMoment(moment.time, "select", moment.title)}>
-                                    <ThumbsUp className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500" title="Reject this beat" onClick={() => promoteMoment(moment.time, "reject", moment.title)}>
-                                    <ThumbsDown className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Editor Marks</h3>
-                    {(markers ?? []).length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-4 text-center">No marks yet. Play the video and mark selects, rejects, and notes at the playhead.</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {(markers ?? []).map(m => (
-                          <div key={m.id} className="flex items-center gap-2 p-2 -mx-2 rounded hover:bg-muted transition-colors group">
-                            {m.kind === "select" ? <Star className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                              : m.kind === "reject" ? <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                              : <Flag className="h-3.5 w-3.5 text-sky-400 shrink-0" />}
-                            <span className="text-xs font-mono text-primary shrink-0 w-14 text-right cursor-pointer" onClick={() => seekTo(m.time)}>
-                              {formatTimecode(m.time)}
-                            </span>
-                            <span className="flex-1 text-sm truncate cursor-pointer" onClick={() => seekTo(m.time)}>
-                              {m.note || <span className="text-muted-foreground italic">{m.kind}</span>}
-                            </span>
-                            <Button
-                              size="sm" variant="ghost"
-                              className="h-7 px-2 opacity-0 group-hover:opacity-100 text-destructive"
-                              disabled={deleteMarkerMutation.isPending}
-                              onClick={() => deleteMarkerMutation.mutate({ id: id!, markerId: m.id }, { onSuccess: invalidateMarkers })}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  </div>
-                </div>
-              </TabsContent>
               <TabsContent value="creative" className="flex-1 overflow-y-auto mt-0 p-4">
                 <CreativeSection
                   creative={asset.creative as CreativeAnalysis | null | undefined}
@@ -1381,7 +1290,7 @@ export default function AssetDetail() {
                 <AssetQC
                   qc={asset.qc_flags as QcData | null}
                   scenes={scenes}
-                  streamSrc={asset.status === "ready" ? `/api/media/${id}/stream` : null}
+                  onPreview={setPopPreview}
                   onRun={() => {
                     runStageMutation.mutate({ id: id!, data: { job_type: "qc_editorial" as any } }, {
                       onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id! }) }),
@@ -1776,25 +1685,19 @@ type QcData = {
 function AssetQC({
   qc,
   scenes,
-  streamSrc,
+  onPreview,
   onRun,
   running,
   runError,
 }: {
   qc: QcData | null;
   scenes: { id: string; thumbnail_url?: string | null }[] | undefined;
-  streamSrc: string | null;
+  onPreview: (t: number) => void;
   onRun: () => void;
   running: boolean;
   runError: string | null;
 }) {
-  const qcVideoRef = useRef<HTMLVideoElement>(null);
-  const seekTo = (t: number) => {
-    const v = qcVideoRef.current;
-    if (!v) return;
-    v.currentTime = t;
-    v.play().catch(() => {});
-  };
+  const seekTo = onPreview;
   const thumbById = new Map((scenes ?? []).map(s => [s.id, s.thumbnail_url]));
   const checked = !!qc?.editorial_checked_at;
   const techFlags = (qc?.flags ?? []).filter(f =>
@@ -1814,8 +1717,7 @@ function AssetQC({
   );
 
   return (
-    <div className="flex gap-4 items-start">
-    <div className="w-[380px] xl:w-[440px] shrink-0 space-y-3">
+    <div className="max-w-3xl space-y-3">
       <div className="flex items-center gap-2">
         <Button size="sm" variant="outline" disabled={running} onClick={onRun} data-testid="button-run-qc">
           {running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -1913,24 +1815,6 @@ function AssetQC({
           ))}
         </div>
       </Section>
-    </div>
-
-    <div className="flex-1 min-w-0 sticky top-4">
-      {streamSrc ? (
-        <video
-          ref={qcVideoRef}
-          src={streamSrc}
-          controls
-          preload="metadata"
-          className="w-full rounded-md bg-black aspect-video object-contain"
-          data-testid="video-qc-preview"
-        />
-      ) : (
-        <div className="w-full aspect-video rounded-md bg-muted flex items-center justify-center text-sm text-muted-foreground">
-          Preview available once the asset is ready
-        </div>
-      )}
-    </div>
     </div>
   );
 }
