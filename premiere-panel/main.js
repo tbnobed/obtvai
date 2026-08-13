@@ -102,6 +102,33 @@ async function collectFootage(item, acc) {
   }
 }
 
+const _SEQ_W = 1920, _SEQ_H = 1080; // house frame size
+
+/* Bake Motion > Scale (percent) on a placed video clip track item. */
+async function setMotionScale(project, trackItem, pct) {
+  const chain = await trackItem.getComponentChain();
+  const count = await chain.getComponentCount();
+  for (let ci = 0; ci < count; ci++) {
+    const comp = await chain.getComponentAtIndex(ci);
+    let match = "";
+    try { match = String(await comp.getMatchName()); } catch {}
+    if (!/ADBE Motion/i.test(match)) continue;
+    const paramCount = await comp.getParamCount();
+    for (let p = 0; p < paramCount; p++) {
+      const param = await comp.getParam(p);
+      let dn = "";
+      try { dn = String(await param.getDisplayName()); } catch { dn = String(param.displayName || ""); }
+      if (!/^scale( width)?$/i.test(dn)) continue;
+      const kf = await param.createKeyframe(pct);
+      await project.executeTransaction((tx) => {
+        tx.addAction(param.createSetValueAction(kf, true));
+      });
+      return true;
+    }
+  }
+  return false;
+}
+
 async function deliver() {
   const projectId = $("project").value;
   if (!projectId) return setStatus("Pick a project first.", "err");
@@ -153,18 +180,28 @@ async function deliver() {
     if (!ok) throw new Error("Premiere refused the XML import.");
     step = "post-import";
 
-    // Post-import fix-ups: Scale-to-Frame-Size (the one thing FCP7 XML can't
-    // express) and an offline count. Both best-effort — API surface varies
-    // across Premiere versions.
+    // Post-import fix-ups. Scale-to-Frame-Size can't come from FCP7 XML:
+    //  1. Flag the imported project items (ClipProjectItem.
+    //     createSetScaleToFrameSizeAction) so future timeline placements
+    //     scale automatically.
+    //  2. The clips ALREADY placed by the import don't retro-apply the flag,
+    //     so also bake Motion > Scale on each placed clip, computed from the
+    //     asset dimensions the server knows.
+    step = "scale-project-items";
     const items = [];
     await collectFootage(bin || root, items);
     let scaled = 0, offline = 0;
+    const wantScale = $("opt-scale").checked;
     for (const it of items) {
-      try { if (await it.isOffline?.()) { offline++; continue; } } catch {}
-      if ($("opt-scale").checked) {
+      let clip = it;
+      try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(it) || it; } catch {}
+      try { if (typeof clip.isOffline === "function" && await clip.isOffline()) { offline++; continue; } } catch {}
+      if (wantScale && typeof clip.createSetScaleToFrameSizeAction === "function") {
         try {
-          if (typeof it.setScaleToFrameSize === "function") { await it.setScaleToFrameSize(); scaled++; }
-          else if (ppro.ProjectItemUtils?.setScaleToFrameSize) { await ppro.ProjectItemUtils.setScaleToFrameSize(it); scaled++; }
+          await project.executeTransaction((tx) => {
+            tx.addAction(clip.createSetScaleToFrameSizeAction());
+          });
+          scaled++;
         } catch {}
       }
     }
@@ -174,10 +211,12 @@ async function deliver() {
     // settings from a donor sequence named "OBTV HOUSE" (create it once from
     // the house preset and keep it in the project template).
     let settingsMsg = "";
+    let importedSeqs = [];
     try {
       const sequences = (await project.getSequences()) || [];
       const donor = sequences.find((s) => /^obtv house$/i.test(String(s.name || "").trim()));
       const imported = sequences.filter((s) => !seqIdsBefore.has(String(s.guid || s.id || s.name)));
+      importedSeqs = imported;
       if (!donor) {
         settingsMsg = ' No "OBTV HOUSE" sequence found — sequence settings NOT applied. Create one from the house preset (AVC-Intra 100 1080i / 29.97).';
       } else if (imported.length) {
@@ -204,8 +243,53 @@ async function deliver() {
       settingsMsg = " Sequence settings step failed: " + String((eSeq && eSeq.message) || eSeq);
     }
 
+    // The scale-to-frame flag on project items does NOT retro-apply to the
+    // clips the XML import already placed in the sequence — bake Motion >
+    // Scale on those, using asset dimensions from the server.
+    step = "scale-placed-clips";
+    let baked = 0;
+    if (wantScale && importedSeqs.length) {
+      const dims = {};
+      try {
+        const cut = await api("GET", `/api/projects/${projectId}/cut`);
+        const clipRows = (cut && (cut.clips || (cut.revision && cut.revision.clips))) || [];
+        const ids = [...new Set(clipRows.map((c) => c.media_id).filter(Boolean))];
+        for (const mid of ids) {
+          try {
+            const m = await api("GET", `/api/media/${mid}`);
+            if (m && m.width && m.height) {
+              dims[String(m.filename || "").toLowerCase()] = { w: m.width, h: m.height };
+            }
+          } catch {}
+        }
+      } catch {}
+      for (const seq of importedSeqs) {
+        try {
+          const trackCount = await seq.getVideoTrackCount();
+          for (let t = 0; t < trackCount; t++) {
+            const track = await seq.getVideoTrack(t);
+            const clipType = ppro.Constants?.TrackItemType?.CLIP;
+            const tItems = await (clipType != null
+              ? track.getTrackItems(clipType, false)
+              : track.getTrackItems());
+            for (const ti of tItems || []) {
+              try {
+                const pi = await ti.getProjectItem();
+                const d = dims[String((pi && pi.name) || "").toLowerCase()];
+                if (!d || !d.w || !d.h) continue;
+                const pct = Math.min(_SEQ_W / d.w, _SEQ_H / d.h) * 100;
+                if (Math.abs(pct - 100) < 0.01) continue;
+                if (await setMotionScale(project, ti, pct)) baked++;
+              } catch {}
+            }
+          }
+        } catch {}
+      }
+    }
+
     let msg = `Imported "${binName}": ${items.length} item(s)`;
     if (scaled) msg += `, scale-to-frame on ${scaled}`;
+    if (baked) msg += `, ${baked} placed clip(s) scaled`;
     if (offline) msg += `, ${offline} OFFLINE — check your media mounts`;
     const bad = offline || /NOT applied|refused|failed/.test(settingsMsg);
     setStatus(msg + "." + settingsMsg, bad ? "err" : "ok");
