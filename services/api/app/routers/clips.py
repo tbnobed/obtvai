@@ -594,16 +594,20 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
     fps_map: dict[str, float] = {}
     folders: dict[str, str] = {}
     durations: dict[str, float] = {}
+    dims: dict[str, tuple[int, int]] = {}   # media_id -> (width, height)
     if media_ids:
         rows = await db.execute(
             select(MediaAsset.id, MediaAsset.original_path, MediaAsset.source_path,
                    MediaAsset.curator_asset_id, MediaAsset.fps,
-                   MediaAsset.curator_web_proxy_path, MediaAsset.duration_seconds)
+                   MediaAsset.curator_web_proxy_path, MediaAsset.duration_seconds,
+                   MediaAsset.width, MediaAsset.height)
             .where(MediaAsset.id.in_(media_ids))
         )
-        for mid, op, sp, cid, fps_v, cfolder, dsec in rows.all():
+        for mid, op, sp, cid, fps_v, cfolder, dsec, w, h in rows.all():
             if dsec:
                 durations[mid] = float(dsec)
+            if w and h:
+                dims[mid] = (int(w), int(h))
             # source_path (hi-res original from Curator sidecar metadata) wins
             # over original_path — for Curator-direct ingests original_path IS
             # the proxy.
@@ -616,10 +620,23 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
             if cfolder:
                 folders[mid] = cfolder
 
+    scale_map: dict[str, list[int]] | None = None
     if fmt == "xmeml":
         audio_map = {mid: _curator_audio_sidecars(p) for mid, p in paths.items()}
         content = _xmeml(cl_out.name, cl_out.clips, paths, lognotes, fps_map, audio_map, folders, durations)
         filename = f"{cl_out.name.replace(' ', '_')}.xml"
+        # Basename (lowercased) of the media file the panel will relink to ->
+        # source dims, so the panel can bake Motion > Scale on placed clips.
+        scale_map = {}
+        for c in cl_out.clips:
+            wh = dims.get(c.media_id)
+            if not wh:
+                continue
+            src = _translate(paths.get(c.media_id) or c.filename or c.media_id)
+            base = os.path.basename(src).lower()
+            if base:
+                scale_map[base] = [wh[0], wh[1]]
+        scale_map = scale_map or None
 
     elif fmt == "fcpxml":
         content = _fcpxml(cl_out.name, cl_out.clips, paths)
@@ -664,7 +681,7 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
         content = "\n".join(lines)
         filename = f"{cl_out.name.replace(' ', '_')}.edl"
 
-    return ClipExportResult(format=fmt, content=content, filename=filename)
+    return ClipExportResult(format=fmt, content=content, filename=filename, scale_map=scale_map)
 
 
 @router.post("/{id}/roughcut", response_model=ReelJobOut, status_code=202)

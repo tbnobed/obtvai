@@ -280,24 +280,13 @@ async function deliver() {
 
     // The scale-to-frame flag on project items does NOT retro-apply to the
     // clips the XML import already placed in the sequence — bake Motion >
-    // Scale on those, using asset dimensions from the server.
+    // Scale on those. Source dims come from the export's scale_map, keyed by
+    // media-file basename (matches what Premiere relinks to), so we don't
+    // depend on clip names (which are cut labels, not filenames).
     step = "scale-placed-clips";
-    let baked = 0;
-    if (wantScale && importedSeqs.length) {
-      const dims = {};
-      try {
-        const cut = await api("GET", `/api/projects/${projectId}/cut`);
-        const clipRows = (cut && (cut.clips || (cut.revision && cut.revision.clips))) || [];
-        const ids = [...new Set(clipRows.map((c) => c.media_id).filter(Boolean))];
-        for (const mid of ids) {
-          try {
-            const m = await api("GET", `/api/media/${mid}`);
-            if (m && m.width && m.height) {
-              dims[String(m.filename || "").toLowerCase()] = { w: m.width, h: m.height };
-            }
-          } catch {}
-        }
-      } catch {}
+    let baked = 0, missDims = 0;
+    const scaleMap = (out && out.scale_map) || {};
+    if (wantScale && importedSeqs.length && Object.keys(scaleMap).length) {
       for (const seq of importedSeqs) {
         try {
           const trackCount = await seq.getVideoTrackCount();
@@ -310,9 +299,12 @@ async function deliver() {
             for (const ti of tItems || []) {
               try {
                 const pi = await ti.getProjectItem();
-                const d = dims[String((pi && pi.name) || "").toLowerCase()];
-                if (!d || !d.w || !d.h) continue;
-                const pct = Math.min(_SEQ_W / d.w, _SEQ_H / d.h) * 100;
+                let path = "";
+                try { if (pi && typeof pi.getMediaFilePath === "function") path = String(await pi.getMediaFilePath() || ""); } catch {}
+                const base = path.split(/[\\/]/).pop().toLowerCase();
+                const d = scaleMap[base];
+                if (!d || !d[0] || !d[1]) { if (pi) missDims++; continue; }
+                const pct = Math.min(_SEQ_W / d[0], _SEQ_H / d[1]) * 100;
                 if (Math.abs(pct - 100) < 0.01) continue;
                 if (await setMotionScale(project, ti, pct)) baked++;
               } catch {}
@@ -325,6 +317,7 @@ async function deliver() {
     let msg = `Imported "${binName}": ${items.length} item(s)`;
     if (scaled) msg += `, scale-to-frame on ${scaled}`;
     if (baked) msg += `, ${baked} placed clip(s) scaled`;
+    else if (wantScale && missDims) msg += `, ${missDims} clip(s) had no source dims (nothing to scale)`;
     if (offline) msg += `, ${offline} OFFLINE — check your media mounts`;
     const bad = offline || /NOT applied|refused|failed/.test(settingsMsg);
     setStatus(msg + "." + settingsMsg, bad ? "err" : "ok");
