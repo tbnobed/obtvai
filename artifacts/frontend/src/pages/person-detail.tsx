@@ -201,7 +201,20 @@ function VoiceSection({
       : {}),
   });
 
-  const speakingAppearances = appearances.filter((a) => a.speaker_label);
+  // A person can match several diarized speakers in one asset, giving multiple
+  // speaking appearances with the same media_id — dedupe to one dropdown entry
+  // per asset, keeping the earliest first-spoken time.
+  const speakingAppearances = (() => {
+    const byMedia = new Map<string, PersonAppearance>();
+    for (const a of appearances) {
+      if (!a.speaker_label) continue;
+      const prev = byMedia.get(a.media_id);
+      if (!prev || (a.first_spoken_at ?? Infinity) < (prev.first_spoken_at ?? Infinity)) {
+        byMedia.set(a.media_id, a);
+      }
+    }
+    return Array.from(byMedia.values());
+  })();
 
   const submitSample = () => {
     setRangeError(null);
