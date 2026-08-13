@@ -182,55 +182,13 @@ async function deliver() {
       }
     } catch { bin = null; /* fall back to importing at root */ }
 
-    // TWO-PHASE IMPORT: the scale-to-frame flag on a project item only
-    // affects clips added to a sequence AFTER the flag exists — it never
-    // retro-scales placed clips. So import the media FIRST, flag it, and only
-    // then import the XML: with "Allow duplicate media" off Premiere reuses
-    // the pre-flagged masters, and placement inherits scale-to-frame.
+    // NOTE: a two-phase import (pre-import media, flag scale-to-frame, then
+    // import the XML) was tried and reverted: importFiles on omdci URLs
+    // double-ingests the media and crashes Premiere, and this build throws
+    // "The script object is no longer valid" from createSetScaleToFrameSizeAction
+    // even on freshly imported masters. Scaling correctness comes from the
+    // export declaring the proxy's TRUE raster + Default Media Scaling.
     const wantScale = $("opt-scale").checked;
-    let preFlagged = 0;
-    if (wantScale) {
-      step = "pre-import-media";
-      const urls = [];
-      const seen = new Set();
-      const re = /<pathurl>([\s\S]*?)<\/pathurl>/g;
-      let m;
-      while ((m = re.exec(out.content))) {
-        let u = m[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<")
-                    .replace(/&gt;/g, ">").replace(/&quot;/g, '"')
-                    .replace(/&apos;/g, "'").trim();
-        if (u && !seen.has(u)) { seen.add(u); urls.push(u); }
-      }
-      dbg("pre-import: " + urls.length + " media url(s)");
-      if (urls.length) {
-        try {
-          try { await project.importFiles(urls, true, bin || root, false); }
-          catch (e1) {
-            try { await project.importFiles(urls, true, bin || root); }
-            catch (e2) { await project.importFiles(urls); }
-          }
-          await sleep(700); // let the media import settle before flagging
-          const pre = [];
-          await collectFootage(bin || root, pre);
-          for (const raw of pre) {
-            let clip = raw;
-            try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(raw) || raw; } catch {}
-            for (const t of (raw === clip ? [raw] : [raw, clip])) {
-              if (typeof t.createSetScaleToFrameSizeAction !== "function") continue;
-              try {
-                await project.executeTransaction((tx) => {
-                  tx.addAction(t.createSetScaleToFrameSizeAction());
-                }, "OBTV scale to frame");
-                preFlagged++; break;
-              } catch (e) { dbg("pre-flag failed:", String(e && e.message || e)); }
-            }
-          }
-          dbg("pre-import: flagged scale-to-frame on " + preFlagged + " master(s)");
-        } catch (e) {
-          dbg("pre-import phase failed (continuing):", String(e && e.message || e));
-        }
-      }
-    }
 
     // UXP's native bindings are strict about parameter types — pass every
     // argument explicitly (no undefined) and always a real FolderItem target.
