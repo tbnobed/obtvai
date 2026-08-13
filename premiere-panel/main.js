@@ -302,7 +302,10 @@ async function deliver() {
                 let path = "";
                 try { if (pi && typeof pi.getMediaFilePath === "function") path = String(await pi.getMediaFilePath() || ""); } catch {}
                 const base = path.split(/[\\/]/).pop().toLowerCase();
-                const d = scaleMap[base];
+                const nm = String((pi && pi.name) || "").toLowerCase();
+                // Try file basename, then the project-item name (= filename;
+                // this is how Curator omdci:// streams match).
+                const d = scaleMap[base] || scaleMap[nm] || scaleMap[nm.split(/[\\/]/).pop()];
                 if (!d || !d[0] || !d[1]) { if (pi) missDims++; continue; }
                 const pct = Math.min(_SEQ_W / d[0], _SEQ_H / d[1]) * 100;
                 if (Math.abs(pct - 100) < 0.01) continue;

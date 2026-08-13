@@ -632,10 +632,20 @@ async def export_clip_list(id: str, body: ClipExportInput, db: AsyncSession = De
             wh = dims.get(c.media_id)
             if not wh:
                 continue
+            val = [wh[0], wh[1]]
+            # Key by every identifier the panel might see on a placed clip:
+            #  - basename of the relinked hi-res path (getMediaFilePath), and
+            #  - the project-item name, which Premiere takes from <file><name>
+            #    = the filename (works for Curator omdci:// streams too, whose
+            #    media path is not a real file path).
             src = _translate(paths.get(c.media_id) or c.filename or c.media_id)
             base = os.path.basename(src).lower()
             if base:
-                scale_map[base] = [wh[0], wh[1]]
+                scale_map[base] = val
+            fname = (c.filename or c.media_id or "").lower()
+            if fname:
+                scale_map[fname] = val
+                scale_map[os.path.basename(fname)] = val
         scale_map = scale_map or None
 
     elif fmt == "fcpxml":
