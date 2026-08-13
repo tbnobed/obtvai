@@ -121,6 +121,7 @@ def _xmeml_rate(fps_val: float) -> tuple[int, str, str]:
 
 
 _SEQ_W, _SEQ_H = 1920, 1080
+_HOUSE_FPS = 29.97  # house sequences: 1080i29.97, timebase 30 ntsc, DF
 
 _AUDIO_CHARS = ('<samplecharacteristics><depth>16</depth>'
                 '<samplerate>48000</samplerate></samplecharacteristics>')
@@ -208,7 +209,11 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
     def clip_fps(media_id: str) -> float:
         return float(fps_map.get(media_id) or 0) or float(_FPS)
 
-    seq_fps = clip_fps(clips[0].media_id) if clips else float(_FPS)
+    # The sequence is always house format — 1080i 29.97 upper-field AVC-Intra
+    # with drop-frame timecode (matches the facility's default Premiere
+    # sequence preset) — regardless of the individual clips' frame rates.
+    # Clips keep their own <rate> and Premiere conforms them on import.
+    seq_fps = _HOUSE_FPS
     _, _, seq_rate = _xmeml_rate(seq_fps)
 
     def fr(seconds: float, fps_val: float) -> int:
