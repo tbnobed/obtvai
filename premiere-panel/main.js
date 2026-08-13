@@ -210,68 +210,36 @@ async function deliver() {
       total = snap.length;
     }
     dbg("wantScale=" + wantScale, "footage items=" + total);
+    // Best-effort: flag the imported project items scale-to-frame. NOTE this
+    // only affects clips added to a sequence AFTER the flag is set — it does
+    // NOT retro-scale the clips the XML import already placed. The reliable
+    // way to make placed clips fill the frame is Premiere's Preferences >
+    // Media > "Default Media Scaling: Scale to Frame Size", which scales clips
+    // as they're added to the sequence during import. We surface that hint.
     if (wantScale && total) {
       await sleep(900); // let the import settle
-      // One-time diagnostic dump so we can see WHAT these items are.
-      try {
-        const fresh0 = [];
-        await collectFootage(bin || root, fresh0);
-        for (let i = 0; i < fresh0.length; i++) {
-          const it = fresh0[i];
-          const info = { tag: "item#" + (i + 1) };
-          try { info.name = String(it.name || ""); } catch {}
-          try { info.type = it.type; } catch {}
-          try { info.ctor = it.constructor && it.constructor.name; } catch {}
-          try { info.isSeq = (typeof it.isSequence === "function") ? await it.isSequence() : "n/a"; } catch (e) { info.isSeq = "err:" + (e && e.message); }
-          try { info.contentType = (typeof it.getContentType === "function") ? await it.getContentType() : "n/a"; } catch (e) { info.contentType = "err:" + (e && e.message); }
-          try { info.isOffline = (typeof it.isOffline === "function") ? await it.isOffline() : "n/a"; } catch (e) { info.isOffline = "err:" + (e && e.message); }
-          try { info.isMerged = (typeof it.isMergedClip === "function") ? await it.isMergedClip() : "n/a"; } catch (e) { info.isMerged = "err:" + (e && e.message); }
-          try { info.mediaPath = (typeof it.getMediaFilePath === "function") ? String(await it.getMediaFilePath() || "") : "n/a"; } catch (e) { info.mediaPath = "err:" + (e && e.message); }
-          dbg("DIAG", JSON.stringify(info));
-        }
-      } catch (e) { dbg("DIAG failed:", String(e && e.message || e)); }
-
-      const done = new Set();          // indices resolved (scaled or offline)
-      for (let attempt = 1; attempt <= 4 && done.size < total; attempt++) {
-        if (attempt > 1) await sleep(500);
-        const fresh = [];
-        await collectFootage(bin || root, fresh);
-        for (let idx = 0; idx < fresh.length; idx++) {
-          if (done.has(idx)) continue;
-          const tag = "item#" + (idx + 1);
-          const raw = fresh[idx];
-          let clip = raw;
-          try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(raw) || raw; } catch {}
+      const fresh = [];
+      await collectFootage(bin || root, fresh);
+      for (let idx = 0; idx < fresh.length; idx++) {
+        const raw = fresh[idx];
+        let clip = raw;
+        try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(raw) || raw; } catch {}
+        const targets = raw === clip ? [raw] : [raw, clip];
+        for (const t of targets) {
+          if (typeof t.createSetScaleToFrameSizeAction !== "function") continue;
           try {
-            if (typeof clip.isOffline === "function" && await clip.isOffline()) {
-              offline++; done.add(idx); dbg(tag, "OFFLINE"); continue;
-            }
-          } catch {}
-          // Try uncast first, then cast — some builds only accept one form.
-          const targets = raw === clip ? [raw] : [raw, clip];
-          let okThis = false, lastE = "";
-          for (const t of targets) {
-            if (typeof t.createSetScaleToFrameSizeAction !== "function") continue;
-            try {
-              await project.executeTransaction((tx) => {
-                tx.addAction(t.createSetScaleToFrameSizeAction());
-              }, "OBTV scale to frame");
-              okThis = true; break;
-            } catch (e) { lastE = String(e && e.message || e); }
-          }
-          if (okThis) {
-            scaled++; done.add(idx);
-            dbg(tag, "scale-to-frame set OK (attempt " + attempt + ")");
-          } else {
-            scaleErr = lastE || "createSetScaleToFrameSizeAction missing";
-            dbg(tag, "attempt " + attempt + " failed:", scaleErr, "— will retry");
-          }
+            await project.executeTransaction((tx) => {
+              tx.addAction(t.createSetScaleToFrameSizeAction());
+            }, "OBTV scale to frame");
+            scaled++; break;
+          } catch (e) { scaleErr = String(e && e.message || e); }
         }
       }
     }
-    const scaleFail = wantScale ? (total - scaled - offline) : 0;
     let scaleMsg = "";
-    if (wantScale && scaleFail) scaleMsg = ` Scale-to-frame NOT set on ${scaleFail}: ${scaleErr}.`;
+    if (wantScale) {
+      scaleMsg = " To scale placed clips to frame, enable Premiere > Preferences > Media > Default Media Scaling = Scale to Frame Size, then re-deliver.";
+    }
 
     // Sequence settings can NOT be set via FCP7 XML — Premiere ignores the
     // format block for editing mode/previews. Instead we clone the full
