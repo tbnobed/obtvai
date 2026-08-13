@@ -223,6 +223,11 @@ async function deliver() {
     // way to make placed clips fill the frame is Premiere's Preferences >
     // Media > "Default Media Scaling: Scale to Frame Size", which scales clips
     // as they're added to the sequence during import. We surface that hint.
+    // Masters that ACCEPT actions, keyed by media path. The XML import also
+    // creates phantom per-segment masters that throw "script object is no
+    // longer valid" on every action — only the real stream masters land in
+    // this map, and the rescale pass re-places clips from them.
+    const realByPath = new Map();
     if (wantScale && total) {
       await sleep(900); // let the import settle
       const fresh = [];
@@ -238,10 +243,16 @@ async function deliver() {
             await project.executeTransaction((tx) => {
               tx.addAction(t.createSetScaleToFrameSizeAction());
             }, "OBTV scale to frame");
-            scaled++; break;
+            scaled++;
+            try {
+              const p = await t.getMediaFilePath();
+              if (p) realByPath.set(String(p).toLowerCase(), { item: raw, clip: t });
+            } catch {}
+            break;
           } catch (e) { scaleErr = String(e && e.message || e); }
         }
       }
+      dbg("real (action-accepting) masters: " + realByPath.size);
     }
     let scaleMsg = "";
 
@@ -314,20 +325,40 @@ async function deliver() {
             const track = await seq.getVideoTrack(v);
             const items = (await track.getTrackItems(TI_CLIP, false)) || [];
             for (const ti of items) {
+              let stage = "read-times";
               try {
                 const start = await ti.getStartTime();
                 const inP = await ti.getInPoint();
                 const outP = await ti.getOutPoint();
+                stage = "get-project-item";
                 const pi = await ti.getProjectItem();
                 let clip = pi;
                 try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(pi) || pi; } catch {}
-                if (typeof clip.createSetScaleToFrameSizeAction !== "function") { rescaleFail++; continue; }
-                // 1) flag the master + pin in/out to the placed range
+                // The placed clip usually points at a PHANTOM per-segment
+                // master that rejects every action. Resolve the REAL
+                // action-accepting master by media path and use that instead.
+                stage = "resolve-real-master";
+                let srcItem = pi, srcClip = clip;
+                try {
+                  const p = await clip.getMediaFilePath();
+                  const real = p && realByPath.get(String(p).toLowerCase());
+                  if (real) { srcItem = real.item; srcClip = real.clip; }
+                } catch {}
+                if (realByPath.size === 1 && srcItem === pi) {
+                  // single-media cut: path lookup failed but there's only one
+                  // real master — use it
+                  const real = realByPath.values().next().value;
+                  srcItem = real.item; srcClip = real.clip;
+                }
+                if (typeof srcClip.createSetScaleToFrameSizeAction !== "function") { rescaleFail++; dbg("rescale: no scale action on source master"); continue; }
+                // 1) flag the source master + pin in/out to the placed range
+                stage = "flag-and-pin";
                 await project.executeTransaction((tx) => {
-                  tx.addAction(clip.createSetScaleToFrameSizeAction());
-                  tx.addAction(clip.createSetInOutPointsAction(inP, outP));
+                  tx.addAction(srcClip.createSetScaleToFrameSizeAction());
+                  tx.addAction(srcClip.createSetInOutPointsAction(inP, outP));
                 }, "OBTV scale flag");
                 // 2) remove the placed video item (leave linked audio, no ripple)
+                stage = "remove-placed";
                 const sel = await seq.getSelection();
                 try {
                   const cur = (await sel.getTrackItems()) || [];
@@ -337,20 +368,22 @@ async function deliver() {
                 await project.executeTransaction((tx) => {
                   tx.addAction(editor.createRemoveItemsAction(sel, false, MT_VIDEO, false));
                 }, "OBTV rescale remove");
-                // 3) re-place the same master at the same spot (inherits flag)
+                // 3) re-place the REAL master at the same spot (inherits flag)
+                stage = "overwrite";
                 await project.executeTransaction((tx) => {
-                  tx.addAction(editor.createOverwriteItemAction(pi, start, v, 0));
+                  tx.addAction(editor.createOverwriteItemAction(srcItem, start, v, 0));
                 }, "OBTV rescale place");
                 // 4) restore the master's in/out
+                stage = "clear-io";
                 try {
                   await project.executeTransaction((tx) => {
-                    tx.addAction(clip.createClearInOutPointsAction());
+                    tx.addAction(srcClip.createClearInOutPointsAction());
                   }, "OBTV rescale clear io");
                 } catch {}
                 rescaled++;
               } catch (eTi) {
                 rescaleFail++;
-                dbg("rescale item failed:", String((eTi && eTi.message) || eTi));
+                dbg("rescale item failed at " + stage + ":", String((eTi && eTi.message) || eTi));
               }
             }
           }
