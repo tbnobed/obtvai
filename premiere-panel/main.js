@@ -244,9 +244,6 @@ async function deliver() {
       }
     }
     let scaleMsg = "";
-    if (wantScale) {
-      scaleMsg = " To scale placed clips to frame, enable Premiere > Preferences > Media > Default Media Scaling = Scale to Frame Size, then re-deliver.";
-    }
 
     // Sequence settings can NOT be set via FCP7 XML — Premiere ignores the
     // format block for editing mode/previews. Instead we clone the full
@@ -295,6 +292,75 @@ async function deliver() {
       }
     } catch (eSeq) {
       settingsMsg = " Sequence settings step failed: " + String((eSeq && eSeq.message) || eSeq);
+    }
+
+    // Retro-scale the PLACED clips so the editor never touches them manually.
+    // The master-clip flag is not retroactive and the Default Media Scaling
+    // pref is unreliable, so per placed clip: flag its backing master, pin the
+    // master's in/out to the placed range, remove the placed video item
+    // (no ripple), overwrite the same master back at the same spot — the
+    // re-inserted clip inherits scale-to-frame — then clear the master in/out.
+    step = "rescale-placed-clips";
+    let rescaled = 0, rescaleFail = 0;
+    if (wantScale && importedSeqs.length && ppro.SequenceEditor) {
+      const C = ppro.Constants || {};
+      const TI_CLIP = (C.TrackItemType && (C.TrackItemType.CLIP ?? C.TrackItemType.Clip)) ?? 1;
+      const MT_VIDEO = C.MediaType && (C.MediaType.VIDEO ?? C.MediaType.Video);
+      for (const seq of importedSeqs) {
+        try {
+          const editor = await ppro.SequenceEditor.getEditor(seq);
+          const vCount = await seq.getVideoTrackCount();
+          for (let v = 0; v < vCount; v++) {
+            const track = await seq.getVideoTrack(v);
+            const items = (await track.getTrackItems(TI_CLIP, false)) || [];
+            for (const ti of items) {
+              try {
+                const start = await ti.getStartTime();
+                const inP = await ti.getInPoint();
+                const outP = await ti.getOutPoint();
+                const pi = await ti.getProjectItem();
+                let clip = pi;
+                try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(pi) || pi; } catch {}
+                if (typeof clip.createSetScaleToFrameSizeAction !== "function") { rescaleFail++; continue; }
+                // 1) flag the master + pin in/out to the placed range
+                await project.executeTransaction((tx) => {
+                  tx.addAction(clip.createSetScaleToFrameSizeAction());
+                  tx.addAction(clip.createSetInOutPointsAction(inP, outP));
+                }, "OBTV scale flag");
+                // 2) remove the placed video item (leave linked audio, no ripple)
+                const sel = await seq.getSelection();
+                try {
+                  const cur = (await sel.getTrackItems()) || [];
+                  for (const c of cur) { try { sel.removeItem(c); } catch {} }
+                } catch {}
+                sel.addItem(ti, false);
+                await project.executeTransaction((tx) => {
+                  tx.addAction(editor.createRemoveItemsAction(sel, false, MT_VIDEO, false));
+                }, "OBTV rescale remove");
+                // 3) re-place the same master at the same spot (inherits flag)
+                await project.executeTransaction((tx) => {
+                  tx.addAction(editor.createOverwriteItemAction(pi, start, v, 0));
+                }, "OBTV rescale place");
+                // 4) restore the master's in/out
+                try {
+                  await project.executeTransaction((tx) => {
+                    tx.addAction(clip.createClearInOutPointsAction());
+                  }, "OBTV rescale clear io");
+                } catch {}
+                rescaled++;
+              } catch (eTi) {
+                rescaleFail++;
+                dbg("rescale item failed:", String((eTi && eTi.message) || eTi));
+              }
+            }
+          }
+        } catch (eS) {
+          dbg("rescale sequence failed:", String((eS && eS.message) || eS));
+        }
+      }
+      dbg("rescale placed clips: ok=" + rescaled + " failed=" + rescaleFail);
+      if (rescaled) scaleMsg = ` ${rescaled} placed clip(s) scaled to frame.`;
+      if (rescaleFail) scaleMsg += ` ${rescaleFail} clip(s) could NOT be auto-scaled — right-click them > Scale to Frame Size.`;
     }
 
     const dbgPath = await flushDebug();
