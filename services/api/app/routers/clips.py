@@ -180,6 +180,48 @@ def _curator_isu_url(path: str | None, asset_id: str | None,
     return f"{gateway}/{rel}.isu?assetId={asset_id}.isu"
 
 
+_PROXY_DIMS_CACHE: dict[str, tuple[int, int]] = {}
+
+
+def _probe_proxy_dims(path: str | None) -> tuple[int, int] | None:
+    """True raster of the Curator web proxy living next to `path`.
+
+    Declaring a fake 1920x1080 for streams made every Scale-to-Frame-Size a
+    mathematical no-op (1920->1920), while declaring nothing crashes
+    Premiere's ISU importer during probe. Declaring the REAL proxy dims keeps
+    the import stable AND lets Default Media Scaling / scale-to-frame compute
+    a real scale factor."""
+    import glob as _glob
+    import json as _json
+    import subprocess
+    if not path:
+        return None
+    d = os.path.dirname(path)
+    if d in _PROXY_DIMS_CACHE:
+        return _PROXY_DIMS_CACHE[d]
+    cands: list[str] = []
+    for pat in ("*.mp4", "*.m4v", "*.mov", "*.m3u8"):
+        for f in sorted(_glob.glob(os.path.join(_glob.escape(d), pat))):
+            if "_audio" in os.path.basename(f).lower():
+                continue  # audio sidecars carry no video stream
+            cands.append(f)
+    for f in cands:
+        try:
+            out = subprocess.run(
+                ["ffprobe", "-v", "quiet", "-print_format", "json",
+                 "-select_streams", "v:0",
+                 "-show_entries", "stream=width,height", f],
+                capture_output=True, timeout=15)
+            st = (_json.loads(out.stdout or b"{}").get("streams") or [{}])[0]
+            w, h = int(st.get("width") or 0), int(st.get("height") or 0)
+            if w and h:
+                _PROXY_DIMS_CACHE[d] = (w, h)
+                return (w, h)
+        except Exception:
+            continue
+    return None
+
+
 def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
            lognotes: dict[str, str] | None = None,
            fps_map: dict[str, float] | None = None,
@@ -277,11 +319,15 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
                 url = "omdci://" + isu
                 audio_decl = (f'<audio>{_AUDIO_CHARS}'
                               f'<channelcount>1</channelcount></audio>')
-                # No dims/PAR: the Curator importer knows the stream's true
-                # raster and pixel aspect. Declaring 1920x1080 square here made
-                # Premiere misinterpret anamorphic sources (e.g. 1440x1080
-                # PAR 1.333) as square pixels -> pillarboxed at 100% scale.
-                video_chars = f'<samplecharacteristics>{rate}</samplecharacteristics>'
+                # Streams MUST declare dims (omitting them crashes Premiere's
+                # ISU importer), but they must be the proxy's TRUE raster:
+                # declaring 1920x1080 for a smaller proxy turned every
+                # scale-to-frame into a no-op. Probe the local proxy file;
+                # fall back to sequence dims only if the probe fails.
+                pw, ph = _probe_proxy_dims(paths.get(c.media_id)) or (_SEQ_W, _SEQ_H)
+                video_chars = (f'<samplecharacteristics>{rate}'
+                               f'<width>{pw}</width><height>{ph}</height>'
+                               f'</samplecharacteristics>')
             else:
                 url = _file_url(_translate(paths.get(c.media_id) or c.filename or c.media_id))
                 audio_decl = '<audio/>'
