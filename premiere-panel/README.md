@@ -16,12 +16,19 @@ Sign in with your obtv-ai account, pick a Studio project, and hit
 
 ## One-time setup: the "OBTV HOUSE" donor sequence
 
-Create one sequence from the house preset (AVC-Intra 100 1080i, 29.97,
-upper field first, AVC-Intra Class100 previews, Rec.709) and name it exactly
-`OBTV HOUSE`. Keep it in your project template so every project has it.
-The panel copies its full settings — editing mode, previews, color — onto
-each imported cut sequence. If it's missing, the import still works but the
-panel warns that settings were not applied.
+Preferred: bundle the house preset with the plugin. In Premiere, open
+File > New > Sequence, pick/configure the house settings (AVC-Intra 100
+1080i, 29.97 DF, upper field first, AVC-Intra Class100 previews, Rec.709),
+click **Save Preset**, then copy the resulting `.sqpreset` from
+`Documents/Adobe/Premiere Pro/<ver>/Profile-*/Settings/Custom/` into the
+plugin's `presets/` folder (any `*.sqpreset` there is used). When a project
+has no `OBTV HOUSE` sequence, the panel creates it automatically from that
+preset, then clones its full settings — editing mode, previews, color —
+onto each imported cut sequence.
+
+Fallback: create a sequence from the house preset manually, name it exactly
+`OBTV HOUSE`, and keep it in your project template. If neither exists, the
+import still works but the panel warns that settings were not applied.
 
 Requirements: Premiere Pro 25.0 (2025) or newer with UXP panel support; the
 workstation must reach the obtv-ai server URL and mount the media paths

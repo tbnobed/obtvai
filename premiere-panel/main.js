@@ -103,6 +103,29 @@ async function collectFootage(item, acc) {
 }
 
 const _SEQ_W = 1920, _SEQ_H = 1080; // house frame size
+const _DONOR_NAME = "OBTV HOUSE";
+
+/* If the donor sequence is missing, create it from the .sqpreset shipped in
+   the plugin's presets/ folder. Returns the new Sequence or null. */
+async function createDonorFromBundledPreset(project) {
+  try {
+    const fs = require("uxp").storage.localFileSystem;
+    const pluginFolder = await fs.getPluginFolder();
+    const presetsFolder = await pluginFolder.getEntry("presets");
+    const entries = await presetsFolder.getEntries();
+    const preset = entries.find((e) => /\.sqpreset$/i.test(e.name));
+    if (!preset || !preset.nativePath) return null;
+    let seq = null;
+    if (typeof project.createSequenceWithPresetPath === "function") {
+      seq = await project.createSequenceWithPresetPath(_DONOR_NAME, preset.nativePath);
+    } else if (typeof project.createSequence === "function") {
+      seq = await project.createSequence(_DONOR_NAME, preset.nativePath);
+    }
+    return seq || null;
+  } catch {
+    return null; // no presets folder / no preset bundled — fall back to manual
+  }
+}
 
 /* Bake Motion > Scale (percent) on a placed video clip track item. */
 async function setMotionScale(project, trackItem, pct) {
@@ -214,11 +237,15 @@ async function deliver() {
     let importedSeqs = [];
     try {
       const sequences = (await project.getSequences()) || [];
-      const donor = sequences.find((s) => /^obtv house$/i.test(String(s.name || "").trim()));
+      let donor = sequences.find((s) => /^obtv house$/i.test(String(s.name || "").trim()));
       const imported = sequences.filter((s) => !seqIdsBefore.has(String(s.guid || s.id || s.name)));
       importedSeqs = imported;
       if (!donor) {
-        settingsMsg = ' No "OBTV HOUSE" sequence found — sequence settings NOT applied. Create one from the house preset (AVC-Intra 100 1080i / 29.97).';
+        // Auto-create the donor from the .sqpreset bundled with the plugin.
+        donor = await createDonorFromBundledPreset(project);
+      }
+      if (!donor) {
+        settingsMsg = ' No "OBTV HOUSE" sequence and no bundled presets/OBTV HOUSE.sqpreset — sequence settings NOT applied. Add the preset to the plugin or create the sequence manually (AVC-Intra 100 1080i / 29.97).';
       } else if (imported.length) {
         const donorSettings = await donor.getSettings();
         let applied = 0;
