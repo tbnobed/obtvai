@@ -249,22 +249,30 @@ async function deliver() {
       } else if (imported.length) {
         const donorSettings = await donor.getSettings();
         let applied = 0;
+        let lastErr = "";
         for (const seq of imported) {
           try {
-            if (typeof seq.setSettings === "function") {
-              await seq.setSettings(donorSettings);
-              applied++;
-            } else if (typeof seq.createSetSettingsAction === "function") {
-              await project.executeTransaction((tx) => {
-                tx.addAction(seq.createSetSettingsAction(donorSettings));
-              });
-              applied++;
+            const run = () => project.executeTransaction((tx) => {
+              tx.addAction(seq.createSetSettingsAction(donorSettings));
+            }, "OBTV house settings");
+            try {
+              await run();
+            } catch (e1) {
+              // Some builds require sequence mutations inside lockedAccess.
+              if (typeof project.lockedAccess === "function") {
+                await project.lockedAccess(() => run());
+              } else {
+                throw e1;
+              }
             }
-          } catch (eSet) { /* keep going; reported below */ }
+            applied++;
+          } catch (eSet) {
+            lastErr = String((eSet && eSet.message) || eSet);
+          }
         }
         settingsMsg = applied
           ? ` House settings applied to ${applied} sequence(s).`
-          : " Could not apply house settings (Premiere API refused) — check the sequence manually.";
+          : ` Could not apply house settings: ${lastErr || "unknown error"} — check the sequence manually.`;
       }
     } catch (eSeq) {
       settingsMsg = " Sequence settings step failed: " + String((eSeq && eSeq.message) || eSeq);
