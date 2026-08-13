@@ -102,7 +102,6 @@ async function collectFootage(item, acc) {
   }
 }
 
-const _SEQ_W = 1920, _SEQ_H = 1080; // house frame size
 const _DONOR_NAME = "OBTV HOUSE";
 
 /* If the donor sequence is missing, create it from the .sqpreset shipped in
@@ -127,29 +126,22 @@ async function createDonorFromBundledPreset(project) {
   }
 }
 
-/* Bake Motion > Scale (percent) on a placed video clip track item. */
-async function setMotionScale(project, trackItem, pct) {
-  const chain = await trackItem.getComponentChain();
-  const count = await chain.getComponentCount();
-  for (let ci = 0; ci < count; ci++) {
-    const comp = await chain.getComponentAtIndex(ci);
-    let match = "";
-    try { match = String(await comp.getMatchName()); } catch {}
-    if (!/ADBE Motion/i.test(match)) continue;
-    const paramCount = await comp.getParamCount();
-    for (let p = 0; p < paramCount; p++) {
-      const param = await comp.getParam(p);
-      let dn = "";
-      try { dn = String(await param.getDisplayName()); } catch { dn = String(param.displayName || ""); }
-      if (!/^scale( width)?$/i.test(dn)) continue;
-      const kf = await param.createKeyframe(pct);
-      await project.executeTransaction((tx) => {
-        tx.addAction(param.createSetValueAction(kf, true));
-      });
-      return true;
-    }
-  }
-  return false;
+/* Debug log: collected in memory, echoed to the UDT console, and written to
+   a file the user can open. */
+const DBG = [];
+function dbg(...args) {
+  const line = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+  DBG.push(line);
+  try { console.log("[OBTV]", line); } catch {}
+}
+async function flushDebug() {
+  try {
+    const fs = require("uxp").storage.localFileSystem;
+    const folder = await fs.getTemporaryFolder();
+    const f = await folder.createEntry("obtv-debug.log", { overwrite: true });
+    await f.write(DBG.join("\n"));
+    return f.nativePath;
+  } catch (e) { return "(could not write log: " + String((e && e.message) || e) + ")"; }
 }
 
 async function deliver() {
@@ -203,31 +195,41 @@ async function deliver() {
     if (!ok) throw new Error("Premiere refused the XML import.");
     step = "post-import";
 
-    // Post-import fix-ups. Scale-to-Frame-Size can't come from FCP7 XML:
-    //  1. Flag the imported project items (ClipProjectItem.
-    //     createSetScaleToFrameSizeAction) so future timeline placements
-    //     scale automatically.
-    //  2. The clips ALREADY placed by the import don't retro-apply the flag,
-    //     so also bake Motion > Scale on each placed clip, computed from the
-    //     asset dimensions the server knows.
+    // Scale-to-Frame-Size: the native flag on the ClipProjectItem. This is the
+    // ONLY correct mechanism — never bake a Motion > Scale %. Set it on every
+    // imported footage item; Premiere applies it to that item's instances.
     step = "scale-project-items";
     const items = [];
     await collectFootage(bin || root, items);
-    let scaled = 0, offline = 0;
+    let scaled = 0, offline = 0, scaleFail = 0;
+    let scaleErr = "";
     const wantScale = $("opt-scale").checked;
-    for (const it of items) {
+    dbg("wantScale=" + wantScale, "footage items=" + items.length);
+    for (let idx = 0; idx < items.length; idx++) {
+      const it = items[idx];
+      const tag = "item#" + (idx + 1);
       let clip = it;
-      try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(it) || it; } catch {}
-      try { if (typeof clip.isOffline === "function" && await clip.isOffline()) { offline++; continue; } } catch {}
-      if (wantScale && typeof clip.createSetScaleToFrameSizeAction === "function") {
-        try {
-          await project.executeTransaction((tx) => {
-            tx.addAction(clip.createSetScaleToFrameSizeAction());
-          });
-          scaled++;
-        } catch {}
+      try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(it) || it; } catch (e) { dbg(tag, "cast err:", String(e && e.message || e)); }
+      let nm = ""; try { nm = String(clip.name || it.name || ""); } catch {}
+      try { if (typeof clip.isOffline === "function" && await clip.isOffline()) { offline++; dbg(tag, nm, "OFFLINE"); continue; } } catch {}
+      if (!wantScale) continue;
+      const hasFn = typeof clip.createSetScaleToFrameSizeAction === "function";
+      dbg(tag, "name=" + JSON.stringify(nm), "hasScaleAction=" + hasFn);
+      if (!hasFn) { scaleFail++; scaleErr = scaleErr || "createSetScaleToFrameSizeAction missing on ClipProjectItem"; continue; }
+      try {
+        await project.executeTransaction((tx) => {
+          tx.addAction(clip.createSetScaleToFrameSizeAction());
+        }, "OBTV scale to frame");
+        scaled++;
+        dbg(tag, "scale-to-frame set OK");
+      } catch (e) {
+        scaleFail++;
+        scaleErr = String(e && e.message || e);
+        dbg(tag, "scale-to-frame FAILED:", scaleErr);
       }
     }
+    let scaleMsg = "";
+    if (wantScale && scaleFail && !scaled) scaleMsg = ` Scale-to-frame NOT set (${scaleFail}): ${scaleErr}.`;
 
     // Sequence settings can NOT be set via FCP7 XML — Premiere ignores the
     // format block for editing mode/previews. Instead we clone the full
@@ -278,52 +280,16 @@ async function deliver() {
       settingsMsg = " Sequence settings step failed: " + String((eSeq && eSeq.message) || eSeq);
     }
 
-    // The scale-to-frame flag on project items does NOT retro-apply to the
-    // clips the XML import already placed in the sequence — bake Motion >
-    // Scale on those. Source dims come from the export's scale_map, keyed by
-    // media-file basename (matches what Premiere relinks to), so we don't
-    // depend on clip names (which are cut labels, not filenames).
-    step = "scale-placed-clips";
-    let baked = 0, missDims = 0;
-    const scaleMap = (out && out.scale_map) || {};
-    if (wantScale && importedSeqs.length && Object.keys(scaleMap).length) {
-      for (const seq of importedSeqs) {
-        try {
-          const trackCount = await seq.getVideoTrackCount();
-          for (let t = 0; t < trackCount; t++) {
-            const track = await seq.getVideoTrack(t);
-            const clipType = ppro.Constants?.TrackItemType?.CLIP;
-            const tItems = await (clipType != null
-              ? track.getTrackItems(clipType, false)
-              : track.getTrackItems());
-            for (const ti of tItems || []) {
-              try {
-                const pi = await ti.getProjectItem();
-                let path = "";
-                try { if (pi && typeof pi.getMediaFilePath === "function") path = String(await pi.getMediaFilePath() || ""); } catch {}
-                const base = path.split(/[\\/]/).pop().toLowerCase();
-                const nm = String((pi && pi.name) || "").toLowerCase();
-                // Try file basename, then the project-item name (= filename;
-                // this is how Curator omdci:// streams match).
-                const d = scaleMap[base] || scaleMap[nm] || scaleMap[nm.split(/[\\/]/).pop()];
-                if (!d || !d[0] || !d[1]) { if (pi) missDims++; continue; }
-                const pct = Math.min(_SEQ_W / d[0], _SEQ_H / d[1]) * 100;
-                if (Math.abs(pct - 100) < 0.01) continue;
-                if (await setMotionScale(project, ti, pct)) baked++;
-              } catch {}
-            }
-          }
-        } catch {}
-      }
-    }
+    const dbgPath = await flushDebug();
 
     let msg = `Imported "${binName}": ${items.length} item(s)`;
-    if (scaled) msg += `, scale-to-frame on ${scaled}`;
-    if (baked) msg += `, ${baked} placed clip(s) scaled`;
-    else if (wantScale && missDims) msg += `, ${missDims} clip(s) had no source dims (nothing to scale)`;
+    if (scaled) msg += `, scale-to-frame set on ${scaled}`;
     if (offline) msg += `, ${offline} OFFLINE — check your media mounts`;
-    const bad = offline || /NOT applied|refused|failed/.test(settingsMsg);
-    setStatus(msg + "." + settingsMsg, bad ? "err" : "ok");
+    const bad = offline || /NOT applied|refused|failed|NOT set/.test(settingsMsg + scaleMsg);
+    dbg("SUMMARY:", msg + scaleMsg + settingsMsg);
+    dbg("debug log:", dbgPath);
+    await flushDebug();
+    setStatus(msg + "." + scaleMsg + settingsMsg + " Debug log: " + dbgPath, bad ? "err" : "ok");
   } catch (e) {
     fail(new Error(`[${step}] ` + String((e && e.message) || e)));
   } finally {

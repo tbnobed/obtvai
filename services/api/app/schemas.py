@@ -559,11 +559,6 @@ class ClipExportResult(BaseModel):
     format: str
     content: str
     filename: str
-    # xmeml only: media file basename (lowercased) -> [source_width, source_height].
-    # The Premiere panel uses this to bake Motion > Scale on placed clips, since
-    # Scale-to-Frame-Size can't be expressed in FCP7 XML and the project-item
-    # flag only affects newly added clips, not ones the import already placed.
-    scale_map: Optional[dict[str, list[int]]] = None
 
 
 class TightenInput(BaseModel):
