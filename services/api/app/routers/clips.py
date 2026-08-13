@@ -143,7 +143,7 @@ def _curator_audio_sidecars(path: str | None) -> list[str]:
 
 
 def _curator_isu_url(path: str | None, asset_id: str | None,
-                     folder: str | None = None) -> str | None:
+                     folder: str | None = None) -> tuple[str, str | None] | None:
     """Build the Curator gateway ISU streaming URL for a proxy — the same URL
     the Curator panel hands Premiere (imported via Curator's ISU plugin, with
     audio embedded in the stream). Returns None when the media isn't a
@@ -169,7 +169,17 @@ def _curator_isu_url(path: str | None, asset_id: str | None,
             f = f[lower.index("/webproxy/") + len("/webproxy/"):].strip("/")
             if f:
                 stem = f.rsplit("/", 1)[-1]
-                return f"{gateway}/{f}/{stem}.m3u8.isu?assetId={asset_id}.isu"
+                url = f"{gateway}/{f}/{stem}.m3u8.isu?assetId={asset_id}.isu"
+                # Locate the proxy dir locally so the caller can ffprobe the
+                # true raster. Mount layout varies; try the likely roots.
+                local = None
+                for base in (root, f"{root}/proxies", f"{root}/Proxies",
+                             f"{root}/WebProxy", f"{root}/proxies/WebProxy"):
+                    cand = os.path.join(base, *f.split("/"))
+                    if os.path.isdir(cand):
+                        local = cand
+                        break
+                return url, local
     if not path or not path.startswith(root + "/"):
         return None
     d = os.path.dirname(path)
@@ -177,14 +187,14 @@ def _curator_isu_url(path: str | None, asset_id: str | None,
     if not playlists:
         return None
     rel = os.path.relpath(playlists[0], root).replace(os.sep, "/")
-    return f"{gateway}/{rel}.isu?assetId={asset_id}.isu"
+    return f"{gateway}/{rel}.isu?assetId={asset_id}.isu", d
 
 
 _PROXY_DIMS_CACHE: dict[str, tuple[int, int]] = {}
 
 
-def _probe_proxy_dims(path: str | None) -> tuple[int, int] | None:
-    """True raster of the Curator web proxy living next to `path`.
+def _probe_proxy_dims(d: str | None) -> tuple[int, int] | None:
+    """True raster of the Curator web proxy inside directory `d`.
 
     Declaring a fake 1920x1080 for streams made every Scale-to-Frame-Size a
     mathematical no-op (1920->1920), while declaring nothing crashes
@@ -194,9 +204,8 @@ def _probe_proxy_dims(path: str | None) -> tuple[int, int] | None:
     import glob as _glob
     import json as _json
     import subprocess
-    if not path:
+    if not d:
         return None
-    d = os.path.dirname(path)
     if d in _PROXY_DIMS_CACHE:
         return _PROXY_DIMS_CACHE[d]
     cands: list[str] = []
@@ -312,8 +321,9 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
             fid = f"file-{file_seq}"
             file_ids[c.media_id] = fid
             master_ids[c.media_id] = f"masterclip-{file_seq}"
-            isu = _curator_isu_url(paths.get(c.media_id), _aid or None,
-                                   folders.get(c.media_id))
+            _isu_res = _curator_isu_url(paths.get(c.media_id), _aid or None,
+                                        folders.get(c.media_id))
+            isu, proxy_dir = _isu_res if _isu_res else (None, None)
             streamed[c.media_id] = bool(isu)
             if isu:
                 url = "omdci://" + isu
@@ -322,9 +332,10 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
                 # Streams MUST declare dims (omitting them crashes Premiere's
                 # ISU importer), but they must be the proxy's TRUE raster:
                 # declaring 1920x1080 for a smaller proxy turned every
-                # scale-to-frame into a no-op. Probe the local proxy file;
-                # fall back to sequence dims only if the probe fails.
-                pw, ph = _probe_proxy_dims(paths.get(c.media_id)) or (_SEQ_W, _SEQ_H)
+                # scale-to-frame into a no-op. Probe the PROXY dir resolved by
+                # _curator_isu_url — paths[] points at the hi-res original,
+                # which is exactly the wrong file to measure.
+                pw, ph = _probe_proxy_dims(proxy_dir) or (_SEQ_W, _SEQ_H)
                 video_chars = (f'<samplecharacteristics>{rate}'
                                f'<width>{pw}</width><height>{ph}</height>'
                                f'</samplecharacteristics>')
