@@ -107,12 +107,15 @@ async function deliver() {
   if (!projectId) return setStatus("Pick a project first.", "err");
   const btn = $("btn-deliver");
   btn.disabled = true;
+  let step = "start";
   try {
     const project = await ppro.Project.getActiveProject();
     if (!project) throw new Error("No project open in Premiere.");
 
     setStatus("Exporting cut…");
+    step = "export";
     const out = await api("POST", `/api/projects/${projectId}/cut/export`, { format: "xmeml" });
+    step = "writeTempXml";
     const xmlPath = await writeTempXml(out.filename, out.content);
 
     setStatus("Importing into Premiere…");
@@ -121,22 +124,34 @@ async function deliver() {
     try {
       for (const s of (await project.getSequences()) || []) seqIdsBefore.add(String(s.guid || s.id || s.name));
     } catch {}
+    step = "getRootItem";
     const root = await project.getRootItem();
     // Bin named after the cut so we only touch what we bring in.
     const binName = (out.filename || "OBTV cut").replace(/\.xml$/i, "");
     let bin = null;
     try {
-      const rootFolder = ppro.FolderItem.cast ? ppro.FolderItem.cast(root) : root;
+      step = "createBin";
       await project.executeTransaction((tx) => {
-        tx.addAction(rootFolder.createBinAction(binName, true));
+        tx.addAction(root.createBinAction(binName, true));
       });
       for (const it of await root.getItems()) {
         if (it.name === binName) { bin = it; break; }
       }
-    } catch { /* fall back to importing at root */ }
+    } catch { bin = null; /* fall back to importing at root */ }
 
-    const ok = await project.importFiles([xmlPath], true, bin || undefined);
+    // UXP's native bindings are strict about parameter types — pass every
+    // argument explicitly (no undefined) and always a real FolderItem target.
+    step = "importFiles";
+    let ok = false;
+    try {
+      ok = await project.importFiles([xmlPath], true, bin || root, false);
+    } catch (e1) {
+      // Older builds take (paths, suppressUI, targetBin) or just (paths).
+      try { ok = await project.importFiles([xmlPath], true, bin || root); }
+      catch (e2) { ok = await project.importFiles([xmlPath]); }
+    }
     if (!ok) throw new Error("Premiere refused the XML import.");
+    step = "post-import";
 
     // Post-import fix-ups: Scale-to-Frame-Size (the one thing FCP7 XML can't
     // express) and an offline count. Both best-effort — API surface varies
@@ -195,7 +210,7 @@ async function deliver() {
     const bad = offline || /NOT applied|refused|failed/.test(settingsMsg);
     setStatus(msg + "." + settingsMsg, bad ? "err" : "ok");
   } catch (e) {
-    fail(e);
+    fail(new Error(`[${step}] ` + String((e && e.message) || e)));
   } finally {
     btn.disabled = false;
   }
