@@ -24,6 +24,7 @@ import SearchPage from "@/pages/search";
 import Login from "@/pages/login";
 import UsersPage from "@/pages/users";
 import AuditLogPage from "@/pages/audit-log";
+import CuratorPage from "@/pages/curator";
 
 function is401(error: unknown): boolean {
   return (error as { status?: number })?.status === 401;
@@ -75,6 +76,9 @@ function Router() {
         <Route path="/jobs" component={Jobs} />
         <Route path="/ai" component={AIQA} />
         <Route path="/search" component={SearchPage} />
+        <Route path="/curator">
+          <AdminRoute component={CuratorPage} />
+        </Route>
         <Route path="/users">
           <AdminRoute component={UsersPage} />
         </Route>

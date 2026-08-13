@@ -16,13 +16,13 @@ import {
   ScrollText,
   LogOut,
   KeyRound,
+  HardDrive,
   ChevronUp,
   Eye
 } from "lucide-react";
 import { useChangePassword } from "@workspace/api-client-react";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
 import { useAuth, useIsAdmin, useLogoutAndReset } from "@/lib/auth";
-import { CuratorIngest } from "@/components/curator-ingest";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,6 +135,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/ratings", label: "Ratings", icon: BarChart3 },
     { href: "/jobs", label: "Processing Pipeline", icon: Activity },
     ...(isAdmin ? [
+      { href: "/curator", label: "Curator", icon: HardDrive },
       { href: "/users", label: "Users", icon: UserCog },
       { href: "/audit", label: "Audit Log", icon: ScrollText },
     ] : []),
@@ -164,7 +165,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
-          <CuratorIngest />
         </nav>
         {user && (
           <div className="p-2 border-t border-border">
