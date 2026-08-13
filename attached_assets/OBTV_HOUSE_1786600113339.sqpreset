@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PremiereData Version="3">
+	<SequencePreset ObjectRef="1"/>
+	<SequencePreset ObjectID="1" ClassID="5e73dd7e-4f86-4917-80eb-08ddb2f4a5f3" Version="11">
+		<Descriptions Version="1">
+			<DescriptionItem Version="1" Index="0">
+				<First>en_US</First>
+				<Second></Second>
+			</DescriptionItem>
+		</Descriptions>
+		<VideoTimeDisplay>102</VideoTimeDisplay>
+		<AudioTimeDisplay>200</AudioTimeDisplay>
+		<ImmersiveVideoVRConfiguration>{"ambisonicsHRIR":"","ambisonicsMonitoringType":0,"capturedHorizontalView":0,"capturedVerticalView":0,"fieldOfHorizontalView":108,"fieldOfVerticalView":108,"projectionType":0,"stereoscopicEye":0,"stereoscopicType":0,"version":3}</ImmersiveVideoVRConfiguration>
+		<WorkingColorSpace>{"baseColorProfile":{"colorProfileName":"BT.709 RGB Full"},"baseProfileType":1}</WorkingColorSpace>
+		<Names Version="1">
+			<NameItem Version="1" Index="0">
+				<First>en_US</First>
+				<Second>OBTV HOUSE</Second>
+			</NameItem>
+		</Names>
+		<EditingModeGUID.Mac>a4535090-90ae-4ff5-8766-19dfe29b78de</EditingModeGUID.Mac>
+		<EditingModeGUID.Win>a4535090-90ae-4ff5-8766-19dfe29b78de</EditingModeGUID.Win>
+		<PreviewPresetFileName.Mac>AVC-Intra Class100 1080i</PreviewPresetFileName.Mac>
+		<PreviewPresetVideoCodec.Mac>1634283830</PreviewPresetVideoCodec.Mac>
+		<PreviewPresetFileName.Win>AVC-Intra Class100 1080i</PreviewPresetFileName.Win>
+		<PreviewPresetVideoCodec.Win>1634283830</PreviewPresetVideoCodec.Win>
+		<VideoFrameRate>8475667200</VideoFrameRate>
+		<VideoFrameSize>0,0,1920,1080</VideoFrameSize>
+		<VideoPixelAspectRatio>1,1</VideoPixelAspectRatio>
+		<VideoFieldType>1</VideoFieldType>
+		<VideoUseMaxBitDepth>false</VideoUseMaxBitDepth>
+		<VideoUseMaxRenderQuality>false</VideoUseMaxRenderQuality>
+		<VideoAllowLinearCompositing>true</VideoAllowLinearCompositing>
+		<AudioFrameRate>5292000</AudioFrameRate>
+		<AudioChannelType>1</AudioChannelType>
+		<AdaptiveNumChannels>2</AdaptiveNumChannels>
+		<InitialNumberOfVideoTracks>3</InitialNumberOfVideoTracks>
+		<AudioTracks>[{"mAssign":0,"mAudioSends":[],"mChannelType":1,"mExpandedHeight":41,"mIsOpen":false,"mIsSubmix":false,"mKeyframeMode":true,"mLocked":false,"mMatrix":[],"mMute":false,"mName":"","mPan":0,"mPannerAssignments":[],"mSolo":false,"mSyncLock":true,"mTargeted":false,"mTrackID":-1,"mVolume":1},{"mAssign":0,"mAudioSends":[],"mChannelType":1,"mExpandedHeight":41,"mIsOpen":false,"mIsSubmix":false,"mKeyframeMode":true,"mLocked":false,"mMatrix":[],"mMute":false,"mName":"","mPan":0,"mPannerAssignments":[],"mSolo":false,"mSyncLock":true,"mTargeted":false,"mTrackID":-1,"mVolume":1},{"mAssign":0,"mAudioSends":[],"mChannelType":1,"mExpandedHeight":41,"mIsOpen":false,"mIsSubmix":false,"mKeyframeMode":true,"mLocked":false,"mMatrix":[],"mMute":false,"mName":"","mPan":0,"mPannerAssignments":[],"mSolo":false,"mSyncLock":true,"mTargeted":false,"mTrackID":-1,"mVolume":1},{"mAssign":0,"mAudioSends":[],"mChannelType":1,"mExpandedHeight":41,"mIsOpen":false,"mIsSubmix":false,"mKeyframeMode":true,"mLocked":false,"mMatrix":[],"mMute":false,"mName":"","mPan":0,"mPannerAssignments":[],"mSolo":false,"mSyncLock":true,"mTargeted":false,"mTrackID":-1,"mVolume":1}]</AudioTracks>
+		<VideoTracks>[]</VideoTracks>
+		<PreviewVideoFrameSize>0,0,1920,1080</PreviewVideoFrameSize>
+		<SequenceWorkingColorSpace>{"workingSpaceConfigVersion":1,"workingSpaceID":"BT.709 RGB Full","workingSpaceIsLinearized":0}</SequenceWorkingColorSpace>
+		<AutoToneMapEnabled>false</AutoToneMapEnabled>
+		<ColorManagementPreset ObjectRef="2"/>
+	</SequencePreset>
+	<ColorManagementPreset ObjectID="2" ClassID="a02a917a-807e-46ef-aaa2-7a440773db94" Version="1">
+		<Gain>1.</Gain>
+		<WorkingColorSpace>{"baseColorProfile":{"colorProfileName":"BT.709 RGB Full"},"baseProfileType":1}</WorkingColorSpace>
+		<OutputColorSpace>{"baseColorProfile":{"colorProfileData":"AQAAAGQAAAA=","colorProfileName":"BT.709,8-bit,Display-Referred"},"baseProfileType":1,"colorSpaceMetadata":{"peakLuminance":100}}</OutputColorSpace>
+		<ToneMappingAlgorithm>0</ToneMappingAlgorithm>
+		<GamutCompressionAlgorithm>0</GamutCompressionAlgorithm>
+		<AutoInverseGamutMappingEnabled>false</AutoInverseGamutMappingEnabled>
+		<AutoInputGamutCompressionEnabled>false</AutoInputGamutCompressionEnabled>
+		<ColorManagementSystem>0</ColorManagementSystem>
+		<AutoToneMapEnabled>false</AutoToneMapEnabled>
+		<Peak>1.</Peak>
+		<Desaturation>0.5</Desaturation>
+		<Knee>0.</Knee>
+		<GraphicsWhiteLuminanceSameAsProject>true</GraphicsWhiteLuminanceSameAsProject>
+		<ColorAwareEffectsEnabledSameAsProject>true</ColorAwareEffectsEnabledSameAsProject>
+	</ColorManagementPreset>
+</PremiereData>
