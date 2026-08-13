@@ -277,15 +277,11 @@ def _xmeml(name: str, clips, paths: dict[str, str] | None = None,
                 url = "omdci://" + isu
                 audio_decl = (f'<audio>{_AUDIO_CHARS}'
                               f'<channelcount>1</channelcount></audio>')
-                # streams never relink, so declaring dims is safe here.
-                # Declare square pixels explicitly: without it Premiere guesses
-                # a non-square PAR for the stream and pillarboxes the clip in a
-                # square-pixel 1080 sequence (full height, black side bars).
-                video_chars = (f'<samplecharacteristics>{rate}'
-                               f'<width>{_SEQ_W}</width><height>{_SEQ_H}</height>'
-                               f'<anamorphic>FALSE</anamorphic>'
-                               f'<pixelaspectratio>square</pixelaspectratio>'
-                               f'</samplecharacteristics>')
+                # No dims/PAR: the Curator importer knows the stream's true
+                # raster and pixel aspect. Declaring 1920x1080 square here made
+                # Premiere misinterpret anamorphic sources (e.g. 1440x1080
+                # PAR 1.333) as square pixels -> pillarboxed at 100% scale.
+                video_chars = f'<samplecharacteristics>{rate}</samplecharacteristics>'
             else:
                 url = _file_url(_translate(paths.get(c.media_id) or c.filename or c.media_id))
                 audio_decl = '<audio/>'
