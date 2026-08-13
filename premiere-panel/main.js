@@ -211,32 +211,59 @@ async function deliver() {
     }
     dbg("wantScale=" + wantScale, "footage items=" + total);
     if (wantScale && total) {
+      await sleep(900); // let the import settle
+      // One-time diagnostic dump so we can see WHAT these items are.
+      try {
+        const fresh0 = [];
+        await collectFootage(bin || root, fresh0);
+        for (let i = 0; i < fresh0.length; i++) {
+          const it = fresh0[i];
+          const info = { tag: "item#" + (i + 1) };
+          try { info.name = String(it.name || ""); } catch {}
+          try { info.type = it.type; } catch {}
+          try { info.ctor = it.constructor && it.constructor.name; } catch {}
+          try { info.isSeq = (typeof it.isSequence === "function") ? await it.isSequence() : "n/a"; } catch (e) { info.isSeq = "err:" + (e && e.message); }
+          try { info.contentType = (typeof it.getContentType === "function") ? await it.getContentType() : "n/a"; } catch (e) { info.contentType = "err:" + (e && e.message); }
+          try { info.isOffline = (typeof it.isOffline === "function") ? await it.isOffline() : "n/a"; } catch (e) { info.isOffline = "err:" + (e && e.message); }
+          try { info.isMerged = (typeof it.isMergedClip === "function") ? await it.isMergedClip() : "n/a"; } catch (e) { info.isMerged = "err:" + (e && e.message); }
+          try { info.mediaPath = (typeof it.getMediaFilePath === "function") ? String(await it.getMediaFilePath() || "") : "n/a"; } catch (e) { info.mediaPath = "err:" + (e && e.message); }
+          dbg("DIAG", JSON.stringify(info));
+        }
+      } catch (e) { dbg("DIAG failed:", String(e && e.message || e)); }
+
       const done = new Set();          // indices resolved (scaled or offline)
-      for (let attempt = 1; attempt <= 6 && done.size < total; attempt++) {
-        await sleep(attempt === 1 ? 900 : 500);  // let the import settle
+      for (let attempt = 1; attempt <= 4 && done.size < total; attempt++) {
+        if (attempt > 1) await sleep(500);
         const fresh = [];
         await collectFootage(bin || root, fresh);
         for (let idx = 0; idx < fresh.length; idx++) {
           if (done.has(idx)) continue;
           const tag = "item#" + (idx + 1);
-          let clip = fresh[idx];
-          try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(fresh[idx]) || fresh[idx]; } catch {}
+          const raw = fresh[idx];
+          let clip = raw;
+          try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(raw) || raw; } catch {}
           try {
             if (typeof clip.isOffline === "function" && await clip.isOffline()) {
               offline++; done.add(idx); dbg(tag, "OFFLINE"); continue;
             }
           } catch {}
-          if (typeof clip.createSetScaleToFrameSizeAction !== "function") {
-            done.add(idx); scaleErr = "createSetScaleToFrameSizeAction missing"; continue;
+          // Try uncast first, then cast — some builds only accept one form.
+          const targets = raw === clip ? [raw] : [raw, clip];
+          let okThis = false, lastE = "";
+          for (const t of targets) {
+            if (typeof t.createSetScaleToFrameSizeAction !== "function") continue;
+            try {
+              await project.executeTransaction((tx) => {
+                tx.addAction(t.createSetScaleToFrameSizeAction());
+              }, "OBTV scale to frame");
+              okThis = true; break;
+            } catch (e) { lastE = String(e && e.message || e); }
           }
-          try {
-            await project.executeTransaction((tx) => {
-              tx.addAction(clip.createSetScaleToFrameSizeAction());
-            }, "OBTV scale to frame");
+          if (okThis) {
             scaled++; done.add(idx);
             dbg(tag, "scale-to-frame set OK (attempt " + attempt + ")");
-          } catch (e) {
-            scaleErr = String(e && e.message || e);
+          } else {
+            scaleErr = lastE || "createSetScaleToFrameSizeAction missing";
             dbg(tag, "attempt " + attempt + " failed:", scaleErr, "— will retry");
           }
         }
