@@ -416,6 +416,32 @@ async def list_media(
 _CURATOR_FS_ROOT = os.getenv("CURATOR_PROXY_ROOT", "/curator").rstrip("/")
 
 
+async def _ensure_folder_chain(parts: list[str], db: AsyncSession) -> str | None:
+    """Get-or-create a nested MediaFolder chain and return the leaf id.
+    Serialized under an advisory lock so concurrent watcher posts never
+    create duplicate folders."""
+    from sqlalchemy import text as _text
+    from ..models import MediaFolder
+    parts = [p for p in parts if p]
+    if not parts:
+        return None
+    await db.execute(_text("SELECT pg_advisory_xact_lock(hashtext('obtv_curator_mirror'))"))
+    parent_id: str | None = None
+    for name in parts:
+        row = (await db.execute(
+            select(MediaFolder).where(
+                MediaFolder.name == name, MediaFolder.parent_id.is_(None) if parent_id is None
+                else MediaFolder.parent_id == parent_id
+            ).limit(1)
+        )).scalar_one_or_none()
+        if row is None:
+            row = MediaFolder(id=str(uuid.uuid4()), name=name, parent_id=parent_id)
+            db.add(row)
+            await db.flush()
+        parent_id = row.id
+    return parent_id
+
+
 async def _mirror_curator_folder(file_path: str, db: AsyncSession) -> str | None:
     """For Curator-share ingests, mirror the share's folder structure as
     library folders under a top-level "Curator" folder and return the leaf
@@ -423,8 +449,6 @@ async def _mirror_curator_folder(file_path: str, db: AsyncSession) -> str | None
     mirrored — its clips land in the content folder above it."""
     if not file_path.startswith(_CURATOR_FS_ROOT + "/"):
         return None
-    from sqlalchemy import text as _text
-    from ..models import MediaFolder
     rel_dir = os.path.dirname(file_path[len(_CURATOR_FS_ROOT) + 1:])
     parts = [p for p in rel_dir.split("/") if p]
     if parts and os.path.basename(file_path).lower().endswith("_video.mp4"):
@@ -440,23 +464,7 @@ async def _mirror_curator_folder(file_path: str, db: AsyncSession) -> str | None
                 parts = parts[:-1]
         except OSError:
             parts = parts[:-1]
-    # Serialize concurrent get-or-create chains (watcher can post many clips
-    # at once) so the mirrored tree never gets duplicate folders.
-    await db.execute(_text("SELECT pg_advisory_xact_lock(hashtext('obtv_curator_mirror'))"))
-    parent_id: str | None = None
-    for name in ["Curator"] + parts:
-        row = (await db.execute(
-            select(MediaFolder).where(
-                MediaFolder.name == name, MediaFolder.parent_id.is_(None) if parent_id is None
-                else MediaFolder.parent_id == parent_id
-            ).limit(1)
-        )).scalar_one_or_none()
-        if row is None:
-            row = MediaFolder(id=str(uuid.uuid4()), name=name, parent_id=parent_id)
-            db.add(row)
-            await db.flush()
-        parent_id = row.id
-    return parent_id
+    return await _ensure_folder_chain(["Curator"] + parts, db)
 
 
 @router.post("", response_model=MediaAssetOut, status_code=202)
@@ -585,10 +593,19 @@ async def curator_link(
             elif len(candidates) > 1:
                 ambiguous = True
 
+    # Place matched media in the library tree per the Curator asset record's
+    # folder_path (e.g. "Library\\TBN-Fast" -> Curator > Library > TBN-Fast).
+    # This overrides the filesystem-mirrored placement from ingest time.
+    folder_id: str | None = None
+    if matched and body.folder_path:
+        parts = [p for p in body.folder_path.replace("\\", "/").split("/") if p]
+        folder_id = await _ensure_folder_chain(["Curator"] + parts, db)
     for a in matched:
         a.curator_asset_id = body.asset_id
         a.curator_folder_path = body.folder_path
         a.curator_web_proxy_path = body.web_proxy_path
+        if folder_id:
+            a.folder_id = folder_id
     if matched:
         await db.commit()
     return CuratorLinkResult(

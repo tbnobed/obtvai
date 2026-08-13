@@ -22,6 +22,7 @@ import {
 import { useChangePassword } from "@workspace/api-client-react";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
 import { useAuth, useIsAdmin, useLogoutAndReset } from "@/lib/auth";
+import { CuratorIngest } from "@/components/curator-ingest";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -163,6 +164,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          <CuratorIngest />
         </nav>
         {user && (
           <div className="p-2 border-t border-border">
