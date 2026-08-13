@@ -103,6 +103,7 @@ async function collectFootage(item, acc) {
 }
 
 const _DONOR_NAME = "OBTV HOUSE";
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* If the donor sequence is missing, create it from the .sqpreset shipped in
    the plugin's presets/ folder. Returns the new Sequence or null. */
@@ -196,40 +197,54 @@ async function deliver() {
     step = "post-import";
 
     // Scale-to-Frame-Size: the native flag on the ClipProjectItem. This is the
-    // ONLY correct mechanism — never bake a Motion > Scale %. Set it on every
-    // imported footage item; Premiere applies it to that item's instances.
+    // ONLY correct mechanism — never bake a Motion > Scale %.
+    // Held ProjectItem handles go invalid ("script object is no longer valid")
+    // when the just-finished import settles in the background. So: wait for it
+    // to settle, then re-fetch items fresh on every pass and retry stale ones.
     step = "scale-project-items";
-    const items = [];
-    await collectFootage(bin || root, items);
-    let scaled = 0, offline = 0, scaleFail = 0;
-    let scaleErr = "";
     const wantScale = $("opt-scale").checked;
-    dbg("wantScale=" + wantScale, "footage items=" + items.length);
-    for (let idx = 0; idx < items.length; idx++) {
-      const it = items[idx];
-      const tag = "item#" + (idx + 1);
-      let clip = it;
-      try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(it) || it; } catch (e) { dbg(tag, "cast err:", String(e && e.message || e)); }
-      let nm = ""; try { nm = String(clip.name || it.name || ""); } catch {}
-      try { if (typeof clip.isOffline === "function" && await clip.isOffline()) { offline++; dbg(tag, nm, "OFFLINE"); continue; } } catch {}
-      if (!wantScale) continue;
-      const hasFn = typeof clip.createSetScaleToFrameSizeAction === "function";
-      dbg(tag, "name=" + JSON.stringify(nm), "hasScaleAction=" + hasFn);
-      if (!hasFn) { scaleFail++; scaleErr = scaleErr || "createSetScaleToFrameSizeAction missing on ClipProjectItem"; continue; }
-      try {
-        await project.executeTransaction((tx) => {
-          tx.addAction(clip.createSetScaleToFrameSizeAction());
-        }, "OBTV scale to frame");
-        scaled++;
-        dbg(tag, "scale-to-frame set OK");
-      } catch (e) {
-        scaleFail++;
-        scaleErr = String(e && e.message || e);
-        dbg(tag, "scale-to-frame FAILED:", scaleErr);
+    let scaled = 0, offline = 0, scaleErr = "", total = 0;
+    {
+      const snap = [];
+      await collectFootage(bin || root, snap);
+      total = snap.length;
+    }
+    dbg("wantScale=" + wantScale, "footage items=" + total);
+    if (wantScale && total) {
+      const done = new Set();          // indices resolved (scaled or offline)
+      for (let attempt = 1; attempt <= 6 && done.size < total; attempt++) {
+        await sleep(attempt === 1 ? 900 : 500);  // let the import settle
+        const fresh = [];
+        await collectFootage(bin || root, fresh);
+        for (let idx = 0; idx < fresh.length; idx++) {
+          if (done.has(idx)) continue;
+          const tag = "item#" + (idx + 1);
+          let clip = fresh[idx];
+          try { if (ppro.ClipProjectItem?.cast) clip = ppro.ClipProjectItem.cast(fresh[idx]) || fresh[idx]; } catch {}
+          try {
+            if (typeof clip.isOffline === "function" && await clip.isOffline()) {
+              offline++; done.add(idx); dbg(tag, "OFFLINE"); continue;
+            }
+          } catch {}
+          if (typeof clip.createSetScaleToFrameSizeAction !== "function") {
+            done.add(idx); scaleErr = "createSetScaleToFrameSizeAction missing"; continue;
+          }
+          try {
+            await project.executeTransaction((tx) => {
+              tx.addAction(clip.createSetScaleToFrameSizeAction());
+            }, "OBTV scale to frame");
+            scaled++; done.add(idx);
+            dbg(tag, "scale-to-frame set OK (attempt " + attempt + ")");
+          } catch (e) {
+            scaleErr = String(e && e.message || e);
+            dbg(tag, "attempt " + attempt + " failed:", scaleErr, "— will retry");
+          }
+        }
       }
     }
+    const scaleFail = wantScale ? (total - scaled - offline) : 0;
     let scaleMsg = "";
-    if (wantScale && scaleFail && !scaled) scaleMsg = ` Scale-to-frame NOT set (${scaleFail}): ${scaleErr}.`;
+    if (wantScale && scaleFail) scaleMsg = ` Scale-to-frame NOT set on ${scaleFail}: ${scaleErr}.`;
 
     // Sequence settings can NOT be set via FCP7 XML — Premiere ignores the
     // format block for editing mode/previews. Instead we clone the full
@@ -282,7 +297,7 @@ async function deliver() {
 
     const dbgPath = await flushDebug();
 
-    let msg = `Imported "${binName}": ${items.length} item(s)`;
+    let msg = `Imported "${binName}": ${total} item(s)`;
     if (scaled) msg += `, scale-to-frame set on ${scaled}`;
     if (offline) msg += `, ${offline} OFFLINE — check your media mounts`;
     const bad = offline || /NOT applied|refused|failed|NOT set/.test(settingsMsg + scaleMsg);
