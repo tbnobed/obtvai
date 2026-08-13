@@ -812,7 +812,7 @@ export default function AssetDetail() {
                       className={`group cursor-pointer hover:bg-muted p-2 -mx-2 rounded transition-colors relative ${String(segment.id) === activeSegmentId ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}
                       onClick={() => seekTo(segment.start_time)}
                     >
-                      <div className="flex gap-2 items-baseline mb-1">
+                      <div className="flex gap-2 items-center mb-1">
                         <span className="text-xs font-medium text-primary">{segment.speaker || 'Unknown'}</span>
                         <span className="text-[10px] text-muted-foreground font-mono">{formatTimecode(segment.start_time)}</span>
                         {segment.emotion && segment.emotion !== "neutral" && (
@@ -822,6 +822,26 @@ export default function AssetDetail() {
                             title={segment.sentiment != null ? `sentiment ${segment.sentiment > 0 ? "+" : ""}${segment.sentiment.toFixed(2)}` : undefined}
                           >
                             {segment.emotion}
+                          </span>
+                        )}
+                        {editingSegId !== String(segment.id) && (
+                          <span className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100">
+                            <Button
+                              size="sm" variant="secondary"
+                              className="h-5 px-1.5 gap-1 text-[10px]"
+                              title={transcriptLang !== "original" && langAvailable ? "Edit this translation" : "Edit this segment"}
+                              onClick={(e) => { e.stopPropagation(); setEditingSegId(String(segment.id)); setEditText(segment.text); }}
+                            >
+                              <Pencil className="h-3 w-3" /> Edit
+                            </Button>
+                            <Button
+                              size="sm" variant="secondary"
+                              className="h-5 px-1.5 gap-1 text-[10px]"
+                              title="Add this segment to a clip list"
+                              onClick={(e) => { e.stopPropagation(); setClipListSegment(segment); }}
+                            >
+                              <ListPlus className="h-3 w-3" /> Clip
+                            </Button>
                           </span>
                         )}
                       </div>
@@ -858,26 +878,6 @@ export default function AssetDetail() {
                         </div>
                       ) : (
                         <p className="text-sm">{segment.text}</p>
-                      )}
-                      {editingSegId !== String(segment.id) && (
-                        <div className="absolute top-1 right-1 z-30 flex gap-1 opacity-0 group-hover:opacity-100">
-                          <Button
-                            size="sm" variant="secondary"
-                            className="h-6 px-2 gap-1 text-[11px]"
-                            title={transcriptLang !== "original" && langAvailable ? "Edit this translation" : "Edit this segment"}
-                            onClick={(e) => { e.stopPropagation(); setEditingSegId(String(segment.id)); setEditText(segment.text); }}
-                          >
-                            <Pencil className="h-3 w-3" /> Edit
-                          </Button>
-                          <Button
-                            size="sm" variant="secondary"
-                            className="h-6 px-2 gap-1 text-[11px]"
-                            title="Add this segment to a clip list"
-                            onClick={(e) => { e.stopPropagation(); setClipListSegment(segment); }}
-                          >
-                            <ListPlus className="h-3 w-3" /> Clip
-                          </Button>
-                        </div>
                       )}
                     </div>
                   ))}
