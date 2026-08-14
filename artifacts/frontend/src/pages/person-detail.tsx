@@ -192,6 +192,7 @@ function VoiceSection({
   const [genText, setGenText] = useState("");
   const [genLang, setGenLang] = useState("en");
   const [genSpeed, setGenSpeed] = useState(1.0);
+  const [genEngine, setGenEngine] = useState("auto");
   const [genTarget, setGenTarget] = useState("");
   const [tuneOpen, setTuneOpen] = useState(false);
   const [tune, setTune] = useState<typeof DEFAULT_TUNE>({
@@ -261,7 +262,11 @@ function VoiceSection({
         data: {
           text: genText.trim(),
           language: genLang,
-          ...(tuneOpen && tuneChanged ? { settings: tune } : {}),
+          ...(tuneOpen && tuneChanged
+            ? { settings: { ...tune, ...(genEngine !== "auto" ? { engine: genEngine } : {}) } }
+            : genEngine !== "auto"
+              ? { settings: { engine: genEngine } }
+              : {}),
           ...(genSpeed !== 1.0 ? { speed: genSpeed } : {}),
           ...(Number.isFinite(target) && target >= 1 ? { target_seconds: target } : {}),
         },
@@ -599,6 +604,16 @@ function VoiceSection({
                     {XTTS_LANGUAGES.map((l) => (
                       <SelectItem key={l.code} value={l.code}>{l.label}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select value={genEngine} onValueChange={setGenEngine}>
+                  <SelectTrigger className="w-40 h-9" data-testid="select-gen-engine"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Engine: Auto</SelectItem>
+                    <SelectItem value="qwen3">Qwen3-TTS</SelectItem>
+                    <SelectItem value="chatterbox">Chatterbox</SelectItem>
+                    <SelectItem value="turbo">Chatterbox Turbo</SelectItem>
+                    <SelectItem value="xtts">XTTS</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button variant="outline" className="ml-auto gap-2" onClick={submitTune}

@@ -532,6 +532,11 @@ export interface VoiceSettings {
      * @nullable
      */
   repetition_penalty?: number | null;
+  /**
+     * Synthesis engine: turbo, chatterbox, qwen3, xtts (empty = automatic)
+     * @nullable
+     */
+  engine?: string | null;
 }
 
 export type FaceSearchResultStatus = typeof FaceSearchResultStatus[keyof typeof FaceSearchResultStatus];
