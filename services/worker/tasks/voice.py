@@ -705,7 +705,9 @@ def generate_speech(self, generation_id: str):
             except Exception as e:
                 print(f"[voice] qwen3-tts failed, falling back: {e}")
 
-        if (not used_chatterbox and engine in ("", "turbo")
+        # Turbo is opt-in only: it's tuned for low-latency agents and sounded
+        # more robotic than multilingual Chatterbox for narration cloning.
+        if (not used_chatterbox and engine == "turbo"
                 and str(language).lower().startswith("en")):
             import tempfile
             try:
