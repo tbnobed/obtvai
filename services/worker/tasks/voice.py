@@ -454,8 +454,23 @@ def _fit_duration(out_path: str, target_seconds: float):
 def _normalize_tts_text(text_value: str) -> str:
     """TTS models are trained on normally-cased text; ALL-CAPS input tokenizes
     into rare tokens and produces garbled audio. Sentence-case shouted text,
-    keeping short probable acronyms (TBN, NASA, U.S.) intact."""
+    keeping short probable acronyms (TBN, NASA, U.S.) intact.
+
+    Also scrubs the punctuation/spacing artifacts editors paste in: stray
+    spaces before punctuation, doubled !/?, and — the big one — single-letter
+    name initials ("MICHAEL W. SMITH"): the dot after "W" reads as a sentence
+    end, so XTTS's sentence splitter and the Chatterbox chunker both insert a
+    hard pause mid-name. Drop that dot (the letter still reads out); dotted
+    acronyms like U.S. are left alone."""
     import re as _re
+
+    # Whitespace/punctuation hygiene first — phantom pauses come from here.
+    text_value = _re.sub(r"[ \t\u00a0]+", " ", text_value)
+    text_value = _re.sub(r" +([,.;:!?…])", r"\1", text_value)
+    text_value = _re.sub(r"([!?])\1+", r"\1", text_value)
+    # Single-letter initial followed by a capitalized word: "W. Smith" ->
+    # "W Smith". Negative lookbehind keeps "U.S." / "L.A." style acronyms.
+    text_value = _re.sub(r"(?<![.A-Za-z])([A-Za-z])\.(?= +[A-Z])", r"\1", text_value)
 
     def fix_word(w: str) -> str:
         core = _re.sub(r"[^A-Za-z]", "", w)
