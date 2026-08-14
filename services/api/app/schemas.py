@@ -730,6 +730,9 @@ class VoiceSettingsIn(BaseModel):
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     repetition_penalty: Optional[float] = None
+    # Synthesis engine: turbo (Chatterbox-Turbo, English), chatterbox
+    # (multilingual), qwen3 (Qwen3-TTS), xtts. Empty = automatic.
+    engine: Optional[str] = None
 
 
 class VoiceSpeakIn(BaseModel):

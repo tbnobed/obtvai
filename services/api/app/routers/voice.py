@@ -54,6 +54,12 @@ def _validate_settings(body: VoiceSettingsIn) -> dict | None:
         if not (lo <= value <= hi):
             raise HTTPException(status_code=400, detail=f"{key} must be between {lo} and {hi}")
         out[key] = float(value)
+    engine = (getattr(body, "engine", None) or "").strip().lower()
+    if engine:
+        if engine not in ("turbo", "chatterbox", "qwen3", "xtts"):
+            raise HTTPException(status_code=400,
+                                detail="engine must be turbo, chatterbox, qwen3 or xtts")
+        out["engine"] = engine
     return out or None
 
 

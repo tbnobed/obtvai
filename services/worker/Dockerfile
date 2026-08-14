@@ -46,13 +46,22 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir requests
 
 # chatterbox-tts pins older torch/transformers versions; install without deps
-# (torch 2.7.1+cu128 and transformers already present) plus its light deps.
-RUN pip install --no-cache-dir --no-deps chatterbox-tts==0.1.4 \
+# (torch already pinned in requirements) plus its light deps. 0.1.7 adds
+# Chatterbox-Turbo (chatterbox.tts_turbo.ChatterboxTurboTTS).
+RUN pip install --no-cache-dir --no-deps chatterbox-tts==0.1.7 \
     && pip install --no-cache-dir librosa==0.11.0 s3tokenizer resemble-perth conformer==0.3.2 diffusers==0.29.0 pykakasi \
     # s3tokenizer drags in the plain CPU `onnxruntime` wheel, which shadows
     # onnxruntime-gpu and silently drops InsightFace face detection (face
     # clustering AND the lip-sync face pass) to CPU. Strip it and force the
     # GPU wheel back so CUDAExecutionProvider survives.
+    && pip uninstall -y onnxruntime || true
+
+# Qwen3-TTS voice-clone engine. Repin the torch stack in the same resolve so
+# qwen-tts transitive deps cannot drift it (undefined-symbol breakage
+# otherwise), then re-strip any CPU onnxruntime a transitive dep drags in.
+RUN pip install --no-cache-dir qwen-tts \
+    "torch==2.8.0+cu128" "torchvision==0.23.0+cu128" "torchaudio==2.8.0+cu128" \
+    --extra-index-url https://download.pytorch.org/whl/cu128 \
     && pip uninstall -y onnxruntime || true
 
 RUN pip install --no-cache-dir --force-reinstall --no-deps onnxruntime-gpu==1.22.0 \

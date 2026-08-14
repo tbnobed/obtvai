@@ -38,6 +38,8 @@ _CACHES = [
     ("tasks.translate", "_translator", "none"),
     ("tasks.face_detect", "_face_app", "none"),
     ("tasks.voice", "_xtts_cache", "clear"),
+    ("tasks.voice", "_turbo_cache", "clear"),
+    ("tasks.voice", "_qwen3_cache", "clear"),
     ("tasks.dub", "_tts_cache", "clear"),
     ("tasks.dub", "_chatterbox_cache", "clear"),
     ("tasks.dub", "_demucs_cache", "clear"),

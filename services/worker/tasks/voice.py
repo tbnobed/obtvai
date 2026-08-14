@@ -177,8 +177,10 @@ PRESET_SETTINGS = {
 }
 
 
-# Custom knobs the API may pass through (validated server-side).
-_ALLOWED_SETTINGS = {"speed", "temperature", "top_p", "top_k", "repetition_penalty"}
+# Custom knobs the API may pass through (validated server-side). "engine" is
+# a dispatch selector, not a synthesis kwarg — every synthesis call must pop
+# or skip it.
+_ALLOWED_SETTINGS = {"speed", "temperature", "top_p", "top_k", "repetition_penalty", "engine"}
 
 # Sane finite ranges. XTTS applies speed as int(len/speed) internally, so a
 # stored speed of 0/inf/NaN crashes with "cannot convert float infinity to
@@ -219,7 +221,7 @@ def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[st
     if settings:
         # Custom slider values override the preset base.
         kwargs.update({k: float(v) for k, v in settings.items()
-                       if k in _ALLOWED_SETTINGS and v is not None})
+                       if k in _ALLOWED_SETTINGS and k != "engine" and v is not None})
     kwargs = _sanitize_settings(kwargs)
     tts.tts_to_file(
         text=text_value,
@@ -229,6 +231,95 @@ def synthesize_cloned(tts, text_value: str, language: str, speaker_wavs: list[st
         split_sentences=True,
         **kwargs,
     )
+
+
+_turbo_cache: dict = {}
+_qwen3_cache: dict = {}
+
+# Qwen3-TTS language names (its API takes full names, not codes).
+_QWEN3_LANGS = {"en": "English", "zh": "Chinese", "ja": "Japanese",
+                "ko": "Korean", "de": "German", "fr": "French",
+                "ru": "Russian", "pt": "Portuguese", "es": "Spanish",
+                "it": "Italian"}
+
+
+def _load_chatterbox_turbo():
+    """Chatterbox-Turbo: English-only successor to Chatterbox — cleaner
+    prosody, less VRAM (350M), same generate() shape."""
+    if "model" in _turbo_cache:
+        return _turbo_cache["model"]
+    import torch
+    from chatterbox.tts_turbo import ChatterboxTurboTTS
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    from tasks.gpu_mem import load_with_oom_retry
+    model = load_with_oom_retry(
+        "chatterbox-turbo", lambda: ChatterboxTurboTTS.from_pretrained(device=device)
+    )
+    _turbo_cache["model"] = model
+    return model
+
+
+def _load_qwen3_tts():
+    """Qwen3-TTS voice-clone model. snapshot_download first — from_pretrained
+    against a remote repo can spawn subprocesses that crash under Celery
+    prefork (daemonic children)."""
+    if "model" in _qwen3_cache:
+        return _qwen3_cache["model"]
+    import torch
+    from huggingface_hub import snapshot_download
+    from qwen_tts import Qwen3TTSModel
+    repo = os.environ.get("QWEN3_TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
+    local = snapshot_download(repo)
+    dev = "cuda:0" if torch.cuda.is_available() else "cpu"
+    from tasks.gpu_mem import load_with_oom_retry
+    model = load_with_oom_retry(
+        "qwen3-tts",
+        lambda: Qwen3TTSModel.from_pretrained(
+            local, device_map=dev,
+            dtype=torch.bfloat16 if dev != "cpu" else torch.float32),
+    )
+    _qwen3_cache["model"] = model
+    return model
+
+
+def _ref_transcript(wav_path: str) -> str | None:
+    """Transcript of a reference wav for Qwen3 cloning (much better similarity
+    than x-vector-only mode). Cached in a sidecar .txt next to the sample."""
+    side = wav_path + ".txt"
+    try:
+        if os.path.exists(side):
+            return open(side, encoding="utf-8").read().strip() or None
+    except OSError:
+        pass
+    try:
+        import torch
+        from faster_whisper import WhisperModel
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        compute = "float16" if device == "cuda" else "int8"
+        from tasks.gpu_mem import load_with_oom_retry
+        model = load_with_oom_retry(
+            "whisper-ref",
+            lambda: WhisperModel("small", device=device, compute_type=compute))
+        segs, _ = model.transcribe(wav_path, beam_size=1, vad_filter=True,
+                                   condition_on_previous_text=False)
+        text_out = " ".join(s.text.strip() for s in segs).strip()
+        del model
+        if text_out:
+            with open(side, "w", encoding="utf-8") as f:
+                f.write(text_out)
+            return text_out
+    except Exception as e:
+        print(f"[voice] reference transcription failed: {e}")
+    return None
+
+
+def _ffmpeg_atempo(path: str, speed: float):
+    """Pitch-preserving speed change in place (speed already clamped 0.5-2)."""
+    import subprocess
+    tmp = path + ".spd.wav"
+    subprocess.run(["ffmpeg", "-y", "-i", path, "-filter:a", f"atempo={speed}",
+                    "-c:a", "pcm_s16le", tmp], check=True, capture_output=True)
+    os.replace(tmp, path)
 
 
 def _find_reference_clip(db, person_id: str) -> tuple[str, float, float]:
@@ -582,11 +673,75 @@ def generate_speech(self, generation_id: str):
         merged = _sanitize_settings(merged)
 
         started = time.monotonic()
-        # Prefer Chatterbox (same engine as cloned dubbing — more natural than
-        # XTTS-v2); fall back to XTTS per-load and per-generation. Force the
-        # old engine with DUB_ENGINE=xtts.
+        # Engine dispatch. Per-generation/person "engine" setting wins, then
+        # VOICE_ENGINE env, then automatic: English -> Chatterbox-Turbo,
+        # anything else -> multilingual Chatterbox, XTTS as the last resort.
+        # DUB_ENGINE=xtts still forces the legacy engine globally.
+        engine = str(merged.pop("engine", "") or os.environ.get("VOICE_ENGINE", "")).lower()
+        if os.environ.get("DUB_ENGINE", "").lower() == "xtts":
+            engine = "xtts"
         used_chatterbox = False
-        if os.environ.get("DUB_ENGINE", "").lower() != "xtts":
+
+        if engine == "qwen3":
+            try:
+                from tasks.dub import _write_wav
+                model = _load_qwen3_tts()
+                _update_generation(db, generation_id, progress=30.0)
+                ref = speaker_wavs[0]
+                ref_text = _ref_transcript(ref)
+                wavs, sr = model.generate_voice_clone(
+                    text=text_value,
+                    language=_QWEN3_LANGS.get(str(language).lower(), "English"),
+                    ref_audio=ref,
+                    ref_text=ref_text,
+                    x_vector_only_mode=ref_text is None,
+                )
+                _write_wav(out_path, wavs[0], sr)
+                speed = merged.get("speed")
+                if speed and abs(float(speed) - 1.0) > 1e-3:
+                    _ffmpeg_atempo(out_path, float(speed))
+                used_chatterbox = True  # skip the fallback engines below
+                print(f"[voice] generated with qwen3-tts for generation {generation_id}")
+            except Exception as e:
+                print(f"[voice] qwen3-tts failed, falling back: {e}")
+
+        if (not used_chatterbox and engine in ("", "turbo")
+                and str(language).lower().startswith("en")):
+            import tempfile
+            try:
+                import numpy as np
+                from tasks.dub import _write_wav
+                model = _load_chatterbox_turbo()
+                _update_generation(db, generation_id, progress=30.0)
+                chunks = _split_tts_chunks(text_value)
+                pieces, rate = [], None
+                for ci, chunk in enumerate(chunks):
+                    wav = model.generate(chunk, audio_prompt_path=speaker_wavs[0])
+                    pieces.append(wav.squeeze(0).detach().cpu().numpy())
+                    rate = model.sr
+                    _update_generation(
+                        db, generation_id,
+                        progress=30.0 + 60.0 * (ci + 1) / len(chunks))
+                if len(pieces) == 1:
+                    samples = pieces[0]
+                else:
+                    gap = np.zeros(int(rate * 0.25), dtype=pieces[0].dtype)
+                    joined = []
+                    for pi, p in enumerate(pieces):
+                        if pi:
+                            joined.append(gap)
+                        joined.append(p)
+                    samples = np.concatenate(joined)
+                _write_wav(out_path, samples, rate)
+                speed = merged.get("speed")
+                if speed and abs(float(speed) - 1.0) > 1e-3:
+                    _ffmpeg_atempo(out_path, float(speed))
+                used_chatterbox = True
+                print(f"[voice] generated with chatterbox-turbo for generation {generation_id}")
+            except Exception as e:
+                print(f"[voice] chatterbox-turbo failed, falling back: {e}")
+
+        if not used_chatterbox and engine != "xtts":
             import tempfile
             from tasks.dub import _load_chatterbox, _synthesize_chatterbox, _to_chatterbox_lang, _write_wav
             cb_lang = _to_chatterbox_lang(language)
