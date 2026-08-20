@@ -1,0 +1,17 @@
+[+] up 15/15
+ ✔ Image obtv-ai-worker-gpu-2          Built                                                                                                                                                                 707.0s
+ ✔ Image obtv-ai-api                   Built                                                                                                                                                                 707.0s
+ ✔ Image obtv-ai-worker-graphics       Built                                                                                                                                                                 707.0s
+ ✔ Image obtv-ai-worker-gpu            Built                                                                                                                                                                 707.0s
+ ✔ Image obtv-ai-watcher               Built                                                                                                                                                                 707.0s
+ ✔ Image obtv-ai-worker-cpu            Built                                                                                                                                                                 707.0s
+ ✘ Container obtv-ai-postgres-1        Error dependency postgres failed to start                                                                                                                              33.0s
+ ✘ Container obtv-ai-qdrant-1          Error dependency qdrant failed to start                                                                                                                                33.0s
+ ✘ Container obtv-ai-redis-1           Error dependency redis failed to start                                                                                                                                 33.0s
+ ✔ Container obtv-ai-api-1             Recreated                                                                                                                                                              21.3s
+ ✔ Container obtv-ai-worker-cpu-1      Recreated                                                                                                                                                              21.3s
+ ✔ Container obtv-ai-worker-gpu-2-1    Recreated                                                                                                                                                              21.3s
+ ✔ Container obtv-ai-worker-graphics-1 Recreated                                                                                                                                                              21.3s
+ ✔ Container obtv-ai-worker-gpu-1      Recreated                                                                                                                                                              21.3s
+ ✔ Container obtv-ai-watcher-1         Recreated                                                                                                                                                              11.1s
+dependency failed to start: container obtv-ai-redis-1 is unhealthy
