@@ -7,7 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFil
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, delete, text
 from ..database import get_db
-from ..models import MediaAsset, Scene, TranscriptSegment, FaceCluster, ProcessingJob, Person, PersonAppearance
+from ..models import (
+    MediaAsset, Scene, TranscriptSegment, FaceCluster, ProcessingJob, Person,
+    PersonAppearance, CuratorInboxImport,
+)
 from ..schemas import (
     MediaAssetOut, MediaListResponse, MediaIngestInput, MediaLinkImportInput,
     LibraryStats, SceneOut, TranscriptSegmentOut, FaceClusterOut, FaceAppearance,
@@ -20,6 +23,8 @@ from ..schemas import (
     AssetPersonOut, SpeakingMomentOut, OnCameraRangeOut,
     HighlightRenderIn,
     CuratorLinkInput, CuratorLinkResult,
+    CuratorManifestImportIn, CuratorManifestImportOut,
+    CuratorManifestImportItemOut,
 )
 from ..models import ClipList, Clip, ReelJob
 from ..config import settings
@@ -509,6 +514,7 @@ async def _relink_curator_record(asset: MediaAsset, db: AsyncSession) -> None:
     asset.curator_asset_id = rec.asset_id
     asset.curator_folder_path = rec.folder_path
     asset.curator_web_proxy_path = rec.web_proxy_path
+    asset.curator_requested_by = rec.requested_by
     if rec.folder_path:
         parts = [p for p in rec.folder_path.replace("\\", "/").split("/") if p]
         fid = await _ensure_folder_chain(["Curator"] + parts, db)
@@ -569,6 +575,283 @@ def _require_internal(request: Request) -> None:
     tok = request.headers.get("x-internal-token")
     if not (tok and settings.internal_api_token and secrets.compare_digest(tok, settings.internal_api_token)):
         raise HTTPException(status_code=403, detail="Internal endpoint")
+
+
+def _resolve_curator_manifest_proxy(web_proxy_path: str) -> tuple[str | None, str | None, bool]:
+    """Translate Curator's UNC WebProxyPath to the mounted proxy tree.
+
+    Returns (video_path, error, retryable). The mount starts at Curator's
+    WebProxy directory, so the path tail after the final "WebProxy" component
+    is portable across Curator server/share names.
+    """
+    raw = (web_proxy_path or "").strip().replace("\\", "/")
+    if not raw:
+        return None, "WebProxyPath is empty", False
+    parts = [p for p in raw.split("/") if p not in ("", ".")]
+    if ".." in parts:
+        return None, "WebProxyPath contains an invalid parent segment", False
+
+    root = os.path.realpath(_CURATOR_FS_ROOT)
+    normalized = os.path.normpath(raw)
+    if normalized == _CURATOR_FS_ROOT or normalized.startswith(_CURATOR_FS_ROOT + "/"):
+        candidate = normalized
+    else:
+        markers = [i for i, p in enumerate(parts) if p.casefold() == "webproxy"]
+        if not markers:
+            return None, "WebProxyPath does not contain a WebProxy directory", False
+        tail = parts[markers[-1] + 1:]
+        if not tail:
+            return None, "WebProxyPath does not identify an asset proxy folder", False
+        candidate = os.path.join(_CURATOR_FS_ROOT, *tail)
+
+    candidate = os.path.realpath(candidate)
+    try:
+        if os.path.commonpath((root, candidate)) != root:
+            return None, "WebProxyPath resolves outside the Curator proxy mount", False
+    except ValueError:
+        return None, "WebProxyPath is not valid for this Curator mount", False
+
+    if not os.path.exists(candidate):
+        return None, f"Curator proxy folder is not available yet: {candidate}", True
+    if os.path.isfile(candidate):
+        videos = [candidate] if candidate.lower().endswith("_video.mp4") else []
+    else:
+        try:
+            videos = [
+                os.path.join(candidate, name)
+                for name in os.listdir(candidate)
+                if name.lower().endswith("_video.mp4")
+                and os.path.isfile(os.path.join(candidate, name))
+            ]
+        except OSError as e:
+            return None, f"Could not read Curator proxy folder: {e}", True
+    if not videos:
+        return None, f"Curator video proxy is not available yet: {candidate}", True
+    if len(videos) > 1:
+        return None, f"Curator proxy folder contains {len(videos)} video proxies", False
+    try:
+        if os.path.getsize(videos[0]) <= 0:
+            return None, f"Curator video proxy is still empty: {videos[0]}", True
+    except OSError as e:
+        return None, f"Could not stat Curator video proxy: {e}", True
+    return videos[0], None, False
+
+
+async def _set_curator_import_error(
+    db: AsyncSession,
+    asset_id: str,
+    error: str,
+    status: str,
+) -> None:
+    row = await db.get(CuratorInboxImport, asset_id)
+    if row is not None:
+        row.status = status
+        row.last_error = error[:4000]
+        row.updated_at = datetime.utcnow()
+        await db.commit()
+
+
+@router.post(
+    "/curator-import",
+    response_model=CuratorManifestImportOut,
+    status_code=202,
+)
+async def curator_manifest_import(
+    body: CuratorManifestImportIn,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create/link and queue assets directly from Curator SendToOBTV XML.
+
+    Each asset is independent so one not-yet-generated proxy does not block
+    valid siblings in the same manifest. Curator asset id + an advisory lock
+    make duplicate XML delivery and concurrent watcher events idempotent.
+    """
+    _require_internal(request)
+    results: list[CuratorManifestImportItemOut] = []
+
+    for item in body.assets:
+        should_publish = False
+        media: MediaAsset | None = None
+        job: ProcessingJob | None = None
+        try:
+            await db.execute(text(
+                "SELECT pg_advisory_xact_lock("
+                "hashtext('obtv_curator_import:' || :asset_id))"
+            ), {"asset_id": item.asset_id})
+
+            imported = await db.get(CuratorInboxImport, item.asset_id)
+            if imported is None:
+                imported = CuratorInboxImport(asset_id=item.asset_id)
+                db.add(imported)
+            imported.manifest_name = body.manifest_name
+            imported.name = item.name
+            imported.web_proxy_path = item.web_proxy_path
+            imported.folder_path = item.folder_path
+            imported.requested_by = item.requested_by
+            imported.attempts = (imported.attempts or 0) + 1
+            imported.updated_at = datetime.utcnow()
+
+            from ..models import CuratorAssetRecord
+            rec = await db.get(CuratorAssetRecord, item.asset_id)
+            if rec is None:
+                rec = CuratorAssetRecord(asset_id=item.asset_id)
+                db.add(rec)
+            rec.name = item.name
+            rec.web_proxy_path = item.web_proxy_path
+            rec.folder_path = item.folder_path
+            rec.requested_by = item.requested_by
+            rec.updated_at = datetime.utcnow()
+
+            video_path, path_error, retryable = _resolve_curator_manifest_proxy(
+                item.web_proxy_path
+            )
+            if path_error:
+                imported.status = "waiting" if retryable else "failed"
+                imported.last_error = path_error
+                await db.commit()
+                results.append(CuratorManifestImportItemOut(
+                    asset_id=item.asset_id,
+                    status="waiting" if retryable else "failed",
+                    media_id=imported.media_id,
+                    job_id=imported.job_id,
+                    retryable=retryable,
+                    error=path_error,
+                ))
+                continue
+
+            media = (await db.execute(
+                select(MediaAsset).where(
+                    MediaAsset.curator_asset_id == item.asset_id
+                ).limit(1)
+            )).scalar_one_or_none()
+            if media is None:
+                media = (await db.execute(
+                    select(MediaAsset).where(
+                        MediaAsset.original_path == video_path
+                    ).limit(1)
+                )).scalar_one_or_none()
+
+            folder_id: str | None = None
+            if item.folder_path:
+                folder_parts = [
+                    p for p in item.folder_path.replace("\\", "/").split("/") if p
+                ]
+                folder_id = await _ensure_folder_chain(
+                    ["Curator"] + folder_parts, db
+                )
+
+            created = media is None
+            if created:
+                media = MediaAsset(
+                    id=str(uuid.uuid4()),
+                    filename=item.name or os.path.basename(video_path),
+                    original_path=video_path,
+                    status="pending",
+                    file_size_bytes=os.path.getsize(video_path),
+                    recorded_at=datetime.utcfromtimestamp(
+                        os.path.getmtime(video_path)
+                    ),
+                    created_at=datetime.utcnow(),
+                    folder_id=folder_id or await _mirror_curator_folder(
+                        video_path, db
+                    ),
+                    curator_asset_id=item.asset_id,
+                    curator_folder_path=item.folder_path,
+                    curator_web_proxy_path=item.web_proxy_path,
+                    curator_requested_by=item.requested_by,
+                )
+                db.add(media)
+                await db.flush()
+                job = ProcessingJob(
+                    id=str(uuid.uuid4()),
+                    media_id=media.id,
+                    job_type="ingest",
+                    status="pending",
+                    progress=0.0,
+                    logs=[],
+                    created_at=datetime.utcnow(),
+                )
+                db.add(job)
+                imported.job_id = job.id
+                imported.status = "publish_pending"
+                should_publish = True
+            else:
+                media.curator_asset_id = item.asset_id
+                media.curator_folder_path = item.folder_path
+                media.curator_web_proxy_path = item.web_proxy_path
+                media.curator_requested_by = item.requested_by
+                if folder_id:
+                    media.folder_id = folder_id
+                if (
+                    imported.status in ("publish_failed", "publish_pending")
+                    and imported.job_id
+                ):
+                    job = await db.get(ProcessingJob, imported.job_id)
+                    should_publish = bool(job and job.status == "pending")
+
+            imported.media_id = media.id
+            imported.last_error = None
+            if not should_publish:
+                imported.status = "existing"
+            await db.commit()
+
+            if should_publish and job is not None:
+                try:
+                    from ..worker_client import enqueue_job
+                    await enqueue_job("ingest", media.id, job.id)
+                except Exception as e:
+                    error = f"Could not publish ingest job: {e}"
+                    await _set_curator_import_error(
+                        db, item.asset_id, error, "publish_failed"
+                    )
+                    results.append(CuratorManifestImportItemOut(
+                        asset_id=item.asset_id,
+                        status="waiting",
+                        media_id=media.id,
+                        job_id=job.id,
+                        retryable=True,
+                        error=error,
+                    ))
+                    continue
+                imported = await db.get(CuratorInboxImport, item.asset_id)
+                if imported is not None:
+                    imported.status = "queued"
+                    imported.last_error = None
+                    imported.updated_at = datetime.utcnow()
+                    await db.commit()
+                results.append(CuratorManifestImportItemOut(
+                    asset_id=item.asset_id,
+                    status="queued",
+                    media_id=media.id,
+                    job_id=job.id,
+                ))
+            else:
+                results.append(CuratorManifestImportItemOut(
+                    asset_id=item.asset_id,
+                    status="existing",
+                    media_id=media.id,
+                    job_id=imported.job_id,
+                ))
+        except Exception as e:
+            await db.rollback()
+            error = str(e)[:4000]
+            try:
+                await _set_curator_import_error(
+                    db, item.asset_id, error, "failed"
+                )
+            except Exception:
+                await db.rollback()
+            results.append(CuratorManifestImportItemOut(
+                asset_id=item.asset_id,
+                status="waiting",
+                media_id=media.id if media else None,
+                job_id=job.id if job else None,
+                retryable=True,
+                error=error,
+            ))
+
+    return CuratorManifestImportOut(items=results)
 
 
 def _escape_like(s: str) -> str:
@@ -653,6 +936,7 @@ async def curator_link(
     rec.name = body.name
     rec.web_proxy_path = body.web_proxy_path
     rec.folder_path = body.folder_path
+    rec.requested_by = body.requested_by
     rec.updated_at = datetime.utcnow()
 
     # Place matched media in the library tree per the Curator asset record's
@@ -666,6 +950,7 @@ async def curator_link(
         a.curator_asset_id = body.asset_id
         a.curator_folder_path = body.folder_path
         a.curator_web_proxy_path = body.web_proxy_path
+        a.curator_requested_by = body.requested_by
         if folder_id:
             a.folder_id = folder_id
     await db.commit()

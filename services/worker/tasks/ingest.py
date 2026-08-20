@@ -13,14 +13,47 @@ from tasks.base import update_job, append_log, create_job, update_asset
 @celery_app.task(bind=True, name="tasks.ingest.run_ingest_pipeline", queue="ingest")
 def run_ingest_pipeline(self, media_id: str, job_id: str = None):
     db = get_session()
+    lock_acquired = False
     try:
+        # Manifest delivery is at-least-once: if the API dies after broker
+        # publish but before recording success, it safely republishes the same
+        # ingest job. Serialize per asset and ignore a duplicate task once the
+        # durable job is already running/successful.
+        from sqlalchemy import text
+        lock_key = f"obtv_ingest:{media_id}"
+        lock_acquired = bool(db.execute(
+            text("SELECT pg_try_advisory_lock(hashtext(:key))"),
+            {"key": lock_key},
+        ).scalar())
+        if not lock_acquired:
+            print(f"[ingest] duplicate task skipped while {media_id} is active")
+            return
+
         if not job_id:
             job_id = create_job(db, media_id, "ingest")
+        else:
+            prior = db.execute(
+                text(
+                    "SELECT status, celery_task_id FROM processing_jobs "
+                    "WHERE id = :jid"
+                ),
+                {"jid": job_id},
+            ).fetchone()
+            if prior and prior[0] == "success":
+                print(f"[ingest] duplicate completed job skipped: {job_id}")
+                return
+            if (
+                prior
+                and prior[0] == "running"
+                and prior[1]
+                and prior[1] != self.request.id
+            ):
+                print(f"[ingest] duplicate running job skipped: {job_id}")
+                return
 
         update_job(db, job_id, status="running", started_at=datetime.utcnow(), celery_task_id=self.request.id)
         update_asset(db, media_id, status="processing", processing_stage="metadata", processing_progress=5.0)
 
-        from sqlalchemy import text
         row = db.execute(text("SELECT original_path, filename FROM media_assets WHERE id = :mid"), {"mid": media_id}).fetchone()
         if not row or not row[0]:
             raise ValueError("No source file path for asset")
@@ -88,6 +121,17 @@ def run_ingest_pipeline(self, media_id: str, job_id: str = None):
         update_asset(db, media_id, status="error", processing_stage="ingest_failed")
         raise
     finally:
+        if lock_acquired:
+            try:
+                db.rollback()
+                db.execute(
+                    text("SELECT pg_advisory_unlock(hashtext(:key))"),
+                    {"key": f"obtv_ingest:{media_id}"},
+                )
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                print(f"[ingest] advisory unlock failed for {media_id}: {e}")
         db.close()
 
 

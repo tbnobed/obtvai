@@ -54,6 +54,9 @@ x-python-env: &python-env
   # IPV Curator proxy reuse: mount point inside containers + index cache TTL
   CURATOR_PROXY_ROOT: "/curator"
   CURATOR_INDEX_TTL: "${CURATOR_INDEX_TTL:-900}"
+  # Curator SendToOBTV writes small XML manifests here. Unlike /curator this
+  # is a writable command inbox; the watcher archives handled files beneath it.
+  CURATOR_INBOX_ROOT: "/curator-inbox"
   # Curator sidecars carry no hi-res path; reconstruct it for NLE exports as
   # <CURATOR_SOURCE_ROOT><folder stem><CURATOR_SOURCE_EXT> (stem = proxy
   # folder name minus -HHMMSS). E.g. \\tustopd.trinity.local\ipv\Media
@@ -305,14 +308,19 @@ services:
     environment:
       <<: *python-env
       API_URL: "http://api:8000/api"
-      # /curator is always watched, but clips only ingest from folders an
-      # admin selected in the Media Library (polled from the API). Set
-      # CURATOR_DIRECT_INGEST=1 in .env to ingest everything on the share.
-      MEDIA_ROOTS: "/media:/media2:/curator"
+      # Normal operation watches one Curator XML command inbox, not the huge
+      # proxy tree. Set CURATOR_LEGACY_FOLDER_WATCH=1 only for a backfill;
+      # selected-folder/direct-ingest behavior then remains available.
+      MEDIA_ROOTS: "/media:/media2"
+      CURATOR_LEGACY_FOLDER_WATCH: "${CURATOR_LEGACY_FOLDER_WATCH:-0}"
+      CURATOR_DIRECT_INGEST: "${CURATOR_DIRECT_INGEST:-0}"
+      CURATOR_XML_RETRY_SECONDS: "${CURATOR_XML_RETRY_SECONDS:-120}"
+      CURATOR_XML_MAX_RETRIES: "${CURATOR_XML_MAX_RETRIES:-720}"
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
       - "${CURATOR_PROXY_PATH:-./curator_proxies}:/curator:ro"
+      - "${CURATOR_INBOX_PATH:-./curator_inbox}:/curator-inbox"
     depends_on:
       api:
         condition: service_healthy

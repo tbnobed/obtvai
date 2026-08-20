@@ -26,6 +26,9 @@ class MediaAsset(Base):
     # WebProxyPath from the panel link (\\host\...\Proxies\WebProxy\<date>\<clip>)
     # — source of truth for the gateway ISU streaming URL in NLE exports.
     curator_web_proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Editor who clicked Curator's SendToOBTV action (user.realname in the
+    # manifest). Audit attribution only; authentication remains internal.
+    curator_requested_by: Mapped[str | None] = mapped_column(String, nullable=True)
     proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     # Scrub sprite sheet: one JPEG grid of frames + timing metadata
@@ -100,7 +103,35 @@ class CuratorAssetRecord(Base):
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     web_proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
     folder_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    requested_by: Mapped[str | None] = mapped_column(String, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CuratorInboxImport(Base):
+    """Durable state for one Curator SendToOBTV request.
+
+    The Curator asset id is the idempotency key. The XML file remains the
+    recoverable transport until it is archived, while this row prevents a
+    duplicate media record/job if Curator emits it twice or the watcher
+    restarts during delivery.
+    """
+    __tablename__ = "curator_inbox_imports"
+
+    asset_id: Mapped[str] = mapped_column(String, primary_key=True)
+    manifest_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    web_proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    folder_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    requested_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    media_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    job_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="received")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
 
 class Marker(Base):

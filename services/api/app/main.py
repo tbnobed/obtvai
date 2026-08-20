@@ -110,6 +110,8 @@ _COLUMN_MIGRATIONS = [
     ("media_assets", "curator_asset_id", "VARCHAR"),
     ("media_assets", "curator_folder_path", "VARCHAR"),
     ("media_assets", "curator_web_proxy_path", "VARCHAR"),
+    ("media_assets", "curator_requested_by", "VARCHAR"),
+    ("curator_asset_records", "requested_by", "VARCHAR"),
 ]
 
 

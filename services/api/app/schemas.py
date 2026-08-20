@@ -18,6 +18,7 @@ class MediaAssetOut(BaseModel):
     curator_id: Optional[str] = None
     curator_asset_id: Optional[str] = None
     curator_folder_path: Optional[str] = None
+    curator_requested_by: Optional[str] = None
     proxy_path: Optional[str] = None
     thumbnail_url: Optional[str] = None
     sprite_url: Optional[str] = None
@@ -71,6 +72,7 @@ class CuratorLinkInput(BaseModel):
     name: Optional[str] = None
     web_proxy_path: Optional[str] = None
     folder_path: Optional[str] = None
+    requested_by: Optional[str] = None
 
 
 class CuratorLinkResult(BaseModel):
@@ -79,6 +81,32 @@ class CuratorLinkResult(BaseModel):
     # True when the fuzzy fallback found multiple candidates and refused to
     # link (nothing written) — caller should retry later or flag for review.
     ambiguous: bool = False
+
+
+class CuratorManifestAssetIn(BaseModel):
+    asset_id: str = Field(min_length=1, max_length=200)
+    name: Optional[str] = Field(default=None, max_length=1000)
+    web_proxy_path: str = Field(min_length=1, max_length=4000)
+    folder_path: Optional[str] = Field(default=None, max_length=4000)
+    requested_by: Optional[str] = Field(default=None, max_length=500)
+
+
+class CuratorManifestImportIn(BaseModel):
+    manifest_name: Optional[str] = Field(default=None, max_length=1000)
+    assets: List[CuratorManifestAssetIn] = Field(min_length=1, max_length=500)
+
+
+class CuratorManifestImportItemOut(BaseModel):
+    asset_id: str
+    status: Literal["queued", "existing", "waiting", "failed"]
+    media_id: Optional[str] = None
+    job_id: Optional[str] = None
+    retryable: bool = False
+    error: Optional[str] = None
+
+
+class CuratorManifestImportOut(BaseModel):
+    items: List[CuratorManifestImportItemOut]
 
 
 class TranslateRequest(BaseModel):
