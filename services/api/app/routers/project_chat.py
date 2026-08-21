@@ -263,6 +263,16 @@ _ACK_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Requests that ask the assistant to WRITE content synthesized from the footage
+# rather than answer a factual question about it.
+_SYNTHESIS_RE = re.compile(
+    r"\b(?:synopsis|summari[sz]e|summary|summaries|overview|write[\s\-]+up|"
+    r"write[\s\-]+(?:me\s+)?(?:a\s+)?(?:brief|short|long|full|detailed)?\s*"
+    r"(?:description|narrative|bio|biography|paragraph|essay|piece|article)|"
+    r"give[\s\-]+me[\s\-]+(?:a\s+)?(?:\d+[\s\-]+word\s+)?(?:synopsis|summary|overview|description|narrative))\b",
+    re.IGNORECASE,
+)
+
 _MAX_VISUAL_CANDIDATES = 24
 _VISUAL_CLIP_MAX_SECONDS = 45.0
 
@@ -673,6 +683,13 @@ _PLAN_SYSTEM = (
     "says what, what the episodes cover), stay in answer mode but FILL IN "
     "searches with queries for the relevant material — the transcripts will be "
     "searched and you will answer from what is found. "
+    "SYNTHESIS REQUESTS — when the user asks for a synopsis, summary, overview, "
+    "write-up, description, or any block of written text ABOUT the footage: stay "
+    "in answer mode and fill searches with 2-3 queries describing the MAIN TOPICS "
+    "AND THEMES in the footage (e.g. 'interview about faith and legacy', "
+    "'discussion of life purpose') — NEVER search for the words 'synopsis' or "
+    "'summary' themselves. The transcripts for those topics will be retrieved and "
+    "used to write the requested text at the length the user asked for.\n"
     "NEVER promise future work in answer mode ('I will remove...', 'let me "
     "double-check...') — you cannot act later. If the message implies the cut "
     "should change (complaints about clips included), pick edit or adjust and "
@@ -991,26 +1008,60 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                         )
                     context = "\n\n".join(sections)
                     from ..services.web_search import generate_with_web
+                    _is_synthesis = bool(_SYNTHESIS_RE.search(user_text))
+                    # Extract an explicit word count from the request ("500 word synopsis").
+                    _wcount_m = re.search(r"\b(\d{2,4})\s*[-\s]?word", user_text, re.IGNORECASE)
+                    _requested_words = int(_wcount_m.group(1)) if _wcount_m else None
+                    if _is_synthesis:
+                        _word_instruction = (
+                            f"Write it at approximately {_requested_words} words."
+                            if _requested_words else
+                            "Write it at a length appropriate to the request."
+                        )
+                        _answer_instruction = (
+                            f"The user asked you to write the following based on the footage:\n"
+                            f"{user_text}\n\n"
+                            f"{context}\n\n"
+                            f"Using the transcript excerpts above as your primary source material, "
+                            f"write the requested content now. {_word_instruction} "
+                            f"Draw directly from what the speakers actually said — quote or "
+                            f"paraphrase their words to build the piece. Do not describe the "
+                            f"footage or explain what you are doing; just write the content. "
+                            f"No JSON, no promises of future work."
+                        )
+                        _answer_system = (
+                            "You are a skilled writer and video editor. "
+                            "When asked to write a synopsis, summary, or other written piece "
+                            "about footage, you produce the requested content directly using "
+                            "the provided transcript material as your source."
+                        )
+                        _answer_tokens = max(800, (_requested_words or 300) * 2)
+                    else:
+                        _answer_instruction = (
+                            "The user asked about the footage in their media pool "
+                            f"({len(media_ids)} files). QUESTION:\n{user_text}\n\n"
+                            f"{context}\n\n"
+                            "Answer the question concretely from this evidence, "
+                            "citing episode filenames and timestamps where useful. "
+                            "Transcripts only cover what is SAID — for questions about "
+                            "what is SHOWN (performances, locations, visuals), trust "
+                            "the visual scene matches and count their segments. If the "
+                            "evidence doesn't cover it, say what IS there instead. "
+                            "Write like you're talking to a colleague: short conversational "
+                            "paragraphs, and simple dash bullets when listing. NEVER use "
+                            "markdown tables, headings, or long quote dumps — pick the one "
+                            "or two best quotes and a few representative timestamps rather "
+                            "than exhaustive lists. Keep it under ~150 words. No JSON, no "
+                            "promises of future work."
+                        )
+                        _answer_system = "You are a friendly, sharp video editor who knows this footage well."
+                        _answer_tokens = 500
                     reply = (await generate_with_web(
                         generate_response,
-                        "The user asked about the footage in their media pool "
-                        f"({len(media_ids)} files). QUESTION:\n{user_text}\n\n"
-                        f"{context}\n\n"
-                        "Answer the question concretely from this evidence, "
-                        "citing episode filenames and timestamps where useful. "
-                        "Transcripts only cover what is SAID — for questions about "
-                        "what is SHOWN (performances, locations, visuals), trust "
-                        "the visual scene matches and count their segments. If the "
-                        "evidence doesn't cover it, say what IS there instead. "
-                        "Write like you're talking to a colleague: short conversational "
-                        "paragraphs, and simple dash bullets when listing. NEVER use "
-                        "markdown tables, headings, or long quote dumps — pick the one "
-                        "or two best quotes and a few representative timestamps rather "
-                        "than exhaustive lists. Keep it under ~150 words. No JSON, no "
-                        "promises of future work.",
+                        _answer_instruction,
                         history=history,
-                        system="You are a friendly, sharp video editor who knows this footage well.",
-                        max_new_tokens=500,
+                        system=_answer_system,
+                        max_new_tokens=_answer_tokens,
                         user_text=user_text,
                     )).strip()
                     await _finish(db, assistant_id, reply or "I couldn't pull anything useful from the footage for that.", None)
