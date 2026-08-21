@@ -414,7 +414,16 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
               >
                 {m.status === "running" ? (
                   <span className="inline-flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Working on the cut…
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    {(() => {
+                      const allMsgs = messages ?? [];
+                      const myIdx = allMsgs.findIndex((x) => x.id === m.id);
+                      const prevUser = allMsgs.slice(0, myIdx).reverse().find((x) => x.role === "user");
+                      const txt = prevUser?.content ?? "";
+                      const isSynth = /\b(?:synopsis|summari[sz]e|summary|overview|write[\s-]+up|write[\s-]+(?:me\s+)?(?:a\s+)?(?:brief|short|long|full|detailed)?\s*(?:description|narrative|paragraph|essay)|give[\s-]+me[\s-]+(?:a\s+)?(?:\d+[\s-]+word\s+)?(?:synopsis|summary|overview|description))\b/i.test(txt);
+                      const isAnswer = /\b(?:what|who|how|when|where|why|does|is|are|was|were|did|can|could|would|tell me|explain)\b/i.test(txt) && !isSynth;
+                      return isSynth ? "Writing…" : isAnswer ? "Thinking…" : "Working on the cut…";
+                    })()}
                   </span>
                 ) : (
                   <>
