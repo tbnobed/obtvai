@@ -902,6 +902,29 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         if _web_ask:
             mode = "answer"
 
+        # Synthesis requests (synopsis, summary, overview, write-up) must NEVER
+        # become edit-mode cut operations. The planner often misclassifies them
+        # because "give me X" looks like an edit instruction. Force answer mode
+        # and sanitize searches: remove any query that is literally the word
+        # "synopsis"/"summary" — those find nothing useful. If all queries are
+        # bad, fall back to a broad pull from whatever the pool description says.
+        _is_synthesis = bool(_SYNTHESIS_RE.search(user_text))
+        if _is_synthesis:
+            mode = "answer"
+            _bad_search = re.compile(
+                r"^\s*(?:\d+[\s-]word\s+)?(?:synopsis|summary|summari[sz]e|overview|write[\s-]up)\s*$",
+                re.IGNORECASE,
+            )
+            plan["searches"] = [
+                q for q in (plan.get("searches") or [])
+                if isinstance(q, str) and q.strip() and not _bad_search.match(q)
+            ]
+            if not plan["searches"] and pool_line:
+                # Derive a broad topic query from the first pool file's description.
+                first_pool = (pool_line.splitlines()[1:2] or [""])[0]
+                topic = re.sub(r"^-\s*[^:]+:\s*", "", first_pool).strip()[:120]
+                plan["searches"] = [topic] if topic else ["interview discussion"]
+
         # Honor a runtime asked for in chat ("make it 3 minutes") over the
         # project default, and persist it so later turns keep the new length.
         req_target = None
