@@ -1,0 +1,100 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ git pull && docker compose up -d --build api
+remote: Enumerating objects: 31, done.
+remote: Counting objects: 100% (31/31), done.
+remote: Compressing objects: 100% (11/11), done.
+remote: Total 24 (delta 13), reused 24 (delta 13), pack-reused 0 (from 0)
+Unpacking objects: 100% (24/24), 416.13 KiB | 4.12 MiB/s, done.
+From https://github.com/tbnobed/obtvai
+   0110940..de23a6c  main       -> origin/main
+Updating 0110940..de23a6c
+Fast-forward
+ attached_assets/Pasted--up-15-15-Image-obtv-ai-worker-gpu-2-Built--17872649139_1787264913925.txt |  17 ++
+ attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-docker-compose-logs-tail-_1787265400878.txt | 101 ++++++++++++
+ attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-docker-compose-ps-NAME-IM_1787264986236.txt | 629 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ attached_assets/image_1787324320744.png                                                          | Bin 0 -> 428921 bytes
+ attached_assets/image_1787324328422.png                                                          | Bin 0 -> 46565 bytes
+ services/api/app/routers/project_chat.py                                                         |  85 ++++++++--
+ 6 files changed, 815 insertions(+), 17 deletions(-)
+ create mode 100644 attached_assets/Pasted--up-15-15-Image-obtv-ai-worker-gpu-2-Built--17872649139_1787264913925.txt
+ create mode 100644 attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-docker-compose-logs-tail-_1787265400878.txt
+ create mode 100644 attached_assets/Pasted-obtv-admin-obtv-llm-2-obtv-ai-docker-compose-ps-NAME-IM_1787264986236.txt
+ create mode 100644 attached_assets/image_1787324320744.png
+ create mode 100644 attached_assets/image_1787324328422.png
+[+] Building 0.6s (13/13) FINISHED
+ => [internal] load local bake definitions                                                                                                                                 0.0s
+ => => reading from stdin 514B                                                                                                                                             0.0s
+ => [internal] load build definition from Dockerfile                                                                                                                       0.0s
+ => => transferring dockerfile: 628B                                                                                                                                       0.0s
+ => [internal] load metadata for docker.io/library/python:3.11-slim                                                                                                        0.0s
+ => [internal] load .dockerignore                                                                                                                                          0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [1/6] FROM docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                                  0.0s
+ => => resolve docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                                  0.0s
+ => [internal] load build context                                                                                                                                          0.0s
+ => => transferring context: 84.52kB                                                                                                                                       0.0s
+ => CACHED [2/6] RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libpq-dev     gcc     g++     curl     && rm -rf /var/lib/apt/lists/*     0.0s
+ => CACHED [3/6] WORKDIR /app                                                                                                                                              0.0s
+ => CACHED [4/6] COPY requirements.txt .                                                                                                                                   0.0s
+ => CACHED [5/6] RUN pip install --no-cache-dir -r requirements.txt                                                                                                        0.0s
+ => [6/6] COPY app/ ./app/                                                                                                                                                 0.0s
+ => exporting to image                                                                                                                                                     0.2s
+ => => exporting layers                                                                                                                                                    0.1s
+ => => exporting manifest sha256:3f530ed308bfe046b04dea1b24b32f8f3f3b28e306bc5958c8c944b92d97e69c                                                                          0.0s
+ => => exporting config sha256:02f84f7298ea67431c86fa172827fe7e2ee3cd7d7a826e303e5c48539277dedb                                                                            0.0s
+ => => exporting attestation manifest sha256:b7f76c8a541181d9d4967b2b9c0a16c05fbc95df0959a9d0a46ef4fea157ca90                                                              0.0s
+ => => exporting manifest list sha256:a3b213eb48ddbce0b414999715d88cd20d4b2ccf8518ac7ea5d8a8bb43a1b2f7                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-api:latest                                                                                                                      0.0s
+ => => unpacking to docker.io/library/obtv-ai-api:latest                                                                                                                   0.0s
+ => resolving provenance for metadata file                                                                                                                                 0.0s
+[+] up 5/5
+ ✔ Image obtv-ai-api            Built                                                                                                                                       0.6s
+ ✔ Container obtv-ai-postgres-1 Healthy                                                                                                                                     2.4s
+ ✔ Container obtv-ai-qdrant-1   Healthy                                                                                                                                     2.4s
+ ✔ Container obtv-ai-redis-1    Healthy                                                                                                                                     2.4s
+ ✔ Container obtv-ai-api-1      Started                                                                                                                                     2.8s
+obtv-admin@obtv-llm-2:~/obtv-ai$ cd ~/obtv-ai && git pull && docker compose up -d --build api
+remote: Enumerating objects: 6, done.
+remote: Counting objects: 100% (6/6), done.
+remote: Compressing objects: 100% (2/2), done.
+remote: Total 4 (delta 2), reused 4 (delta 2), pack-reused 0 (from 0)
+Unpacking objects: 100% (4/4), 42.95 KiB | 4.77 MiB/s, done.
+From https://github.com/tbnobed/obtvai
+   de23a6c..fd6eb47  main       -> origin/main
+Updating de23a6c..fd6eb47
+Fast-forward
+ attached_assets/image_1787324660059.png | Bin 0 -> 45755 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 attached_assets/image_1787324660059.png
+[+] Building 0.5s (13/13) FINISHED
+ => [internal] load local bake definitions                                                                                                                                 0.0s
+ => => reading from stdin 514B                                                                                                                                             0.0s
+ => [internal] load build definition from Dockerfile                                                                                                                       0.0s
+ => => transferring dockerfile: 628B                                                                                                                                       0.0s
+ => [internal] load metadata for docker.io/library/python:3.11-slim                                                                                                        0.0s
+ => [internal] load .dockerignore                                                                                                                                          0.0s
+ => => transferring context: 2B                                                                                                                                            0.0s
+ => [1/6] FROM docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                                  0.0s
+ => => resolve docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93                                                  0.0s
+ => [internal] load build context                                                                                                                                          0.0s
+ => => transferring context: 1.81kB                                                                                                                                        0.0s
+ => CACHED [2/6] RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libpq-dev     gcc     g++     curl     && rm -rf /var/lib/apt/lists/*     0.0s
+ => CACHED [3/6] WORKDIR /app                                                                                                                                              0.0s
+ => CACHED [4/6] COPY requirements.txt .                                                                                                                                   0.0s
+ => CACHED [5/6] RUN pip install --no-cache-dir -r requirements.txt                                                                                                        0.0s
+ => CACHED [6/6] COPY app/ ./app/                                                                                                                                          0.0s
+ => exporting to image                                                                                                                                                     0.2s
+ => => exporting layers                                                                                                                                                    0.0s
+ => => exporting manifest sha256:3f530ed308bfe046b04dea1b24b32f8f3f3b28e306bc5958c8c944b92d97e69c                                                                          0.0s
+ => => exporting config sha256:02f84f7298ea67431c86fa172827fe7e2ee3cd7d7a826e303e5c48539277dedb                                                                            0.0s
+ => => exporting attestation manifest sha256:9154dbc4ac6c9fd530358a6014f10f7377633069927ffb7f6a6dcd19d4e6e55c                                                              0.0s
+ => => exporting manifest list sha256:57d42ab2428ccd5a00359de59b0b1b589ef0806cc269041765276457945f8c8f                                                                     0.0s
+ => => naming to docker.io/library/obtv-ai-api:latest                                                                                                                      0.0s
+ => => unpacking to docker.io/library/obtv-ai-api:latest                                                                                                                   0.0s
+ => resolving provenance for metadata file                                                                                                                                 0.0s
+[+] up 5/5
+ ✔ Image obtv-ai-api            Built                                                                                                                                       0.5s
+ ✔ Container obtv-ai-postgres-1 Healthy                                                                                                                                     2.0s
+ ✔ Container obtv-ai-redis-1    Healthy                                                                                                                                     2.0s
+ ✔ Container obtv-ai-qdrant-1   Healthy                                                                                                                                     2.0s
+ ✔ Container obtv-ai-api-1      Started                                                                                                                                     2.4s
+obtv-admin@obtv-llm-2:~/obtv-ai$
