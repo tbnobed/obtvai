@@ -114,10 +114,28 @@ def _load_model():
 
         # Spread layers across all visible GPUs; keep projection modules
         # co-resident on the first device to avoid cross-device op errors.
+        #
+        # On unified-memory systems (GB10) other processes (e.g. vLLM) share
+        # the same physical pool, so we query *actual* free memory instead of
+        # assuming the whole device is available.
         n_gpus = torch.cuda.device_count()
+        if n_gpus > 0:
+            free_bytes, total_bytes = torch.cuda.mem_get_info(0)
+            # Keep 3 GiB headroom; don't request more than 80 GiB per device.
+            avail_gib = min(80, max(4, int(free_bytes / (1024 ** 3)) - 3))
+            logger.info(
+                "GPU 0: %.1f GiB free, allocating %d GiB for BAGEL",
+                free_bytes / (1024 ** 3),
+                avail_gib,
+            )
+            max_memory = {i: f"{avail_gib}GiB" for i in range(n_gpus)}
+        else:
+            logger.warning("No CUDA GPUs visible — loading BAGEL on CPU")
+            max_memory = {"cpu": "28GiB"}
+
         device_map = infer_auto_device_map(
             model,
-            max_memory={i: "80GiB" for i in range(n_gpus)},
+            max_memory=max_memory,
             no_split_module_classes=["Bagel", "Qwen2MoTDecoderLayer"],
         )
         same_device_modules = [
