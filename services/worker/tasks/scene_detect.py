@@ -114,6 +114,12 @@ def detect_scenes(self, media_id: str, job_id: str):
         from tasks.face_detect import detect_faces
         detect_faces.delay(media_id, face_job_id)
 
+        # Queue BAGEL keyframe captioning (enriches visual search with
+        # natural-language descriptions of each scene thumbnail).
+        bagel_job_id = create_job(db, media_id, "bagel_caption")
+        from tasks.bagel_caption import caption_scenes
+        caption_scenes.delay(media_id, bagel_job_id)
+
     except Exception as e:
         db.rollback()
         update_job(db, job_id, status="error", error_message=str(e), finished_at=datetime.utcnow())

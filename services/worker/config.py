@@ -37,3 +37,5 @@ EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "BAAI/bge-m3")
 VISION_MODEL = os.getenv("VISION_MODEL", "google/siglip2-so400m-patch14-384")
 LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen3-8B")
 TRANSLATE_MODEL = os.getenv("TRANSLATE_MODEL", "google/madlad400-3b-mt")
+# BAGEL inference service (worker-bagel container).
+BAGEL_SERVICE_URL = os.getenv("BAGEL_SERVICE_URL", "http://worker-bagel:8003")

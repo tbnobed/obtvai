@@ -73,6 +73,7 @@ volumes:
   redis_data:
   artifacts_data:
   models_cache:
+  bagel_model:
 
 services:
 
@@ -299,6 +300,38 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+
+  # ── BAGEL inference service ───────────────────────────────────────────────────
+  # Runs ByteDance-Seed/BAGEL-7B-MoT for keyframe captioning and image
+  # generation. Deploy on the DGX Spark (128 GB unified memory) so the 14B
+  # model does not compete with the worker-gpu model stack.
+  # First startup downloads weights (~30 GB) from HuggingFace into the
+  # bagel_model volume; subsequent starts are instant.
+  worker-bagel:
+    build:
+      context: ./services/worker-bagel
+    restart: unless-stopped
+    environment:
+      BAGEL_MODEL_PATH: /app/model
+      PORT: "8003"
+      HF_HOME: /app/model/.hf_cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${BAGEL_GPU_DEVICE_ID:-0}"]
+              capabilities: [gpu]
+    volumes:
+      - bagel_model:/app/model
+    ports:
+      - "8003:8003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
 
   # ── File watcher ─────────────────────────────────────────────────────────────
   watcher:
