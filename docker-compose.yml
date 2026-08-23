@@ -310,7 +310,8 @@ services:
   worker-bagel:
     build:
       context: ./services/worker-bagel
-    restart: unless-stopped
+    restart: on-failure:5
+    stop_grace_period: 120s
     ipc: host
     ulimits:
       memlock:
