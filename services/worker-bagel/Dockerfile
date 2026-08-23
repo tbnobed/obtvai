@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir \
     "einops==0.8.1" \
     "sentencepiece>=0.2.0" \
     "huggingface_hub>=0.29" \
+    "opencv-python-headless>=4.9.0" \
     "httpx" \
     "Pillow"
 
