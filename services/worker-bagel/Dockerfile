@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir \
     "accelerate>=0.34.0" \
     "safetensors==0.4.5" \
     "einops==0.8.1" \
-    "sentencepiece==0.1.99" \
+    "sentencepiece>=0.2.0" \
     "huggingface_hub>=0.29" \
     "httpx" \
     "Pillow"
