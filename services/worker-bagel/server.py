@@ -10,6 +10,7 @@ import base64
 import io
 import logging
 import os
+import subprocess
 import threading
 import time
 
@@ -37,6 +38,107 @@ _ready = False
 _load_error: str | None = None
 # One forward pass at a time — BAGEL is not thread-safe for concurrent use.
 _infer_lock = threading.Lock()
+
+
+def _query_free_gpu_gib(device_index: int = 0) -> float:
+    """Return usable free GPU memory in GiB.
+
+    On unified-memory GPUs (e.g. GB10 / DGX Spark) torch.cuda.mem_get_info()
+    can return a tiny value (2-4 GiB) because it reflects the CUDA virtual-
+    address window assigned to this context, NOT the full unified physical pool.
+    Each container restart opens a fresh context that inherits whatever window
+    the driver hands out — often much smaller than actual free memory.
+
+    Strategy (in priority order):
+    1. BAGEL_MAX_MEMORY_GIB env var — operator-supplied fixed cap (best for
+       unified-memory hosts where the total is known in advance).
+    2. nvidia-smi per-process query — sums GPU memory of all running compute
+       processes, subtracts from BAGEL_TOTAL_GPU_MEMORY_GIB (or the reported
+       total if the driver supports it).  Unaffected by context windows.
+    3. torch.cuda.mem_get_info() fallback — unreliable on GB10 but works on
+       discrete GPUs.
+    """
+    # ── Option 1: explicit operator cap ──────────────────────────────────────
+    explicit = os.environ.get("BAGEL_MAX_MEMORY_GIB", "").strip()
+    if explicit:
+        try:
+            cap = float(explicit)
+            logger.info("Using BAGEL_MAX_MEMORY_GIB=%s GiB (explicit cap)", explicit)
+            return cap
+        except ValueError:
+            logger.warning("Invalid BAGEL_MAX_MEMORY_GIB=%r — ignoring", explicit)
+
+    # ── Option 2: nvidia-smi per-process sum ─────────────────────────────────
+    try:
+        # Sum memory used by all compute processes on this GPU.
+        used_r = subprocess.run(
+            [
+                "nvidia-smi",
+                f"--id={device_index}",
+                "--query-compute-apps=used_memory",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True, text=True, timeout=10,
+        )
+        total_used_mib = 0.0
+        if used_r.returncode == 0:
+            for line in used_r.stdout.strip().split("\n"):
+                line = line.strip()
+                if line and line.lower() not in ("", "not supported"):
+                    try:
+                        total_used_mib += float(line)
+                    except ValueError:
+                        pass
+
+        # Total pool size — GB10 reports "Not Supported" so use env var.
+        total_r = subprocess.run(
+            [
+                "nvidia-smi",
+                f"--id={device_index}",
+                "--query-gpu=memory.total",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True, text=True, timeout=10,
+        )
+        total_mib: float | None = None
+        if total_r.returncode == 0:
+            raw = total_r.stdout.strip()
+            if raw and raw.lower() not in ("not supported", ""):
+                try:
+                    total_mib = float(raw)
+                except ValueError:
+                    pass
+
+        if total_mib is None:
+            # Fall back to operator-supplied total (GB10 = 128 GiB).
+            env_total = os.environ.get("BAGEL_TOTAL_GPU_MEMORY_GIB", "").strip()
+            if env_total:
+                try:
+                    total_mib = float(env_total) * 1024  # convert GiB→MiB
+                except ValueError:
+                    pass
+
+        if total_mib is not None:
+            free_gib = max(0.0, (total_mib - total_used_mib) / 1024.0)
+            logger.info(
+                "nvidia-smi: total=%.0f MiB used=%.0f MiB → %.1f GiB free",
+                total_mib, total_used_mib, free_gib,
+            )
+            return free_gib
+
+    except Exception as exc:
+        logger.warning("nvidia-smi query failed (%s) — falling back to mem_get_info", exc)
+
+    # ── Option 3: torch fallback ──────────────────────────────────────────────
+    try:
+        torch.cuda.empty_cache()
+        free_bytes, _ = torch.cuda.mem_get_info(device_index)
+        free_gib = free_bytes / (1024 ** 3)
+        logger.info("torch.cuda.mem_get_info: %.1f GiB free", free_gib)
+        return free_gib
+    except Exception as exc:
+        logger.warning("mem_get_info failed: %s", exc)
+        return 0.0
 
 
 def _load_model():
@@ -112,21 +214,22 @@ def _load_model():
         vae_transform = ImageTransform(1024, 512, 16)
         vit_transform = ImageTransform(980, 224, 14)
 
-        # Spread layers across all visible GPUs; keep projection modules
-        # co-resident on the first device to avoid cross-device op errors.
+        # Determine how much GPU memory BAGEL can claim.
         #
-        # On unified-memory systems (GB10) other processes (e.g. vLLM) share
-        # the same physical pool, so we query *actual* free memory instead of
-        # assuming the whole device is available.
+        # On unified-memory systems (GB10) the full pool is shared with other
+        # processes (e.g. vLLM).  We use nvidia-smi per-process accounting to
+        # measure actual free memory rather than the CUDA context window
+        # returned by mem_get_info(), which can be orders of magnitude smaller.
+        #
+        # Keep 6 GiB headroom for vLLM growth + OS.  Min 14 GiB (BAGEL needs
+        # at least that to avoid fragmented disk-offload that makes it useless).
         n_gpus = torch.cuda.device_count()
         if n_gpus > 0:
-            free_bytes, total_bytes = torch.cuda.mem_get_info(0)
-            # Keep 3 GiB headroom; don't request more than 80 GiB per device.
-            avail_gib = min(80, max(4, int(free_bytes / (1024 ** 3)) - 3))
+            free_gib = _query_free_gpu_gib(0)
+            avail_gib = int(min(80, max(14, free_gib - 6)))
             logger.info(
-                "GPU 0: %.1f GiB free, allocating %d GiB for BAGEL",
-                free_bytes / (1024 ** 3),
-                avail_gib,
+                "GPU 0: %.1f GiB free → allocating %d GiB for BAGEL (6 GiB headroom)",
+                free_gib, avail_gib,
             )
             max_memory = {i: f"{avail_gib}GiB" for i in range(n_gpus)}
         else:

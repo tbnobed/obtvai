@@ -324,6 +324,15 @@ services:
       BAGEL_MODEL_PATH: /app/model
       PORT: "8003"
       HF_HOME: /app/model/.hf_cache
+      # On unified-memory hosts (GB10/DGX Spark) nvidia-smi reports "Not
+      # Supported" for memory.total.  Set this to the physical pool size so
+      # the server can compute free memory from per-process usage instead of
+      # relying on torch.cuda.mem_get_info() (which returns the tiny CUDA
+      # virtual-address window, not the real free pool).
+      BAGEL_TOTAL_GPU_MEMORY_GIB: "${BAGEL_TOTAL_GPU_MEMORY_GIB:-128}"
+      # Optional hard cap — set to leave room for vLLM + headroom.
+      # e.g. on Spark with vLLM at 88 GiB: BAGEL_MAX_MEMORY_GIB=30
+      BAGEL_MAX_MEMORY_GIB: "${BAGEL_MAX_MEMORY_GIB:-}"
     deploy:
       resources:
         reservations:
