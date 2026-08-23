@@ -330,9 +330,10 @@ services:
       # relying on torch.cuda.mem_get_info() (which returns the tiny CUDA
       # virtual-address window, not the real free pool).
       BAGEL_TOTAL_GPU_MEMORY_GIB: "${BAGEL_TOTAL_GPU_MEMORY_GIB:-128}"
-      # Optional hard cap — set to leave room for vLLM + headroom.
-      # e.g. on Spark with vLLM at 88 GiB: BAGEL_MAX_MEMORY_GIB=30
-      BAGEL_MAX_MEMORY_GIB: "${BAGEL_MAX_MEMORY_GIB:-}"
+      # Hard cap so memory detection is bypassed entirely.
+      # 128 GiB total − 88 GiB vLLM − 10 GiB headroom = 30 GiB for BAGEL.
+      # Override in .env if vLLM allocation changes.
+      BAGEL_MAX_MEMORY_GIB: "${BAGEL_MAX_MEMORY_GIB:-30}"
     deploy:
       resources:
         reservations:

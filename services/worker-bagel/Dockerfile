@@ -1,4 +1,7 @@
-FROM nvcr.io/nvidia/pytorch:25.12-py3
+# 25.09 uses CUDA 12.6 which the R580 driver (580.x) supports natively.
+# 25.12 requires driver 590.44+ and uses Forward Compat, which breaks on
+# every container restart after the first start — never use 25.12 here.
+FROM nvcr.io/nvidia/pytorch:25.09-py3
 
 WORKDIR /app
 
