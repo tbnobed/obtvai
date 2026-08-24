@@ -1,0 +1,287 @@
+/obtv-ai$ JOB=$(docker compose exec -T postgres psql -U obtv -d obtv -At -F '|' -c \
+"SELECT media_id, id
+ FROM processing_jobs
+ WHERE job_type = 'bagel_caption' AND status = 'pending'
+ ORDER BY created_at DESC
+ LIMIT 1;")
+
+IFS='|' read -r MEDIA_ID JOB_ID <<< "$JOB"
+
+echo "Requeueing BAGEL job $JOB_ID for media $MEDIA_ID"
+
+docker compose exec -T worker-cpu celery -A app call \
+  tasks.bagel_caption.caption_scenes \
+  --kwargs "{\"media_id\":\"$MEDIA_ID\",\"job_id\":\"$JOB_ID\"}" \
+  --queue cpu
+Requeueing BAGEL job  for media
+54a15416-aecb-4ee9-a39e-9c06db053e86
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose logs -f worker-cpu
+worker-cpu-1  |
+worker-cpu-1  | ==========
+worker-cpu-1  | == CUDA ==
+worker-cpu-1  | ==========
+worker-cpu-1  |
+worker-cpu-1  | CUDA Version 12.8.1
+worker-cpu-1  |
+worker-cpu-1  | Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-cpu-1  |
+worker-cpu-1  | This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+worker-cpu-1  | By pulling and using the container, you accept the terms and conditions of this license:
+worker-cpu-1  | https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+worker-cpu-1  |
+worker-cpu-1  | A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+worker-cpu-1  |
+worker-cpu-1  | /usr/local/lib/python3.10/dist-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+worker-cpu-1  | absolutely not recommended!
+worker-cpu-1  |
+worker-cpu-1  | Please specify a different user using the --uid option.
+worker-cpu-1  |
+worker-cpu-1  | User information: uid=0 euid=0 gid=0 egid=0
+worker-cpu-1  |
+worker-cpu-1  |   warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+worker-cpu-1  |
+worker-cpu-1  |  -------------- celery@4e7b9265e433 v5.4.0 (opalescent)
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  | -- ******* ---- Linux-7.0.0-28-generic-x86_64-with-glibc2.35 2026-08-24 05:44:02
+worker-cpu-1  | - *** --- * ---
+worker-cpu-1  | - ** ---------- [config]
+worker-cpu-1  | - ** ---------- .> app:         obtv_worker:0x70a6a44b3d30
+worker-cpu-1  | - ** ---------- .> transport:   redis://redis:6379/0
+worker-cpu-1  | - ** ---------- .> results:     redis://redis:6379/0
+worker-cpu-1  | - *** --- * --- .> concurrency: 4 (prefork)
+worker-cpu-1  | -- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+worker-cpu-1  | --- ***** -----
+worker-cpu-1  |  -------------- [queues]
+worker-cpu-1  |                 .> cpu              exchange=cpu(direct) key=cpu
+worker-cpu-1  |                 .> ingest           exchange=ingest(direct) key=ingest
+worker-cpu-1  |
+worker-cpu-1  | [tasks]
+worker-cpu-1  |   . tasks.analyze.analyze_media
+worker-cpu-1  |   . tasks.audio.extract_audio
+worker-cpu-1  |   . tasks.bagel_caption.caption_scenes
+worker-cpu-1  |   . tasks.creative.creative_pass
+worker-cpu-1  |   . tasks.diarize.run_diarization
+worker-cpu-1  |   . tasks.dub.generate_dub
+worker-cpu-1  |   . tasks.face_detect.detect_faces
+worker-cpu-1  |   . tasks.graphics.generate
+worker-cpu-1  |   . tasks.highlight.build_highlight
+worker-cpu-1  |   . tasks.identify.face_search
+worker-cpu-1  |   . tasks.identify.identify_people
+worker-cpu-1  |   . tasks.identify.regenerate_profile
+worker-cpu-1  |   . tasks.index.build_index
+worker-cpu-1  |   . tasks.ingest.import_from_link
+worker-cpu-1  |   . tasks.ingest.repair_link_imports
+worker-cpu-1  |   . tasks.ingest.run_ingest_pipeline
+worker-cpu-1  |   . tasks.insights.generate_insights
+worker-cpu-1  |   . tasks.proxy.create_proxy
+worker-cpu-1  |   . tasks.publish.publish_render
+worker-cpu-1  |   . tasks.qc.run_editorial_qc
+worker-cpu-1  |   . tasks.qc.run_qc
+worker-cpu-1  |   . tasks.reel.build_reel
+worker-cpu-1  |   . tasks.render.render_clip
+worker-cpu-1  |   . tasks.scene_detect.detect_scenes
+worker-cpu-1  |   . tasks.sentiment.sentiment_pass
+worker-cpu-1  |   . tasks.social.score_social
+worker-cpu-1  |   . tasks.social_stats.sync_youtube_stats
+worker-cpu-1  |   . tasks.social_sync.sync_social_channels
+worker-cpu-1  |   . tasks.sprites.generate_sprite
+worker-cpu-1  |   . tasks.story.build_story
+worker-cpu-1  |   . tasks.transcribe.transcribe_audio
+worker-cpu-1  |   . tasks.translate.translate_transcript
+worker-cpu-1  |   . tasks.trends.fetch_trends
+worker-cpu-1  |   . tasks.visual_embed.embed_scenes
+worker-cpu-1  |   . tasks.voice.generate_speech
+worker-cpu-1  |   . tasks.voice.lipsync_video
+worker-cpu-1  |   . tasks.voice.prepare_voice_sample
+worker-cpu-1  |
+worker-cpu-1  | [2026-08-24 05:44:02,118: INFO/Beat] beat: Starting...
+worker-cpu-1  | [2026-08-24 05:44:02,124: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-cpu-1  | [2026-08-24 05:44:02,125: INFO/MainProcess] mingle: searching for neighbors
+worker-cpu-1  | [2026-08-24 05:44:03,135: INFO/MainProcess] mingle: sync with 3 nodes
+worker-cpu-1  | [2026-08-24 05:44:03,136: INFO/MainProcess] mingle: sync complete
+worker-cpu-1  | [2026-08-24 05:44:03,141: INFO/MainProcess] celery@4e7b9265e433 ready.
+worker-cpu-1  | [2026-08-24 05:44:04,452: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-cpu-1  | [2026-08-24 06:44:02,229: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 06:44:02,246: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[a56fb8e2-3bfc-406e-a54d-d5e1b801bba5] received
+worker-cpu-1  | [2026-08-24 06:44:02,285: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[a56fb8e2-3bfc-406e-a54d-d5e1b801bba5] succeeded in 0.0353237030794844s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 07:44:02,308: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 07:44:02,320: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[a9ddf18d-2910-47ab-b6b8-ec7eb1bd63eb] received
+worker-cpu-1  | [2026-08-24 07:44:02,329: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[a9ddf18d-2910-47ab-b6b8-ec7eb1bd63eb] succeeded in 0.007169232005253434s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 08:44:02,192: INFO/Beat] Scheduler: Sending due task fetch-external-trends (tasks.trends.fetch_trends)
+worker-cpu-1  | [2026-08-24 08:44:02,203: INFO/MainProcess] Task tasks.trends.fetch_trends[0e01caac-5b78-4dd0-99dc-3d9c1bfd42a9] received
+worker-cpu-1  | [2026-08-24 08:44:02,262: WARNING/ForkPoolWorker-5] /usr/local/lib/python3.10/dist-packages/google/api_core/_python_version_support.py:273: FutureWarning: You are using a Python version (3.10.12) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04). Please upgrade to the latest Python version, or at least Python 3.11, to continue receiving updates for google.api_core past that date.
+worker-cpu-1  |   warnings.warn(message, FutureWarning)
+worker-cpu-1  |
+worker-cpu-1  | [2026-08-24 08:44:02,308: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 08:44:02,309: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[f7fff65b-d0d0-43bc-9b2d-cffa49d554e8] received
+worker-cpu-1  | [2026-08-24 08:44:02,319: INFO/ForkPoolWorker-3] Task tasks.social_stats.sync_youtube_stats[f7fff65b-d0d0-43bc-9b2d-cffa49d554e8] succeeded in 0.008387583889998496s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 08:44:06,818: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Abraham+Accords&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:07,409: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Personal+Testimony&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:08,133: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Faith&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:09,023: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:09,663: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Prayer&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:10,382: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Middle+East+Peace&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:10,913: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Cultural+Exchange&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:11,508: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Jerusalem+Embassy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:12,263: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Trump+Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:12,791: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Us%E2%80%91israel+Relations&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:13,313: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Cultural+Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:13,806: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Faith+and+Foreign+Policy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:14,264: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Psalms&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:14,927: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Regional+Security&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:15,438: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Biblical+Prophecy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:16,405: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Community&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:16,874: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Dispensationalism&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:17,343: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Faith+Testimony&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:17,874: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Geopolitical+Shift&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:18,311: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Grace&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:18,927: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Historical+Memory&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:19,488: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Identity+in+Christ&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:20,227: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Iran+Threat&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:20,687: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Israel+Uae+Relations&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:21,336: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Israeli+Politics&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 08:44:21,364: INFO/ForkPoolWorker-5] Task tasks.trends.fetch_trends[0e01caac-5b78-4dd0-99dc-3d9c1bfd42a9] succeeded in 19.15678335900884s: {'youtube': 25, 'web': 25, 'errors': []}
+worker-cpu-1  | [2026-08-24 09:44:02,392: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 09:44:02,403: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[a521ba2d-ea3a-4824-8d9a-f751fa221e01] received
+worker-cpu-1  | [2026-08-24 09:44:02,410: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[a521ba2d-ea3a-4824-8d9a-f751fa221e01] succeeded in 0.00435502699110657s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 10:44:02,471: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 10:44:02,482: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[aa7a5984-5a04-40f7-98c6-bf511ec2c7f9] received
+worker-cpu-1  | [2026-08-24 10:44:02,492: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[aa7a5984-5a04-40f7-98c6-bf511ec2c7f9] succeeded in 0.00755223399028182s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 11:44:02,198: INFO/Beat] Scheduler: Sending due task sync-social-channels (tasks.social_sync.sync_social_channels)
+worker-cpu-1  | [2026-08-24 11:44:02,207: INFO/Beat] Scheduler: Sending due task fetch-external-trends (tasks.trends.fetch_trends)
+worker-cpu-1  | [2026-08-24 11:44:02,208: INFO/MainProcess] Task tasks.social_sync.sync_social_channels[55bc52c1-3f4e-4d13-ab38-fcdec3f4a4bd] received
+worker-cpu-1  | [2026-08-24 11:44:02,212: INFO/MainProcess] Task tasks.trends.fetch_trends[fd083355-b9ad-45eb-8874-791b291db264] received
+worker-cpu-1  | [2026-08-24 11:44:02,275: WARNING/ForkPoolWorker-3] /usr/local/lib/python3.10/dist-packages/google/api_core/_python_version_support.py:273: FutureWarning: You are using a Python version (3.10.12) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04). Please upgrade to the latest Python version, or at least Python 3.11, to continue receiving updates for google.api_core past that date.
+worker-cpu-1  |   warnings.warn(message, FutureWarning)
+worker-cpu-1  |
+worker-cpu-1  | [2026-08-24 11:44:02,341: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/channels?part=snippet%2Cstatistics%2CcontentDetails&id=UC7Dc-pvEsF29O_alrZVtSNw&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:02,471: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 11:44:02,476: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[0fab5941-a5bf-47f8-b2af-0bd6546a8e17] received
+worker-cpu-1  | [2026-08-24 11:44:02,526: INFO/ForkPoolWorker-4] Task tasks.social_stats.sync_youtube_stats[0fab5941-a5bf-47f8-b2af-0bd6546a8e17] succeeded in 0.048101405962370336s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 11:44:02,631: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=UU7Dc-pvEsF29O_alrZVtSNw&maxResults=12&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:02,752: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/videos?part=snippet%2Cstatistics&id=_B2hxeoEhaQ%2CHyLCqsJMa6E%2Cv95mNq6K_rc%2CdGD1ugalfqw%2CLGhyAAdZ4s0%2C_uicgho4TME%2CbiXNq42JDsE%2C5jZP2_mJ-iU%2CHWE-r-5CNc8%2Cq9Y7ZSM0qUQ%2CMqCiPS6garU%2CpAhUINXjH_0&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:02,829: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/channels?part=snippet%2Cstatistics%2CcontentDetails&id=UC6Ww0sGhpzK8HQHNSogQkwQ&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:02,963: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=UU6Ww0sGhpzK8HQHNSogQkwQ&maxResults=12&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:03,034: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/videos?part=snippet%2Cstatistics&id=Rw60XOW1unE%2CVjPsszX2sps%2CE_bNV6ib4OM%2Ca5DXW4vcjNg%2CnXBONke0glI%2Cqei4XUh58rU%2Cg89D40aPNwQ%2CGf8Qhw8qAQg%2C2ZElqE7tyRo%2CESQ-Kpt07IU%2CVOGivUlF4vE%2CrTVNlnAC5uk&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:03,064: INFO/ForkPoolWorker-5] Task tasks.social_sync.sync_social_channels[55bc52c1-3f4e-4d13-ab38-fcdec3f4a4bd] succeeded in 0.8529287120327353s: {'channels': 2, 'synced': 2, 'failed': 0}
+worker-cpu-1  | [2026-08-24 11:44:06,069: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Abraham+Accords&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:06,665: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Personal+Testimony&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:07,352: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Faith&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:08,056: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:08,659: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Prayer&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:09,375: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Middle+East+Peace&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:10,046: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Cultural+Exchange&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:10,590: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Jerusalem+Embassy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:11,539: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Trump+Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:12,301: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Us%E2%80%91israel+Relations&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:12,867: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Cultural+Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:13,663: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Faith+and+Foreign+Policy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:14,199: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Psalms&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:14,846: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Regional+Security&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:15,422: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Biblical+Prophecy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:16,065: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Community&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:16,683: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Dispensationalism&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:17,204: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Faith+Testimony&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:17,904: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Geopolitical+Shift&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:18,410: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Grace&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:18,957: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Historical+Memory&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:19,331: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Identity+in+Christ&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:20,018: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Iran+Threat&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:20,532: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Israel+Uae+Relations&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:21,158: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Israeli+Politics&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 11:44:21,192: INFO/ForkPoolWorker-3] Task tasks.trends.fetch_trends[fd083355-b9ad-45eb-8874-791b291db264] succeeded in 18.978179860045202s: {'youtube': 25, 'web': 25, 'errors': []}
+worker-cpu-1  | [2026-08-24 12:44:02,562: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 12:44:02,572: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[c125a3b9-890b-44be-bfd7-261838609df9] received
+worker-cpu-1  | [2026-08-24 12:44:02,580: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[c125a3b9-890b-44be-bfd7-261838609df9] succeeded in 0.0055840000277385116s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 13:44:02,653: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 13:44:02,658: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[da2b534b-7783-46ac-8bac-a398385eb912] received
+worker-cpu-1  | [2026-08-24 13:44:02,666: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[da2b534b-7783-46ac-8bac-a398385eb912] succeeded in 0.005997659987770021s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 14:44:02,235: INFO/Beat] Scheduler: Sending due task fetch-external-trends (tasks.trends.fetch_trends)
+worker-cpu-1  | [2026-08-24 14:44:02,245: INFO/MainProcess] Task tasks.trends.fetch_trends[605a75df-4013-4d6d-b10b-a99dfc0ebc81] received
+worker-cpu-1  | [2026-08-24 14:44:02,653: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 14:44:02,654: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[b4d1393b-54a5-4893-a8fb-ddd21f9a96a4] received
+worker-cpu-1  | [2026-08-24 14:44:02,656: INFO/ForkPoolWorker-3] Task tasks.social_stats.sync_youtube_stats[b4d1393b-54a5-4893-a8fb-ddd21f9a96a4] succeeded in 0.0014764310326427221s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 14:44:06,475: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Abraham+Accords&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:07,178: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Personal+Testimony&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:07,827: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Faith&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:08,642: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:09,101: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Prayer&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:09,855: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Middle+East+Peace&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:10,761: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Cultural+Exchange&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:11,579: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Jerusalem+Embassy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:12,365: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Trump+Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:13,181: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Us%E2%80%91israel+Relations&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:13,644: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Cultural+Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:14,157: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Faith+and+Foreign+Policy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:14,719: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Psalms&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:15,504: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Regional+Security&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:15,944: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Biblical+Prophecy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:16,649: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Community&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:17,201: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Dispensationalism&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:17,767: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Faith+Testimony&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:18,417: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Geopolitical+Shift&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:18,950: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Grace&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:19,581: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Historical+Memory&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:20,119: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Identity+in+Christ&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:20,864: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Iran+Threat&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:21,557: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Israel+Uae+Relations&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:22,300: INFO/ForkPoolWorker-5] HTTP Request: GET http://searxng:8080/search?q=Israeli+Politics&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 14:44:22,328: INFO/ForkPoolWorker-5] Task tasks.trends.fetch_trends[605a75df-4013-4d6d-b10b-a99dfc0ebc81] succeeded in 20.080550660029985s: {'youtube': 25, 'web': 25, 'errors': []}
+worker-cpu-1  | [2026-08-24 15:44:02,744: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 15:44:02,754: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[f39eef27-a08b-4018-8a8e-553615526f4f] received
+worker-cpu-1  | [2026-08-24 15:44:02,764: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[f39eef27-a08b-4018-8a8e-553615526f4f] succeeded in 0.007123780902475119s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 16:44:02,821: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 16:44:02,828: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[80472c09-c916-452a-90fe-c194fb0ebee3] received
+worker-cpu-1  | [2026-08-24 16:44:02,838: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[80472c09-c916-452a-90fe-c194fb0ebee3] succeeded in 0.006996731040999293s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 16:49:23,112: INFO/MainProcess] Task tasks.bagel_caption.caption_scenes[e9f07455-0ede-4233-b145-f2056a2dac4c] received
+worker-cpu-1  | [2026-08-24 16:49:23,170: INFO/ForkPoolWorker-5] Task tasks.bagel_caption.caption_scenes[e9f07455-0ede-4233-b145-f2056a2dac4c] succeeded in 0.056034567998722196s: None
+worker-cpu-1  | [2026-08-24 17:44:02,258: INFO/Beat] Scheduler: Sending due task sync-social-channels (tasks.social_sync.sync_social_channels)
+worker-cpu-1  | [2026-08-24 17:44:02,267: INFO/Beat] Scheduler: Sending due task fetch-external-trends (tasks.trends.fetch_trends)
+worker-cpu-1  | [2026-08-24 17:44:02,269: INFO/MainProcess] Task tasks.social_sync.sync_social_channels[4093a3a9-e33b-4f74-92c2-89a036f426ae] received
+worker-cpu-1  | [2026-08-24 17:44:02,274: INFO/MainProcess] Task tasks.trends.fetch_trends[fb9effc0-0d59-4f3c-8552-f7c9ed20d65f] received
+worker-cpu-1  | [2026-08-24 17:44:02,452: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/channels?part=snippet%2Cstatistics%2CcontentDetails&id=UC7Dc-pvEsF29O_alrZVtSNw&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:02,761: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=UU7Dc-pvEsF29O_alrZVtSNw&maxResults=12&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:02,821: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 17:44:02,822: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[d3ba6ed2-92c7-497c-86cb-91260fdd8ad1] received
+worker-cpu-1  | [2026-08-24 17:44:02,828: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/videos?part=snippet%2Cstatistics&id=_B2hxeoEhaQ%2CHyLCqsJMa6E%2Cv95mNq6K_rc%2CdGD1ugalfqw%2CLGhyAAdZ4s0%2C_uicgho4TME%2CbiXNq42JDsE%2C5jZP2_mJ-iU%2CHWE-r-5CNc8%2Cq9Y7ZSM0qUQ%2CMqCiPS6garU%2CpAhUINXjH_0&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:02,831: INFO/ForkPoolWorker-4] Task tasks.social_stats.sync_youtube_stats[d3ba6ed2-92c7-497c-86cb-91260fdd8ad1] succeeded in 0.007542046019807458s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 17:44:02,918: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/channels?part=snippet%2Cstatistics%2CcontentDetails&id=UC6Ww0sGhpzK8HQHNSogQkwQ&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:03,161: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=UU6Ww0sGhpzK8HQHNSogQkwQ&maxResults=12&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:03,230: INFO/ForkPoolWorker-5] HTTP Request: GET https://www.googleapis.com/youtube/v3/videos?part=snippet%2Cstatistics&id=Rw60XOW1unE%2CVjPsszX2sps%2CE_bNV6ib4OM%2Ca5DXW4vcjNg%2CnXBONke0glI%2Cqei4XUh58rU%2Cg89D40aPNwQ%2CGf8Qhw8qAQg%2C2ZElqE7tyRo%2CESQ-Kpt07IU%2CVOGivUlF4vE%2CrTVNlnAC5uk&key=AIzaSyBea1bnXJE2EDFenVFBGwRFl5ommGjc2xw "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:03,247: INFO/ForkPoolWorker-5] Task tasks.social_sync.sync_social_channels[4093a3a9-e33b-4f74-92c2-89a036f426ae] succeeded in 0.9716266850009561s: {'channels': 2, 'synced': 2, 'failed': 0}
+worker-cpu-1  | [2026-08-24 17:44:05,565: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Abraham+Accords&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:06,341: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Personal+Testimony&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:06,992: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Faith&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:07,854: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:08,498: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Prayer&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:09,320: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Middle+East+Peace&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:09,910: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Cultural+Exchange&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:10,550: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Jerusalem+Embassy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:11,317: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Trump+Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:12,012: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Us%E2%80%91israel+Relations&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:12,459: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Cultural+Diplomacy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:13,197: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Faith+and+Foreign+Policy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:13,825: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Psalms&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:14,524: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Regional+Security&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:15,063: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Biblical+Prophecy&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:15,802: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Community&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:16,285: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Dispensationalism&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:16,706: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Faith+Testimony&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:17,452: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Geopolitical+Shift&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:18,069: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Grace&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:18,746: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Historical+Memory&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:19,094: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Identity+in+Christ&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:20,141: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Iran+Threat&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:20,705: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Israel+Uae+Relations&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:21,103: INFO/ForkPoolWorker-3] HTTP Request: GET http://searxng:8080/search?q=Israeli+Politics&format=json&categories=news&time_range=week "HTTP/1.1 200 OK"
+worker-cpu-1  | [2026-08-24 17:44:21,130: INFO/ForkPoolWorker-3] Task tasks.trends.fetch_trends[fb9effc0-0d59-4f3c-8552-f7c9ed20d65f] succeeded in 18.8546671589138s: {'youtube': 25, 'web': 25, 'errors': []}
+worker-cpu-1  | [2026-08-24 18:44:02,908: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 18:44:02,919: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[5813bf27-ee4d-4ca7-99d8-8a97ae18df73] received
+worker-cpu-1  | [2026-08-24 18:44:02,925: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[5813bf27-ee4d-4ca7-99d8-8a97ae18df73] succeeded in 0.004570257966406643s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 19:44:02,952: INFO/Beat] Scheduler: Sending due task sync-youtube-stats (tasks.social_stats.sync_youtube_stats)
+worker-cpu-1  | [2026-08-24 19:44:02,963: INFO/MainProcess] Task tasks.social_stats.sync_youtube_stats[d5307514-b8db-459d-83ca-d2ab4021927b] received
+worker-cpu-1  | [2026-08-24 19:44:02,973: INFO/ForkPoolWorker-5] Task tasks.social_stats.sync_youtube_stats[d5307514-b8db-459d-83ca-d2ab4021927b] succeeded in 0.007324025966227055s: {'videos': 0, 'updated': 0}
+worker-cpu-1  | [2026-08-24 20:19:30,042: INFO/MainProcess] Task tasks.bagel_caption.caption_scenes[54a15416-aecb-4ee9-a39e-9c06db053e86] received
+worker-cpu-1  | [2026-08-24 20:19:30,070: INFO/ForkPoolWorker-5] Task tasks.bagel_caption.caption_scenes[54a15416-aecb-4ee9-a39e-9c06db053e86] succeeded in 0.027135306037962437s: None
+worker-cpu-1  | [2026-08-24 20:20:04,419: INFO/MainProcess] Task tasks.bagel_caption.caption_scenes[4978590c-d4f2-4a51-8a14-d2018bfa556e] received
+worker-cpu-1  | [2026-08-24 20:20:04,459: INFO/ForkPoolWorker-5] Task tasks.bagel_caption.caption_scenes[4978590c-d4f2-4a51-8a14-d2018bfa556e] succeeded in 0.037714862963184714s: None
