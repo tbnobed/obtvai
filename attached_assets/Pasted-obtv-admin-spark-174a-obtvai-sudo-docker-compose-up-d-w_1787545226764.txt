@@ -1,0 +1,48 @@
+obtv-admin@spark-174a:~/obtvai$ sudo docker compose up -d worker-bagel
+sudo docker compose logs -f worker-bagel
+[sudo] password for obtv-admin:
+WARN[0000] No services to build
+[+] up 2/2
+ ✔ Network obtvai_default          Created                                                                                                                                                                     0.0s
+ ✔ Container obtvai-worker-bagel-1 Created                                                                                                                                                                     0.2s
+worker-bagel-1  |
+worker-bagel-1  | =============
+worker-bagel-1  | == PyTorch ==
+worker-bagel-1  | =============
+worker-bagel-1  |
+worker-bagel-1  | NVIDIA Release 25.09 (build 210907838)
+worker-bagel-1  | PyTorch Version 2.9.0a0+50eac81
+worker-bagel-1  | Container image Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+worker-bagel-1  | Copyright (c) 2014-2024 Facebook Inc.
+worker-bagel-1  | Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
+worker-bagel-1  | Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)
+worker-bagel-1  | Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)
+worker-bagel-1  | Copyright (c) 2011-2013 NYU                      (Clement Farabet)
+worker-bagel-1  | Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)
+worker-bagel-1  | Copyright (c) 2006      Idiap Research Institute (Samy Bengio)
+worker-bagel-1  | Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
+worker-bagel-1  | Copyright (c) 2015      Google Inc.
+worker-bagel-1  | Copyright (c) 2015      Yangqing Jia
+worker-bagel-1  | Copyright (c) 2013-2016 The Caffe contributors
+worker-bagel-1  | All rights reserved.
+worker-bagel-1  |
+worker-bagel-1  | Various files include modifications (c) NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+worker-bagel-1  |
+worker-bagel-1  | GOVERNING TERMS: The software and materials are governed by the NVIDIA Software License Agreement
+worker-bagel-1  | (found at https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/)
+worker-bagel-1  | and the Product-Specific Terms for NVIDIA AI Products
+worker-bagel-1  | (found at https://www.nvidia.com/en-us/agreements/enterprise-software/product-specific-terms-for-ai-products/).
+worker-bagel-1  |
+worker-bagel-1  | /usr/local/lib/python3.12/dist-packages/torch/cuda/__init__.py:63: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+worker-bagel-1  |   import pynvml  # type: ignore[import]
+worker-bagel-1  | 2026-08-24 04:20:02,183 INFO bagel-server Loading BAGEL from /app/model
+worker-bagel-1  | INFO:     Started server process [1]
+worker-bagel-1  | INFO:     Waiting for application startup.
+worker-bagel-1  | INFO:     Application startup complete.
+worker-bagel-1  | INFO:     Uvicorn running on http://0.0.0.0:8003 (Press CTRL+C to quit)
+worker-bagel-1  | 2026-08-24 04:20:04,675 INFO bagel-server Using BAGEL_MAX_MEMORY_GIB=30 GiB (explicit cap)
+worker-bagel-1  | 2026-08-24 04:20:04,676 INFO bagel-server GPU 0: 30.0 GiB free → allocating 24 GiB for BAGEL (6 GiB headroom)
+worker-bagel-1  | 2026-08-24 04:20:04,700 WARNING accelerate.utils.modeling The safetensors archive passed at /app/model/ema.safetensors does not contain metadata. Make sure to save your model with the `save_pretrained` method. Defaulting to 'pt' metadata.
+worker-bagel-1  | INFO:     127.0.0.1:40444 - "GET /health HTTP/1.1" 503 Service Unavailable
+worker-bagel-1  | INFO:     127.0.0.1:44242 - "GET /health HTTP/1.1" 503 Service Unavailable
+worker-bagel-1  | INFO:     127.0.0.1:44254 - "GET /health HTTP/1.1" 503 Service Unavailable
