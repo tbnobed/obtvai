@@ -1307,8 +1307,23 @@ export default function AssetDetail() {
                       <SelectValue placeholder="Run a pipeline stage…" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["proxy", "audio_extract", "transcribe", "diarize", "scene_detect", "qc", "qc_editorial", "visual_embed", "face_detect", "index", "analyze", "creative", "identify"].map(s => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      {[
+                        ["proxy", "Create proxy"],
+                        ["audio_extract", "Extract audio"],
+                        ["transcribe", "Transcribe"],
+                        ["diarize", "Identify speakers"],
+                        ["scene_detect", "Detect scenes"],
+                        ["bagel_caption", "BAGEL scene captions"],
+                        ["qc", "Run QC"],
+                        ["qc_editorial", "Editorial QC"],
+                        ["visual_embed", "Visual embeddings"],
+                        ["face_detect", "Detect faces"],
+                        ["index", "Build search index"],
+                        ["analyze", "Analyze"],
+                        ["creative", "Creative analysis"],
+                        ["identify", "Identify people"],
+                      ].map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
