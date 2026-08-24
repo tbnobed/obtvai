@@ -29,10 +29,32 @@ def generate_sprite(self, media_id: str, job_id: str):
             text("SELECT original_path, proxy_path, duration_seconds FROM media_assets WHERE id = :mid"),
             {"mid": media_id},
         ).fetchone()
-        video_path = (row[1] or row[0]) if row else None
+        original_path = row[0] if row else None
+        proxy_path_db = row[1] if row else None
         duration = float(row[2] or 0) if row else 0.0
-        if not video_path or not os.path.exists(video_path):
-            raise FileNotFoundError("No video file for sprite generation")
+
+        # Prefer the proxy (seekable faststart MP4) but validate it first.
+        # Curator WebProxy remuxes can silently produce fragmented MP4s that
+        # ffmpeg can't seek, triggering "moov atom not found" in the tile pass.
+        def _probe_ok(path: str) -> bool:
+            if not path or not os.path.exists(path):
+                return False
+            p = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                 "-show_entries", "stream=codec_name",
+                 "-of", "default=noprint_wrappers=1:nokey=1", path],
+                capture_output=True, text=True, timeout=30,
+            )
+            return p.returncode == 0 and bool(p.stdout.strip())
+
+        if _probe_ok(proxy_path_db):
+            video_path = proxy_path_db
+        elif _probe_ok(original_path):
+            append_log(db, job_id,
+                       f"Proxy not seekable — falling back to original for sprite generation")
+            video_path = original_path
+        else:
+            raise FileNotFoundError("No readable video file for sprite generation")
         if duration <= 0:
             probe = subprocess.run(
                 ["ffprobe", "-v", "error", "-show_entries", "format=duration",

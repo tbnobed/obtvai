@@ -118,7 +118,27 @@ def create_proxy(self, media_id: str, job_id: str):
             mux += ["-movflags", "+faststart", proxy_path]
             r = subprocess.run(mux, capture_output=True, text=True, timeout=1800)
             if r.returncode == 0:
-                rc, tail = 0, ""
+                # Curator WebProxies are fragmented MP4s; a stream-copy with
+                # -movflags +faststart usually defragments them, but some Curator
+                # fMP4 layouts produce output with no global moov atom. Validate
+                # the result is actually seekable before accepting it.
+                probe = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                     "-show_entries", "stream=codec_name",
+                     "-of", "default=noprint_wrappers=1:nokey=1", proxy_path],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if probe.returncode == 0 and probe.stdout.strip():
+                    rc, tail = 0, ""
+                else:
+                    err = (probe.stderr or "").lower()
+                    append_log(db, job_id,
+                               f"Curator remux succeeded but output is not seekable "
+                               f"({'moov atom not found' if 'moov' in err else probe.stderr[-100:]}); "
+                               f"falling back to full encode")
+                    if os.path.exists(proxy_path):
+                        os.remove(proxy_path)
+                    external = None
             else:
                 append_log(db, job_id, f"Curator proxy remux failed (exit {r.returncode}), "
                            f"falling back to full encode: {(r.stderr or '')[-200:]}")
