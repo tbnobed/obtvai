@@ -182,6 +182,9 @@ services:
     # Lets containers reach the host's ComfyUI at host.docker.internal:8188.
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      # Corporate split-DNS resolves Curator to an unreachable private address
+      # on this host; pin the verified public Gateway endpoint for API metadata.
+      - "curator.tbn.tv:98.191.147.208"
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
