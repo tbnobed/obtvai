@@ -1,0 +1,32 @@
+rker-gpu-1    | [2026-08-25 17:10:17,144: INFO/MainProcess] Connected to redis://redis:6379/0
+worker-gpu-1    | [2026-08-25 17:10:17,146: INFO/MainProcess] mingle: searching for neighbors
+worker-gpu-1    | [2026-08-25 17:10:18,152: INFO/MainProcess] mingle: sync with 2 nodes
+worker-gpu-1    | [2026-08-25 17:10:18,152: INFO/MainProcess] mingle: sync complete
+worker-gpu-1    | [2026-08-25 17:10:18,180: INFO/MainProcess] celery@bcfe2781b57e ready.
+worker-gpu-1    | [2026-08-25 17:10:19,452: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-gpu-1    | [2026-08-25 17:11:05,069: INFO/MainProcess] Task tasks.florence_caption.caption_scenes[a169dd65-e70f-4c5b-9d36-8f3d2496a1b9] received
+worker-gpu-1    | [2026-08-25 17:11:09,055: WARNING/ForkPoolWorker-1] `torch_dtype` is deprecated! Use `dtype` instead!
+worker-gpu-1    | [2026-08-25 17:11:10,999: WARNING/ForkPoolWorker-1] The following generation flags are not valid and may be ignored: ['early_stopping']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+worker-gpu-1    | [2026-08-25 17:11:11,033: ERROR/ForkPoolWorker-1] Task tasks.florence_caption.caption_scenes[a169dd65-e70f-4c5b-9d36-8f3d2496a1b9] raised unexpected: AttributeError("'NoneType' object has no attribute 'shape'")
+worker-gpu-1    | Traceback (most recent call last):
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 453, in trace_task
+worker-gpu-1    |     R = retval = fun(*args, **kwargs)
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+worker-gpu-1    |     return self.run(*args, **kwargs)
+worker-gpu-1    |   File "/worker/tasks/florence_caption.py", line 248, in caption_scenes
+worker-gpu-1    |     captions = _caption_images_resilient(images)
+worker-gpu-1    |   File "/worker/tasks/florence_caption.py", line 128, in _caption_images_resilient
+worker-gpu-1    |     return _caption_images(images)
+worker-gpu-1    |   File "/worker/tasks/florence_caption.py", line 101, in _caption_images
+worker-gpu-1    |     generated_ids = model.generate(
+worker-gpu-1    |   File "/root/.cache/huggingface/modules/transformers_modules/microsoft/Florence_hyphen_2_hyphen_large/21a599d414c4d928c9032694c424fb94458e3594/modeling_florence2.py", line 2795, in generate
+worker-gpu-1    |     return self.language_model.generate(
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 120, in decorate_context
+worker-gpu-1    |     return func(*args, **kwargs)
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/transformers/generation/utils.py", line 2564, in generate
+worker-gpu-1    |     result = decoding_method(
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/transformers/generation/utils.py", line 2781, in _sample
+worker-gpu-1    |     model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+worker-gpu-1    |   File "/root/.cache/huggingface/modules/transformers_modules/microsoft/Florence_hyphen_2_hyphen_large/21a599d414c4d928c9032694c424fb94458e3594/modeling_florence2.py", line 2197, in prepare_inputs_for_generation
+worker-gpu-1    |     past_length = past_key_values[0][0].shape[2]
+worker-gpu-1    | AttributeError: 'NoneType' object has no attribute 'shape'
