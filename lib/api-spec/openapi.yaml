@@ -4206,6 +4206,14 @@ components:
         curator_folder_path:
           type: ["string", "null"]
           description: Curator library folder path (e.g. Library\TBN-Fast) from the linked asset XML
+        curator_original_air_date:
+          type: ["string", "null"]
+          format: date-time
+          description: Original air date/time currently stored in Curator
+        curator_last_air_date:
+          type: ["string", "null"]
+          format: date-time
+          description: Most recent air date/time currently stored in Curator
         proxy_path:
           type: ["string", "null"]
         thumbnail_url:

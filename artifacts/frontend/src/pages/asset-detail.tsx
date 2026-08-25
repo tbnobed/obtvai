@@ -93,6 +93,16 @@ function formatTimecode(seconds: number): string {
     : `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function formatAirDate(value?: string | null): string {
+  if (!value) return "Not available";
+  const parsed = new Date(value.endsWith("Z") ? value : `${value}Z`);
+  if (Number.isNaN(parsed.getTime())) return "Not available";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(parsed);
+}
+
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
   const searchString = useSearch();
@@ -1051,6 +1061,16 @@ export default function AssetDetail() {
                     Clip: <span className="font-mono text-foreground">{asset.curator_id}</span>
                   </span>
                 )}
+                <span className="text-muted-foreground">
+                  Original air: <span className="text-foreground" data-testid="text-curator-original-air-date">
+                    {formatAirDate(asset.curator_original_air_date)}
+                  </span>
+                </span>
+                <span className="text-muted-foreground">
+                  Last air: <span className="text-foreground" data-testid="text-curator-last-air-date">
+                    {formatAirDate(asset.curator_last_air_date)}
+                  </span>
+                </span>
                 {asset.source_path && (
                   <span className="text-muted-foreground" title="Hi-res source path — NLE exports relink to this file">
                     Source: <span className="font-mono text-foreground break-all">{asset.source_path}</span>

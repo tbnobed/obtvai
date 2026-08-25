@@ -170,6 +170,16 @@ export interface MediaAsset {
      * @nullable
      */
   curator_folder_path?: string | null;
+  /**
+     * Original air date/time currently stored in Curator
+     * @nullable
+     */
+  curator_original_air_date?: string | null;
+  /**
+     * Most recent air date/time currently stored in Curator
+     * @nullable
+     */
+  curator_last_air_date?: string | null;
   /** @nullable */
   proxy_path?: string | null;
   /** @nullable */

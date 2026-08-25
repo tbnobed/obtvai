@@ -1,7 +1,7 @@
 import os
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,71 @@ from ..config import settings
 import redis.asyncio as aioredis
 
 router = APIRouter(prefix="/media", tags=["media"])
+
+
+def _curator_metadata_datetime(payload: dict, name: str) -> datetime | None:
+    field = payload.get(name)
+    if not isinstance(field, dict):
+        return None
+    values = field.get("values")
+    if not isinstance(values, list) or not values:
+        return None
+    value = values[0]
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+async def _refresh_curator_air_info(asset: MediaAsset, db: AsyncSession) -> None:
+    """Best-effort refresh of the two air dates Curator currently exposes."""
+    if not asset.curator_asset_id:
+        return
+    if (
+        asset.curator_air_info_fetched_at
+        and asset.curator_air_info_fetched_at > datetime.utcnow() - timedelta(hours=6)
+    ):
+        return
+    client_id = os.environ.get("CURATOR_CLIENT_ID")
+    client_secret = os.environ.get("CURATOR_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        return
+    import httpx
+    # Keep this separate from CURATOR_GATEWAY_URL, which existing NLE export
+    # code may configure as the gateway's /Proxies streaming endpoint.
+    base = os.environ.get(
+        "CURATOR_API_URL", "https://curator.tbn.tv/CuratorGateway"
+    ).rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            token_response = await client.post(
+                f"{base}/connect/token",
+                data={
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "grant_type": "client_credentials",
+                },
+            )
+            token_response.raise_for_status()
+            token = token_response.json()["access_token"]
+            asset_response = await client.get(
+                f"{base}/api/v1/assets/{asset.curator_asset_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            asset_response.raise_for_status()
+            payload = asset_response.json()
+    except (httpx.HTTPError, KeyError, ValueError):
+        return
+    asset.curator_original_air_date = _curator_metadata_datetime(
+        payload, "TBN_OriginalAirDate"
+    )
+    asset.curator_last_air_date = _curator_metadata_datetime(
+        payload, "TBN_LastAirDate"
+    )
+    asset.curator_air_info_fetched_at = datetime.utcnow()
+    await db.commit()
 
 
 def redis_client():
@@ -1103,6 +1168,7 @@ async def get_media(id: str, db: AsyncSession = Depends(get_db)):
     asset = result.scalar_one_or_none()
     if not asset:
         raise HTTPException(status_code=404, detail="Media not found")
+    await _refresh_curator_air_info(asset, db)
     return MediaAssetOut.model_validate(asset)
 
 

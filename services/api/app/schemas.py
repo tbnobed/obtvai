@@ -19,6 +19,8 @@ class MediaAssetOut(BaseModel):
     curator_asset_id: Optional[str] = None
     curator_folder_path: Optional[str] = None
     curator_requested_by: Optional[str] = None
+    curator_original_air_date: Optional[datetime] = None
+    curator_last_air_date: Optional[datetime] = None
     proxy_path: Optional[str] = None
     thumbnail_url: Optional[str] = None
     sprite_url: Optional[str] = None

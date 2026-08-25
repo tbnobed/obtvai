@@ -111,6 +111,9 @@ _COLUMN_MIGRATIONS = [
     ("media_assets", "curator_folder_path", "VARCHAR"),
     ("media_assets", "curator_web_proxy_path", "VARCHAR"),
     ("media_assets", "curator_requested_by", "VARCHAR"),
+    ("media_assets", "curator_original_air_date", "TIMESTAMP"),
+    ("media_assets", "curator_last_air_date", "TIMESTAMP"),
+    ("media_assets", "curator_air_info_fetched_at", "TIMESTAMP"),
     ("curator_asset_records", "requested_by", "VARCHAR"),
     # BAGEL-generated natural-language description of representative keyframe.
     ("scenes", "description", "TEXT"),

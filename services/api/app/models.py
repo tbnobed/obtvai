@@ -29,6 +29,9 @@ class MediaAsset(Base):
     # Editor who clicked Curator's SendToOBTV action (user.realname in the
     # manifest). Audit attribution only; authentication remains internal.
     curator_requested_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    curator_original_air_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    curator_last_air_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    curator_air_info_fetched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     proxy_path: Mapped[str | None] = mapped_column(String, nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     # Scrub sprite sheet: one JPEG grid of frames + timing metadata
