@@ -1,0 +1,54 @@
+Connected to redis://redis:6379/0
+worker-gpu-1    | [2026-08-25 16:52:08,639: INFO/MainProcess] mingle: searching for neighbors
+worker-gpu-1    | [2026-08-25 16:52:09,644: INFO/MainProcess] mingle: sync with 2 nodes
+worker-gpu-1    | [2026-08-25 16:52:09,644: INFO/MainProcess] mingle: sync complete
+worker-gpu-1    | [2026-08-25 16:52:09,648: INFO/MainProcess] celery@d085b345a178 ready.
+worker-gpu-1    | [2026-08-25 16:52:14,449: INFO/MainProcess] Events of group {task} enabled by remote.
+worker-gpu-1    | [2026-08-25 16:54:15,025: INFO/MainProcess] Task tasks.florence_caption.caption_scenes[4f24920b-f6e9-4346-b1fd-f9e01edaae70] received
+worker-gpu-1    | [2026-08-25 16:54:18,921: WARNING/ForkPoolWorker-1] A new version of the following files was downloaded from https://huggingface.co/microsoft/Florence-2-large:
+worker-gpu-1    | - processing_florence2.py
+worker-gpu-1    | . Make sure to double-check they do not contain any added malicious code. To avoid downloading new versions of the code file, you can pin a revision.
+worker-gpu-1    | [2026-08-25 16:54:21,562: WARNING/ForkPoolWorker-1] A new version of the following files was downloaded from https://huggingface.co/microsoft/Florence-2-large:
+worker-gpu-1    | - configuration_florence2.py
+worker-gpu-1    | . Make sure to double-check they do not contain any added malicious code. To avoid downloading new versions of the code file, you can pin a revision.
+worker-gpu-1    | [2026-08-25 16:54:22,435: WARNING/ForkPoolWorker-1] `torch_dtype` is deprecated! Use `dtype` instead!
+worker-gpu-1    | [2026-08-25 16:54:22,862: WARNING/ForkPoolWorker-1] A new version of the following files was downloaded from https://huggingface.co/microsoft/Florence-2-large:
+worker-gpu-1    | - modeling_florence2.py
+worker-gpu-1    | . Make sure to double-check they do not contain any added malicious code. To avoid downloading new versions of the code file, you can pin a revision.
+worker-gpu-1    | [2026-08-25 16:54:34,652: ERROR/ForkPoolWorker-1] Task tasks.florence_caption.caption_scenes[4f24920b-f6e9-4346-b1fd-f9e01edaae70] raised unexpected: AttributeError("'Florence2ForConditionalGeneration' object has no attribute '_supports_sdpa'")
+worker-gpu-1    | Traceback (most recent call last):
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 453, in trace_task
+worker-gpu-1    |     R = retval = fun(*args, **kwargs)
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+worker-gpu-1    |     return self.run(*args, **kwargs)
+worker-gpu-1    |   File "/worker/tasks/florence_caption.py", line 248, in caption_scenes
+worker-gpu-1    |     captions = _caption_images_resilient(images)
+worker-gpu-1    |   File "/worker/tasks/florence_caption.py", line 128, in _caption_images_resilient
+worker-gpu-1    |     return _caption_images(images)
+worker-gpu-1    |   File "/worker/tasks/florence_caption.py", line 83, in _caption_images
+worker-gpu-1    |     model, processor, device, dtype = _load_florence()
+worker-gpu-1    |   File "/worker/tasks/florence_caption.py", line 59, in _load_florence
+worker-gpu-1    |     model, processor = load_with_oom_retry(_MODEL_ID, _loader)
+worker-gpu-1    |   File "/worker/tasks/gpu_mem.py", line 107, in load_with_oom_retry
+worker-gpu-1    |     return loader()
+worker-gpu-1    |   File "/worker/tasks/florence_caption.py", line 49, in _loader
+worker-gpu-1    |     model = AutoModelForCausalLM.from_pretrained(
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/transformers/models/auto/auto_factory.py", line 597, in from_pretrained
+worker-gpu-1    |     return model_class.from_pretrained(
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/transformers/modeling_utils.py", line 277, in _wrapper
+worker-gpu-1    |     return func(*args, **kwargs)
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/transformers/modeling_utils.py", line 4971, in from_pretrained
+worker-gpu-1    |     model = cls(config, *model_args, **model_kwargs)
+worker-gpu-1    |   File "/root/.cache/huggingface/modules/transformers_modules/microsoft/Florence_hyphen_2_hyphen_large/21a599d414c4d928c9032694c424fb94458e3594/modeling_florence2.py", line 2535, in __init__
+worker-gpu-1    |     super().__init__(config)
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/transformers/modeling_utils.py", line 2076, in __init__
+worker-gpu-1    |     self.config._attn_implementation_internal = self._check_and_adjust_attn_implementation(
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/transformers/modeling_utils.py", line 2686, in _check_and_adjust_attn_implementation
+worker-gpu-1    |     applicable_attn_implementation = self.get_correct_attn_implementation(
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/transformers/modeling_utils.py", line 2722, in get_correct_attn_implementation
+worker-gpu-1    |     self._sdpa_can_dispatch(is_init_check)
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/transformers/modeling_utils.py", line 2573, in _sdpa_can_dispatch
+worker-gpu-1    |     if not self._supports_sdpa:
+worker-gpu-1    |   File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1962, in __getattr__
+worker-gpu-1    |     raise AttributeError(
+worker-gpu-1    | AttributeError: 'Florence2ForConditionalGeneration' object has no attribute '_supports_sdpa'
