@@ -73,6 +73,10 @@ x-python-env: &python-env
   # folder name minus -HHMMSS). E.g. \\tustopd.trinity.local\ipv\Media
   CURATOR_SOURCE_ROOT: "${CURATOR_SOURCE_ROOT:-}"
   CURATOR_SOURCE_EXT: "${CURATOR_SOURCE_EXT:-.mxf}"
+  # Gateway metadata API used for Original/Last Air dates on asset detail.
+  CURATOR_API_URL: "${CURATOR_API_URL:-https://curator.tbn.tv/CuratorGateway}"
+  CURATOR_CLIENT_ID: "${CURATOR_CLIENT_ID:-}"
+  CURATOR_CLIENT_SECRET: "${CURATOR_CLIENT_SECRET:-}"
   # Path translation for NLE exports (EDL/FCPXML/OTIO), e.g.
   # EXPORT_PATH_MAP=/media=V:\Media;/media2=\\nas\media2
   EXPORT_PATH_MAP: "${EXPORT_PATH_MAP:-}"
