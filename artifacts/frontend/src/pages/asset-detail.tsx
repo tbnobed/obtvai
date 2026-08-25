@@ -27,7 +27,7 @@ import {
   useListRatings, getListRatingsQueryKey,
   useGetMediaStudioSession
 } from "@workspace/api-client-react";
-import type { SocialScore, SocialCutsRequestPlatform, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, Project, SearchResult, CutClip } from "@workspace/api-client-react";
+import type { SocialScore, SocialCutsRequestPlatform, RenderJob, CreativeAnalysis, TightenResult, Marker, TranscriptSegment, Project, SearchResult, CutClip, RunStageInputJobType } from "@workspace/api-client-react";
 import { useSemanticSearch, useFindSimilarMoments } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -1313,6 +1313,7 @@ export default function AssetDetail() {
                         ["transcribe", "Transcribe"],
                         ["diarize", "Identify speakers"],
                         ["scene_detect", "Detect scenes"],
+                        ["florence_caption", "Fast scene captions (Florence-2 Large)"],
                         ["bagel_caption", "BAGEL scene captions"],
                         ["qc", "Run QC"],
                         ["qc_editorial", "Editorial QC"],
@@ -1332,7 +1333,7 @@ export default function AssetDetail() {
                     variant="outline"
                     disabled={!runStageType || runStageMutation.isPending}
                     onClick={() => {
-                      runStageMutation.mutate({ id: id!, data: { job_type: runStageType as any } }, {
+                      runStageMutation.mutate({ id: id!, data: { job_type: runStageType as RunStageInputJobType } }, {
                         onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey({ media_id: id! }) }),
                       });
                     }}

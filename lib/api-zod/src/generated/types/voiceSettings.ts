@@ -5,11 +5,17 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { VoiceSettingsEngine } from './voiceSettingsEngine';
 
 /**
  * XTTS synthesis knobs. Omitted/null fields fall back to stock defaults.
  */
 export interface VoiceSettings {
+  /**
+     * Optional synthesis engine override
+     * @nullable
+     */
+  engine?: VoiceSettingsEngine;
   /**
      * Playback pace, 0.7-1.3 (1.0 = normal)
      * @nullable

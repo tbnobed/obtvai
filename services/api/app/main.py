@@ -456,7 +456,7 @@ async def lifespan(app: FastAPI):
     _AUTO_RETRY_TYPES = (
         "sprite", "visual_embed", "index", "scene_detect", "face_detect",
         "audio_extract", "transcribe", "diarize", "qc", "proxy", "analyze",
-        "creative", "identify", "insights",
+        "creative", "identify", "insights", "florence_caption",
     )
     _MAX_AUTO_RETRIES = 3
 

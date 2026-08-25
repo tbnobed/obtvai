@@ -32,7 +32,7 @@ import {
   useUpdatePersonPhoto,
   useDeletePersonPhoto,
 } from "@workspace/api-client-react";
-import type { FaceSearchResult, PersonAppearance, VoiceGeneration, VoiceSettings } from "@workspace/api-client-react";
+import type { FaceSearchResult, PersonAppearance, VoiceGeneration, VoiceSettings, VoiceSettingsEngine } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -192,7 +192,7 @@ function VoiceSection({
   const [genText, setGenText] = useState("");
   const [genLang, setGenLang] = useState("en");
   const [genSpeed, setGenSpeed] = useState(1.0);
-  const [genEngine, setGenEngine] = useState("auto");
+  const [genEngine, setGenEngine] = useState<VoiceSettingsEngine | "auto">("auto");
   const [genTarget, setGenTarget] = useState("");
   const [tuneOpen, setTuneOpen] = useState(false);
   const [tune, setTune] = useState<typeof DEFAULT_TUNE>({
@@ -606,7 +606,10 @@ function VoiceSection({
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={genEngine} onValueChange={setGenEngine}>
+                <Select
+                  value={genEngine ?? "auto"}
+                  onValueChange={(value) => setGenEngine(value as VoiceSettingsEngine | "auto")}
+                >
                   <SelectTrigger className="w-40 h-9" data-testid="select-gen-engine"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="auto">Engine: Auto</SelectItem>

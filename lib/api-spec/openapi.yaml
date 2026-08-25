@@ -4462,7 +4462,7 @@ components:
       properties:
         job_type:
           type: string
-          enum: [proxy, audio_extract, transcribe, diarize, scene_detect, qc, visual_embed, face_detect, index, analyze, creative, identify]
+          enum: [proxy, audio_extract, transcribe, diarize, scene_detect, florence_caption, bagel_caption, sprite, qc, qc_editorial, visual_embed, face_detect, index, analyze, creative, identify]
           description: Pipeline stage to run for this asset
 
     MediaMoveInput:
@@ -5116,6 +5116,10 @@ components:
       type: object
       description: XTTS synthesis knobs. Omitted/null fields fall back to stock defaults.
       properties:
+        engine:
+          type: ["string", "null"]
+          enum: [turbo, chatterbox, qwen3, xtts, null]
+          description: Optional synthesis engine override
         speed:
           type: ["number", "null"]
           description: Playback pace, 0.7-1.3 (1.0 = normal)

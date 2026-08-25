@@ -13,6 +13,7 @@ celery_app = Celery(
         "tasks.transcribe",
         "tasks.diarize",
         "tasks.scene_detect",
+        "tasks.florence_caption",
         "tasks.bagel_caption",
         "tasks.sprites",
         "tasks.qc",

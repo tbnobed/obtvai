@@ -1055,7 +1055,7 @@ export const RunStageParams = zod.object({
 })
 
 export const RunStageBody = zod.object({
-  "job_type": zod.enum(['proxy', 'audio_extract', 'transcribe', 'diarize', 'scene_detect', 'qc', 'visual_embed', 'face_detect', 'index', 'analyze', 'creative', 'identify']).describe('Pipeline stage to run for this asset')
+  "job_type": zod.enum(['proxy', 'audio_extract', 'transcribe', 'diarize', 'scene_detect', 'florence_caption', 'bagel_caption', 'sprite', 'qc', 'qc_editorial', 'visual_embed', 'face_detect', 'index', 'analyze', 'creative', 'identify']).describe('Pipeline stage to run for this asset')
 })
 
 export const RunStageResponse = zod.object({
@@ -1304,6 +1304,7 @@ export const ListPeopleResponse = zod.object({
   "updated_at": zod.string().nullish(),
   "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
   "voice_settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1404,6 +1405,7 @@ export const EnrollPersonResponse = zod.object({
   "updated_at": zod.string().nullish(),
   "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
   "voice_settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1454,6 +1456,7 @@ export const GetPersonResponse = zod.object({
   "updated_at": zod.string().nullish(),
   "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
   "voice_settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1531,6 +1534,7 @@ export const UpdatePersonResponse = zod.object({
   "updated_at": zod.string().nullish(),
   "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
   "voice_settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1576,6 +1580,7 @@ export const MergePersonResponse = zod.object({
   "updated_at": zod.string().nullish(),
   "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
   "voice_settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1623,6 +1628,7 @@ export const SplitPersonResponse = zod.object({
   "updated_at": zod.string().nullish(),
   "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
   "voice_settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1668,6 +1674,7 @@ export const UnmergePersonResponse = zod.object({
   "updated_at": zod.string().nullish(),
   "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
   "voice_settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1838,6 +1845,7 @@ export const CreateVoiceGenerationBody = zod.object({
   "text": zod.string().min(1).max(createVoiceGenerationBodyTextMax),
   "language": zod.string().default(createVoiceGenerationBodyLanguageDefault).describe('XTTS language code: en | es | fr | de | it | pt | pl | tr | ru | nl | cs | ar | zh-cn | ja | hu | ko | hi'),
   "settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1859,6 +1867,7 @@ export const CreateVoiceGenerationResponse = zod.object({
   "created_at": zod.string(),
   "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)'),
   "settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1897,6 +1906,7 @@ export const TuneVoiceResponseItem = zod.object({
   "created_at": zod.string(),
   "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)'),
   "settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1930,6 +1940,7 @@ export const SetVoiceSettingsParams = zod.object({
 })
 
 export const SetVoiceSettingsBody = zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1958,6 +1969,7 @@ export const ListVoiceGenerationsResponseItem = zod.object({
   "created_at": zod.string(),
   "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)'),
   "settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -1998,6 +2010,7 @@ export const CreateLipsyncVideoResponse = zod.object({
   "created_at": zod.string(),
   "preset": zod.string().nullish().describe('Synthesis style this clip was generated with (tuning runs)'),
   "settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -2421,6 +2434,7 @@ export const UpdatePersonPhotoResponse = zod.object({
   "updated_at": zod.string().nullish(),
   "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
   "voice_settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),
@@ -2462,6 +2476,7 @@ export const DeletePersonPhotoResponse = zod.object({
   "updated_at": zod.string().nullish(),
   "voice_preset": zod.string().nullish().describe('Saved synthesis style for this person\'s cloned voice'),
   "voice_settings": zod.object({
+  "engine": zod.union([zod.literal('turbo'),zod.literal('chatterbox'),zod.literal('qwen3'),zod.literal('xtts'),zod.literal(null)]).nullish().describe('Optional synthesis engine override'),
   "speed": zod.number().nullish().describe('Playback pace, 0.7-1.3 (1.0 = normal)'),
   "temperature": zod.number().nullish().describe('Expressiveness\/variation, 0.2-1.2 (higher = livelier, less stable)'),
   "top_p": zod.number().nullish().describe('Stability, 0.3-1.0 (lower = safer, flatter)'),

@@ -259,6 +259,7 @@ export * from './voiceSample';
 export * from './voiceSampleFromSegment';
 export * from './voiceSampleUploadInput';
 export * from './voiceSettings';
+export * from './voiceSettingsEngine';
 export * from './voiceSpeakRequest';
 export * from './voiceTuneRequest';
 export * from './webTrend';

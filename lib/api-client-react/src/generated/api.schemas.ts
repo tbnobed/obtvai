@@ -361,7 +361,11 @@ export const RunStageInputJobType = {
   transcribe: 'transcribe',
   diarize: 'diarize',
   scene_detect: 'scene_detect',
+  florence_caption: 'florence_caption',
+  bagel_caption: 'bagel_caption',
+  sprite: 'sprite',
   qc: 'qc',
+  qc_editorial: 'qc_editorial',
   visual_embed: 'visual_embed',
   face_detect: 'face_detect',
   index: 'index',
@@ -509,9 +513,28 @@ export interface FaceCluster {
 }
 
 /**
+ * Optional synthesis engine override
+ * @nullable
+ */
+export type VoiceSettingsEngine = typeof VoiceSettingsEngine[keyof typeof VoiceSettingsEngine] | null;
+
+
+export const VoiceSettingsEngine = {
+  turbo: 'turbo',
+  chatterbox: 'chatterbox',
+  qwen3: 'qwen3',
+  xtts: 'xtts',
+} as const;
+
+/**
  * XTTS synthesis knobs. Omitted/null fields fall back to stock defaults.
  */
 export interface VoiceSettings {
+  /**
+     * Optional synthesis engine override
+     * @nullable
+     */
+  engine?: VoiceSettingsEngine;
   /**
      * Playback pace, 0.7-1.3 (1.0 = normal)
      * @nullable
@@ -532,11 +555,6 @@ export interface VoiceSettings {
      * @nullable
      */
   repetition_penalty?: number | null;
-  /**
-     * Synthesis engine: turbo, chatterbox, qwen3, xtts (empty = automatic)
-     * @nullable
-     */
-  engine?: string | null;
 }
 
 export type FaceSearchResultStatus = typeof FaceSearchResultStatus[keyof typeof FaceSearchResultStatus];

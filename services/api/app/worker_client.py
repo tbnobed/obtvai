@@ -39,6 +39,7 @@ async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: d
         "transcribe": ("gpu", "tasks.transcribe.transcribe_audio"),
         "diarize": ("gpu", "tasks.diarize.run_diarization"),
         "scene_detect": ("cpu", "tasks.scene_detect.detect_scenes"),
+        "florence_caption": ("gpu", "tasks.florence_caption.caption_scenes"),
         "bagel_caption": ("cpu", "tasks.bagel_caption.caption_scenes"),
         "sprite": ("cpu", "tasks.sprites.generate_sprite"),
         "qc": ("cpu", "tasks.qc.run_qc"),
