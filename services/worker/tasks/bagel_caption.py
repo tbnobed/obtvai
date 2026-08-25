@@ -23,8 +23,9 @@ from tasks.base import append_log, create_job, update_job
 
 logger = logging.getLogger("tasks.bagel_caption")
 
-_CAPTION_TIMEOUT = int(os.environ.get("BAGEL_CAPTION_TIMEOUT", "90"))
+_CAPTION_TIMEOUT = int(os.environ.get("BAGEL_CAPTION_TIMEOUT", "600"))
 _CAPTION_MAX_TOKENS = int(os.environ.get("BAGEL_CAPTION_MAX_TOKENS", "120"))
+_MAX_CONSECUTIVE_FAILURES = int(os.environ.get("BAGEL_MAX_CONSECUTIVE_FAILURES", "3"))
 
 _CAPTION_PROMPT = (
     "You are assisting a professional video editor. "
@@ -35,8 +36,8 @@ _CAPTION_PROMPT = (
 )
 
 
-def _caption_one(client: httpx.Client, thumb_path: str) -> str | None:
-    """Send one thumbnail JPEG to BAGEL /caption; return text or None."""
+def _caption_one(client: httpx.Client, thumb_path: str) -> tuple[str | None, str | None]:
+    """Send one thumbnail JPEG to BAGEL /caption; return (text, error)."""
     try:
         with open(thumb_path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode()
@@ -45,12 +46,17 @@ def _caption_one(client: httpx.Client, thumb_path: str) -> str | None:
             json={"image_b64": b64, "prompt": _CAPTION_PROMPT, "max_tokens": _CAPTION_MAX_TOKENS},
         )
         r.raise_for_status()
-        return r.json().get("caption", "").strip() or None
+        caption = r.json().get("caption", "").strip() or None
+        return caption, None if caption else "empty caption"
     except httpx.HTTPStatusError as exc:
         logger.warning("BAGEL /caption HTTP %d", exc.response.status_code)
+        return None, f"HTTP {exc.response.status_code}"
+    except httpx.TimeoutException:
+        logger.warning("BAGEL /caption timed out after %ss", _CAPTION_TIMEOUT)
+        return None, f"timeout after {_CAPTION_TIMEOUT}s"
     except Exception as exc:
         logger.warning("BAGEL /caption error: %s", exc)
-    return None
+        return None, str(exc)
 
 
 @celery_app.task(bind=True, name="tasks.bagel_caption.caption_scenes", queue="cpu")
@@ -95,6 +101,7 @@ def caption_scenes(self, media_id: str, job_id: str):
         append_log(db, job_id, f"Captioning {total} scenes with BAGEL")
         captioned = 0
         attempted = 0
+        consecutive_failures = 0
         with httpx.Client(timeout=_CAPTION_TIMEOUT) as client:
             for scene_id, thumb_url in scenes:
                 # Let the UI Cancel action stop a long batch between requests.
@@ -108,13 +115,20 @@ def caption_scenes(self, media_id: str, job_id: str):
 
                 attempted += 1
                 thumb_path = os.path.join(THUMBNAILS_DIR, os.path.basename(thumb_url))
-                caption = _caption_one(client, thumb_path) if os.path.exists(thumb_path) else None
+                caption, failure = (
+                    _caption_one(client, thumb_path)
+                    if os.path.exists(thumb_path)
+                    else (None, "missing thumbnail")
+                )
                 if caption:
+                    consecutive_failures = 0
                     db.execute(
                         text("UPDATE scenes SET description = :desc WHERE id = :sid"),
                         {"desc": caption, "sid": scene_id},
                     )
                     captioned += 1
+                elif failure != "missing thumbnail":
+                    consecutive_failures += 1
 
                 # Report attempted frames, not only successful captions. This
                 # keeps progress/heartbeat moving when BAGEL returns an empty
@@ -127,6 +141,11 @@ def caption_scenes(self, media_id: str, job_id: str):
                 )
                 if attempted % 10 == 0 or attempted == total:
                     append_log(db, job_id, f"Processed {attempted}/{total} scenes ({captioned} captions)")
+                if consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
+                    raise RuntimeError(
+                        f"BAGEL failed {consecutive_failures} consecutive scenes; "
+                        f"last error: {failure}"
+                    )
 
         append_log(db, job_id, f"Captioned {captioned}/{total} scenes")
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)

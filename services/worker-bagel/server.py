@@ -325,7 +325,9 @@ def caption(req: CaptionRequest):
         raise HTTPException(400, f"Invalid image: {exc}")
 
     t0 = time.time()
+    logger.info("Caption request queued (max_tokens=%d)", req.max_tokens)
     with _infer_lock:
+        logger.info("Caption inference started")
         result = _inferencer.interleave_inference(
             input_lists=[req.prompt, pil_image],
             understanding_output=True,
@@ -334,7 +336,9 @@ def caption(req: CaptionRequest):
             max_think_token_n=req.max_tokens,
         )
     caption_text = (result[0] if result else "").strip()
-    return CaptionResponse(caption=caption_text, elapsed_ms=int((time.time() - t0) * 1000))
+    elapsed_ms = int((time.time() - t0) * 1000)
+    logger.info("Caption inference finished in %.1fs", elapsed_ms / 1000)
+    return CaptionResponse(caption=caption_text, elapsed_ms=elapsed_ms)
 
 
 # ── Image generation ─────────────────────────────────────────────────────────

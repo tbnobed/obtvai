@@ -21,8 +21,9 @@ x-python-env: &python-env
   # Pass the operator-supplied URL through to caption workers; otherwise
   # services/worker/config.py silently falls back to the local service name.
   BAGEL_SERVICE_URL: "${BAGEL_SERVICE_URL:-http://worker-bagel:8003}"
-  BAGEL_CAPTION_TIMEOUT: "${BAGEL_CAPTION_TIMEOUT:-90}"
+  BAGEL_CAPTION_TIMEOUT: "${BAGEL_CAPTION_TIMEOUT:-600}"
   BAGEL_CAPTION_MAX_TOKENS: "${BAGEL_CAPTION_MAX_TOKENS:-120}"
+  BAGEL_MAX_CONSECUTIVE_FAILURES: "${BAGEL_MAX_CONSECUTIVE_FAILURES:-3}"
   COMFY_WORKFLOWS_DIR: "/workflows"
   COQUI_TOS_AGREED: "1"
   YOUTUBE_CLIENT_ID: "${YOUTUBE_CLIENT_ID:-}"
