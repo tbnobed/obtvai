@@ -1,0 +1,189 @@
+Jack Hawkins<jack.hawkins@ipv.com>
+
+​
+Obed Sandoval​
+​
+Tim Doring​
+Hi Obed,
+
+I hope you're well.
+
+I have added logic to the workflow to read an AvailableMetadataKey from the mediastore used to create the XML, this will now set a Boolean MetadataField to True upon successful XML creation.
+
+The Metadata Field in Curator is called 'TBN_TransferredToOBTV' with a display name of 'Transferred to OBTV?' 
+
+I have added logic to the plug-in configuration to deny the plug-in becoming active is this field is set to True on the asset.
+
+Tim provided my with access to a FCPXML which is exported from OBTV and I have logged 2 FR requests with our DEV team, one to allow the ingest of the FCPXML and generation of a Premiere Production / one to allow API requests to process the FCPXML to create a Premiere Production.
+
+Let me know if you have any further questions.
+
+Thanks, 
+Jack Hawkins
+
+Principal Technical Operations Engineer
+
+ipv.com | Linkedin
+
+ 
+
+
+
+From: Jack Hawkins <jack.hawkins@ipv.com>
+Sent: Tuesday, August 18, 2026 11:35
+To: Obed Sandoval <OSandoval@tbn.tv>
+Cc: Tim Doring <TDoring@keycodemedia.com>
+Subject: Re: OBTV - Curator Plug-in
+
+Hi Obed, Tim,
+
+If possible please could you share one of your project exports from OBTV? I want to verify the watchfolder ingest method.
+
+Thanks,
+Jack Hawkins
+
+Principal Technical Operations Engineer
+
+ipv.com | Linkedin
+
+ 
+
+
+
+ 
+
+ 
+
+
+
+From: Jack Hawkins <jack.hawkins@ipv.com>
+Sent: Tuesday, August 18, 2026 10:43
+To: Obed Sandoval <OSandoval@tbn.tv>
+Cc: Tim Doring <TDoring@keycodemedia.com>
+Subject: Re: OBTV - Curator Plug-in
+
+Hi Obed,
+
+I have added user.realname to be parsed in the XML, see below:
+
+<assets>
+<asset>
+<asset.asset_id>f14a2f5a-80a0-494a-b3e7-1602a5e9cec8</asset.asset_id>
+<asset.name>FC-BT26-1560</asset.name>
+<asset.folder_path>Library\TBN-FAST</asset.folder_path>
+<WebProxyPath>\\tustopd.trinity.local\ipv\Curator\TUST-PROD\Proxies\WebProxy\2026\08\16\FC-BT26-1560-113254</WebProxyPath>
+<user.realname>System Administrator</user.realname>
+</asset>
+</assets>
+
+I was thinking about getting the FCPXML/ PrProj Files back into Curator by using a Watchfolder, have OBTV export the files to a watchfolder which curator ingests and creates a Production from.
+
+Let me know your thoughts.
+
+Thanks, 
+Jack Hawkins
+
+Principal Technical Operations Engineer
+
+ipv.com | Linkedin
+
+ 
+
+
+
+ 
+
+ 
+
+From: Obed Sandoval <OSandoval@tbn.tv>
+Sent: Monday, August 17, 2026 23:17
+To: Jack Hawkins <jack.hawkins@ipv.com>
+Cc: Tim Doring <TDoring@keycodemedia.com>
+Subject: Re: OBTV - Curator Plug-in
+ 
+Yes, this is a good idea.  Please proceed.
+
+
+
+
+
+
+​​​​
+www.tbn.tv
+ 
+Obed Sandoval
+Sr. Director of Media Technology
+ 
+Trinity Broadcasting Networks
+2442 Michelle Drive
+Tustin
+, 
+CA
+ 
+92780
+ 
+Tel: Direct: 714-665-3636; Ext. 3636
+From: Jack Hawkins <jack.hawkins@ipv.com>
+Sent: Monday, August 17, 2026 10:10 AM
+To: Obed Sandoval <OSandoval@tbn.tv>
+Cc: Tim Doring <TDoring@keycodemedia.com>
+Subject: Re: OBTV - Curator Plug-in
+ 
+Obed, one more thing I was thinking of adding the XML is the user who initiated the transfer so you can track who's bring in the content.
+
+Let me know if you'd like to proceed.
+
+Thanks, 
+Jack Hawkins
+
+Principal Technical Operations Engineer
+
+ipv.com | Linkedin
+
+ 
+
+
+
+ 
+
+ 
+
+
+
+From: Jack Hawkins <jack.hawkins@ipv.com>
+Sent: Monday, August 17, 2026 17:37
+To: Obed Sandoval <osandoval@tbn.tv>
+Cc: Tim Doring <tdoring@keycodemedia.com>
+Subject: OBTV - Curator Plug-in
+
+Hi Both,
+
+I have created the plug-in for sending the XML to OBTV from Curator, it is called 'SendToOBTV' and looks like the following in ClipLink:
+
+
+
+At present this plug-in is only configured for the System Administrator Workgroup.
+
+I have built a custom transform so the XML outputted looks like the following:
+
+<assets>
+<asset>
+<asset.name>PRS_20260504_KSHACKELFORD_CAM 7</asset.name>
+<asset.asset_id>a0d4d921-708e-4f04-b0f7-7cce5371f14d</asset.asset_id>
+<WebProxyPath>\\tustopd.trinity.local\IPV\Curator\TUST-PROD\Proxies\WebProxy\2026\05\04\PRS_20260504_KSHACKELFORD_CAM-7-133850</WebProxyPath>
+<asset.folder_path>Post Production\Series\Praise\2026\PRS_20260504_PLEX_CROUCH_SHACKELFORD\STUDIO BACKUP</asset.folder_path>
+</asset>
+</assets>
+
+If you need any adjustments let me know but it matches the samples Tim shared on Friday.
+
+All XML's are outputted to the following location on the OpenDrive: \\tustopd.trinity.local\ipv\Curator\TUST-PROD\ObedAI (2 examples have already been sent)
+
+Many Thanks,
+Jack Hawkins
+
+Principal Technical Operations Engineer
+
+ipv.com | Linkedin
+
+ 
