@@ -23,6 +23,9 @@ description: IPV Curator WebProxy layout (video-only fMP4 + audio sidecars) and 
 - Asset search returns HTTP 500 when `names` contains unknown metadata fields.
   - **Why:** broad guessed field lists made every otherwise-valid Media ID query fail; a minimal query succeeded immediately.
   - **How to apply:** first query without `names`, inspect returned field names, then request only verified names. Treat a 500 as a possible bad metadata name before blaming credentials.
+- Production uses split-horizon DNS for `curator.tbn.tv`; its private answer is unreachable from the OBTV host while the verified public endpoint is reachable.
+  - **Why:** both host and API container timed out against the private address, while a hostname-preserving public-IP override authenticated and fetched asset metadata successfully.
+  - **How to apply:** keep the Curator hostname for TLS, but scope the verified public-IP DNS override to the API container; revalidate the public address before changing it.
 
 ## ClipLink OBTV extension automation
 - The OBTV extension is not equivalent to Gateway `/api/v1/assets/sendto`. It submits `Plug-in - Send to genericV4` through ClipLink `PluginHandler/SubmitProcess`, with `AssetIds` and destination `MODIFY-ASSET-CURATORFOLDERPATH,EXPORT-OBTV-XML`, then polls `PluginHandler/GetProcess`.
