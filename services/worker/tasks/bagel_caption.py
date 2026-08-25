@@ -24,6 +24,7 @@ from tasks.base import append_log, create_job, update_job
 logger = logging.getLogger("tasks.bagel_caption")
 
 _CAPTION_TIMEOUT = int(os.environ.get("BAGEL_CAPTION_TIMEOUT", "90"))
+_CAPTION_MAX_TOKENS = int(os.environ.get("BAGEL_CAPTION_MAX_TOKENS", "120"))
 
 _CAPTION_PROMPT = (
     "You are assisting a professional video editor. "
@@ -34,15 +35,14 @@ _CAPTION_PROMPT = (
 )
 
 
-def _caption_one(thumb_path: str) -> str | None:
+def _caption_one(client: httpx.Client, thumb_path: str) -> str | None:
     """Send one thumbnail JPEG to BAGEL /caption; return text or None."""
     try:
         with open(thumb_path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode()
-        r = httpx.post(
+        r = client.post(
             f"{BAGEL_SERVICE_URL}/caption",
-            json={"image_b64": b64, "prompt": _CAPTION_PROMPT, "max_tokens": 200},
-            timeout=_CAPTION_TIMEOUT,
+            json={"image_b64": b64, "prompt": _CAPTION_PROMPT, "max_tokens": _CAPTION_MAX_TOKENS},
         )
         r.raise_for_status()
         return r.json().get("caption", "").strip() or None
@@ -91,31 +91,44 @@ def caption_scenes(self, media_id: str, job_id: str):
             update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
             return
 
-        append_log(db, job_id, f"Captioning {len(scenes)} scenes with BAGEL")
-        done = 0
-        for scene_id, thumb_url in scenes:
-            thumb_path = os.path.join(THUMBNAILS_DIR, os.path.basename(thumb_url))
-            if not os.path.exists(thumb_path):
-                continue
+        total = len(scenes)
+        append_log(db, job_id, f"Captioning {total} scenes with BAGEL")
+        captioned = 0
+        attempted = 0
+        with httpx.Client(timeout=_CAPTION_TIMEOUT) as client:
+            for scene_id, thumb_url in scenes:
+                # Let the UI Cancel action stop a long batch between requests.
+                current_status = db.execute(
+                    text("SELECT status FROM processing_jobs WHERE id = :jid"),
+                    {"jid": job_id},
+                ).scalar()
+                if current_status in ("cancelled", "error"):
+                    append_log(db, job_id, f"Captioning stopped with status {current_status}")
+                    return
 
-            caption = _caption_one(thumb_path)
-            if caption:
-                db.execute(
-                    text("UPDATE scenes SET description = :desc WHERE id = :sid"),
-                    {"desc": caption, "sid": scene_id},
-                )
-                done += 1
+                attempted += 1
+                thumb_path = os.path.join(THUMBNAILS_DIR, os.path.basename(thumb_url))
+                caption = _caption_one(client, thumb_path) if os.path.exists(thumb_path) else None
+                if caption:
+                    db.execute(
+                        text("UPDATE scenes SET description = :desc WHERE id = :sid"),
+                        {"desc": caption, "sid": scene_id},
+                    )
+                    captioned += 1
 
-            # Commit and report progress every 10 scenes so partial results
-            # survive a worker restart.
-            if done % 10 == 0 and done > 0:
-                db.commit()
-                pct = min(99.0, 100.0 * done / len(scenes))
+                # Report attempted frames, not only successful captions. This
+                # keeps progress/heartbeat moving when BAGEL returns an empty
+                # caption or an individual frame fails.
+                pct = min(99.0, 100.0 * attempted / total)
                 update_job(db, job_id, progress=pct)
-                self.update_state(state="PROGRESS", meta={"done": done, "total": len(scenes)})
+                self.update_state(
+                    state="PROGRESS",
+                    meta={"attempted": attempted, "captioned": captioned, "total": total},
+                )
+                if attempted % 10 == 0 or attempted == total:
+                    append_log(db, job_id, f"Processed {attempted}/{total} scenes ({captioned} captions)")
 
-        db.commit()
-        append_log(db, job_id, f"Captioned {done}/{len(scenes)} scenes")
+        append_log(db, job_id, f"Captioned {captioned}/{total} scenes")
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
 
     except Exception as exc:
