@@ -83,10 +83,15 @@ Ready assets: 191. Excluded assets: 11.
   let completed=0;
   for (const [index,asset] of selected.entries()) {
     try {
-      console.log(`[${index+1}/${selected.length}] ${asset.mediaId} submitting...`);
-      saved.results[asset.mediaId]={status:"submitting",startedAt:new Date().toISOString()}; persist();
-      const processId=await submitAsset(asset);
-      saved.results[asset.mediaId]={...saved.results[asset.mediaId],status:"running",processId,updatedAt:new Date().toISOString()}; persist();
+      let processId=saved.results[asset.mediaId]?.processId;
+      if (processId) {
+        console.log(`[${index+1}/${selected.length}] ${asset.mediaId} resuming process ${processId}...`);
+      } else {
+        console.log(`[${index+1}/${selected.length}] ${asset.mediaId} submitting...`);
+        saved.results[asset.mediaId]={status:"submitting",startedAt:new Date().toISOString()}; persist();
+        processId=await submitAsset(asset);
+        saved.results[asset.mediaId]={...saved.results[asset.mediaId],status:"running",processId,updatedAt:new Date().toISOString()}; persist();
+      }
       await waitForProcess(processId,asset.mediaId);
       saved.results[asset.mediaId]={...saved.results[asset.mediaId],status:"complete",completedAt:new Date().toISOString()}; persist();
       completed++; console.log(`%c[${index+1}/${selected.length}] ${asset.mediaId} complete`,"color:green;font-weight:bold");
