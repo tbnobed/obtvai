@@ -38,3 +38,4 @@
 - [TTS generation pitfalls](tts-generation-quality.md) — Chatterbox truncates past ~40s (chunk + concat); ALL-CAPS input garbles output (normalize case, keep acronyms).
 - [Postgres startup DDL locks](postgres-startup-ddl.md) — ADD COLUMN IF NOT EXISTS locks before checking; gate boot migrations on information_schema or busy workers make the API unhealthy.
 - [Deploy command service names](compose-service-names.md) — no "worker" service; worker code changes rebuild worker-gpu worker-gpu-2 worker-cpu worker-graphics.
+- [Florence Transformers compatibility](florence-transformers-compat.md) — do not force SDPA with Florence-2 remote code; use its default/eager attention path.
