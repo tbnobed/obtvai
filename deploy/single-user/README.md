@@ -76,9 +76,10 @@ the client secret **value** (not the provider's secret identifier). Leave
 `OBTV_SINGLE_CURATOR_OAUTH_SCOPE` blank to match the supplied Postman request.
 
 Use an alphanumeric database password so it is safe inside the generated
-database URLs. Set `OBTV_SINGLE_CURATOR_MEDIA_ID_QUERY_FIELD` to the canonical
-Curator metadata field whose value exactly equals the spreadsheet `Media ID`.
-The importer will not use broad or fuzzy name matching.
+database URLs. The live Curator contract was verified with
+`TBN_MediaIDParent` as the canonical spreadsheet Media ID field,
+`WebProxyPath` as the preferred source, and `OriginalPath` as the HiRes
+fallback. The importer will not use broad or fuzzy name matching.
 
 ## 4. Start without touching production
 
@@ -113,8 +114,9 @@ bash deploy/single-user/obtv-single.sh \
   --dry-run
 ```
 
-If that resolves one exact Curator asset and a readable path, run a ten-row
-smoke test:
+Dry-run also maps `WebProxyPath` through `/curator` and verifies that exactly
+one non-empty `_video.mp4` is readable. If that succeeds, run a ten-row smoke
+test:
 
 ```bash
 bash deploy/single-user/obtv-single.sh \
@@ -147,6 +149,20 @@ Dry-run rows are deliberately not terminal, so the later real run processes
 them normally. Failed and waiting rows remain retryable. To force all successful rows to be
 checked again, add `--retry-all`; OBTV's existing path/GUID deduplication prevents
 duplicate media records.
+
+### Current workbook preflight
+
+A read-only Curator API preflight on 2026-08-25 resolved all 202 Media IDs
+exactly:
+
+- 198 assets expose `WebProxyPath`
+- 2 assets expose only `OriginalPath` and require the HiRes mount
+- 2 assets currently expose neither ingestible path: `HD-P012419` and
+  `HD-P062419`
+
+The final two require a Curator restore/proxy-generation action before they can
+be ingested. The importer reports them as retryable failures; it does not mutate
+Curator or request proxy creation automatically.
 
 ## 6. Stop or remove only this instance
 

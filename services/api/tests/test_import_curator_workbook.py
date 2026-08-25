@@ -14,6 +14,7 @@ from app.commands.import_curator_workbook import (
     first_path,
     map_hires_path,
     read_workbook,
+    resolve_web_proxy_path,
 )
 
 
@@ -179,6 +180,19 @@ class CuratorResponseTests(unittest.TestCase):
                 root,
             )
         self.assertEqual(mapped.name, "episode.mxf")
+
+    def test_resolves_readable_web_proxy_video(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            folder = root / "2026" / "08" / "HD-P010322"
+            folder.mkdir(parents=True)
+            video = folder / "HD-P010322_video.mp4"
+            video.write_bytes(b"video")
+            mapped = resolve_web_proxy_path(
+                r"\\server\IPV\Proxies\WebProxy\2026\08\HD-P010322",
+                root,
+            )
+        self.assertEqual(mapped.name, "HD-P010322_video.mp4")
 
 
 if __name__ == "__main__":

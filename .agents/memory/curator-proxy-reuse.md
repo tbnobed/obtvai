@@ -15,3 +15,11 @@ description: IPV Curator WebProxy layout (video-only fMP4 + audio sidecars) and 
 - /curator is always watched; watcher polls `/api/curator/selected` (internal token) every ~45s and only ingests *_video.mp4 under admin-selected folders. `CURATOR_DIRECT_INGEST=1` = ingest everything (legacy).
 - Layout heuristic everywhere (sidebar scanner + folder mirroring): a dir with exactly ONE *_video.mp4 is a clip folder (counts toward parent, not browsable); multiple = flat content folder (browsable, keeps its mirrored library folder).
 - Re-check selection at ingest time, not just enqueue time (deselect race); mirror get-or-create chain runs under pg_advisory_xact_lock('obtv_curator_mirror').
+
+## Gateway API query quirks
+- The TBN Curator client-credentials token request must omit `scope` unless the OAuth client explicitly requires it.
+  - **Why:** this Gateway returned HTTP 500 when `scope` was included even though the OpenAPI document advertises scopes.
+  - **How to apply:** match the working Postman form exactly: client ID, client secret, and `grant_type=client_credentials`.
+- Asset search returns HTTP 500 when `names` contains unknown metadata fields.
+  - **Why:** broad guessed field lists made every otherwise-valid Media ID query fail; a minimal query succeeded immediately.
+  - **How to apply:** first query without `names`, inspect returned field names, then request only verified names. Treat a 500 as a possible bad metadata name before blaming credentials.

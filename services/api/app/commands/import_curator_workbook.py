@@ -36,13 +36,9 @@ HTTP_ERRORS = (httpx.HTTPError,) if httpx is not None else ()
 
 DEFAULT_WEB_PROXY_FIELDS = (
     "WebProxyPath",
-    "Web Proxy Path",
-    "ProxyPath",
 )
 DEFAULT_HIRES_FIELDS = (
-    "HiResPath",
-    "Hi Res Path",
-    "FilePath",
+    "OriginalPath",
 )
 TERMINAL_STATUSES = {"queued", "existing", "imported"}
 UUID_RE = re.compile(
@@ -328,6 +324,56 @@ def first_path(asset: dict[str, Any], field_names: Iterable[str]) -> str | None:
         if value.strip():
             return value.strip()
     return None
+
+
+def resolve_web_proxy_path(source_path: str, mount_root: Path) -> Path:
+    normalised = source_path.strip().replace("\\", "/")
+    if not normalised:
+        raise ImportFailure("WebProxyPath is empty")
+    parts = [part for part in normalised.split("/") if part not in ("", ".")]
+    if ".." in parts:
+        raise ImportFailure("WebProxyPath contains an invalid parent segment")
+
+    root = mount_root.resolve()
+    if normalised == str(mount_root) or normalised.startswith(str(mount_root) + "/"):
+        candidate = Path(normalised).resolve()
+    else:
+        markers = [
+            index
+            for index, part in enumerate(parts)
+            if part.casefold() == "webproxy"
+        ]
+        if not markers:
+            raise ImportFailure("WebProxyPath does not contain a WebProxy directory")
+        tail = parts[markers[-1] + 1:]
+        if not tail:
+            raise ImportFailure("WebProxyPath does not identify an asset proxy folder")
+        candidate = (root / Path(*tail)).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise ImportFailure("WebProxyPath resolves outside the /curator mount") from exc
+
+    if candidate.is_file():
+        videos = [candidate] if candidate.name.casefold().endswith("_video.mp4") else []
+    elif candidate.is_dir():
+        videos = sorted(
+            path for path in candidate.iterdir()
+            if path.is_file() and path.name.casefold().endswith("_video.mp4")
+        )
+    else:
+        raise ImportFailure(
+            f"Curator proxy folder is not available through the mount: {candidate}"
+        )
+    if not videos:
+        raise ImportFailure(f"No Curator _video.mp4 is available in {candidate}")
+    if len(videos) > 1:
+        raise ImportFailure(
+            f"Curator proxy folder contains {len(videos)} video proxies"
+        )
+    if videos[0].stat().st_size <= 0:
+        raise ImportFailure(f"Curator video proxy is empty: {videos[0]}")
+    return videos[0]
 
 
 def map_hires_path(
@@ -669,6 +715,16 @@ def run_import(args: argparse.Namespace) -> int:
                 if web_proxy:
                     item_state["source_type"] = "web-proxy"
                     if args.dry_run:
+                        mapped = resolve_web_proxy_path(
+                            web_proxy,
+                            Path(
+                                os.environ.get(
+                                    "CURATOR_PROXY_MOUNT_ROOT",
+                                    "/curator",
+                                )
+                            ),
+                        )
+                        item_state["mapped_web_proxy_path"] = str(mapped)
                         result = {
                             "status": "dry-run-ready",
                             "media_id": None,
