@@ -50,6 +50,7 @@ def _load_florence():
             _MODEL_ID,
             trust_remote_code=True,
             torch_dtype=dtype,
+            attn_implementation="eager",
         ).to(device).eval()
         return model, processor
 
