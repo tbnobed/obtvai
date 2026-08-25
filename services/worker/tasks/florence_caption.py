@@ -103,7 +103,10 @@ def _caption_images(images) -> list[str | None]:
             max_new_tokens=_MAX_NEW_TOKENS,
             num_beams=1,
             do_sample=False,
-            use_cache=True,
+            # Florence's remote code expects legacy populated KV-cache tuples.
+            # Newer Transformers can pass an uninitialized cache entry whose
+            # first key is None, crashing prepare_inputs_for_generation.
+            use_cache=False,
         )
 
     generated_texts = processor.batch_decode(
