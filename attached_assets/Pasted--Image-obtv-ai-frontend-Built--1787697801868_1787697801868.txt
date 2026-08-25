@@ -1,0 +1,25 @@
+ ✔ Image obtv-ai-frontend       Built                                                                                                                                                      20.0s
+ ✔ Image obtv-ai-api            Built                                                                                                                                                      20.0s
+ ✔ Container obtv-ai-redis-1    Healthy                                                                                                                                                     3.1s
+ ✔ Container obtv-ai-qdrant-1   Healthy                                                                                                                                                     3.1s
+ ✔ Container obtv-ai-postgres-1 Healthy                                                                                                                                                     3.1s
+ ✔ Container obtv-ai-api-1      Healthy                                                                                                                                                    14.1s
+ ✔ Container obtv-ai-frontend-1 Started                                                                                                                                                    12.0s
+frontend-1  | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+frontend-1  | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+frontend-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+frontend-1  | 10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf
+frontend-1  | 10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf
+frontend-1  | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+frontend-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+frontend-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+frontend-1  | /docker-entrypoint.sh: Configuration complete; ready for start up
+api-1       | INFO:     Started server process [1]
+api-1       | INFO:     Waiting for application startup.
+api-1       | INFO:     Application startup complete.
+api-1       | [22:42:59] Warm-up: thread started
+api-1       | [22:42:59] Warm-up: loading text embedding model...
+api-1       | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+api-1       | [22:43:03] Warm-up: text embedding model ready (4s)
+api-1       | [22:43:03] Warm-up: remote LLM mode (LLM_BASE_URL set) — local LLM warm-up skipped
+api-1       | INFO:     127.0.0.1:46714 - "GET /api/healthz HTTP/1.1" 200 OK
