@@ -1,0 +1,863 @@
+{
+  "info": {
+    "_postman_id": "6f68838b-78c6-44d5-844f-b24337886f1f",
+    "name": "TBN_Workspace - PROD",
+    "description": "Curator API sample calls",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "32373356",
+    "_collection_link": "https://go.postman.co/collection/1175922-6f68838b-78c6-44d5-844f-b24337886f1f?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Token via Client Credentials GRANT",
+      "protocolProfileBehavior": {
+        "followRedirects": false
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "client_id",
+              "value": "64f9b2918eac4d548555439928e068cf",
+              "type": "text"
+            },
+            {
+              "key": "client_secret",
+              "value": "r9!?N1!10WO4axf24i0@!43Y",
+              "type": "text"
+            },
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/connect/token",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "connect",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Query Single All Metadata",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer A0BBE20E6441B6E3E5E5026B9D62B95AD825D8B89FBBAFBE0D916C6EA4C24EE2",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/bb3c3416-fe04-4b95-ae9a-7f411c4c093c",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "bb3c3416-fe04-4b95-ae9a-7f411c4c093c"
+          ],
+          "query": [
+            {
+              "key": "name",
+              "value": "Title",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "assetId",
+              "value": "d39ac4dc-48e9-4264-ba44-ae6f9645a74c",
+              "disabled": true
+            },
+            {
+              "key": "name",
+              "value": "BackStageAWSS3UploadPath",
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Query Single Metadata Name Copy",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 2DB8942B8E8F8D52C8CB202CFF92CDC4387A365DB9E5AF14431BC2D26932DB8D",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/d39ac4dc-48e9-4264-ba44-ae6f9645a74c/metadata/BackStageAWSS3XMLUploadPath",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "d39ac4dc-48e9-4264-ba44-ae6f9645a74c",
+            "metadata",
+            "BackStageAWSS3XMLUploadPath"
+          ],
+          "query": [
+            {
+              "key": "name",
+              "value": "Title",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "assetId",
+              "value": "d39ac4dc-48e9-4264-ba44-ae6f9645a74c",
+              "disabled": true
+            },
+            {
+              "key": "name",
+              "value": "BackStageAWSS3UploadPath",
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Token via Client Credentials GRANT Copy",
+      "protocolProfileBehavior": {
+        "followRedirects": false
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "client_id",
+              "value": "64f9b2918eac4d548555439928e068cf",
+              "type": "text"
+            },
+            {
+              "key": "client_secret",
+              "value": "r9!?N1!10WO4axf24i0@!43Y",
+              "type": "text"
+            },
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/connect/token",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "connect",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Query Multiple Metadata Names",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/d39ac4dc-48e9-4264-ba44-ae6f9645a74c?names=name&names=OnLine&names=HiResPath",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "d39ac4dc-48e9-4264-ba44-ae6f9645a74c"
+          ],
+          "query": [
+            {
+              "key": "name",
+              "value": "Title",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "name",
+              "value": "BackStageAWSS3UploadPath",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "names",
+              "value": "name"
+            },
+            {
+              "key": "names",
+              "value": "OnLine"
+            },
+            {
+              "key": "names",
+              "value": "HiResPath"
+            },
+            {
+              "key": null,
+              "value": null,
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "JWPlayer Metadata Query",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/e0973419-bf61-43b9-9e25-0889a0b9ec5d?names=TBN_Title&names=asset.name&names=TBN_EpisodeNumber&names=TBN_SeasonNumber&names=TBN_ArtistandSong&names=TBN_BiblicalPeople&names=TBN_Director&names=TBN_Cast&names=TBN_Holidays&names=TBN_Networks&names=TBN_Topic&names=TBN_Music&names=TBN_Location&names=TBN_Geographic&names=TBN_PrayerFor&names=TBN_RequiresSubscription&names=TBN_Languages&names=TBN_CollectionSortField&names=TBN_CollectionSortOrder&names=TBN_RevShare&names=TBN_TvRating&names=TBN_ReleaseDate&names=TBN_IMDB&names=TBN_EIDR&names=TBN_MediaIdParent&names=TBN_SeasonNumber&names=TBN_EpisodeNumber&names=TBN_OriginalAirDate&names=TBN_HQME&names=TBN_ShortSynopsis&names=TBN_GenreMovie&names=TBN_JWPlayerSeriesID&names=TBN_Host&names=TBN_Genre&names=TBN_GenreMovie&names=TBN_Special&names=TBN_FaithIssues&names=TBN_Keywords&names=TBN_Scripture&names=TBN_Guest&names=TBN_CurationRating&names=TBN_MediaIdParent&names=TBN_VimeoEpisodeTitle&names=TBN_OriginalAirDate&names=TBN_WebKillDate&names=TBN_LongSynopsis&names=TBN_JWGenre",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "e0973419-bf61-43b9-9e25-0889a0b9ec5d"
+          ],
+          "query": [
+            {
+              "key": "name",
+              "value": "Title",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "name",
+              "value": "BackStageAWSS3UploadPath",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "names",
+              "value": "TBN_Title"
+            },
+            {
+              "key": "names",
+              "value": "asset.name"
+            },
+            {
+              "key": "names",
+              "value": "TBN_EpisodeNumber"
+            },
+            {
+              "key": "names",
+              "value": "TBN_SeasonNumber"
+            },
+            {
+              "key": "names",
+              "value": "TBN_ArtistandSong"
+            },
+            {
+              "key": "names",
+              "value": "TBN_BiblicalPeople"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Director"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Cast"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Holidays"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Networks"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Topic"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Music"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Location"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Geographic"
+            },
+            {
+              "key": "names",
+              "value": "TBN_PrayerFor"
+            },
+            {
+              "key": "names",
+              "value": "TBN_RequiresSubscription"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Languages"
+            },
+            {
+              "key": "names",
+              "value": "TBN_CollectionSortField"
+            },
+            {
+              "key": "names",
+              "value": "TBN_CollectionSortOrder"
+            },
+            {
+              "key": "names",
+              "value": "TBN_RevShare"
+            },
+            {
+              "key": "names",
+              "value": "TBN_TvRating"
+            },
+            {
+              "key": "names",
+              "value": "TBN_ReleaseDate"
+            },
+            {
+              "key": "names",
+              "value": "TBN_IMDB"
+            },
+            {
+              "key": "names",
+              "value": "TBN_EIDR"
+            },
+            {
+              "key": "names",
+              "value": "TBN_MediaIdParent"
+            },
+            {
+              "key": "names",
+              "value": "TBN_SeasonNumber"
+            },
+            {
+              "key": "names",
+              "value": "TBN_EpisodeNumber"
+            },
+            {
+              "key": "names",
+              "value": "TBN_OriginalAirDate"
+            },
+            {
+              "key": "names",
+              "value": "TBN_HQME"
+            },
+            {
+              "key": "names",
+              "value": "TBN_ShortSynopsis"
+            },
+            {
+              "key": "names",
+              "value": "TBN_GenreMovie"
+            },
+            {
+              "key": "names",
+              "value": "TBN_JWPlayerSeriesID"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Host"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Genre"
+            },
+            {
+              "key": "names",
+              "value": "TBN_GenreMovie"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Special"
+            },
+            {
+              "key": "names",
+              "value": "TBN_FaithIssues"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Keywords"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Scripture"
+            },
+            {
+              "key": "names",
+              "value": "TBN_Guest"
+            },
+            {
+              "key": "names",
+              "value": "TBN_CurationRating"
+            },
+            {
+              "key": "names",
+              "value": "TBN_MediaIdParent"
+            },
+            {
+              "key": "names",
+              "value": "TBN_VimeoEpisodeTitle"
+            },
+            {
+              "key": "names",
+              "value": "TBN_OriginalAirDate"
+            },
+            {
+              "key": "names",
+              "value": "TBN_WebKillDate"
+            },
+            {
+              "key": "names",
+              "value": "TBN_LongSynopsis"
+            },
+            {
+              "key": "names",
+              "value": "TBN_JWGenre"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Set JWPlayer Media ID",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          },
+          {
+            "key": "",
+            "value": "",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\r\n\"a1b2c3d4e5\"\r\n]",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/d39ac4dc-48e9-4264-ba44-ae6f9645a74c/metadata/TBN_JWPlayer_VideoId",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "d39ac4dc-48e9-4264-ba44-ae6f9645a74c",
+            "metadata",
+            "TBN_JWPlayer_VideoId"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Set JWPlayer Series ID",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          },
+          {
+            "key": "",
+            "value": "",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\r\n\"z9y8x712345\"\r\n]",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/d39ac4dc-48e9-4264-ba44-ae6f9645a74c/metadata/TBN_JWPlayerSeriesID",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "d39ac4dc-48e9-4264-ba44-ae6f9645a74c",
+            "metadata",
+            "TBN_JWPlayerSeriesID"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Set backstageId",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          },
+          {
+            "key": "",
+            "value": "",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\r\n\"TBN12345abc\"\r\n]",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/d39ac4dc-48e9-4264-ba44-ae6f9645a74c/metadata/backstageId",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "d39ac4dc-48e9-4264-ba44-ae6f9645a74c",
+            "metadata",
+            "backstageId"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Set both JWPlayer Media ID | Series ID",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          },
+          {
+            "key": "",
+            "value": "",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"TBN_JWPlayer_VideoId\": [\r\n    \"1J3HaWk\"\r\n  ],\r\n  \"TBN_JWPlayerSeriesID\": [\r\n    \"9T0oR1nG\"\r\n  ]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/d39ac4dc-48e9-4264-ba44-ae6f9645a74c/metadata",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "d39ac4dc-48e9-4264-ba44-ae6f9645a74c",
+            "metadata"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Set JWPlayerMediaID | JWPlayerSeriesID | backstageId",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          },
+          {
+            "key": "",
+            "value": "",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"TBN_JWPlayer_VideoId\": [\r\n    \"1J3HaWk\"\r\n  ],\r\n  \"TBN_JWPlayerSeriesID\": [\r\n    \"9T0oR1nG\"\r\n  ],\r\n\"backstageId\": [\r\n    \"TBN12345abc\"\r\n  ]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/d39ac4dc-48e9-4264-ba44-ae6f9645a74c/metadata",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "d39ac4dc-48e9-4264-ba44-ae6f9645a74c",
+            "metadata"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Send Asset to MediaStore for Task (Example Proxy Creation)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n\"assetIds\": [\r\n\"d39ac4dc-48e9-4264-ba44-ae6f9645a74c\"\r\n],\r\n\"mediaStoreNames\": [\r\n\"PROXY-V3\"\r\n]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/sendto",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "sendto"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create PlaceHolder in Curator No Metadata (Ingest > For > From Myers)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n\"name\": \"Jack_Hawkinsv1\",\r\n\"assetType\": \"Media\",\r\n\"mediaStoreName\": \"FILEINGEST-METADATAIMPORT\",\r\n\"folderPath\": \"Ingest\\\\For Air\\\\From Myers\",\r\n\"metadata\": {\r\n}\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/placeholders",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "placeholders"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create PlaceHolder in Curator with Metadata (Ingest > For > From Myers)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer 6259954FFA7678649CEBECE4FB6430D58B29C409428DB5031CE84184609D0AEC",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n\"name\": \"Jack_Hawkinsv2\",\r\n\"assetType\": \"Media\",\r\n\"mediaStoreName\": \"FILEINGEST-METADATAIMPORT\",\r\n\"folderPath\": \"Ingest\\\\For Air\\\\From Myers\",\r\n\"metadata\": {\r\n\"OnLine\": \"false\",\r\n\"Analysed\": \"false\",\r\n\"TBN_Title\": \"Jack Hawkins Test Placeholder Creation\"\r\n}\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://curator.tbn.tv/CuratorGateway/api/v1/assets/placeholders",
+          "protocol": "https",
+          "host": [
+            "curator",
+            "tbn",
+            "tv"
+          ],
+          "path": [
+            "CuratorGateway",
+            "api",
+            "v1",
+            "assets",
+            "placeholders"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "DOMAIN",
+      "value": "tust-ipv-cur-sb.trinity.local"
+    }
+  ]
+}
