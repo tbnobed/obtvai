@@ -1,0 +1,131 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose exec -T postgres psql -U obtv -d obtv -v ON_ERROR_STOP=1 <<'SQL'
+SET lock_timeout = '120s';
+
+ALTER TABLE media_assets
+  ADD COLUMN IF NOT EXISTS curator_original_air_date TIMESTAMP;
+
+ALTER TABLE media_assets
+  ADD COLUMN IF NOT EXISTS curator_last_air_date TIMESTAMP;
+
+ALTER TABLE media_assets
+  ADD COLUMN IF NOT EXISTS curator_air_info_fetched_at TIMESTAMP;
+SQL
+SET
+NOTICE:  column "curator_original_air_date" of relation "media_assets" already exists, skipping
+ALTER TABLE
+NOTICE:  column "curator_last_air_date" of relation "media_assets" already exists, skipping
+ALTER TABLE
+NOTICE:  column "curator_air_info_fetched_at" of relation "media_assets" already exists, skipping
+ALTER TABLE
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose up -d api frontend
+docker compose ps api frontend
+docker compose logs --tail=100 api
+[+] up 5/5
+ ✔ Container obtv-ai-postgres-1 Healthy                                                                                                                                                     0.5s
+ ✔ Container obtv-ai-qdrant-1   Healthy                                                                                                                                                     0.5s
+ ✔ Container obtv-ai-redis-1    Healthy                                                                                                                                                     0.5s
+ ✔ Container obtv-ai-api-1      Healthy                                                                                                                                                     1.0s
+ ✔ Container obtv-ai-frontend-1 Started                                                                                                                                                     0.1s
+NAME                 IMAGE              COMMAND                  SERVICE    CREATED         STATUS                        PORTS
+obtv-ai-api-1        obtv-ai-api        "uvicorn app.main:ap…"   api        3 minutes ago   Up About a minute (healthy)   8000/tcp
+obtv-ai-frontend-1   obtv-ai-frontend   "/docker-entrypoint.…"   frontend   3 minutes ago   Up Less than a second         0.0.0.0:5000->80/tcp, [::]:5000->80/tcp
+api-1  |     async with original_context(app) as maybe_original_state:
+api-1  |   File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+api-1  |     return await anext(self.gen)
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+api-1  |     async with original_context(app) as maybe_original_state:
+api-1  |   File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+api-1  |     return await anext(self.gen)
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+api-1  |     async with original_context(app) as maybe_original_state:
+api-1  |   File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+api-1  |     return await anext(self.gen)
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+api-1  |     async with original_context(app) as maybe_original_state:
+api-1  |   File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+api-1  |     return await anext(self.gen)
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+api-1  |     async with original_context(app) as maybe_original_state:
+api-1  |   File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+api-1  |     return await anext(self.gen)
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/app/app/main.py", line 281, in lifespan
+api-1  |     await _run_startup_migrations()
+api-1  |   File "/app/app/main.py", line 154, in _run_startup_migrations
+api-1  |     await conn.execute(text(
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/ext/asyncio/engine.py", line 657, in execute
+api-1  |     result = await greenlet_spawn(
+api-1  |              ^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 201, in greenlet_spawn
+api-1  |     result = context.throw(*sys.exc_info())
+api-1  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1418, in execute
+api-1  |     return meth(
+api-1  |            ^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+api-1  |     return connection._execute_clauseelement(
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+api-1  |     ret = self._execute_context(
+api-1  |           ^^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+api-1  |     return self._exec_single_context(
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+api-1  |     self._handle_dbapi_exception(
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+api-1  |     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+api-1  |     self.dialect.do_execute(
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+api-1  |     cursor.execute(statement, parameters)
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 568, in execute
+api-1  |     self._adapt_connection.await_(
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+api-1  |     return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+api-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+api-1  |     value = await result
+api-1  |             ^^^^^^^^^^^^
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 546, in _prepare_and_execute
+api-1  |     self._handle_exception(error)
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 497, in _handle_exception
+api-1  |     self._adapt_connection._handle_exception(error)
+api-1  |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 780, in _handle_exception
+api-1  |     raise translated_error from error
+api-1  | sqlalchemy.exc.DBAPIError: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.LockNotAvailableError'>: canceling statement due to lock timeout
+api-1  | [SQL: ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS curator_original_air_date TIMESTAMP]
+api-1  | (Background on this error at: https://sqlalche.me/e/20/dbapi)
+api-1  |
+api-1  | ERROR:    Application startup failed. Exiting.
+api-1  | INFO:     Started server process [1]
+api-1  | INFO:     Waiting for application startup.
+api-1  | Startup migrations blocked (attempt 1/5): (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.LockNotAvailableError'>: canceling statement due to lock timeout
+api-1  | [SQL: ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS curator_original_air_date TIMESTAMP]
+api-1  | (Background on this error at: https://sqlalche.me/e/20/dbapi); retrying in 5s
+api-1  | Startup migrations blocked (attempt 2/5): (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.LockNotAvailableError'>: canceling statement due to lock timeout
+api-1  | [SQL: ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS curator_original_air_date TIMESTAMP]
+api-1  | (Background on this error at: https://sqlalche.me/e/20/dbapi); retrying in 5s
+api-1  | INFO:     Application startup complete.
+api-1  | [23:01:30] Warm-up: thread started
+api-1  | [23:01:30] Warm-up: loading text embedding model...
+api-1  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+api-1  | [23:01:33] Warm-up: text embedding model ready (3s)
+api-1  | [23:01:33] Warm-up: remote LLM mode (LLM_BASE_URL set) — local LLM warm-up skipped
+api-1  | INFO:     127.0.0.1:57508 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:37290 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:59894 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:36610 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:34796 - "POST /api/media/curator-import HTTP/1.1" 202 Accepted
+api-1  | INFO:     127.0.0.1:34250 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:60988 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:38146 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:42384 - "GET /api/healthz HTTP/1.1" 200 OK
+api-1  | INFO:     172.18.0.13:42426 - "POST /api/media/curator-import HTTP/1.1" 202 Accepted
+api-1  | INFO:     172.18.0.13:51064 - "POST /api/media/curator-import HTTP/1.1" 202 Accepted
+api-1  | INFO:     172.18.0.13:51068 - "POST /api/media/curator-import HTTP/1.1" 202 Accepted
+api-1  | INFO:     127.0.0.1:35546 - "GET /api/healthz HTTP/1.1" 200 OK
