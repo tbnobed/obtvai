@@ -50,25 +50,13 @@ def _query_free_gpu_gib(device_index: int = 0) -> float:
     the driver hands out — often much smaller than actual free memory.
 
     Strategy (in priority order):
-    1. BAGEL_MAX_MEMORY_GIB env var — operator-supplied fixed cap (best for
-       unified-memory hosts where the total is known in advance).
-    2. nvidia-smi per-process query — sums GPU memory of all running compute
+    1. nvidia-smi per-process query — sums GPU memory of all running compute
        processes, subtracts from BAGEL_TOTAL_GPU_MEMORY_GIB (or the reported
        total if the driver supports it).  Unaffected by context windows.
-    3. torch.cuda.mem_get_info() fallback — unreliable on GB10 but works on
+    2. torch.cuda.mem_get_info() fallback — unreliable on GB10 but works on
        discrete GPUs.
     """
-    # ── Option 1: explicit operator cap ──────────────────────────────────────
-    explicit = os.environ.get("BAGEL_MAX_MEMORY_GIB", "").strip()
-    if explicit:
-        try:
-            cap = float(explicit)
-            logger.info("Using BAGEL_MAX_MEMORY_GIB=%s GiB (explicit cap)", explicit)
-            return cap
-        except ValueError:
-            logger.warning("Invalid BAGEL_MAX_MEMORY_GIB=%r — ignoring", explicit)
-
-    # ── Option 2: nvidia-smi per-process sum ─────────────────────────────────
+    # ── Option 1: nvidia-smi per-process sum ─────────────────────────────────
     try:
         # Sum memory used by all compute processes on this GPU.
         used_r = subprocess.run(
@@ -129,7 +117,7 @@ def _query_free_gpu_gib(device_index: int = 0) -> float:
     except Exception as exc:
         logger.warning("nvidia-smi query failed (%s) — falling back to mem_get_info", exc)
 
-    # ── Option 3: torch fallback ──────────────────────────────────────────────
+    # ── Option 2: torch fallback ──────────────────────────────────────────────
     try:
         torch.cuda.empty_cache()
         free_bytes, _ = torch.cuda.mem_get_info(device_index)
@@ -225,12 +213,34 @@ def _load_model():
         # at least that to avoid fragmented disk-offload that makes it useless).
         n_gpus = torch.cuda.device_count()
         if n_gpus > 0:
-            free_gib = _query_free_gpu_gib(0)
-            avail_gib = int(min(80, max(14, free_gib - 6)))
-            logger.info(
-                "GPU 0: %.1f GiB free → allocating %d GiB for BAGEL (6 GiB headroom)",
-                free_gib, avail_gib,
-            )
+            explicit_cap = os.environ.get("BAGEL_MAX_MEMORY_GIB", "").strip()
+            if explicit_cap:
+                try:
+                    # This is an operator-approved allocation ceiling, not a
+                    # measurement of free memory.  Applying the 6 GiB
+                    # automatic headroom a second time under-allocates BAGEL
+                    # and unnecessarily spills more layers to disk.
+                    avail_gib = int(float(explicit_cap))
+                    if avail_gib < 14:
+                        raise ValueError("must be at least 14")
+                    logger.info(
+                        "GPU 0: allocating explicit BAGEL cap of %d GiB",
+                        avail_gib,
+                    )
+                except ValueError:
+                    logger.warning(
+                        "Invalid BAGEL_MAX_MEMORY_GIB=%r; deriving a safe cap automatically",
+                        explicit_cap,
+                    )
+                    free_gib = _query_free_gpu_gib(0)
+                    avail_gib = int(min(80, max(14, free_gib - 6)))
+            else:
+                free_gib = _query_free_gpu_gib(0)
+                avail_gib = int(min(80, max(14, free_gib - 6)))
+                logger.info(
+                    "GPU 0: %.1f GiB free → allocating %d GiB for BAGEL (6 GiB headroom)",
+                    free_gib, avail_gib,
+                )
             max_memory = {i: f"{avail_gib}GiB" for i in range(n_gpus)}
         else:
             logger.warning("No CUDA GPUs visible — loading BAGEL on CPU")

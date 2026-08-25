@@ -24,7 +24,7 @@ from tasks.base import append_log, create_job, update_job
 logger = logging.getLogger("tasks.bagel_caption")
 
 _CAPTION_TIMEOUT = int(os.environ.get("BAGEL_CAPTION_TIMEOUT", "600"))
-_CAPTION_MAX_TOKENS = int(os.environ.get("BAGEL_CAPTION_MAX_TOKENS", "120"))
+_CAPTION_MAX_TOKENS = int(os.environ.get("BAGEL_CAPTION_MAX_TOKENS", "32"))
 _MAX_CONSECUTIVE_FAILURES = int(os.environ.get("BAGEL_MAX_CONSECUTIVE_FAILURES", "3"))
 
 _CAPTION_PROMPT = (
@@ -32,7 +32,7 @@ _CAPTION_PROMPT = (
     "Describe this video frame concisely: who is in the frame, "
     "what they are doing, the setting or location, any visible text or "
     "lower-thirds, and the overall mood. Be factual and specific. "
-    "Write 2–3 sentences maximum."
+    "Write one concise sentence of no more than 30 words."
 )
 
 
