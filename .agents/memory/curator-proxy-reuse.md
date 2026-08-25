@@ -26,5 +26,5 @@ description: IPV Curator WebProxy layout (video-only fMP4 + audio sidecars) and 
 
 ## ClipLink OBTV extension automation
 - The OBTV extension is not equivalent to Gateway `/api/v1/assets/sendto`. It submits `Plug-in - Send to genericV4` through ClipLink `PluginHandler/SubmitProcess`, with `AssetIds` and destination `MODIFY-ASSET-CURATORFOLDERPATH,EXPORT-OBTV-XML`, then polls `PluginHandler/GetProcess`.
-  - **Why:** Gateway SendTo returned a completed no-op, while the exact same-origin ClipLink request was confirmed to create the intended OBTV handoff.
-  - **How to apply:** for one-time bulk operation, run a reviewed same-origin browser script in an authenticated ClipLink session; never copy/store browser cookies. Treat status 32 as queued, 2 as running, and 4 with progress 1 as complete, then verify XML and OBTV.
+  - **Why:** Gateway SendTo returned a completed no-op, while a ten-asset sequential production gate through the same-origin ClipLink process completed cleanly.
+  - **How to apply:** for one-time bulk operation, run a reviewed same-origin browser script in an authenticated ClipLink session; never copy/store browser cookies. Treat status 32 as queued, 2 as running, and 4 with progress 1 as complete, then verify XML and OBTV before expanding beyond the gate.
