@@ -41,6 +41,8 @@ DEFAULT_HIRES_FIELDS = (
     "OriginalPath",
 )
 TERMINAL_STATUSES = {"queued", "existing", "imported"}
+CURATOR_MEDIA_ID_FIELD = "TBN_MediaIDParent"
+EXECUTION_CONFIRMATION = "QUEUE_PRODUCTION_IMPORTS"
 UUID_RE = re.compile(
     r"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-"
     r"[89ab][0-9a-f]{3}-[0-9a-f]{12}\b"
@@ -422,12 +424,9 @@ class CuratorClient:
         # client-credentials grant. Some Curator deployments return HTTP 500
         # when it is included, so only send it when an operator opts in.
         self.scope = os.environ.get("CURATOR_OAUTH_SCOPE", "").strip()
-        self.query_field = os.environ.get("CURATOR_MEDIA_ID_QUERY_FIELD", "").strip()
-        if not self.query_field:
-            raise ImportFailure(
-                "CURATOR_MEDIA_ID_QUERY_FIELD must name Curator's canonical, "
-                "unique Media ID metadata field"
-            )
+        # This is deliberately not configurable: production matching must use
+        # the workbook's parent Media ID, never a title, stem, or fuzzy field.
+        self.query_field = CURATOR_MEDIA_ID_FIELD
         self.id_fields = (self.query_field,)
         self.web_proxy_fields = _csv_env(
             "CURATOR_WEB_PROXY_FIELDS",
@@ -622,6 +621,11 @@ def _read_state(path: Path, workbook: Path) -> dict[str, Any]:
             raise ImportFailure(f"Could not read state file {path}: {exc}") from exc
         if not isinstance(state, dict) or not isinstance(state.get("items"), dict):
             raise ImportFailure(f"State file has an invalid structure: {path}")
+        if state.get("workbook") not in (None, workbook.name):
+            raise ImportFailure(
+                f"State file {path} belongs to workbook {state.get('workbook')!r}, "
+                f"not {workbook.name!r}"
+            )
         return state
     return {
         "version": 1,
@@ -652,14 +656,88 @@ def _write_state(path: Path, state: dict[str, Any]) -> None:
 
 
 def _safe_error(exc: Exception) -> str:
-    message = str(exc).replace(
-        os.environ.get("CURATOR_CLIENT_SECRET", "") or "\0",
-        "<redacted>",
-    )
+    message = str(exc)
+    for secret_name in (
+        "CURATOR_CLIENT_SECRET",
+        "INTERNAL_API_TOKEN",
+        "OBTV_API_KEY",
+    ):
+        secret = os.environ.get(secret_name, "")
+        if secret:
+            message = message.replace(secret, "<redacted>")
     return message[:1000]
 
 
+def _is_transient_failure(exc: Exception) -> bool:
+    """Retry transport failures, but do not repeat deterministic validation."""
+    return isinstance(exc, OSError) or bool(HTTP_ERRORS and isinstance(exc, HTTP_ERRORS))
+
+
+def _resolve_import_source(
+    web_proxy: str | None,
+    hires: str | None,
+) -> tuple[str, Path, str | None]:
+    """Choose a local, readable source with WebProxy preferred over HiRes.
+
+    The local checks intentionally happen before an execution POST. This
+    prevents a stale Curator path from creating a waiting production record
+    when a safe HiRes fallback is available.
+    """
+    proxy_error: str | None = None
+    if web_proxy:
+        try:
+            mapped_proxy = resolve_web_proxy_path(
+                web_proxy,
+                Path(os.environ.get(
+                    "CURATOR_PROXY_MOUNT_ROOT",
+                    os.environ.get("CURATOR_PROXY_ROOT", "/curator"),
+                )),
+            )
+            return "web-proxy", mapped_proxy, None
+        except ImportFailure as exc:
+            proxy_error = str(exc)
+
+    if hires:
+        try:
+            mapped_hires = map_hires_path(
+                hires,
+                os.environ.get("CURATOR_HIRES_UNC_PREFIX", ""),
+                Path(os.environ.get("CURATOR_HIRES_MOUNT_ROOT", "/media")),
+            )
+            return "hires-fallback" if proxy_error else "hires-only", mapped_hires, proxy_error
+        except ImportFailure as exc:
+            if proxy_error:
+                raise ImportFailure(
+                    f"WebProxyPath unavailable ({proxy_error}); "
+                    f"OriginalPath fallback is not usable ({exc})"
+                ) from exc
+            raise
+
+    if proxy_error:
+        raise ImportFailure(f"WebProxyPath unavailable and no HiRes fallback: {proxy_error}")
+    raise ImportFailure(
+        "The matched Curator asset returned neither a WebProxyPath nor a HiResPath"
+    )
+
+
+def _validate_mode(args: argparse.Namespace) -> None:
+    if args.execute and args.dry_run:
+        raise ImportFailure("Choose either the default preflight mode or --execute, not both")
+    if args.execute and args.confirm != EXECUTION_CONFIRMATION:
+        raise ImportFailure(
+            "Production writes are gated. Use "
+            f"--execute --confirm {EXECUTION_CONFIRMATION} after reviewing a preflight."
+        )
+    if not args.execute and args.confirm:
+        raise ImportFailure("--confirm can only be used together with --execute")
+    if args.limit is not None and args.limit < 1:
+        raise ImportFailure("--limit must be greater than zero")
+    if args.max_attempts < 1 or args.max_attempts > 5:
+        raise ImportFailure("--max-attempts must be between 1 and 5")
+
+
 def run_import(args: argparse.Namespace) -> int:
+    _validate_mode(args)
     workbook = args.workbook.resolve()
     rows = read_workbook(workbook)
     if args.media_id:
@@ -680,7 +758,7 @@ def run_import(args: argparse.Namespace) -> int:
     )
     state = _read_state(state_path, workbook)
     curator = CuratorClient()
-    obtv = ObtvClient()
+    obtv = ObtvClient() if args.execute else None
     manifest_name = f"curator-api-{workbook.stem}"
     summary: dict[str, int] = {}
     try:
@@ -703,51 +781,38 @@ def run_import(args: argparse.Namespace) -> int:
             state["items"][row.media_id] = item_state
             _write_state(state_path, state)
 
-            try:
-                asset = curator.search(row.media_id)
-                guid = asset_guid(asset)
-                web_proxy = first_path(asset, curator.web_proxy_fields)
-                hires = first_path(asset, curator.hires_fields)
-                item_state["curator_asset_id"] = guid
-                item_state["web_proxy_path"] = web_proxy
-                item_state["hires_path"] = hires
+            for attempt in range(1, args.max_attempts + 1):
+                try:
+                    asset = curator.search(row.media_id)
+                    guid = asset_guid(asset)
+                    web_proxy = first_path(asset, curator.web_proxy_fields)
+                    hires = first_path(asset, curator.hires_fields)
+                    item_state["curator_asset_id"] = guid
+                    item_state["web_proxy_path"] = web_proxy
+                    item_state["hires_path"] = hires
 
-                if web_proxy:
-                    item_state["source_type"] = "web-proxy"
-                    if args.dry_run:
-                        mapped = resolve_web_proxy_path(
-                            web_proxy,
-                            Path(
-                                os.environ.get(
-                                    "CURATOR_PROXY_MOUNT_ROOT",
-                                    "/curator",
-                                )
-                            ),
-                        )
-                        item_state["mapped_web_proxy_path"] = str(mapped)
-                        result = {
-                            "status": "dry-run-ready",
-                            "media_id": None,
-                            "job_id": None,
-                            "retryable": False,
-                            "error": None,
-                        }
-                    else:
-                        result = obtv.import_web_proxy(
-                            row,
-                            guid,
-                            web_proxy,
-                            manifest_name,
-                        )
-                elif hires:
-                    item_state["source_type"] = "hires"
-                    mapped = map_hires_path(
+                    source_type, mapped, proxy_error = _resolve_import_source(
+                        web_proxy,
                         hires,
-                        os.environ.get("CURATOR_HIRES_UNC_PREFIX", ""),
-                        Path(os.environ.get("CURATOR_HIRES_MOUNT_ROOT", "/media")),
                     )
-                    item_state["mapped_hires_path"] = str(mapped)
-                    if args.dry_run:
+                    item_state["source_type"] = source_type
+                    item_state["mapped_source_path"] = str(mapped)
+                    if proxy_error:
+                        item_state["web_proxy_error"] = _safe_error(
+                            ImportFailure(proxy_error)
+                        )
+
+                    if args.execute:
+                        if source_type == "web-proxy":
+                            result = obtv.import_web_proxy(
+                                row,
+                                guid,
+                                web_proxy or "",
+                                manifest_name,
+                            )
+                        else:
+                            result = obtv.import_hires(row, mapped)
+                    else:
                         result = {
                             "status": "dry-run-ready",
                             "media_id": None,
@@ -755,30 +820,39 @@ def run_import(args: argparse.Namespace) -> int:
                             "retryable": False,
                             "error": None,
                         }
-                    else:
-                        result = obtv.import_hires(row, mapped)
-                else:
-                    raise ImportFailure(
-                        "The matched Curator asset returned neither a WebProxyPath "
-                        "nor a HiResPath"
+                    item_state.update(result)
+                    break
+                except IMPORT_ERRORS as exc:
+                    if attempt < args.max_attempts and _is_transient_failure(exc):
+                        item_state["retry_attempt"] = attempt
+                        item_state["last_error"] = _safe_error(exc)
+                        _write_state(state_path, state)
+                        delay = min(2 ** (attempt - 1), 8)
+                        print(
+                            f"[{index}/{len(rows)}] {row.media_id}: "
+                            f"transient failure, retrying in {delay}s",
+                            flush=True,
+                        )
+                        time.sleep(delay)
+                        continue
+                    item_state.update(
+                        {
+                            "status": "failed",
+                            "retryable": True,
+                            "error": _safe_error(exc),
+                        }
                     )
-                item_state.update(result)
-            except IMPORT_ERRORS as exc:
-                item_state.update(
-                    {
-                        "status": "failed",
-                        "retryable": True,
-                        "error": _safe_error(exc),
-                    }
-                )
+                    break
             _write_state(state_path, state)
             status = item_state["status"]
             summary[status] = summary.get(status, 0) + 1
             print(f"[{index}/{len(rows)}] {row.media_id}: {status}", flush=True)
     finally:
         curator.close()
-        obtv.close()
+        if obtv is not None:
+            obtv.close()
 
+    print("Mode: " + ("EXECUTE (production writes)" if args.execute else "PREFLIGHT (read-only)"))
     print(f"State file: {state_path}")
     print("Summary: " + ", ".join(f"{key}={value}" for key, value in sorted(summary.items())))
     failed = summary.get("failed", 0)
@@ -804,7 +878,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Resolve and validate paths without queueing OBTV ingestion",
+        help="Explicitly request the default read-only preflight mode",
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Queue eligible assets in OBTV (requires the exact confirmation phrase)",
+    )
+    parser.add_argument(
+        "--confirm",
+        metavar="PHRASE",
+        help=f"Required with --execute: {EXECUTION_CONFIRMATION}",
+    )
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=3,
+        help="Maximum attempts for transient network failures per Media ID (1-5)",
     )
     parser.add_argument(
         "--retry-all",

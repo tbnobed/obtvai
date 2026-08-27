@@ -23,6 +23,14 @@ description: IPV Curator WebProxy layout (video-only fMP4 + audio sidecars) and 
 - Asset search returns HTTP 500 when `names` contains unknown metadata fields.
   - **Why:** broad guessed field lists made every otherwise-valid Media ID query fail; a minimal query succeeded immediately.
   - **How to apply:** first query without `names`, inspect returned field names, then request only verified names. Treat a 500 as a possible bad metadata name before blaming credentials.
+- A live read-only production check confirmed that `TBN_MediaIDParent`,
+  `WebProxyPath`, and `OriginalPath` can be requested together and return a
+  unique exact parent-Media-ID match.
+  - **Why:** the batch importer must request a minimal verified field set;
+    guessed metadata names can make otherwise valid searches fail at the
+    Gateway.
+  - **How to apply:** retain this exact three-field projection for workbook
+    preflights, and do not expand it without a new isolated read-only check.
 - Production uses split-horizon DNS for `curator.tbn.tv`; its private answer is unreachable from the OBTV host while the verified public endpoint is reachable.
   - **Why:** both host and API container timed out against the private address, while a hostname-preserving public-IP override authenticated and fetched asset metadata successfully.
   - **How to apply:** keep the Curator hostname for TLS, but scope the verified public-IP DNS override to the API container; revalidate the public address before changing it.
