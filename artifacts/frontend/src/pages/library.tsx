@@ -99,6 +99,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const ASSET_DRAG_TYPE = "application/x-obtv-asset-ids";
 const FOLDER_DRAG_TYPE = "application/x-obtv-folder-id";
+const ACTIVE_MEDIA_REPORT_KEY = "active-media-report-id";
 
 // fetch() cannot report upload progress — use XHR so large uploads show a
 // real progress bar instead of an indefinite "uploading..." state.
@@ -207,7 +208,9 @@ export default function Library() {
   const updateProject = useUpdateProject();
   const deleteMedia = useDeleteMedia();
   const createMediaReport = useCreateMediaReport();
-  const [mediaReportId, setMediaReportId] = useState<string | null>(null);
+  const [mediaReportId, setMediaReportId] = useState<string | null>(
+    () => localStorage.getItem(ACTIVE_MEDIA_REPORT_KEY),
+  );
   const reportedCompletionRef = useRef<string | null>(null);
   const {
     data: mediaReport,
@@ -315,6 +318,7 @@ export default function Library() {
       {
         onSuccess: (report) => {
           setMediaReportId(report.id);
+          localStorage.setItem(ACTIVE_MEDIA_REPORT_KEY, report.id);
           toast({
             description: `Report queued for ${report.total_assets} media ${report.total_assets === 1 ? "item" : "items"}.`,
           });

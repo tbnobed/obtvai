@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useRetryFailedJobs, useCancelJob, useCleanupJobs, useReindexLibrary, useResumeStalledMedia } from "@workspace/api-client-react";
+import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useRetryFailedJobs, useCancelJob, useCleanupJobs, useReindexLibrary, useResumeStalledMedia, getDownloadMediaReportUrl } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Square, Trash2, DatabaseZap, ChevronDown, ChevronRight } from "lucide-react";
+import { Play, Square, Trash2, DatabaseZap, ChevronDown, ChevronRight, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Jobs() {
@@ -47,6 +47,15 @@ export default function Jobs() {
 
   const handleCancel = (id: string) => {
     cancelMutation.mutate({ id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() }) });
+  };
+
+  const downloadMediaReport = (reportId: string) => {
+    const link = document.createElement("a");
+    link.href = getDownloadMediaReportUrl(reportId);
+    link.download = "reair-report.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
   const handleCleanup = (statuses?: string[]) => {
@@ -247,6 +256,11 @@ export default function Jobs() {
                 </div>
 
                 <div className="flex gap-2">
+                  {job.job_type === "media_report" && job.status === "success" && (
+                    <Button size="sm" onClick={() => downloadMediaReport(job.id)}>
+                      <Download className="h-4 w-4 mr-1" /> Download CSV
+                    </Button>
+                  )}
                   {(job.logs?.length ?? 0) > 0 && (
                     <Button size="sm" variant="ghost" onClick={() => toggleLogs(job.id)}>
                       {expandedLogs.has(job.id) ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
