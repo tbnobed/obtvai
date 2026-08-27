@@ -753,6 +753,21 @@ const MEDIA_REPORT_HEADERS = [
   "Any date sensitive material (timecode where)",
 ];
 
+function mockLongSynopsis(asset: any): string {
+  const transcriptText = transcript
+    .filter((segment) => segment.media_id === asset.id)
+    .map((segment) => segment.text)
+    .join(" ");
+  const source = [
+    asset.synopsis,
+    transcriptText,
+    "This Re-Air Report synopsis follows the program's chronology, principal discussion, examples, and conclusions without adding facts beyond the available media metadata and transcript.",
+  ].filter(Boolean).join(" ");
+  const words = source.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "";
+  return Array.from({ length: 500 }, (_, index) => words[index % words.length]).join(" ");
+}
+
 function mockReportRow(asset: any): Record<string, string> {
   const airDates = [
     asset.curator_original_air_date ? `Original: ${String(asset.curator_original_air_date).slice(0, 10)}` : "",
@@ -775,7 +790,7 @@ function mockReportRow(asset: any): Record<string, string> {
     "Host": asset.id === "asset-001" ? "Jordan Miles" : "",
     "Guests": asset.id === "asset-001" ? "Sarah Chen" : "",
     "Short Synopsis": asset.synopsis ?? "Transcript-backed report generated in the production media worker.",
-    "Long Synopsis": asset.synopsis ?? "Transcript-backed report generated in the production media worker.",
+    "Long Synopsis": mockLongSynopsis(asset),
     "Any dates mentioned (timecode where)": asset.id === "asset-001"
       ? "26:20 — The discussion references the November 2026 bond measure."
       : "",

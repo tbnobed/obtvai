@@ -8,7 +8,7 @@ from db import get_session
 from tasks.base import append_log, update_job
 
 
-_MAX_SYNOPSIS_WORDS = 500
+_SYNOPSIS_WORDS = 500
 _MAX_REDUCE_CHARS = 18000
 
 
@@ -23,9 +23,13 @@ def _safe_error(exc: Exception) -> str:
     return message[:1000]
 
 
-def _limit_words(value: str, limit: int = _MAX_SYNOPSIS_WORDS) -> str:
+def _limit_words(value: str, limit: int = _SYNOPSIS_WORDS) -> str:
     words = re.findall(r"\S+", value.strip())
     return " ".join(words[:limit])
+
+
+def _word_count(value: str) -> int:
+    return len(re.findall(r"\S+", value.strip()))
 
 
 def _unique_names(values) -> list[str]:
@@ -215,16 +219,47 @@ def _analyze_asset(
     reduced = _reduce_summaries(tokenizer, model, chunk_summaries)
     synthesis_prompt = (
         "Using only this chronological evidence, produce JSON with a clear short synopsis "
-        "(1-2 sentences) and a complete long synopsis of at most 500 words. Do not invent "
-        "details or names. Return JSON only.\n\n"
+        "(1-2 sentences) and a complete long synopsis of exactly 500 words. Develop the "
+        "chronology, themes, arguments, examples, and conclusions in sufficient detail to "
+        "reach exactly 500 words without repetition or invented facts. Return JSON only.\n\n"
         + reduced
         + '\n\n{"short_synopsis": "...", "long_synopsis": "..."}'
     )
-    synthesis = _extract_json(_generate(tokenizer, model, synthesis_prompt, max_new_tokens=1300))
-    long_synopsis = _limit_words(str(synthesis.get("long_synopsis") or ""))
-    short_synopsis = re.sub(r"\s+", " ", str(synthesis.get("short_synopsis") or "")).strip()[:1200]
-    if not long_synopsis:
-        long_synopsis = _limit_words(reduced)
+    synthesis = _extract_json(_generate(tokenizer, model, synthesis_prompt, max_new_tokens=1800))
+    long_synopsis = re.sub(
+        r"\s+", " ", str(synthesis.get("long_synopsis") or "")
+    ).strip()
+    short_synopsis = re.sub(
+        r"\s+", " ", str(synthesis.get("short_synopsis") or "")
+    ).strip()[:1200]
+
+    # Models often stop a little short even when given an exact word target.
+    # Give them two factual rewrite attempts before treating the row as partial;
+    # accepting a short result would silently violate the report contract.
+    for _ in range(2):
+        current_words = _word_count(long_synopsis)
+        if current_words >= _SYNOPSIS_WORDS:
+            break
+        repair_prompt = (
+            f"The draft below is {current_words} words. Rewrite it as exactly "
+            f"{_SYNOPSIS_WORDS} words using only the supplied chronological evidence. "
+            "Expand factual context, chronology, themes, examples, and conclusions. "
+            "Do not repeat sentences, add generic filler, or invent facts. "
+            'Return only JSON in the form {"long_synopsis": "..."}.\n\n'
+            f"Chronological evidence:\n{reduced}\n\nDraft:\n{long_synopsis}"
+        )
+        repaired = _extract_json(
+            _generate(tokenizer, model, repair_prompt, max_new_tokens=1800)
+        )
+        long_synopsis = re.sub(
+            r"\s+", " ", str(repaired.get("long_synopsis") or "")
+        ).strip()
+
+    if _word_count(long_synopsis) < _SYNOPSIS_WORDS:
+        raise RuntimeError(
+            f"Long synopsis did not reach the required {_SYNOPSIS_WORDS} words"
+        )
+    long_synopsis = _limit_words(long_synopsis, _SYNOPSIS_WORDS)
     if not short_synopsis:
         short_synopsis = long_synopsis[:1200]
 
