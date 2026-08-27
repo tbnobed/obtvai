@@ -822,7 +822,7 @@ router.post("/media/reports", (req, res) => {
   const active = Array.from(mediaReports.values()).find((report) =>
     report.status === "pending" || report.status === "running");
   if (active) {
-    res.status(409).json({ detail: "A media report is already running. Wait for it to finish before starting another." });
+    res.status(409).json({ detail: "A Re-Air Report is already running. Wait for it to finish before starting another." });
     return;
   }
   const timestamp = new Date().toISOString();
@@ -833,7 +833,7 @@ router.post("/media/reports", (req, res) => {
     total_assets: selected.length,
     processed_assets: 0,
     failed_assets: 0,
-    logs: [`Queued report for ${selected.length} asset${selected.length === 1 ? "" : "s"}`],
+    logs: [`Queued Re-Air Report for ${selected.length} asset${selected.length === 1 ? "" : "s"}`],
     error_message: null,
     created_at: timestamp,
     started_at: null,
@@ -874,7 +874,7 @@ router.post("/media/reports", (req, res) => {
     report.progress = 100;
     report.finished_at = new Date().toISOString();
     report.logs.push(
-      `Report complete: ${report.processed_assets} row(s), ${report.failed_assets} partial result(s)`,
+      `Re-Air Report complete: ${report.processed_assets} row(s), ${report.failed_assets} partial result(s)`,
     );
     const job = jobs.find((item: any) => item.id === report.id) as any;
     if (job) Object.assign(job, {
@@ -891,7 +891,7 @@ router.post("/media/reports", (req, res) => {
 router.get("/media/reports/:reportId", (req, res) => {
   const report = mediaReports.get(req.params.reportId);
   if (!report) {
-    res.status(404).json({ detail: "Media report not found" });
+    res.status(404).json({ detail: "Re-Air Report not found" });
     return;
   }
   res.json(mediaReportOut(report));
@@ -900,11 +900,11 @@ router.get("/media/reports/:reportId", (req, res) => {
 router.get("/media/reports/:reportId/download", (req, res) => {
   const report = mediaReports.get(req.params.reportId);
   if (!report) {
-    res.status(404).json({ detail: "Media report not found" });
+    res.status(404).json({ detail: "Re-Air Report not found" });
     return;
   }
   if (report.status !== "success") {
-    res.status(409).json({ detail: "Media report is not complete yet" });
+    res.status(409).json({ detail: "Re-Air Report is not complete yet" });
     return;
   }
   const escape = (value: string) => `"${String(value ?? "").replace(/"/g, "\"\"")}"`;
@@ -913,7 +913,7 @@ router.get("/media/reports/:reportId/download", (req, res) => {
     ...report.rows.map((row) => MEDIA_REPORT_HEADERS.map((header) => escape(row[header] ?? "")).join(",")),
   ].join("\n");
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="media-report-${report.id.slice(-8)}.csv"`);
+  res.setHeader("Content-Disposition", `attachment; filename="reair-report-${report.id.slice(-8)}.csv"`);
   res.send(`\ufeff${csv}`);
 });
 

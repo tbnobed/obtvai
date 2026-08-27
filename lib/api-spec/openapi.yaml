@@ -75,7 +75,7 @@ paths:
     post:
       operationId: createMediaReport
       tags: [media]
-      summary: Queue a transcript-backed media report for one or more assets
+      summary: Queue a transcript-backed Re-Air Report for one or more assets
       requestBody:
         required: true
         content:
@@ -94,13 +94,13 @@ paths:
         "404":
           description: One or more media assets were not found
         "409":
-          description: Another media report is already running
+          description: Another Re-Air Report is already running
 
   /media/reports/{reportId}:
     get:
       operationId: getMediaReport
       tags: [media]
-      summary: Get media report progress and download availability
+      summary: Get Re-Air Report progress and download availability
       parameters:
         - name: reportId
           in: path
@@ -121,7 +121,7 @@ paths:
     get:
       operationId: downloadMediaReport
       tags: [media]
-      summary: Download a completed media report as CSV
+      summary: Download a completed Re-Air Report as CSV
       parameters:
         - name: reportId
           in: path
@@ -139,7 +139,7 @@ paths:
         "404":
           description: Report not found
         "409":
-          description: Report is not complete yet
+          description: Re-Air Report is not complete yet
 
   /media:
     get:

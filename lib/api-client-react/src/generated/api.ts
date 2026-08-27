@@ -367,7 +367,7 @@ export const getCreateMediaReportUrl = () => {
 }
 
 /**
- * @summary Queue a transcript-backed media report for one or more assets
+ * @summary Queue a transcript-backed Re-Air Report for one or more assets
  */
 export const createMediaReport = async (mediaReportInput: MediaReportInput, options?: RequestInit): Promise<MediaReportStatus> => {
 
@@ -416,7 +416,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateMediaReportMutationError = ErrorType<void>
 
     /**
- * @summary Queue a transcript-backed media report for one or more assets
+ * @summary Queue a transcript-backed Re-Air Report for one or more assets
  */
 export const useCreateMediaReport = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMediaReport>>, TError,{data: BodyType<MediaReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -438,7 +438,7 @@ export const getGetMediaReportUrl = (reportId: string,) => {
 }
 
 /**
- * @summary Get media report progress and download availability
+ * @summary Get Re-Air Report progress and download availability
  */
 export const getMediaReport = async (reportId: string, options?: RequestInit): Promise<MediaReportStatus> => {
 
@@ -485,7 +485,7 @@ export type GetMediaReportQueryError = ErrorType<void>
 
 
 /**
- * @summary Get media report progress and download availability
+ * @summary Get Re-Air Report progress and download availability
  */
 
 export function useGetMediaReport<TData = Awaited<ReturnType<typeof getMediaReport>>, TError = ErrorType<void>>(
@@ -515,7 +515,7 @@ export const getDownloadMediaReportUrl = (reportId: string,) => {
 }
 
 /**
- * @summary Download a completed media report as CSV
+ * @summary Download a completed Re-Air Report as CSV
  */
 export const downloadMediaReport = async (reportId: string, options?: RequestInit): Promise<Blob> => {
 
@@ -562,7 +562,7 @@ export type DownloadMediaReportQueryError = ErrorType<void>
 
 
 /**
- * @summary Download a completed media report as CSV
+ * @summary Download a completed Re-Air Report as CSV
  */
 
 export function useDownloadMediaReport<TData = Awaited<ReturnType<typeof downloadMediaReport>>, TError = ErrorType<void>>(

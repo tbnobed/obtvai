@@ -260,7 +260,7 @@ def generate_media_report(self, job_id: str, media_id: str | None = None):
         params = dict(state["params"] or {}) if state else {}
         media_ids = [str(item) for item in params.get("media_ids", []) if str(item)]
         if not media_ids:
-            raise RuntimeError("Media report has no selected assets")
+            raise RuntimeError("Re-Air Report has no selected assets")
 
         assets = db.execute(
             text("""
@@ -279,7 +279,7 @@ def generate_media_report(self, job_id: str, media_id: str | None = None):
             db, job_id, status="running", progress=0.0, started_at=datetime.utcnow(),
             celery_task_id=self.request.id,
         )
-        append_log(db, job_id, f"Generating report for {len(media_ids)} asset(s)")
+        append_log(db, job_id, f"Generating Re-Air Report for {len(media_ids)} asset(s)")
         tokenizer, model = _load_llm()
 
         params["rows"] = []
@@ -314,7 +314,7 @@ def generate_media_report(self, job_id: str, media_id: str | None = None):
         update_job(db, job_id, status="success", progress=100.0, finished_at=datetime.utcnow())
         append_log(
             db, job_id,
-            f"Report complete: {len(params['rows'])} row(s), {failure_count} partial result(s)",
+            f"Re-Air Report complete: {len(params['rows'])} row(s), {failure_count} partial result(s)",
         )
     except Exception as exc:
         db.rollback()

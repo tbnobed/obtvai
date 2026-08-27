@@ -184,7 +184,7 @@ async def create_media_report(body: MediaReportInput, db: AsyncSession = Depends
     if active:
         raise HTTPException(
             status_code=409,
-            detail="A media report is already running. Wait for it to finish before starting another.",
+            detail="A Re-Air Report is already running. Wait for it to finish before starting another.",
         )
 
     job = ProcessingJob(
@@ -192,7 +192,7 @@ async def create_media_report(body: MediaReportInput, db: AsyncSession = Depends
         job_type="media_report",
         status="pending",
         progress=0.0,
-        logs=[f"Queued report for {len(media_ids)} asset{'s' if len(media_ids) != 1 else ''}"],
+        logs=[f"Queued Re-Air Report for {len(media_ids)} asset{'s' if len(media_ids) != 1 else ''}"],
         params={"media_ids": media_ids, "rows": [], "failures": []},
     )
     db.add(job)
@@ -206,7 +206,7 @@ async def create_media_report(body: MediaReportInput, db: AsyncSession = Depends
         job.status = "error"
         job.error_message = f"enqueue failed: {exc}"
         await db.commit()
-        raise HTTPException(status_code=502, detail="Failed to queue media report") from exc
+        raise HTTPException(status_code=502, detail="Failed to queue Re-Air Report") from exc
     return _media_report_status(job)
 
 
@@ -221,7 +221,7 @@ async def get_media_report(report_id: str, db: AsyncSession = Depends(get_db)):
         )
     ).scalar_one_or_none()
     if not job:
-        raise HTTPException(status_code=404, detail="Media report not found")
+        raise HTTPException(status_code=404, detail="Re-Air Report not found")
     return _media_report_status(job)
 
 
@@ -236,9 +236,9 @@ async def download_media_report(report_id: str, db: AsyncSession = Depends(get_d
         )
     ).scalar_one_or_none()
     if not job:
-        raise HTTPException(status_code=404, detail="Media report not found")
+        raise HTTPException(status_code=404, detail="Re-Air Report not found")
     if job.status != "success":
-        raise HTTPException(status_code=409, detail="Media report is not complete yet")
+        raise HTTPException(status_code=409, detail="Re-Air Report is not complete yet")
 
     params = job.params if isinstance(job.params, dict) else {}
     rows = params.get("rows") if isinstance(params.get("rows"), list) else []
@@ -271,7 +271,7 @@ async def download_media_report(report_id: str, db: AsyncSession = Depends(get_d
     return Response(
         content=output.getvalue().encode("utf-8-sig"),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="media-report-{stamp}.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="reair-report-{stamp}.csv"'},
     )
 
 

@@ -34,7 +34,7 @@ export const CuratorLinkResponse = zod.object({
 
 
 /**
- * @summary Queue a transcript-backed media report for one or more assets
+ * @summary Queue a transcript-backed Re-Air Report for one or more assets
  */
 export const createMediaReportBodyMediaIdsMax = 100;
 
@@ -61,7 +61,7 @@ export const CreateMediaReportResponse = zod.object({
 
 
 /**
- * @summary Get media report progress and download availability
+ * @summary Get Re-Air Report progress and download availability
  */
 export const GetMediaReportParams = zod.object({
   "reportId": zod.coerce.string()
@@ -84,7 +84,7 @@ export const GetMediaReportResponse = zod.object({
 
 
 /**
- * @summary Download a completed media report as CSV
+ * @summary Download a completed Re-Air Report as CSV
  */
 export const DownloadMediaReportParams = zod.object({
   "reportId": zod.coerce.string()

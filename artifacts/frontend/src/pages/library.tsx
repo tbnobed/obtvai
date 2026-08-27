@@ -301,7 +301,7 @@ export default function Library() {
   const downloadMediaReport = (reportId: string) => {
     const link = document.createElement("a");
     link.href = getDownloadMediaReportUrl(reportId);
-    link.download = "media-report.csv";
+    link.download = "reair-report.csv";
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -322,8 +322,8 @@ export default function Library() {
         onError: (error) => {
           toast({
             variant: "destructive",
-            title: "Couldn't start media report",
-            description: error instanceof Error ? error.message : "The report could not be queued.",
+            title: "Couldn't start Re-Air Report",
+            description: error instanceof Error ? error.message : "The Re-Air Report could not be queued.",
           });
         },
       },
@@ -335,7 +335,7 @@ export default function Library() {
     if (mediaReport.status === "success") {
       reportedCompletionRef.current = mediaReport.id;
       toast({
-        title: "Media report ready",
+        title: "Re-Air Report ready",
         description: mediaReport.failed_assets
           ? `${mediaReport.processed_assets} rows exported; ${mediaReport.failed_assets} use available metadata only.`
           : `${mediaReport.processed_assets} report rows are ready to download.`,
@@ -344,7 +344,7 @@ export default function Library() {
       reportedCompletionRef.current = mediaReport.id;
       toast({
         variant: "destructive",
-        title: "Media report didn't finish",
+        title: "Re-Air Report didn't finish",
         description: mediaReport.error_message || "Try running the report again.",
       });
     }
@@ -733,7 +733,7 @@ export default function Library() {
           <RefreshCw className="h-4 w-4 mr-2" />
           {createMediaReport.isPending
             ? "Queuing report..."
-            : `Re-run report${count > 1 ? ` (${count})` : ""}`}
+            : `Generate Re-Air Report${count > 1 ? ` (${count})` : ""}`}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => downloadAssets(dragIds(asset.id))}>
           <Download className="h-4 w-4 mr-2" />
@@ -1135,10 +1135,10 @@ export default function Library() {
                   <RefreshCw className="h-4 w-4 text-primary" />
                 )}
                 {mediaReport.status === "success"
-                  ? "Media report ready"
+                  ? "Re-Air Report ready"
                   : mediaReport.status === "error" || mediaReport.status === "cancelled"
-                    ? "Media report didn't finish"
-                    : "Re-running media report"}
+                    ? "Re-Air Report didn't finish"
+                    : "Generating Re-Air Report"}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 {mediaReport.status === "success"
