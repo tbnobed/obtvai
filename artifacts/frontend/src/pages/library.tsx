@@ -211,7 +211,9 @@ export default function Library() {
   const [mediaReportId, setMediaReportId] = useState<string | null>(
     () => localStorage.getItem(ACTIVE_MEDIA_REPORT_KEY),
   );
-  const reportedCompletionRef = useRef<string | null>(null);
+  const reportedCompletionRef = useRef<string | null>(
+    localStorage.getItem(ACTIVE_MEDIA_REPORT_KEY),
+  );
   const {
     data: mediaReport,
     isError: mediaReportLoadError,
@@ -335,7 +337,14 @@ export default function Library() {
   };
 
   useEffect(() => {
-    if (!mediaReport || reportedCompletionRef.current === mediaReport.id) return;
+    if (!mediaReport) return;
+    if (mediaReport.status === "cancelled") {
+      reportedCompletionRef.current = mediaReport.id;
+      localStorage.removeItem(ACTIVE_MEDIA_REPORT_KEY);
+      setMediaReportId(null);
+      return;
+    }
+    if (reportedCompletionRef.current === mediaReport.id) return;
     if (mediaReport.status === "success") {
       reportedCompletionRef.current = mediaReport.id;
       toast({
@@ -344,7 +353,7 @@ export default function Library() {
           ? `${mediaReport.processed_assets} rows exported; ${mediaReport.failed_assets} use available metadata only.`
           : `${mediaReport.processed_assets} report rows are ready to download.`,
       });
-    } else if (mediaReport.status === "error" || mediaReport.status === "cancelled") {
+    } else if (mediaReport.status === "error") {
       reportedCompletionRef.current = mediaReport.id;
       toast({
         variant: "destructive",
@@ -630,33 +639,58 @@ export default function Library() {
     // Don't hijack clicks on cards (draggable), form controls, or menus.
     if (t.closest("[data-asset-id], button, input, select, a, textarea, [role='menu'], [role='menuitem'], th")) return;
     e.preventDefault();
-    const startX = e.clientX, startY = e.clientY;
+    const scroller = gridRef.current;
+    if (!scroller) return;
+    const startX = e.clientX + scroller.scrollLeft;
+    const startY = e.clientY + scroller.scrollTop;
+    let lastClientX = e.clientX;
+    let lastClientY = e.clientY;
     const base = e.shiftKey || e.ctrlKey || e.metaKey ? new Set(selected) : new Set<string>();
     let active = false;
-    const onMove = (ev: MouseEvent) => {
-      if (!active && Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 5) return;
+    const updateSelection = (clientX: number, clientY: number) => {
+      const currentX = clientX + scroller.scrollLeft;
+      const currentY = clientY + scroller.scrollTop;
+      if (!active && Math.abs(currentX - startX) + Math.abs(currentY - startY) < 5) return;
       active = true;
       const rect = {
-        x1: Math.min(startX, ev.clientX), y1: Math.min(startY, ev.clientY),
-        x2: Math.max(startX, ev.clientX), y2: Math.max(startY, ev.clientY),
+        x1: Math.min(startX, currentX), y1: Math.min(startY, currentY),
+        x2: Math.max(startX, currentX), y2: Math.max(startY, currentY),
       };
-      setMarquee(rect);
+      const viewport = scroller.getBoundingClientRect();
+      setMarquee({
+        x1: Math.max(viewport.left, rect.x1 - scroller.scrollLeft),
+        y1: Math.max(viewport.top, rect.y1 - scroller.scrollTop),
+        x2: Math.min(viewport.right, rect.x2 - scroller.scrollLeft),
+        y2: Math.min(viewport.bottom, rect.y2 - scroller.scrollTop),
+      });
       const next = new Set(base);
-      gridRef.current?.querySelectorAll<HTMLElement>("[data-asset-id]").forEach(el => {
+      scroller.querySelectorAll<HTMLElement>("[data-asset-id]").forEach(el => {
         const r = el.getBoundingClientRect();
-        if (r.left < rect.x2 && r.right > rect.x1 && r.top < rect.y2 && r.bottom > rect.y1) {
+        const left = r.left + scroller.scrollLeft;
+        const right = r.right + scroller.scrollLeft;
+        const top = r.top + scroller.scrollTop;
+        const bottom = r.bottom + scroller.scrollTop;
+        if (left < rect.x2 && right > rect.x1 && top < rect.y2 && bottom > rect.y1) {
           next.add(el.dataset.assetId!);
         }
       });
       setSelected(next);
     };
+    const onMove = (ev: MouseEvent) => {
+      lastClientX = ev.clientX;
+      lastClientY = ev.clientY;
+      updateSelection(lastClientX, lastClientY);
+    };
+    const onScroll = () => updateSelection(lastClientX, lastClientY);
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      scroller.removeEventListener("scroll", onScroll);
       setMarquee(null);
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+    scroller.addEventListener("scroll", onScroll);
   };
 
   // Clickable column headers for the list view — first click applies the
@@ -957,6 +991,16 @@ export default function Library() {
             <option value="pending">Pending</option>
             <option value="error">Error</option>
           </select>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={!data?.items.length}
+            onClick={() => setSelected(new Set(data?.items.map(asset => asset.id) ?? []))}
+          >
+            <CheckSquare className="h-4 w-4" />
+            Select page ({data?.items.length ?? 0})
+          </Button>
           <div className="flex rounded-md border border-input overflow-hidden">
             <button
               type="button"

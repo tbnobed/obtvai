@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Play, Square, Trash2, DatabaseZap, ChevronDown, ChevronRight, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+const ACTIVE_MEDIA_REPORT_KEY = "active-media-report-id";
+
 export default function Jobs() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const listParams = statusFilter ? { status: statusFilter } : undefined;
@@ -46,7 +48,14 @@ export default function Jobs() {
   };
 
   const handleCancel = (id: string) => {
-    cancelMutation.mutate({ id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() }) });
+    cancelMutation.mutate({ id }, {
+      onSuccess: () => {
+        if (localStorage.getItem(ACTIVE_MEDIA_REPORT_KEY) === id) {
+          localStorage.removeItem(ACTIVE_MEDIA_REPORT_KEY);
+        }
+        queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+      },
+    });
   };
 
   const downloadMediaReport = (reportId: string) => {
