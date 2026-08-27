@@ -93,6 +93,8 @@ import type {
   MediaListResponse,
   MediaMoveInput,
   MediaMoveResult,
+  MediaReportInput,
+  MediaReportStatus,
   MediaUploadInput,
   PasswordChangeInput,
   PeoplePage,
@@ -355,6 +357,231 @@ export const useCuratorLink = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCuratorLinkMutationOptions(options));
     }
+
+export const getCreateMediaReportUrl = () => {
+
+
+
+
+  return `/api/media/reports`
+}
+
+/**
+ * @summary Queue a transcript-backed media report for one or more assets
+ */
+export const createMediaReport = async (mediaReportInput: MediaReportInput, options?: RequestInit): Promise<MediaReportStatus> => {
+
+  return customFetch<MediaReportStatus>(getCreateMediaReportUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mediaReportInput)
+  }
+);}
+
+
+
+
+
+export const getCreateMediaReportMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMediaReport>>, TError,{data: BodyType<MediaReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createMediaReport>>, TError,{data: BodyType<MediaReportInput>}, TContext> => {
+
+const mutationKey = ['createMediaReport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMediaReport>>, {data: BodyType<MediaReportInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createMediaReport(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateMediaReportMutationResult = NonNullable<Awaited<ReturnType<typeof createMediaReport>>>
+    export type CreateMediaReportMutationBody = BodyType<MediaReportInput>
+    export type CreateMediaReportMutationError = ErrorType<void>
+
+    /**
+ * @summary Queue a transcript-backed media report for one or more assets
+ */
+export const useCreateMediaReport = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMediaReport>>, TError,{data: BodyType<MediaReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createMediaReport>>,
+        TError,
+        {data: BodyType<MediaReportInput>},
+        TContext
+      > => {
+      return useMutation(getCreateMediaReportMutationOptions(options));
+    }
+
+export const getGetMediaReportUrl = (reportId: string,) => {
+
+
+
+
+  return `/api/media/reports/${reportId}`
+}
+
+/**
+ * @summary Get media report progress and download availability
+ */
+export const getMediaReport = async (reportId: string, options?: RequestInit): Promise<MediaReportStatus> => {
+
+  return customFetch<MediaReportStatus>(getGetMediaReportUrl(reportId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMediaReportQueryKey = (reportId: string,) => {
+    return [
+    `/api/media/reports/${reportId}`
+    ] as const;
+    }
+
+
+export const getGetMediaReportQueryOptions = <TData = Awaited<ReturnType<typeof getMediaReport>>, TError = ErrorType<void>>(reportId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMediaReportQueryKey(reportId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMediaReport>>> = ({ signal }) => getMediaReport(reportId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: reportId !== null && reportId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMediaReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMediaReportQueryResult = NonNullable<Awaited<ReturnType<typeof getMediaReport>>>
+export type GetMediaReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get media report progress and download availability
+ */
+
+export function useGetMediaReport<TData = Awaited<ReturnType<typeof getMediaReport>>, TError = ErrorType<void>>(
+ reportId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMediaReportQueryOptions(reportId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadMediaReportUrl = (reportId: string,) => {
+
+
+
+
+  return `/api/media/reports/${reportId}/download`
+}
+
+/**
+ * @summary Download a completed media report as CSV
+ */
+export const downloadMediaReport = async (reportId: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadMediaReportUrl(reportId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadMediaReportQueryKey = (reportId: string,) => {
+    return [
+    `/api/media/reports/${reportId}/download`
+    ] as const;
+    }
+
+
+export const getDownloadMediaReportQueryOptions = <TData = Awaited<ReturnType<typeof downloadMediaReport>>, TError = ErrorType<void>>(reportId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadMediaReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadMediaReportQueryKey(reportId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadMediaReport>>> = ({ signal }) => downloadMediaReport(reportId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: reportId !== null && reportId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadMediaReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadMediaReportQueryResult = NonNullable<Awaited<ReturnType<typeof downloadMediaReport>>>
+export type DownloadMediaReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download a completed media report as CSV
+ */
+
+export function useDownloadMediaReport<TData = Awaited<ReturnType<typeof downloadMediaReport>>, TError = ErrorType<void>>(
+ reportId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadMediaReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadMediaReportQueryOptions(reportId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListMediaUrl = (params?: ListMediaParams,) => {
   const normalizedParams = new URLSearchParams();

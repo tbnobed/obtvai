@@ -1,9 +1,11 @@
+import csv
+import io
 import os
 import secrets
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, delete, text
 from ..database import get_db
@@ -25,6 +27,7 @@ from ..schemas import (
     CuratorLinkInput, CuratorLinkResult,
     CuratorManifestImportIn, CuratorManifestImportOut,
     CuratorManifestImportItemOut,
+    MediaReportInput, MediaReportStatusOut,
 )
 from ..models import ClipList, Clip, ReelJob
 from ..config import settings
@@ -100,6 +103,176 @@ async def _refresh_curator_air_info(asset: MediaAsset, db: AsyncSession) -> None
 
 def redis_client():
     return aioredis.from_url(settings.redis_url)
+
+
+def _media_report_status(job: ProcessingJob) -> MediaReportStatusOut:
+    """Expose report-job progress without exposing its stored CSV row data."""
+    params = job.params if isinstance(job.params, dict) else {}
+    media_ids = params.get("media_ids")
+    rows = params.get("rows")
+    failures = params.get("failures")
+    total = len(media_ids) if isinstance(media_ids, list) else 0
+    processed = len(rows) if isinstance(rows, list) else 0
+    failed = len(failures) if isinstance(failures, list) else 0
+    return MediaReportStatusOut(
+        id=job.id,
+        status=job.status,
+        progress=float(job.progress or 0.0),
+        total_assets=total,
+        processed_assets=processed,
+        failed_assets=failed,
+        logs=[str(line) for line in (job.logs or [])],
+        error_message=job.error_message,
+        download_url=(
+            f"/api/media/reports/{job.id}/download"
+            if job.status == "success"
+            else None
+        ),
+        created_at=job.created_at,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+    )
+
+
+def _report_air_dates(row: dict) -> str:
+    def label(kind: str, value) -> str | None:
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            return f"{kind}: {value:%Y-%m-%d}"
+        try:
+            return f"{kind}: {datetime.fromisoformat(str(value).replace('Z', '+00:00')):%Y-%m-%d}"
+        except ValueError:
+            return f"{kind}: {value}"
+
+    parts = []
+    for value in (
+        label("Original", row.get("curator_original_air_date")),
+        label("Last", row.get("curator_last_air_date")),
+    ):
+        if value:
+            parts.append(value)
+    return " | ".join(parts)
+
+
+@router.post("/reports", response_model=MediaReportStatusOut, status_code=202)
+async def create_media_report(body: MediaReportInput, db: AsyncSession = Depends(get_db)):
+    """Queue one sequential LLM-backed report so a large selection stays observable."""
+    media_ids = list(dict.fromkeys(media_id.strip() for media_id in body.media_ids if media_id.strip()))
+    if not media_ids:
+        raise HTTPException(status_code=400, detail="Select at least one media asset")
+
+    assets = (
+        await db.execute(select(MediaAsset.id).where(MediaAsset.id.in_(media_ids)))
+    ).scalars().all()
+    missing = sorted(set(media_ids) - set(assets))
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Media not found: {', '.join(missing[:5])}")
+
+    # A report shares one LLM worker and carries its CSV rows in a single job,
+    # so serializing active runs avoids interleaved progress or GPU contention.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_media_report'))"))
+    active = (
+        await db.execute(
+            select(ProcessingJob).where(
+                ProcessingJob.media_id.is_(None),
+                ProcessingJob.job_type == "media_report",
+                ProcessingJob.status.in_(("pending", "running")),
+            )
+        )
+    ).scalar_one_or_none()
+    if active:
+        raise HTTPException(
+            status_code=409,
+            detail="A media report is already running. Wait for it to finish before starting another.",
+        )
+
+    job = ProcessingJob(
+        media_id=None,
+        job_type="media_report",
+        status="pending",
+        progress=0.0,
+        logs=[f"Queued report for {len(media_ids)} asset{'s' if len(media_ids) != 1 else ''}"],
+        params={"media_ids": media_ids, "rows": [], "failures": []},
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    from ..worker_client import enqueue_job
+    try:
+        await enqueue_job("media_report", None, job.id)
+    except Exception as exc:
+        job.status = "error"
+        job.error_message = f"enqueue failed: {exc}"
+        await db.commit()
+        raise HTTPException(status_code=502, detail="Failed to queue media report") from exc
+    return _media_report_status(job)
+
+
+@router.get("/reports/{report_id}", response_model=MediaReportStatusOut)
+async def get_media_report(report_id: str, db: AsyncSession = Depends(get_db)):
+    job = (
+        await db.execute(
+            select(ProcessingJob).where(
+                ProcessingJob.id == report_id,
+                ProcessingJob.job_type == "media_report",
+            )
+        )
+    ).scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Media report not found")
+    return _media_report_status(job)
+
+
+@router.get("/reports/{report_id}/download")
+async def download_media_report(report_id: str, db: AsyncSession = Depends(get_db)):
+    job = (
+        await db.execute(
+            select(ProcessingJob).where(
+                ProcessingJob.id == report_id,
+                ProcessingJob.job_type == "media_report",
+            )
+        )
+    ).scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Media report not found")
+    if job.status != "success":
+        raise HTTPException(status_code=409, detail="Media report is not complete yet")
+
+    params = job.params if isinstance(job.params, dict) else {}
+    rows = params.get("rows") if isinstance(params.get("rows"), list) else []
+    headers = [
+        "Air Dates",
+        "Host",
+        "Guests",
+        "Short Synopsis",
+        "Long Synopsis",
+        "Any dates mentioned (timecode where)",
+        "Any date sensitive material (timecode where)",
+    ]
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=headers, extrasaction="ignore", lineterminator="\n")
+    writer.writeheader()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        writer.writerow({
+            "Air Dates": _report_air_dates(row),
+            "Host": row.get("host") or "",
+            "Guests": row.get("guests") or "",
+            "Short Synopsis": row.get("short_synopsis") or "",
+            "Long Synopsis": row.get("long_synopsis") or "",
+            "Any dates mentioned (timecode where)": row.get("date_mentions") or "",
+            "Any date sensitive material (timecode where)": row.get("date_sensitive") or "",
+        })
+
+    stamp = (job.finished_at or job.created_at).strftime("%Y%m%d-%H%M%S")
+    return Response(
+        content=output.getvalue().encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="media-report-{stamp}.csv"'},
+    )
 
 
 @router.get("/stats/summary", response_model=LibraryStats)

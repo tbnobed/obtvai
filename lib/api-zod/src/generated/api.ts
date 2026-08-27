@@ -34,6 +34,66 @@ export const CuratorLinkResponse = zod.object({
 
 
 /**
+ * @summary Queue a transcript-backed media report for one or more assets
+ */
+export const createMediaReportBodyMediaIdsMax = 100;
+
+
+
+export const CreateMediaReportBody = zod.object({
+  "media_ids": zod.array(zod.string()).min(1).max(createMediaReportBodyMediaIdsMax).describe('One or more media asset IDs. Duplicate IDs are ignored.')
+})
+
+export const CreateMediaReportResponse = zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['pending', 'running', 'success', 'error', 'cancelled']),
+  "progress": zod.number(),
+  "total_assets": zod.number(),
+  "processed_assets": zod.number(),
+  "failed_assets": zod.number().describe('Assets exported with only available metadata after report analysis failed.'),
+  "logs": zod.array(zod.string()),
+  "error_message": zod.string().nullish(),
+  "download_url": zod.string().nullish().describe('CSV download path available after successful completion.'),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get media report progress and download availability
+ */
+export const GetMediaReportParams = zod.object({
+  "reportId": zod.coerce.string()
+})
+
+export const GetMediaReportResponse = zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['pending', 'running', 'success', 'error', 'cancelled']),
+  "progress": zod.number(),
+  "total_assets": zod.number(),
+  "processed_assets": zod.number(),
+  "failed_assets": zod.number().describe('Assets exported with only available metadata after report analysis failed.'),
+  "logs": zod.array(zod.string()),
+  "error_message": zod.string().nullish(),
+  "download_url": zod.string().nullish().describe('CSV download path available after successful completion.'),
+  "created_at": zod.string(),
+  "started_at": zod.string().nullish(),
+  "finished_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Download a completed media report as CSV
+ */
+export const DownloadMediaReportParams = zod.object({
+  "reportId": zod.coerce.string()
+})
+
+export const DownloadMediaReportResponse = zod.unknown()
+
+
+/**
  * @summary List all media assets
  */
 export const ListMediaQueryParams = zod.object({

@@ -30,6 +30,7 @@ celery_app = Celery(
         "tasks.voice",
         "tasks.identify",
         "tasks.insights",
+        "tasks.media_report",
         "tasks.render",
         "tasks.reel",
         "tasks.story",

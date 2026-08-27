@@ -70,6 +70,77 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CuratorLinkResult'
+
+  /media/reports:
+    post:
+      operationId: createMediaReport
+      tags: [media]
+      summary: Queue a transcript-backed media report for one or more assets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaReportInput"
+      responses:
+        "202":
+          description: Report queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaReportStatus"
+        "400":
+          description: No media IDs supplied
+        "404":
+          description: One or more media assets were not found
+        "409":
+          description: Another media report is already running
+
+  /media/reports/{reportId}:
+    get:
+      operationId: getMediaReport
+      tags: [media]
+      summary: Get media report progress and download availability
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Report status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaReportStatus"
+        "404":
+          description: Report not found
+
+  /media/reports/{reportId}/download:
+    get:
+      operationId: downloadMediaReport
+      tags: [media]
+      summary: Download a completed media report as CSV
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CSV report
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Report not found
+        "409":
+          description: Report is not complete yet
+
   /media:
     get:
       operationId: listMedia
@@ -4492,6 +4563,52 @@ components:
       properties:
         moved:
           type: integer
+
+    MediaReportInput:
+      type: object
+      required: [media_ids]
+      properties:
+        media_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: string
+          description: One or more media asset IDs. Duplicate IDs are ignored.
+
+    MediaReportStatus:
+      type: object
+      required: [id, status, progress, total_assets, processed_assets, failed_assets, logs, created_at]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, success, error, cancelled]
+        progress:
+          type: number
+        total_assets:
+          type: integer
+        processed_assets:
+          type: integer
+        failed_assets:
+          type: integer
+          description: Assets exported with only available metadata after report analysis failed.
+        logs:
+          type: array
+          items:
+            type: string
+        error_message:
+          type: ["string", "null"]
+        download_url:
+          type: ["string", "null"]
+          description: CSV download path available after successful completion.
+        created_at:
+          type: string
+        started_at:
+          type: ["string", "null"]
+        finished_at:
+          type: ["string", "null"]
 
     MediaListResponse:
       type: object

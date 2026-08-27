@@ -56,6 +56,7 @@ async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: d
         "dub": ("gpu", "tasks.dub.generate_dub"),
         "identify": ("gpu", "tasks.identify.identify_people"),
         "insights": ("gpu", "tasks.insights.generate_insights"),
+        "media_report": ("gpu", "tasks.media_report.generate_media_report"),
         "trends": ("cpu", "tasks.trends.fetch_trends"),
         "social_sync": ("cpu", "tasks.social_sync.sync_social_channels"),
     }

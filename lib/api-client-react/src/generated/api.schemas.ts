@@ -403,6 +403,49 @@ export interface MediaMoveResult {
   moved: number;
 }
 
+export interface MediaReportInput {
+  /**
+     * One or more media asset IDs. Duplicate IDs are ignored.
+     * @minItems 1
+     * @maxItems 100
+     */
+  media_ids: string[];
+}
+
+export type MediaReportStatusStatus = typeof MediaReportStatusStatus[keyof typeof MediaReportStatusStatus];
+
+
+export const MediaReportStatusStatus = {
+  pending: 'pending',
+  running: 'running',
+  success: 'success',
+  error: 'error',
+  cancelled: 'cancelled',
+} as const;
+
+export interface MediaReportStatus {
+  id: string;
+  status: MediaReportStatusStatus;
+  progress: number;
+  total_assets: number;
+  processed_assets: number;
+  /** Assets exported with only available metadata after report analysis failed. */
+  failed_assets: number;
+  logs: string[];
+  /** @nullable */
+  error_message?: string | null;
+  /**
+     * CSV download path available after successful completion.
+     * @nullable
+     */
+  download_url?: string | null;
+  created_at: string;
+  /** @nullable */
+  started_at?: string | null;
+  /** @nullable */
+  finished_at?: string | null;
+}
+
 export interface MediaListResponse {
   items: MediaAsset[];
   total: number;

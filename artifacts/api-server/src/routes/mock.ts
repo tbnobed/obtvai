@@ -727,6 +727,196 @@ router.post("/media/import-link", (req, res) => {
   res.status(202).json(newAsset);
 });
 
+type MockMediaReport = {
+  id: string;
+  status: "pending" | "running" | "success" | "error";
+  progress: number;
+  total_assets: number;
+  processed_assets: number;
+  failed_assets: number;
+  logs: string[];
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  rows: Record<string, string>[];
+};
+
+const mediaReports = new Map<string, MockMediaReport>();
+const MEDIA_REPORT_HEADERS = [
+  "Air Dates",
+  "Host",
+  "Guests",
+  "Short Synopsis",
+  "Long Synopsis",
+  "Any dates mentioned (timecode where)",
+  "Any date sensitive material (timecode where)",
+];
+
+function mockReportRow(asset: any): Record<string, string> {
+  const airDates = [
+    asset.curator_original_air_date ? `Original: ${String(asset.curator_original_air_date).slice(0, 10)}` : "",
+    asset.curator_last_air_date ? `Last: ${String(asset.curator_last_air_date).slice(0, 10)}` : "",
+  ].filter(Boolean).join(" | ");
+  const hasTranscript = transcript.some((segment) => segment.media_id === asset.id);
+  if (!hasTranscript) {
+    return {
+      "Air Dates": airDates,
+      "Host": "",
+      "Guests": "",
+      "Short Synopsis": asset.synopsis ?? "",
+      "Long Synopsis": asset.synopsis ?? "",
+      "Any dates mentioned (timecode where)": "",
+      "Any date sensitive material (timecode where)": "",
+    };
+  }
+  return {
+    "Air Dates": airDates,
+    "Host": asset.id === "asset-001" ? "Jordan Miles" : "",
+    "Guests": asset.id === "asset-001" ? "Sarah Chen" : "",
+    "Short Synopsis": asset.synopsis ?? "Transcript-backed report generated in the production media worker.",
+    "Long Synopsis": asset.synopsis ?? "Transcript-backed report generated in the production media worker.",
+    "Any dates mentioned (timecode where)": asset.id === "asset-001"
+      ? "26:20 — The discussion references the November 2026 bond measure."
+      : "",
+    "Any date sensitive material (timecode where)": asset.id === "asset-001"
+      ? "26:20 — The outcome of the November bond measure affects the proposed project timeline."
+      : "",
+  };
+}
+
+function mediaReportOut(report: MockMediaReport) {
+  return {
+    id: report.id,
+    status: report.status,
+    progress: report.progress,
+    total_assets: report.total_assets,
+    processed_assets: report.processed_assets,
+    failed_assets: report.failed_assets,
+    logs: report.logs,
+    error_message: report.error_message,
+    download_url: report.status === "success" ? `/api/media/reports/${report.id}/download` : null,
+    created_at: report.created_at,
+    started_at: report.started_at,
+    finished_at: report.finished_at,
+  };
+}
+
+router.post("/media/reports", (req, res) => {
+  const mediaIds = Array.isArray(req.body?.media_ids)
+    ? Array.from(new Set(req.body.media_ids.map(String).filter(Boolean)))
+    : [];
+  if (!mediaIds.length) {
+    res.status(400).json({ detail: "Select at least one media asset" });
+    return;
+  }
+  if (mediaIds.length > 100) {
+    res.status(400).json({ detail: "Select no more than 100 media assets" });
+    return;
+  }
+  const selected = mediaIds.map((id) => assets.find((asset) => asset.id === id));
+  if (selected.some((asset) => !asset)) {
+    res.status(404).json({ detail: "One or more media assets were not found" });
+    return;
+  }
+  const active = Array.from(mediaReports.values()).find((report) =>
+    report.status === "pending" || report.status === "running");
+  if (active) {
+    res.status(409).json({ detail: "A media report is already running. Wait for it to finish before starting another." });
+    return;
+  }
+  const timestamp = new Date().toISOString();
+  const report: MockMediaReport = {
+    id: `media-report-${Date.now()}`,
+    status: "pending",
+    progress: 0,
+    total_assets: selected.length,
+    processed_assets: 0,
+    failed_assets: 0,
+    logs: [`Queued report for ${selected.length} asset${selected.length === 1 ? "" : "s"}`],
+    error_message: null,
+    created_at: timestamp,
+    started_at: null,
+    finished_at: null,
+    rows: [],
+  };
+  mediaReports.set(report.id, report);
+  jobs.unshift({
+    id: report.id,
+    media_id: null,
+    filename: null,
+    job_type: "media_report",
+    status: "pending",
+    progress: 0,
+    error_message: null,
+    logs: report.logs,
+    retry_count: 0,
+    created_at: timestamp,
+    started_at: null,
+    finished_at: null,
+  } as any);
+
+  setTimeout(() => {
+    const job = jobs.find((item: any) => item.id === report.id) as any;
+    report.status = "running";
+    report.started_at = new Date().toISOString();
+    report.progress = 20;
+    report.logs.push("Analyzing transcript evidence...");
+    if (job) Object.assign(job, { status: "running", started_at: report.started_at, progress: report.progress });
+  }, 250);
+  setTimeout(() => {
+    const selectedAssets = selected.filter(Boolean) as any[];
+    report.rows = selectedAssets.map(mockReportRow);
+    report.processed_assets = report.rows.length;
+    report.failed_assets = selectedAssets.filter((asset) =>
+      !transcript.some((segment) => segment.media_id === asset.id)).length;
+    report.status = "success";
+    report.progress = 100;
+    report.finished_at = new Date().toISOString();
+    report.logs.push(
+      `Report complete: ${report.processed_assets} row(s), ${report.failed_assets} partial result(s)`,
+    );
+    const job = jobs.find((item: any) => item.id === report.id) as any;
+    if (job) Object.assign(job, {
+      status: "success",
+      progress: 100,
+      finished_at: report.finished_at,
+      logs: report.logs,
+    });
+  }, Math.max(1000, selected.length * 500));
+
+  res.status(202).json(mediaReportOut(report));
+});
+
+router.get("/media/reports/:reportId", (req, res) => {
+  const report = mediaReports.get(req.params.reportId);
+  if (!report) {
+    res.status(404).json({ detail: "Media report not found" });
+    return;
+  }
+  res.json(mediaReportOut(report));
+});
+
+router.get("/media/reports/:reportId/download", (req, res) => {
+  const report = mediaReports.get(req.params.reportId);
+  if (!report) {
+    res.status(404).json({ detail: "Media report not found" });
+    return;
+  }
+  if (report.status !== "success") {
+    res.status(409).json({ detail: "Media report is not complete yet" });
+    return;
+  }
+  const escape = (value: string) => `"${String(value ?? "").replace(/"/g, "\"\"")}"`;
+  const csv = [
+    MEDIA_REPORT_HEADERS.map(escape).join(","),
+    ...report.rows.map((row) => MEDIA_REPORT_HEADERS.map((header) => escape(row[header] ?? "")).join(",")),
+  ].join("\n");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="media-report-${report.id.slice(-8)}.csv"`);
+  res.send(`\ufeff${csv}`);
+});
+
 router.get("/media/:id", (req, res) => {
   const asset = assets.find((a) => a.id === req.params.id);
   if (!asset) { res.status(404).json({ error: "Not found" }); return; }

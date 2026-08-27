@@ -460,6 +460,25 @@ class ProcessingJobOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MediaReportInput(BaseModel):
+    media_ids: List[str] = Field(min_length=1, max_length=100)
+
+
+class MediaReportStatusOut(BaseModel):
+    id: str
+    status: str
+    progress: float = 0.0
+    total_assets: int
+    processed_assets: int = 0
+    failed_assets: int = 0
+    logs: List[str] = []
+    error_message: Optional[str] = None
+    download_url: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+
+
 # ── AI ────────────────────────────────────────────────────────────────────────
 
 class AIQuestion(BaseModel):

@@ -6,6 +6,7 @@ import {
   useCreateProject,
   useDeleteMedia,
   useListCuratorFolders, getListCuratorFoldersQueryKey, useSelectCuratorFolder,
+  useCreateMediaReport, useGetMediaReport, getDownloadMediaReportUrl, getGetMediaReportQueryKey,
 } from "@workspace/api-client-react";
 import type { MediaAsset, MediaFolder, CuratorFolderOut } from "@workspace/api-client-react";
 import { useIsAdmin } from "@/lib/auth";
@@ -205,6 +206,22 @@ export default function Library() {
   const moveMedia = useMoveMedia();
   const updateProject = useUpdateProject();
   const deleteMedia = useDeleteMedia();
+  const createMediaReport = useCreateMediaReport();
+  const [mediaReportId, setMediaReportId] = useState<string | null>(null);
+  const reportedCompletionRef = useRef<string | null>(null);
+  const {
+    data: mediaReport,
+    isError: mediaReportLoadError,
+  } = useGetMediaReport(mediaReportId ?? "", {
+    query: {
+      enabled: !!mediaReportId,
+      queryKey: getGetMediaReportQueryKey(mediaReportId ?? ""),
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+        return status === "pending" || status === "running" ? 1500 : false;
+      },
+    },
+  });
 
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -280,6 +297,58 @@ export default function Library() {
   // whole selection; otherwise just the dragged asset.
   const dragIds = (assetId: string) =>
     selected.has(assetId) ? Array.from(selected) : [assetId];
+
+  const downloadMediaReport = (reportId: string) => {
+    const link = document.createElement("a");
+    link.href = getDownloadMediaReportUrl(reportId);
+    link.download = "media-report.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const runMediaReport = (assetId: string) => {
+    const mediaIds = dragIds(assetId);
+    reportedCompletionRef.current = null;
+    createMediaReport.mutate(
+      { data: { media_ids: mediaIds } },
+      {
+        onSuccess: (report) => {
+          setMediaReportId(report.id);
+          toast({
+            description: `Report queued for ${report.total_assets} media ${report.total_assets === 1 ? "item" : "items"}.`,
+          });
+        },
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Couldn't start media report",
+            description: error instanceof Error ? error.message : "The report could not be queued.",
+          });
+        },
+      },
+    );
+  };
+
+  useEffect(() => {
+    if (!mediaReport || reportedCompletionRef.current === mediaReport.id) return;
+    if (mediaReport.status === "success") {
+      reportedCompletionRef.current = mediaReport.id;
+      toast({
+        title: "Media report ready",
+        description: mediaReport.failed_assets
+          ? `${mediaReport.processed_assets} rows exported; ${mediaReport.failed_assets} use available metadata only.`
+          : `${mediaReport.processed_assets} report rows are ready to download.`,
+      });
+    } else if (mediaReport.status === "error" || mediaReport.status === "cancelled") {
+      reportedCompletionRef.current = mediaReport.id;
+      toast({
+        variant: "destructive",
+        title: "Media report didn't finish",
+        description: mediaReport.error_message || "Try running the report again.",
+      });
+    }
+  }, [mediaReport, toast]);
 
   const handleAssetDragStart = (e: React.DragEvent, assetId: string) => {
     const ids = dragIds(assetId);
@@ -657,6 +726,15 @@ export default function Library() {
           </ContextMenuSubContent>
         </ContextMenuSub>
         <ContextMenuSeparator />
+        <ContextMenuItem
+          disabled={createMediaReport.isPending}
+          onSelect={() => runMediaReport(asset.id)}
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          {createMediaReport.isPending
+            ? "Queuing report..."
+            : `Re-run report${count > 1 ? ` (${count})` : ""}`}
+        </ContextMenuItem>
         <ContextMenuItem onSelect={() => downloadAssets(dragIds(asset.id))}>
           <Download className="h-4 w-4 mr-2" />
           Download{count > 1 ? ` (${count})` : ""}
@@ -1037,6 +1115,62 @@ export default function Library() {
           </Dialog>
         </div>
       </div>
+
+      {mediaReport && (
+        <div
+          className={`mb-5 rounded-md border p-4 ${
+            mediaReport.status === "error" || mediaReport.status === "cancelled"
+              ? "border-destructive/50 bg-destructive/5"
+              : "border-primary/30 bg-primary/5"
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                {mediaReport.status === "pending" || mediaReport.status === "running" ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 text-primary" />
+                )}
+                {mediaReport.status === "success"
+                  ? "Media report ready"
+                  : mediaReport.status === "error" || mediaReport.status === "cancelled"
+                    ? "Media report didn't finish"
+                    : "Re-running media report"}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {mediaReport.status === "success"
+                  ? mediaReport.failed_assets
+                    ? `${mediaReport.processed_assets} of ${mediaReport.total_assets} rows exported; ${mediaReport.failed_assets} use available metadata because transcript analysis was unavailable.`
+                    : `${mediaReport.processed_assets} of ${mediaReport.total_assets} rows are ready.`
+                  : mediaReport.status === "error" || mediaReport.status === "cancelled"
+                    ? mediaReport.error_message || "No CSV was created."
+                    : `${mediaReport.processed_assets} of ${mediaReport.total_assets} media items completed.`}
+              </p>
+            </div>
+            {mediaReport.status === "success" && mediaReport.download_url && (
+              <Button size="sm" onClick={() => downloadMediaReport(mediaReport.id)} className="gap-2">
+                <Download className="h-4 w-4" />
+                Download CSV
+              </Button>
+            )}
+          </div>
+          {(mediaReport.status === "pending" || mediaReport.status === "running") && (
+            <div className="mt-3 space-y-1.5">
+              <Progress value={mediaReport.progress} />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Transcript-backed analysis in progress</span>
+                <span className="tabular-nums">{Math.round(mediaReport.progress)}%</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {mediaReportLoadError && !mediaReport && (
+        <p className="mb-5 text-sm text-destructive">The report status could not be loaded.</p>
+      )}
 
       <Dialog open={newFolderOpen} onOpenChange={(open) => { setNewFolderOpen(open); if (!open) { setNewFolderName(""); setNewFolderParent(null); } }}>
         <DialogContent>
