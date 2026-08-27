@@ -744,6 +744,7 @@ type MockMediaReport = {
 
 const mediaReports = new Map<string, MockMediaReport>();
 const MEDIA_REPORT_HEADERS = [
+  "ClipID",
   "Air Dates",
   "Host",
   "Guests",
@@ -776,6 +777,7 @@ function mockReportRow(asset: any): Record<string, string> {
   const hasTranscript = transcript.some((segment) => segment.media_id === asset.id);
   if (!hasTranscript) {
     return {
+      "ClipID": asset.curator_id ?? "",
       "Air Dates": airDates,
       "Host": "",
       "Guests": "",
@@ -786,6 +788,7 @@ function mockReportRow(asset: any): Record<string, string> {
     };
   }
   return {
+    "ClipID": asset.curator_id ?? "",
     "Air Dates": airDates,
     "Host": asset.id === "asset-001" ? "Jordan Miles" : "",
     "Guests": asset.id === "asset-001" ? "Sarah Chen" : "",

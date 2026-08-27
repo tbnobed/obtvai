@@ -243,6 +243,7 @@ async def download_media_report(report_id: str, db: AsyncSession = Depends(get_d
     params = job.params if isinstance(job.params, dict) else {}
     rows = params.get("rows") if isinstance(params.get("rows"), list) else []
     headers = [
+        "ClipID",
         "Air Dates",
         "Host",
         "Guests",
@@ -258,6 +259,7 @@ async def download_media_report(report_id: str, db: AsyncSession = Depends(get_d
         if not isinstance(row, dict):
             continue
         writer.writerow({
+            "ClipID": row.get("clip_id") or "",
             "Air Dates": _report_air_dates(row),
             "Host": row.get("host") or "",
             "Guests": row.get("guests") or "",

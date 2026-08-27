@@ -32,6 +32,23 @@ def _word_count(value: str) -> int:
     return len(re.findall(r"\S+", value.strip()))
 
 
+def _clip_id(asset: dict) -> str:
+    """Derive the facility ClipID without exposing an OBTV UUID or Curator GUID."""
+    for raw_path in (
+        asset.get("curator_web_proxy_path"),
+        asset.get("original_path"),
+    ):
+        path = str(raw_path or "").strip().replace("\\", "/").rstrip("/")
+        if not path:
+            continue
+        name = path.rsplit("/", 1)[-1]
+        if name.casefold().endswith("_video.mp4"):
+            return name[: -len("_video.mp4")]
+        if "." not in name:
+            return name
+    return ""
+
+
 def _unique_names(values) -> list[str]:
     out, seen = [], set()
     for raw in values if isinstance(values, list) else []:
@@ -131,6 +148,7 @@ def _make_fallback_row(asset: dict) -> dict:
     return {
         "media_id": asset["id"],
         "filename": asset["filename"],
+        "clip_id": _clip_id(asset),
         "curator_original_air_date": serialize_date(asset.get("curator_original_air_date")),
         "curator_last_air_date": serialize_date(asset.get("curator_last_air_date")),
         "host": "",
@@ -299,7 +317,8 @@ def generate_media_report(self, job_id: str, media_id: str | None = None):
 
         assets = db.execute(
             text("""
-                SELECT id, filename, synopsis, curator_original_air_date, curator_last_air_date
+                SELECT id, filename, original_path, curator_web_proxy_path, synopsis,
+                       curator_original_air_date, curator_last_air_date
                 FROM media_assets
                 WHERE id = ANY(:media_ids)
             """),
