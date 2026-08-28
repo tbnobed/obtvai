@@ -32,6 +32,51 @@ def _word_count(value: str) -> int:
     return len(re.findall(r"\S+", value.strip()))
 
 
+def _generate_json(
+    tokenizer,
+    model,
+    prompt: str,
+    *,
+    max_new_tokens: int,
+    required_keys: tuple[str, ...],
+    attempts: int = 3,
+) -> dict:
+    """Retry malformed local-LLM JSON instead of discarding the whole asset."""
+    from tasks.analyze import _extract_json, _generate
+
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        retry_instruction = ""
+        if attempt:
+            retry_instruction = (
+                "\n\nIMPORTANT: The previous response was not valid complete JSON. "
+                "Return exactly one complete JSON object with no markdown, commentary, "
+                "or text before or after it. Keep string values concise enough to finish."
+            )
+        try:
+            parsed = _extract_json(
+                _generate(
+                    tokenizer,
+                    model,
+                    prompt + retry_instruction,
+                    max_new_tokens=max_new_tokens,
+                )
+            )
+            missing = [key for key in required_keys if not parsed.get(key)]
+            if missing:
+                raise ValueError(
+                    f"LLM JSON omitted required field(s): {', '.join(missing)}"
+                )
+            return parsed
+        except (ValueError, json.JSONDecodeError) as exc:
+            last_error = exc
+
+    raise RuntimeError(
+        f"LLM did not return valid report JSON after {attempts} attempts: "
+        f"{_safe_error(last_error or RuntimeError('unknown JSON error'))}"
+    )
+
+
 def _clip_id(asset: dict) -> str:
     """Derive the facility ClipID without exposing an OBTV UUID or Curator GUID."""
     for raw_path in (
@@ -168,7 +213,7 @@ def _analyze_asset(
 ) -> dict:
     """Generate one report row; raises only when the asset cannot be analyzed."""
     from sqlalchemy import text
-    from tasks.analyze import _build_chunks, _extract_json, _format_timecode, _generate
+    from tasks.analyze import _build_chunks, _format_timecode
 
     rows = db.execute(
         text("""
@@ -217,7 +262,13 @@ def _analyze_asset(
             "Rules: lists may be empty. Every evidence timecode must appear in this excerpt. "
             "Include explicit calendar dates and meaningful relative-date references."
         )
-        parsed = _extract_json(_generate(tokenizer, model, prompt, max_new_tokens=1200))
+        parsed = _generate_json(
+            tokenizer,
+            model,
+            prompt,
+            max_new_tokens=1800,
+            required_keys=("summary",),
+        )
         summary = re.sub(r"\s+", " ", str(parsed.get("summary") or "")).strip()
         if summary:
             chunk_summaries.append(
@@ -246,7 +297,13 @@ def _analyze_asset(
         + reduced
         + '\n\n{"short_synopsis": "...", "long_synopsis": "..."}'
     )
-    synthesis = _extract_json(_generate(tokenizer, model, synthesis_prompt, max_new_tokens=1800))
+    synthesis = _generate_json(
+        tokenizer,
+        model,
+        synthesis_prompt,
+        max_new_tokens=2200,
+        required_keys=("short_synopsis", "long_synopsis"),
+    )
     long_synopsis = re.sub(
         r"\s+", " ", str(synthesis.get("long_synopsis") or "")
     ).strip()
@@ -269,8 +326,12 @@ def _analyze_asset(
             'Return only JSON in the form {"long_synopsis": "..."}.\n\n'
             f"Chronological evidence:\n{reduced}\n\nDraft:\n{long_synopsis}"
         )
-        repaired = _extract_json(
-            _generate(tokenizer, model, repair_prompt, max_new_tokens=1800)
+        repaired = _generate_json(
+            tokenizer,
+            model,
+            repair_prompt,
+            max_new_tokens=2200,
+            required_keys=("long_synopsis",),
         )
         candidate = re.sub(
             r"\s+", " ", str(repaired.get("long_synopsis") or "")
