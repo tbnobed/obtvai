@@ -106,14 +106,17 @@ def _store_report_state(db, job_id: str, params: dict) -> None:
 
 
 def _reduce_summaries(tokenizer, model, summaries: list[str]) -> str:
-    """Consolidate every chronological chunk without truncating unseen tail chunks."""
+    """Fit chronological evidence into the prompt budget without discarding detail."""
     from tasks.analyze import _generate
 
     pending = [summary for summary in summaries if summary.strip()]
     if not pending:
         return ""
 
-    while len(pending) > 1 or sum(len(item) for item in pending) > _MAX_REDUCE_CHARS:
+    # Most programs produce only a few chunk summaries. Keep those summaries
+    # intact: collapsing them into one short paragraph leaves too little factual
+    # material for the required 500-word synopsis.
+    while sum(len(item) for item in pending) > _MAX_REDUCE_CHARS:
         groups, group, size = [], [], 0
         for item in pending:
             if group and size + len(item) > _MAX_REDUCE_CHARS:
@@ -134,11 +137,11 @@ def _reduce_summaries(tokenizer, model, summaries: list[str]) -> str:
             )
             result = _generate(tokenizer, model, prompt, max_new_tokens=1000).strip()
             reduced.append(result or "\n".join(group))
-        if len(reduced) >= len(pending) and len(pending) == 1:
+        if len(reduced) == len(pending):
             break
         pending = reduced
 
-    return pending[0]
+    return "\n".join(pending)
 
 
 def _make_fallback_row(asset: dict) -> dict:
@@ -252,9 +255,9 @@ def _analyze_asset(
     ).strip()[:1200]
 
     # Models often stop a little short even when given an exact word target.
-    # Give them two factual rewrite attempts before treating the row as partial;
-    # accepting a short result would silently violate the report contract.
-    for _ in range(2):
+    # Keep the longest factual draft across repair attempts; a shorter rewrite
+    # must never erase a better result.
+    for attempt in range(3):
         current_words = _word_count(long_synopsis)
         if current_words >= _SYNOPSIS_WORDS:
             break
@@ -269,9 +272,17 @@ def _analyze_asset(
         repaired = _extract_json(
             _generate(tokenizer, model, repair_prompt, max_new_tokens=1800)
         )
-        long_synopsis = re.sub(
+        candidate = re.sub(
             r"\s+", " ", str(repaired.get("long_synopsis") or "")
         ).strip()
+        if _word_count(candidate) > current_words:
+            long_synopsis = candidate
+        append_log(
+            db,
+            job_id,
+            f"{asset['filename']}: long synopsis repair {attempt + 1}/3 "
+            f"produced {_word_count(long_synopsis)}/{_SYNOPSIS_WORDS} words",
+        )
 
     if _word_count(long_synopsis) < _SYNOPSIS_WORDS:
         raise RuntimeError(
@@ -357,7 +368,12 @@ def generate_media_report(self, job_id: str, media_id: str | None = None):
                 error = _safe_error(exc)
                 row = _make_fallback_row(asset)
                 params["failures"].append({"media_id": asset_id, "filename": asset["filename"], "error": error})
-                append_log(db, job_id, f"{asset['filename']}: report analysis failed; exported available metadata")
+                append_log(
+                    db,
+                    job_id,
+                    f"{asset['filename']}: report analysis failed ({error}); "
+                    "exported available metadata",
+                )
             params["rows"].append(row)
             _store_report_state(db, job_id, params)
             progress = round(100.0 * (index + 1) / len(media_ids), 1)
