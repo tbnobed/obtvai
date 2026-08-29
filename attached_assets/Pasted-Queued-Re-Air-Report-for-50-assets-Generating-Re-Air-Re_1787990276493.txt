@@ -1,0 +1,274 @@
+Queued Re-Air Report for 50 assets
+Generating Re-Air Report for 50 asset(s)
+HD-P260610R: transcript chunk 1/3 analyzed
+HD-P260610R: transcript chunk 2/3 analyzed
+HD-P260610R: transcript chunk 3/3 analyzed
+HD-P260610R: report row 1/50 complete
+HD-P260608: transcript chunk 1/3 analyzed
+HD-P260608: transcript chunk 2/3 analyzed
+HD-P260608: transcript chunk 3/3 analyzed
+HD-P260608: long synopsis repair 1/3 produced 551/500 words
+HD-P260608: report row 2/50 complete
+HD-P260604: transcript chunk 1/3 analyzed
+HD-P260604: transcript chunk 2/3 analyzed
+HD-P260604: transcript chunk 3/3 analyzed
+HD-P260604: long synopsis repair 1/3 produced 477/500 words
+HD-P260604: long synopsis repair 2/3 produced 477/500 words
+HD-P260604: long synopsis repair 3/3 produced 477/500 words
+HD-P260604: report analysis failed (Long synopsis did not reach the required 500 words); exported available metadata
+HD-P260604: report row 3/50 complete
+HD-P260602: transcript chunk 1/4 analyzed
+HD-P260602: transcript chunk 2/4 analyzed
+HD-P260602: transcript chunk 3/4 analyzed
+HD-P260602: transcript chunk 4/4 analyzed
+HD-P260602: report row 4/50 complete
+HD-P260601R2: transcript chunk 1/3 analyzed
+HD-P260601R2: transcript chunk 2/3 analyzed
+HD-P260601R2: transcript chunk 3/3 analyzed
+HD-P260601R2: report row 5/50 complete
+HD-P260520R: transcript chunk 1/4 analyzed
+HD-P260520R: transcript chunk 2/4 analyzed
+HD-P260520R: transcript chunk 3/4 analyzed
+HD-P260520R: transcript chunk 4/4 analyzed
+HD-P260520R: report row 6/50 complete
+HD-P260519R: transcript chunk 1/4 analyzed
+HD-P260519R: transcript chunk 2/4 analyzed
+HD-P260519R: transcript chunk 3/4 analyzed
+HD-P260519R: transcript chunk 4/4 analyzed
+HD-P260519R: long synopsis repair 1/3 produced 539/500 words
+HD-P260519R: report row 7/50 complete
+HD-P260518: transcript chunk 1/3 analyzed
+HD-P260518: transcript chunk 2/3 analyzed
+HD-P260518: transcript chunk 3/3 analyzed
+HD-P260518: report row 8/50 complete
+HD-P260514R: transcript chunk 1/4 analyzed
+HD-P260514R: transcript chunk 2/4 analyzed
+HD-P260514R: transcript chunk 3/4 analyzed
+HD-P260514R: transcript chunk 4/4 analyzed
+HD-P260514R: long synopsis repair 1/3 produced 486/500 words
+HD-P260514R: long synopsis repair 2/3 produced 506/500 words
+HD-P260514R: report row 9/50 complete
+HD-P260513R3: transcript chunk 1/4 analyzed
+HD-P260513R3: transcript chunk 2/4 analyzed
+HD-P260513R3: transcript chunk 3/4 analyzed
+HD-P260513R3: transcript chunk 4/4 analyzed
+HD-P260513R3: long synopsis repair 1/3 produced 456/500 words
+HD-P260513R3: long synopsis repair 2/3 produced 573/500 words
+HD-P260513R3: report row 10/50 complete
+HD-P260506R: transcript chunk 1/3 analyzed
+HD-P260506R: transcript chunk 2/3 analyzed
+HD-P260506R: transcript chunk 3/3 analyzed
+HD-P260506R: long synopsis repair 1/3 produced 484/500 words
+HD-P260506R: long synopsis repair 2/3 produced 551/500 words
+HD-P260506R: report row 11/50 complete
+HD-P260504: transcript chunk 1/4 analyzed
+HD-P260504: transcript chunk 2/4 analyzed
+HD-P260504: transcript chunk 3/4 analyzed
+HD-P260504: transcript chunk 4/4 analyzed
+HD-P260504: long synopsis repair 1/3 produced 498/500 words
+HD-P260504: long synopsis repair 2/3 produced 501/500 words
+HD-P260504: report row 12/50 complete
+HD-P260414: transcript chunk 1/3 analyzed
+HD-P260414: transcript chunk 2/3 analyzed
+HD-P260414: transcript chunk 3/3 analyzed
+HD-P260414: report row 13/50 complete
+HD-P260409R3: transcript chunk 1/3 analyzed
+HD-P260409R3: transcript chunk 2/3 analyzed
+HD-P260409R3: transcript chunk 3/3 analyzed
+HD-P260409R3: long synopsis repair 1/3 produced 695/500 words
+HD-P260409R3: report row 14/50 complete
+HD-P260331: transcript chunk 1/2 analyzed
+HD-P260331: transcript chunk 2/2 analyzed
+HD-P260331: report row 15/50 complete
+HD-P260330: transcript chunk 1/3 analyzed
+HD-P260330: transcript chunk 2/3 analyzed
+HD-P260330: transcript chunk 3/3 analyzed
+HD-P260330: long synopsis repair 1/3 produced 495/500 words
+HD-P260330: long synopsis repair 2/3 produced 500/500 words
+HD-P260330: report row 16/50 complete
+HD-P260329: transcript chunk 1/3 analyzed
+HD-P260329: transcript chunk 2/3 analyzed
+HD-P260329: transcript chunk 3/3 analyzed
+HD-P260329: long synopsis repair 1/3 produced 498/500 words
+HD-P260329: long synopsis repair 2/3 produced 499/500 words
+HD-P260329: long synopsis repair 3/3 produced 504/500 words
+HD-P260329: report row 17/50 complete
+HD-P260326: transcript chunk 1/3 analyzed
+HD-P260326: transcript chunk 2/3 analyzed
+HD-P260326: transcript chunk 3/3 analyzed
+HD-P260326: report analysis failed (LLM did not return valid report JSON after 3 attempts: Unbalanced JSON in LLM output); exported available metadata
+HD-P260326: report row 18/50 complete
+HD-P260323R: transcript chunk 1/3 analyzed
+HD-P260323R: transcript chunk 2/3 analyzed
+HD-P260323R: transcript chunk 3/3 analyzed
+HD-P260323R: report row 19/50 complete
+HD-P260318: transcript chunk 1/3 analyzed
+HD-P260318: transcript chunk 2/3 analyzed
+HD-P260318: transcript chunk 3/3 analyzed
+HD-P260318: long synopsis repair 1/3 produced 553/500 words
+HD-P260318: report row 20/50 complete
+HD-P260311R: transcript chunk 1/4 analyzed
+HD-P260311R: transcript chunk 2/4 analyzed
+HD-P260311R: transcript chunk 3/4 analyzed
+HD-P260311R: transcript chunk 4/4 analyzed
+HD-P260311R: long synopsis repair 1/3 produced 490/500 words
+HD-P260311R: long synopsis repair 2/3 produced 500/500 words
+HD-P260311R: report row 21/50 complete
+HD-P260302R: transcript chunk 1/3 analyzed
+HD-P260302R: transcript chunk 2/3 analyzed
+HD-P260302R: transcript chunk 3/3 analyzed
+HD-P260302R: report row 22/50 complete
+HD-P260224R2: transcript chunk 1/4 analyzed
+HD-P260224R2: transcript chunk 2/4 analyzed
+HD-P260224R2: transcript chunk 3/4 analyzed
+HD-P260224R2: transcript chunk 4/4 analyzed
+HD-P260224R2: long synopsis repair 1/3 produced 510/500 words
+HD-P260224R2: report row 23/50 complete
+HD-P260223: transcript chunk 1/3 analyzed
+HD-P260223: transcript chunk 2/3 analyzed
+HD-P260223: transcript chunk 3/3 analyzed
+HD-P260223: long synopsis repair 1/3 produced 514/500 words
+HD-P260223: report row 24/50 complete
+HD-P260203: transcript chunk 1/4 analyzed
+HD-P260203: transcript chunk 2/4 analyzed
+HD-P260203: transcript chunk 3/4 analyzed
+HD-P260203: transcript chunk 4/4 analyzed
+HD-P260203: long synopsis repair 1/3 produced 562/500 words
+HD-P260203: report row 25/50 complete
+HD-P260120: transcript chunk 1/3 analyzed
+HD-P260120: transcript chunk 2/3 analyzed
+HD-P260120: transcript chunk 3/3 analyzed
+HD-P260120: report row 26/50 complete
+HD-P260113R4: transcript chunk 1/4 analyzed
+HD-P260113R4: transcript chunk 2/4 analyzed
+HD-P260113R4: transcript chunk 3/4 analyzed
+HD-P260113R4: transcript chunk 4/4 analyzed
+HD-P260113R4: report row 27/50 complete
+HD-P260106R: transcript chunk 1/4 analyzed
+HD-P260106R: transcript chunk 2/4 analyzed
+HD-P260106R: transcript chunk 3/4 analyzed
+HD-P260106R: transcript chunk 4/4 analyzed
+HD-P260106R: report row 28/50 complete
+HD-P251216: transcript chunk 1/3 analyzed
+HD-P251216: transcript chunk 2/3 analyzed
+HD-P251216: transcript chunk 3/3 analyzed
+HD-P251216: report row 29/50 complete
+HD-P251210R: transcript chunk 1/2 analyzed
+HD-P251210R: transcript chunk 2/2 analyzed
+HD-P251210R: report row 30/50 complete
+HD-P251201: transcript chunk 1/2 analyzed
+HD-P251201: transcript chunk 2/2 analyzed
+HD-P251201: long synopsis repair 1/3 produced 486/500 words
+HD-P251201: long synopsis repair 2/3 produced 500/500 words
+HD-P251201: report row 31/50 complete
+HD-P251130R3: transcript chunk 1/4 analyzed
+HD-P251130R3: transcript chunk 2/4 analyzed
+HD-P251130R3: transcript chunk 3/4 analyzed
+HD-P251130R3: transcript chunk 4/4 analyzed
+HD-P251130R3: long synopsis repair 1/3 produced 545/500 words
+HD-P251130R3: report row 32/50 complete
+HD-P251125: transcript chunk 1/4 analyzed
+HD-P251125: transcript chunk 2/4 analyzed
+HD-P251125: transcript chunk 3/4 analyzed
+HD-P251125: transcript chunk 4/4 analyzed
+HD-P251125: report row 33/50 complete
+HD-P251123R2: transcript chunk 1/3 analyzed
+HD-P251123R2: transcript chunk 2/3 analyzed
+HD-P251123R2: transcript chunk 3/3 analyzed
+HD-P251123R2: report analysis failed (LLM did not return valid report JSON after 3 attempts: Unbalanced JSON in LLM output); exported available metadata
+HD-P251123R2: report row 34/50 complete
+HD-P251117: transcript chunk 1/4 analyzed
+HD-P251117: transcript chunk 2/4 analyzed
+HD-P251117: transcript chunk 3/4 analyzed
+HD-P251117: transcript chunk 4/4 analyzed
+HD-P251117: long synopsis repair 1/3 produced 532/500 words
+HD-P251117: report row 35/50 complete
+HD-P251113R3: transcript chunk 1/3 analyzed
+HD-P251113R3: transcript chunk 2/3 analyzed
+HD-P251113R3: transcript chunk 3/3 analyzed
+HD-P251113R3: long synopsis repair 1/3 produced 438/500 words
+HD-P251113R3: long synopsis repair 2/3 produced 446/500 words
+HD-P251113R3: long synopsis repair 3/3 produced 483/500 words
+HD-P251113R3: report analysis failed (Long synopsis did not reach the required 500 words); exported available metadata
+HD-P251113R3: report row 36/50 complete
+HD-P251112: transcript chunk 1/4 analyzed
+HD-P251112: transcript chunk 2/4 analyzed
+HD-P251112: transcript chunk 3/4 analyzed
+HD-P251112: transcript chunk 4/4 analyzed
+HD-P251112: report row 37/50 complete
+HD-P251106: transcript chunk 1/3 analyzed
+HD-P251106: transcript chunk 2/3 analyzed
+HD-P251106: transcript chunk 3/3 analyzed
+HD-P251106: report row 38/50 complete
+HD-P251104R: transcript chunk 1/3 analyzed
+HD-P251104R: transcript chunk 2/3 analyzed
+HD-P251104R: transcript chunk 3/3 analyzed
+HD-P251104R: long synopsis repair 1/3 produced 501/500 words
+HD-P251104R: report row 39/50 complete
+HD-P251028R: transcript chunk 1/4 analyzed
+HD-P251028R: transcript chunk 2/4 analyzed
+HD-P251028R: transcript chunk 3/4 analyzed
+HD-P251028R: transcript chunk 4/4 analyzed
+HD-P251028R: report row 40/50 complete
+HD-P251023: transcript chunk 1/4 analyzed
+HD-P251023: transcript chunk 2/4 analyzed
+HD-P251023: transcript chunk 3/4 analyzed
+HD-P251023: transcript chunk 4/4 analyzed
+HD-P251023: report row 41/50 complete
+HD-P251022R: transcript chunk 1/4 analyzed
+HD-P251022R: transcript chunk 2/4 analyzed
+HD-P251022R: transcript chunk 3/4 analyzed
+HD-P251022R: transcript chunk 4/4 analyzed
+HD-P251022R: report analysis failed (LLM did not return valid report JSON after 3 attempts: Unbalanced JSON in LLM output); exported available metadata
+HD-P251022R: report row 42/50 complete
+HD-P251021: transcript chunk 1/4 analyzed
+HD-P251021: transcript chunk 2/4 analyzed
+HD-P251021: transcript chunk 3/4 analyzed
+HD-P251021: transcript chunk 4/4 analyzed
+HD-P251021: long synopsis repair 1/3 produced 494/500 words
+HD-P251021: long synopsis repair 2/3 produced 500/500 words
+HD-P251021: report row 43/50 complete
+HD-P251014: transcript chunk 1/4 analyzed
+HD-P251014: transcript chunk 2/4 analyzed
+HD-P251014: transcript chunk 3/4 analyzed
+HD-P251014: transcript chunk 4/4 analyzed
+HD-P251014: long synopsis repair 1/3 produced 452/500 words
+HD-P251014: long synopsis repair 2/3 produced 487/500 words
+HD-P251014: long synopsis repair 3/3 produced 568/500 words
+HD-P251014: report row 44/50 complete
+HD-P250930: transcript chunk 1/4 analyzed
+HD-P250930: transcript chunk 2/4 analyzed
+HD-P250930: transcript chunk 3/4 analyzed
+HD-P250930: transcript chunk 4/4 analyzed
+HD-P250930: report row 45/50 complete
+HD-P250925R5: transcript chunk 1/4 analyzed
+HD-P250925R5: transcript chunk 2/4 analyzed
+HD-P250925R5: transcript chunk 3/4 analyzed
+HD-P250925R5: transcript chunk 4/4 analyzed
+HD-P250925R5: long synopsis repair 1/3 produced 552/500 words
+HD-P250925R5: report row 46/50 complete
+HD-P250923R7: transcript chunk 1/4 analyzed
+HD-P250923R7: transcript chunk 2/4 analyzed
+HD-P250923R7: transcript chunk 3/4 analyzed
+HD-P250923R7: transcript chunk 4/4 analyzed
+HD-P250923R7: report row 47/50 complete
+HD-P250916: transcript chunk 1/4 analyzed
+HD-P250916: transcript chunk 2/4 analyzed
+HD-P250916: transcript chunk 3/4 analyzed
+HD-P250916: transcript chunk 4/4 analyzed
+HD-P250916: report analysis failed (LLM did not return valid report JSON after 3 attempts: No JSON object in LLM output); exported available metadata
+HD-P250916: report row 48/50 complete
+HD-P250909: transcript chunk 1/3 analyzed
+HD-P250909: transcript chunk 2/3 analyzed
+HD-P250909: transcript chunk 3/3 analyzed
+HD-P250909: long synopsis repair 1/3 produced 462/500 words
+HD-P250909: long synopsis repair 2/3 produced 469/500 words
+HD-P250909: long synopsis repair 3/3 produced 469/500 words
+HD-P250909: report analysis failed (Long synopsis did not reach the required 500 words); exported available metadata
+HD-P250909: report row 49/50 complete
+HD-P250819R2: transcript chunk 1/3 analyzed
+HD-P250819R2: transcript chunk 2/3 analyzed
+HD-P250819R2: transcript chunk 3/3 analyzed
+HD-P250819R2: long synopsis repair 1/3 produced 543/500 words
+HD-P250819R2: report row 50/50 complete
+Re-Air Report complete: 50 row(s), 7 partial result(s)

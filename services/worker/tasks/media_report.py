@@ -32,6 +32,20 @@ def _word_count(value: str) -> int:
     return len(re.findall(r"\S+", value.strip()))
 
 
+def _clean_prose(value: str) -> str:
+    """Normalize a prose-only LLM response without treating it as JSON."""
+    text = str(value or "").strip()
+    text = re.sub(r"^```(?:text|markdown)?\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*```$", "", text)
+    text = re.sub(
+        r"^(?:long|short)\s+synopsis\s*:\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _generate_json(
     tokenizer,
     model,
@@ -213,7 +227,7 @@ def _analyze_asset(
 ) -> dict:
     """Generate one report row; raises only when the asset cannot be analyzed."""
     from sqlalchemy import text
-    from tasks.analyze import _build_chunks, _format_timecode
+    from tasks.analyze import _build_chunks, _format_timecode, _generate
 
     rows = db.execute(
         text("""
@@ -289,59 +303,43 @@ def _analyze_asset(
         raise RuntimeError("The report analysis returned no usable transcript summaries")
 
     reduced = _reduce_summaries(tokenizer, model, chunk_summaries)
-    synthesis_prompt = (
-        "Using only this chronological evidence, produce JSON with a clear short synopsis "
-        "(1-2 sentences) and a complete long synopsis of exactly 500 words. Develop the "
-        "chronology, themes, arguments, examples, and conclusions in sufficient detail to "
-        "reach exactly 500 words without repetition or invented facts. Return JSON only.\n\n"
-        + reduced
-        + '\n\n{"short_synopsis": "...", "long_synopsis": "..."}'
+    long_prompt = (
+        "Using only the chronological evidence below, write a complete factual synopsis "
+        "of at least 550 words. Develop the chronology, themes, arguments, examples, and "
+        "conclusions without repetition, generic filler, or invented facts. Return only "
+        "the synopsis prose with no heading, JSON, markdown, or commentary.\n\n"
+        f"Chronological evidence:\n{reduced}"
     )
-    synthesis = _generate_json(
-        tokenizer,
-        model,
-        synthesis_prompt,
-        max_new_tokens=2200,
-        required_keys=("short_synopsis", "long_synopsis"),
+    long_synopsis = _clean_prose(
+        _generate(tokenizer, model, long_prompt, max_new_tokens=2200)
     )
-    long_synopsis = re.sub(
-        r"\s+", " ", str(synthesis.get("long_synopsis") or "")
-    ).strip()
-    short_synopsis = re.sub(
-        r"\s+", " ", str(synthesis.get("short_synopsis") or "")
-    ).strip()[:1200]
 
-    # Models often stop a little short even when given an exact word target.
-    # Keep the longest factual draft across repair attempts; a shorter rewrite
-    # must never erase a better result.
+    # If generation stops early, request only the missing continuation. Rewriting
+    # the entire draft repeatedly proved both less reliable and more prone to
+    # malformed JSON than extending the existing factual prose.
     for attempt in range(3):
         current_words = _word_count(long_synopsis)
         if current_words >= _SYNOPSIS_WORDS:
             break
-        repair_prompt = (
-            f"The draft below is {current_words} words. Rewrite it as exactly "
-            f"{_SYNOPSIS_WORDS} words using only the supplied chronological evidence. "
-            "Expand factual context, chronology, themes, examples, and conclusions. "
-            "Do not repeat sentences, add generic filler, or invent facts. "
-            'Return only JSON in the form {"long_synopsis": "..."}.\n\n'
-            f"Chronological evidence:\n{reduced}\n\nDraft:\n{long_synopsis}"
+        needed = _SYNOPSIS_WORDS - current_words
+        continuation_prompt = (
+            f"Continue the synopsis draft with at least {needed + 40} additional words "
+            "using only factual details from the chronological evidence. Add relevant "
+            "details not already covered in the draft. Do not repeat sentences, add "
+            "generic filler, invent facts, summarize the instructions, or restart the "
+            "synopsis. Return only the continuation prose with no heading, JSON, markdown, "
+            "or commentary.\n\n"
+            f"Chronological evidence:\n{reduced}\n\nExisting draft:\n{long_synopsis}"
         )
-        repaired = _generate_json(
-            tokenizer,
-            model,
-            repair_prompt,
-            max_new_tokens=2200,
-            required_keys=("long_synopsis",),
+        continuation = _clean_prose(
+            _generate(tokenizer, model, continuation_prompt, max_new_tokens=1000)
         )
-        candidate = re.sub(
-            r"\s+", " ", str(repaired.get("long_synopsis") or "")
-        ).strip()
-        if _word_count(candidate) > current_words:
-            long_synopsis = candidate
+        if continuation:
+            long_synopsis = f"{long_synopsis} {continuation}".strip()
         append_log(
             db,
             job_id,
-            f"{asset['filename']}: long synopsis repair {attempt + 1}/3 "
+            f"{asset['filename']}: long synopsis continuation {attempt + 1}/3 "
             f"produced {_word_count(long_synopsis)}/{_SYNOPSIS_WORDS} words",
         )
 
@@ -350,6 +348,15 @@ def _analyze_asset(
             f"Long synopsis did not reach the required {_SYNOPSIS_WORDS} words"
         )
     long_synopsis = _limit_words(long_synopsis, _SYNOPSIS_WORDS)
+    short_prompt = (
+        "Using only the synopsis below, write a clear factual short synopsis in one or "
+        "two sentences. Return only the short synopsis with no heading, JSON, markdown, "
+        "or commentary.\n\n"
+        f"Synopsis:\n{long_synopsis}"
+    )
+    short_synopsis = _clean_prose(
+        _generate(tokenizer, model, short_prompt, max_new_tokens=220)
+    )[:1200]
     if not short_synopsis:
         short_synopsis = long_synopsis[:1200]
 
