@@ -1,11 +1,48 @@
 import { useState } from "react";
-import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useRetryFailedJobs, useCancelJob, useCleanupJobs, useReindexLibrary, useResumeStalledMedia, getDownloadMediaReportUrl } from "@workspace/api-client-react";
+import { useListJobs, getListJobsQueryKey, useGetJobStats, getGetJobStatsQueryKey, useRetryJob, useRetryFailedJobs, useCancelJob, useCleanupJobs, useReindexLibrary, useResumeStalledMedia, getDownloadMediaReportUrl, useGetMediaReport, getGetMediaReportQueryKey } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Square, Trash2, DatabaseZap, ChevronDown, ChevronRight, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const ACTIVE_MEDIA_REPORT_KEY = "active-media-report-id";
+
+function MediaReportPublication({ reportId }: { reportId: string }) {
+  const { data: report } = useGetMediaReport(reportId, {
+    query: {
+      queryKey: getGetMediaReportQueryKey(reportId),
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+        return status === "pending" || status === "running" ? 3000 : false;
+      },
+    },
+  });
+
+  if (!report?.publish_status) return null;
+  if (report.publish_status === "success") {
+    return (
+      <div className="mt-1 text-xs text-emerald-500">
+        Posted to re-air management
+        {report.published_name ? ` as ${report.published_name}` : ""}
+        {report.published_clip_count != null ? ` (${report.published_clip_count} clips)` : ""}.
+      </div>
+    );
+  }
+  if (report.publish_status === "error") {
+    return (
+      <div className="mt-1 text-xs text-destructive">
+        Automatic post failed: {report.publish_error || "Unknown error"}. CSV download is still available.
+      </div>
+    );
+  }
+  return (
+    <div className="mt-1 text-xs text-muted-foreground">
+      {report.publish_status === "posting"
+        ? "Posting to re-air management..."
+        : "Will post automatically when complete."}
+    </div>
+  );
+}
 
 export default function Jobs() {
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -254,6 +291,9 @@ export default function Jobs() {
                   <div className="text-sm text-muted-foreground font-mono truncate max-w-md" title={job.filename || "Unknown file"}>
                     {job.filename || job.media_id || "Library-wide"}
                   </div>
+                  {job.job_type === "media_report" && (
+                    <MediaReportPublication reportId={job.id} />
+                  )}
                 </div>
 
                 <div className="w-64 mx-4">

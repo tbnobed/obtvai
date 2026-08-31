@@ -111,6 +111,9 @@ def _media_report_status(job: ProcessingJob) -> MediaReportStatusOut:
     media_ids = params.get("media_ids")
     rows = params.get("rows")
     failures = params.get("failures")
+    published = params.get("published_report")
+    if not isinstance(published, dict):
+        published = {}
     total = len(media_ids) if isinstance(media_ids, list) else 0
     processed = len(rows) if isinstance(rows, list) else 0
     failed = len(failures) if isinstance(failures, list) else 0
@@ -128,6 +131,14 @@ def _media_report_status(job: ProcessingJob) -> MediaReportStatusOut:
             if job.status == "success"
             else None
         ),
+        publish_status=params.get("publish_status"),
+        publish_error=params.get("publish_error"),
+        published_report_id=(
+            str(published["id"]) if published.get("id") is not None else None
+        ),
+        published_name=published.get("name"),
+        published_clip_count=published.get("clip_count"),
+        published_at=published.get("uploaded_at"),
         created_at=job.created_at,
         started_at=job.started_at,
         finished_at=job.finished_at,
@@ -153,6 +164,36 @@ def _report_air_dates(row: dict) -> str:
         if value:
             parts.append(value)
     return " | ".join(parts)
+
+
+def _render_media_report_csv(rows: list) -> str:
+    headers = [
+        "ClipID",
+        "Air Dates",
+        "Host",
+        "Guests",
+        "Short Synopsis",
+        "Long Synopsis",
+        "Any dates mentioned (timecode where)",
+        "Any date sensitive material (timecode where)",
+    ]
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=headers, extrasaction="ignore", lineterminator="\n")
+    writer.writeheader()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        writer.writerow({
+            "ClipID": row.get("clip_id") or "",
+            "Air Dates": _report_air_dates(row),
+            "Host": row.get("host") or "",
+            "Guests": row.get("guests") or "",
+            "Short Synopsis": row.get("short_synopsis") or "",
+            "Long Synopsis": row.get("long_synopsis") or "",
+            "Any dates mentioned (timecode where)": row.get("date_mentions") or "",
+            "Any date sensitive material (timecode where)": row.get("date_sensitive") or "",
+        })
+    return "\ufeff" + output.getvalue()
 
 
 @router.post("/reports", response_model=MediaReportStatusOut, status_code=202)
@@ -193,7 +234,14 @@ async def create_media_report(body: MediaReportInput, db: AsyncSession = Depends
         status="pending",
         progress=0.0,
         logs=[f"Queued Re-Air Report for {len(media_ids)} asset{'s' if len(media_ids) != 1 else ''}"],
-        params={"media_ids": media_ids, "rows": [], "failures": []},
+        params={
+            "media_ids": media_ids,
+            "rows": [],
+            "failures": [],
+            "publish_status": "pending",
+            "publish_error": None,
+            "published_report": None,
+        },
     )
     db.add(job)
     await db.commit()
@@ -242,38 +290,17 @@ async def download_media_report(report_id: str, db: AsyncSession = Depends(get_d
 
     params = job.params if isinstance(job.params, dict) else {}
     rows = params.get("rows") if isinstance(params.get("rows"), list) else []
-    headers = [
-        "ClipID",
-        "Air Dates",
-        "Host",
-        "Guests",
-        "Short Synopsis",
-        "Long Synopsis",
-        "Any dates mentioned (timecode where)",
-        "Any date sensitive material (timecode where)",
-    ]
-    output = io.StringIO(newline="")
-    writer = csv.DictWriter(output, fieldnames=headers, extrasaction="ignore", lineterminator="\n")
-    writer.writeheader()
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        writer.writerow({
-            "ClipID": row.get("clip_id") or "",
-            "Air Dates": _report_air_dates(row),
-            "Host": row.get("host") or "",
-            "Guests": row.get("guests") or "",
-            "Short Synopsis": row.get("short_synopsis") or "",
-            "Long Synopsis": row.get("long_synopsis") or "",
-            "Any dates mentioned (timecode where)": row.get("date_mentions") or "",
-            "Any date sensitive material (timecode where)": row.get("date_sensitive") or "",
-        })
-
-    stamp = (job.finished_at or job.created_at).strftime("%Y%m%d-%H%M%S")
+    csv_content = params.get("csv_content")
+    if not isinstance(csv_content, str):
+        csv_content = _render_media_report_csv(rows)
+    csv_name = params.get("csv_name")
+    if not isinstance(csv_name, str) or not csv_name:
+        stamp = (job.finished_at or job.created_at).strftime("%Y%m%d-%H%M%S")
+        csv_name = f"reair-report-{stamp}.csv"
     return Response(
-        content=output.getvalue().encode("utf-8-sig"),
+        content=csv_content.encode("utf-8"),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="reair-report-{stamp}.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="{csv_name}"'},
     )
 
 

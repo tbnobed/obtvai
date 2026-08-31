@@ -204,6 +204,19 @@ async def retry_job(id: str, db: AsyncSession = Depends(get_db)):
     job, asset = row
     if job.status in ("running", "pending"):
         raise HTTPException(status_code=400, detail="Job is already queued or running")
+    params = job.params if isinstance(job.params, dict) else {}
+    if (
+        job.job_type == "media_report"
+        and isinstance(params.get("csv_content"), str)
+        and params.get("publish_status") in ("posting", "success", "error")
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This Re-Air Report has already used its automatic post attempt. "
+                "Create a new report instead to avoid duplicate ingestion."
+            ),
+        )
 
     job.status = "pending"
     job.error_message = None
@@ -227,6 +240,7 @@ async def cancel_job(id: str, db: AsyncSession = Depends(get_db)):
             select(ProcessingJob, MediaAsset)
             .outerjoin(MediaAsset, ProcessingJob.media_id == MediaAsset.id)
             .where(ProcessingJob.id == id)
+            .with_for_update()
         )
     ).first()
     if not row:
@@ -234,6 +248,16 @@ async def cancel_job(id: str, db: AsyncSession = Depends(get_db)):
     job, asset = row
     if job.status in ("success", "error"):
         raise HTTPException(status_code=400, detail="Completed jobs cannot be cancelled")
+    params = job.params if isinstance(job.params, dict) else {}
+    if (
+        job.job_type == "media_report"
+        and isinstance(params.get("csv_content"), str)
+        and params.get("publish_status") in ("posting", "success", "error")
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="This Re-Air Report has already started automatic posting and can no longer be cancelled.",
+        )
 
     if job.celery_task_id:
         try:

@@ -77,6 +77,9 @@ x-python-env: &python-env
   CURATOR_API_URL: "${CURATOR_API_URL:-https://curator.tbn.tv/CuratorGateway}"
   CURATOR_CLIENT_ID: "${CURATOR_CLIENT_ID:-}"
   CURATOR_CLIENT_SECRET: "${CURATOR_CLIENT_SECRET:-}"
+  # Completed Re-Air Reports post directly from the worker to reair.obtv.io.
+  REPORT_INGEST_API_KEY: "${REPORT_INGEST_API_KEY:-}"
+  REPORT_INGEST_URL: "${REPORT_INGEST_URL:-https://reair.obtv.io/api/reports/ingest}"
   # Path translation for NLE exports (EDL/FCPXML/OTIO), e.g.
   # EXPORT_PATH_MAP=/media=V:\Media;/media2=\\nas\media2
   EXPORT_PATH_MAP: "${EXPORT_PATH_MAP:-}"

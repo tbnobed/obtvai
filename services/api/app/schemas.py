@@ -474,6 +474,12 @@ class MediaReportStatusOut(BaseModel):
     logs: List[str] = []
     error_message: Optional[str] = None
     download_url: Optional[str] = None
+    publish_status: Optional[str] = None
+    publish_error: Optional[str] = None
+    published_report_id: Optional[str] = None
+    published_name: Optional[str] = None
+    published_clip_count: Optional[int] = None
+    published_at: Optional[datetime] = None
     created_at: datetime
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None

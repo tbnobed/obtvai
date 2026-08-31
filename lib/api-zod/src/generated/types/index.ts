@@ -123,6 +123,7 @@ export * from './mediaMoveInput';
 export * from './mediaMoveResult';
 export * from './mediaReportInput';
 export * from './mediaReportStatus';
+export * from './mediaReportStatusPublishStatus';
 export * from './mediaReportStatusStatus';
 export * from './mediaUploadInput';
 export * from './onCameraRange';

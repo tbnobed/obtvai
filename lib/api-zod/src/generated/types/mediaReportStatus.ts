@@ -5,6 +5,7 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { MediaReportStatusPublishStatus } from './mediaReportStatusPublishStatus';
 import type { MediaReportStatusStatus } from './mediaReportStatusStatus';
 
 export interface MediaReportStatus {
@@ -23,6 +24,24 @@ export interface MediaReportStatus {
      * @nullable
      */
   download_url?: string | null;
+  /**
+     * Automatic re-air management publication state.
+     * @nullable
+     */
+  publish_status?: MediaReportStatusPublishStatus;
+  /**
+     * Sanitized publication failure; the local CSV remains downloadable.
+     * @nullable
+     */
+  publish_error?: string | null;
+  /** @nullable */
+  published_report_id?: string | null;
+  /** @nullable */
+  published_name?: string | null;
+  /** @nullable */
+  published_clip_count?: number | null;
+  /** @nullable */
+  published_at?: Date | null;
   created_at: string;
   /** @nullable */
   started_at?: string | null;

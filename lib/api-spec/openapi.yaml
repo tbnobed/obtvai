@@ -4603,6 +4603,22 @@ components:
         download_url:
           type: ["string", "null"]
           description: CSV download path available after successful completion.
+        publish_status:
+          type: ["string", "null"]
+          enum: [pending, posting, success, error, null]
+          description: Automatic re-air management publication state.
+        publish_error:
+          type: ["string", "null"]
+          description: Sanitized publication failure; the local CSV remains downloadable.
+        published_report_id:
+          type: ["string", "null"]
+        published_name:
+          type: ["string", "null"]
+        published_clip_count:
+          type: ["integer", "null"]
+        published_at:
+          type: ["string", "null"]
+          format: date-time
         created_at:
           type: string
         started_at:

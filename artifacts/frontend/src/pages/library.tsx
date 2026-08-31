@@ -349,9 +349,13 @@ export default function Library() {
       reportedCompletionRef.current = mediaReport.id;
       toast({
         title: "Re-Air Report ready",
-        description: mediaReport.failed_assets
-          ? `${mediaReport.processed_assets} rows exported; ${mediaReport.failed_assets} use available metadata only.`
-          : `${mediaReport.processed_assets} report rows are ready to download.`,
+        description: mediaReport.publish_status === "success"
+          ? `${mediaReport.processed_assets} rows posted to re-air management.`
+          : mediaReport.publish_status === "error"
+            ? "The CSV is ready, but automatic posting failed."
+            : mediaReport.failed_assets
+              ? `${mediaReport.processed_assets} rows exported; ${mediaReport.failed_assets} use available metadata only.`
+              : `${mediaReport.processed_assets} report rows are ready to download.`,
       });
     } else if (mediaReport.status === "error") {
       reportedCompletionRef.current = mediaReport.id;
@@ -1182,7 +1186,9 @@ export default function Library() {
                 ) : (
                   <RefreshCw className="h-4 w-4 text-primary" />
                 )}
-                {mediaReport.status === "success"
+                {mediaReport.publish_status === "posting"
+                  ? "Posting Re-Air Report"
+                  : mediaReport.status === "success"
                   ? "Re-Air Report ready"
                   : mediaReport.status === "error" || mediaReport.status === "cancelled"
                     ? "Re-Air Report didn't finish"
@@ -1197,6 +1203,23 @@ export default function Library() {
                     ? mediaReport.error_message || "No CSV was created."
                     : `${mediaReport.processed_assets} of ${mediaReport.total_assets} media items completed.`}
               </p>
+              {mediaReport.publish_status === "success" && (
+                <p className="mt-1 text-xs text-emerald-500">
+                  Posted to re-air management
+                  {mediaReport.published_name ? ` as ${mediaReport.published_name}` : ""}
+                  {mediaReport.published_clip_count != null ? ` (${mediaReport.published_clip_count} clips)` : ""}.
+                </p>
+              )}
+              {mediaReport.publish_status === "error" && (
+                <p className="mt-1 text-xs text-destructive">
+                  Automatic post failed: {mediaReport.publish_error || "Unknown error"}. The CSV remains available below.
+                </p>
+              )}
+              {mediaReport.publish_status === "posting" && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Sending the completed CSV to re-air management.
+                </p>
+              )}
             </div>
             {mediaReport.status === "success" && mediaReport.download_url && (
               <Button size="sm" onClick={() => downloadMediaReport(mediaReport.id)} className="gap-2">

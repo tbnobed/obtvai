@@ -39,3 +39,4 @@
 - [Postgres startup DDL locks](postgres-startup-ddl.md) — ADD COLUMN IF NOT EXISTS locks before checking; gate boot migrations on information_schema or busy workers make the API unhealthy.
 - [Deploy command service names](compose-service-names.md) — no "worker" service; worker code changes rebuild worker-gpu worker-gpu-2 worker-cpu worker-graphics.
 - [Florence Transformers compatibility](florence-transformers-compat.md) — force eager and disable generation caching; remote code lacks SDPA metadata and assumes legacy KV-cache tuples.
+- [Re-Air publish attempts](reair-publish-attempts.md) — ingest has no idempotency contract; persist one attempt and never retry an ambiguous outcome.

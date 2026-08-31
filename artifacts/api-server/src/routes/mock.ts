@@ -736,6 +736,12 @@ type MockMediaReport = {
   failed_assets: number;
   logs: string[];
   error_message: string | null;
+  publish_status: "pending" | "posting" | "success" | "error" | null;
+  publish_error: string | null;
+  published_report_id: string | null;
+  published_name: string | null;
+  published_clip_count: number | null;
+  published_at: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -814,6 +820,12 @@ function mediaReportOut(report: MockMediaReport) {
     logs: report.logs,
     error_message: report.error_message,
     download_url: report.status === "success" ? `/api/media/reports/${report.id}/download` : null,
+    publish_status: report.publish_status,
+    publish_error: report.publish_error,
+    published_report_id: report.published_report_id,
+    published_name: report.published_name,
+    published_clip_count: report.published_clip_count,
+    published_at: report.published_at,
     created_at: report.created_at,
     started_at: report.started_at,
     finished_at: report.finished_at,
@@ -824,6 +836,7 @@ router.post("/media/reports", (req, res) => {
   const mediaIds = Array.isArray(req.body?.media_ids)
     ? Array.from(new Set(req.body.media_ids.map(String).filter(Boolean)))
     : [];
+  const simulatePublishError = req.body?.mock_publish_error === true;
   if (!mediaIds.length) {
     res.status(400).json({ detail: "Select at least one media asset" });
     return;
@@ -853,6 +866,12 @@ router.post("/media/reports", (req, res) => {
     failed_assets: 0,
     logs: [`Queued Re-Air Report for ${selected.length} asset${selected.length === 1 ? "" : "s"}`],
     error_message: null,
+    publish_status: "pending",
+    publish_error: null,
+    published_report_id: null,
+    published_name: null,
+    published_clip_count: null,
+    published_at: null,
     created_at: timestamp,
     started_at: null,
     finished_at: null,
@@ -888,19 +907,43 @@ router.post("/media/reports", (req, res) => {
     report.processed_assets = report.rows.length;
     report.failed_assets = selectedAssets.filter((asset) =>
       !transcript.some((segment) => segment.media_id === asset.id)).length;
-    report.status = "success";
+    report.publish_status = "posting";
     report.progress = 100;
-    report.finished_at = new Date().toISOString();
-    report.logs.push(
-      `Re-Air Report complete: ${report.processed_assets} row(s), ${report.failed_assets} partial result(s)`,
-    );
+    report.logs.push("Posting completed CSV to re-air management");
     const job = jobs.find((item: any) => item.id === report.id) as any;
     if (job) Object.assign(job, {
-      status: "success",
+      status: "running",
       progress: 100,
-      finished_at: report.finished_at,
-      logs: report.logs,
+      logs: [...report.logs],
     });
+
+    setTimeout(() => {
+      if (simulatePublishError) {
+        report.publish_status = "error";
+        report.publish_error = "Mock ingest rejected the report";
+        report.logs.push("Automatic re-air post failed (Mock ingest rejected the report)");
+      } else {
+        report.publish_status = "success";
+        report.published_report_id = String(Math.floor(Date.now() / 1000));
+        report.published_name = `reair-report-${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}.csv`;
+        report.published_clip_count = report.rows.length;
+        report.published_at = new Date().toISOString();
+        report.logs.push(
+          `Posted to re-air management as report ${report.published_report_id} (${report.published_clip_count} clips)`,
+        );
+      }
+      report.status = "success";
+      report.finished_at = new Date().toISOString();
+      report.logs.push(
+        `Re-Air Report complete: ${report.processed_assets} row(s), ${report.failed_assets} partial result(s)`,
+      );
+      if (job) Object.assign(job, {
+        status: "success",
+        progress: 100,
+        finished_at: report.finished_at,
+        logs: [...report.logs],
+      });
+    }, 4000);
   }, Math.max(1000, selected.length * 500));
 
   res.status(202).json(mediaReportOut(report));

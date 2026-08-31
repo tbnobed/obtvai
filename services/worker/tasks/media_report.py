@@ -1,5 +1,8 @@
 """On-demand, transcript-backed CSV report generation for selected media."""
+import csv
+import io
 import json
+import os
 import re
 from datetime import datetime
 
@@ -10,6 +13,17 @@ from tasks.base import append_log, update_job
 
 _SYNOPSIS_WORDS = 500
 _MAX_REDUCE_CHARS = 18000
+_REPORT_INGEST_URL = "https://reair.obtv.io/api/reports/ingest"
+_REPORT_HEADERS = [
+    "ClipID",
+    "Air Dates",
+    "Host",
+    "Guests",
+    "Short Synopsis",
+    "Long Synopsis",
+    "Any dates mentioned (timecode where)",
+    "Any date sensitive material (timecode where)",
+]
 
 
 def _safe_error(exc: Exception) -> str:
@@ -21,6 +35,99 @@ def _safe_error(exc: Exception) -> str:
         message,
     )
     return message[:1000]
+
+
+def _report_air_dates(row: dict) -> str:
+    def label(kind: str, value) -> str | None:
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            return f"{kind}: {value:%Y-%m-%d}"
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            return f"{kind}: {parsed:%Y-%m-%d}"
+        except ValueError:
+            return f"{kind}: {value}"
+
+    return " | ".join(
+        value
+        for value in (
+            label("Original", row.get("curator_original_air_date")),
+            label("Last", row.get("curator_last_air_date")),
+        )
+        if value
+    )
+
+
+def _render_report_csv(rows: list[dict]) -> str:
+    """Return the exact UTF-8-BOM CSV text used for posting and downloads."""
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(
+        output,
+        fieldnames=_REPORT_HEADERS,
+        extrasaction="ignore",
+        lineterminator="\n",
+    )
+    writer.writeheader()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        writer.writerow({
+            "ClipID": row.get("clip_id") or "",
+            "Air Dates": _report_air_dates(row),
+            "Host": row.get("host") or "",
+            "Guests": row.get("guests") or "",
+            "Short Synopsis": row.get("short_synopsis") or "",
+            "Long Synopsis": row.get("long_synopsis") or "",
+            "Any dates mentioned (timecode where)": row.get("date_mentions") or "",
+            "Any date sensitive material (timecode where)": row.get("date_sensitive") or "",
+        })
+    return "\ufeff" + output.getvalue()
+
+
+def _post_report(name: str, content: str) -> dict:
+    """Post once; blind retries could duplicate a report after an ambiguous timeout."""
+    import httpx
+
+    api_key = os.getenv("REPORT_INGEST_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("REPORT_INGEST_API_KEY is not configured")
+    ingest_url = os.getenv("REPORT_INGEST_URL", _REPORT_INGEST_URL).strip() or _REPORT_INGEST_URL
+    try:
+        response = httpx.post(
+            ingest_url,
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={"name": name, "content": content},
+            timeout=30.0,
+        )
+        if response.status_code != 201:
+            detail = re.sub(r"\s+", " ", response.text).strip()
+            detail = detail.replace(api_key, "[REDACTED]")[:500]
+            raise RuntimeError(
+                f"re-air ingest returned HTTP {response.status_code}"
+                + (f": {detail}" if detail else "")
+            )
+        payload = response.json()
+    except httpx.HTTPError as exc:
+        error = _safe_error(exc).replace(api_key, "[REDACTED]")
+        raise RuntimeError(f"re-air ingest request failed: {error}") from exc
+    except ValueError as exc:
+        raise RuntimeError("re-air ingest returned invalid JSON") from exc
+
+    if not isinstance(payload, dict):
+        raise RuntimeError("re-air ingest returned an invalid response")
+    required = ("id", "name", "clipCount", "uploadedAt")
+    missing = [key for key in required if payload.get(key) is None]
+    if missing:
+        raise RuntimeError(
+            f"re-air ingest response omitted: {', '.join(missing)}"
+        )
+    return {
+        "id": str(payload["id"]),
+        "name": str(payload["name"]),
+        "clip_count": int(payload["clipCount"]),
+        "uploaded_at": str(payload["uploadedAt"]),
+    }
 
 
 def _limit_words(value: str, limit: int = _SYNOPSIS_WORDS) -> str:
@@ -158,10 +265,51 @@ def _store_report_state(db, job_id: str, params: dict) -> None:
             UPDATE processing_jobs
             SET params = CAST(:params AS jsonb), heartbeat_at = :now
             WHERE id = :job_id
+              AND (
+                :publish_status <> 'pending'
+                OR COALESCE(params->>'publish_status', 'pending') = 'pending'
+              )
         """),
-        {"params": json.dumps(params), "now": datetime.utcnow(), "job_id": job_id},
+        {
+            "params": json.dumps(params),
+            "publish_status": params.get("publish_status") or "pending",
+            "now": datetime.utcnow(),
+            "job_id": job_id,
+        },
     )
     db.commit()
+
+
+def _claim_report_publish(db, job_id: str, params: dict) -> bool:
+    """Atomically reserve the report's only external publish attempt."""
+    from sqlalchemy import text
+
+    claimed = db.execute(
+        text("""
+            UPDATE processing_jobs
+            SET params = CAST(:params AS jsonb), heartbeat_at = :now
+            WHERE id = :job_id
+              AND status = 'running'
+              AND COALESCE(params->>'publish_status', 'pending') = 'pending'
+            RETURNING id
+        """),
+        {"params": json.dumps(params), "now": datetime.utcnow(), "job_id": job_id},
+    ).first()
+    db.commit()
+    return claimed is not None
+
+
+def _post_report_if_running(db, job_id: str, name: str, content: str) -> dict | None:
+    """Last cancellation check before irreversible external ingestion."""
+    from sqlalchemy import text
+
+    status = db.execute(
+        text("SELECT status FROM processing_jobs WHERE id = :job_id"),
+        {"job_id": job_id},
+    ).scalar_one_or_none()
+    if status != "running":
+        return None
+    return _post_report(name, content)
 
 
 def _reduce_summaries(tokenizer, model, summaries: list[str]) -> str:
@@ -394,6 +542,29 @@ def generate_media_report(self, job_id: str, media_id: str | None = None):
         if not media_ids:
             raise RuntimeError("Re-Air Report has no selected assets")
 
+        # Never repeat an external attempt for this report. If a worker vanished
+        # while the state was "posting", the remote outcome is ambiguous.
+        prior_publish_status = params.get("publish_status")
+        if isinstance(params.get("csv_content"), str) and prior_publish_status in {
+            "posting", "success", "error",
+        }:
+            if prior_publish_status == "posting":
+                params["publish_status"] = "error"
+                params["publish_error"] = (
+                    "The previous automatic post outcome is unknown after worker interruption; "
+                    "it was not retried to avoid a duplicate report."
+                )
+                _store_report_state(db, job_id, params)
+                append_log(db, job_id, params["publish_error"])
+            update_job(
+                db,
+                job_id,
+                status="success",
+                progress=100.0,
+                finished_at=datetime.utcnow(),
+            )
+            return
+
         assets = db.execute(
             text("""
                 SELECT id, filename, original_path, curator_web_proxy_path, synopsis,
@@ -449,7 +620,59 @@ def generate_media_report(self, job_id: str, media_id: str | None = None):
             append_log(db, job_id, f"{asset['filename']}: report row {index + 1}/{len(media_ids)} complete")
 
         failure_count = len(params["failures"])
-        update_job(db, job_id, status="success", progress=100.0, finished_at=datetime.utcnow())
+        finished_at = datetime.utcnow()
+        csv_name = f"reair-report-{finished_at:%Y%m%d-%H%M%S}.csv"
+        csv_content = _render_report_csv(params["rows"])
+        params.update({
+            "csv_name": csv_name,
+            "csv_content": csv_content,
+            "publish_status": "posting",
+            "publish_error": None,
+            "published_report": None,
+        })
+        if not _claim_report_publish(db, job_id, params):
+            append_log(
+                db,
+                job_id,
+                "Skipped duplicate automatic post attempt for this Re-Air Report",
+            )
+            return
+        append_log(db, job_id, f"Posting {csv_name} to re-air management")
+        try:
+            published = _post_report_if_running(
+                db,
+                job_id,
+                csv_name,
+                csv_content,
+            )
+            if published is None:
+                append_log(
+                    db,
+                    job_id,
+                    "Automatic re-air post skipped because the report was cancelled",
+                )
+                return
+            params["publish_status"] = "success"
+            params["published_report"] = published
+            append_log(
+                db,
+                job_id,
+                f"Posted to re-air management as report {published['id']} "
+                f"({published['clip_count']} clips)",
+            )
+        except Exception as exc:
+            error = _safe_error(exc)
+            params["publish_status"] = "error"
+            params["publish_error"] = error
+            append_log(db, job_id, f"Automatic re-air post failed ({error})")
+        _store_report_state(db, job_id, params)
+        update_job(
+            db,
+            job_id,
+            status="success",
+            progress=100.0,
+            finished_at=finished_at,
+        )
         append_log(
             db, job_id,
             f"Re-Air Report complete: {len(params['rows'])} row(s), {failure_count} partial result(s)",

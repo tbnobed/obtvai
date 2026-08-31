@@ -423,6 +423,20 @@ export const MediaReportStatusStatus = {
   cancelled: 'cancelled',
 } as const;
 
+/**
+ * Automatic re-air management publication state.
+ * @nullable
+ */
+export type MediaReportStatusPublishStatus = typeof MediaReportStatusPublishStatus[keyof typeof MediaReportStatusPublishStatus] | null;
+
+
+export const MediaReportStatusPublishStatus = {
+  pending: 'pending',
+  posting: 'posting',
+  success: 'success',
+  error: 'error',
+} as const;
+
 export interface MediaReportStatus {
   id: string;
   status: MediaReportStatusStatus;
@@ -439,6 +453,24 @@ export interface MediaReportStatus {
      * @nullable
      */
   download_url?: string | null;
+  /**
+     * Automatic re-air management publication state.
+     * @nullable
+     */
+  publish_status?: MediaReportStatusPublishStatus;
+  /**
+     * Sanitized publication failure; the local CSV remains downloadable.
+     * @nullable
+     */
+  publish_error?: string | null;
+  /** @nullable */
+  published_report_id?: string | null;
+  /** @nullable */
+  published_name?: string | null;
+  /** @nullable */
+  published_clip_count?: number | null;
+  /** @nullable */
+  published_at?: string | null;
   created_at: string;
   /** @nullable */
   started_at?: string | null;
