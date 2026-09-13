@@ -1,0 +1,56 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ sudo tcpdump -ni any -nn -c 20 'tcp port 22 or tcp port 225'
+libibverbs: Warning: couldn't open config directory '/etc/libibverbs.d'.
+tcpdump: data link type LINUX_SLL2
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 262144 bytes
+12:30:42.574433 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 4181666245:4181666321, ack 473934567, win 62, options [nop,nop,TS val 4251145716 ecr 394818345], length 76
+12:30:42.574586 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 76, win 2024, options [nop,nop,TS val 394818353 ecr 4251145716], length 0
+12:30:42.575017 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 76:280, ack 1, win 62, options [nop,nop,TS val 4251145716 ecr 394818353], length 204
+12:30:42.575207 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 280, win 2023, options [nop,nop,TS val 394818353 ecr 4251145716], length 0
+12:30:42.666633 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 280:1044, ack 1, win 62, options [nop,nop,TS val 4251145808 ecr 394818353], length 764
+12:30:42.666792 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 1044, win 2018, options [nop,nop,TS val 394818445 ecr 4251145808], length 0
+12:30:42.766576 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 1044:1424, ack 1, win 62, options [nop,nop,TS val 4251145908 ecr 394818445], length 380
+12:30:42.766738 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 1424, win 2016, options [nop,nop,TS val 394818545 ecr 4251145908], length 0
+12:30:42.866668 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 1424:1820, ack 1, win 62, options [nop,nop,TS val 4251146008 ecr 394818545], length 396
+12:30:42.866829 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 1820, win 2013, options [nop,nop,TS val 394818645 ecr 4251146008], length 0
+12:30:42.966636 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 1820:2216, ack 1, win 62, options [nop,nop,TS val 4251146108 ecr 394818645], length 396
+12:30:42.966793 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 2216, win 2012, options [nop,nop,TS val 394818745 ecr 4251146108], length 0
+12:30:43.066622 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 2216:2612, ack 1, win 62, options [nop,nop,TS val 4251146208 ecr 394818745], length 396
+12:30:43.066777 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 2612, win 2012, options [nop,nop,TS val 394818845 ecr 4251146208], length 0
+12:30:43.166649 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 2612:3008, ack 1, win 62, options [nop,nop,TS val 4251146308 ecr 394818845], length 396
+12:30:43.166806 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 3008, win 2012, options [nop,nop,TS val 394818945 ecr 4251146308], length 0
+12:30:43.266648 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 3008:3404, ack 1, win 62, options [nop,nop,TS val 4251146408 ecr 394818945], length 396
+12:30:43.266833 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 3404, win 2012, options [nop,nop,TS val 394819045 ecr 4251146408], length 0
+12:30:43.289883 enp9s0f0np0 In  IP 136.118.187.141.36854 > 192.168.200.165.22: Flags [S], seq 1647101175, win 65320, options [mss 1420,sackOK,TS val 1895877782 ecr 0,nop,wscale 10], length 0
+12:30:43.289907 enp9s0f1np1 Out IP 192.168.200.165.22 > 136.118.187.141.36854: Flags [S.], seq 755701050, ack 1647101176, win 65160, options [mss 1460,sackOK,TS val 2043038740 ecr 1895877782,nop,wscale 10], length 0
+20 packets captured
+20 packets received by filter
+0 packets dropped by kernel
+obtv-admin@obtv-llm-2:~/obtv-ai$ sudo tcpdump -ni any -nn -c 20 'tcp port 22 or tcp port 225'
+libibverbs: Warning: couldn't open config directory '/etc/libibverbs.d'.
+tcpdump: data link type LINUX_SLL2
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 262144 bytes
+12:30:47.168464 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 4181670909:4181670985, ack 473934639, win 62, options [nop,nop,TS val 4251150310 ecr 394822941], length 76
+12:30:47.168617 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 76, win 2024, options [nop,nop,TS val 394822947 ecr 4251150310], length 0
+12:30:47.169115 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 76:280, ack 1, win 62, options [nop,nop,TS val 4251150311 ecr 394822947], length 204
+12:30:47.169318 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 280, win 2023, options [nop,nop,TS val 394822948 ecr 4251150311], length 0
+12:30:47.262846 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 280:1044, ack 1, win 62, options [nop,nop,TS val 4251150404 ecr 394822948], length 764
+12:30:47.263012 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 1044, win 2018, options [nop,nop,TS val 394823041 ecr 4251150404], length 0
+12:30:47.362794 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 1044:1424, ack 1, win 62, options [nop,nop,TS val 4251150504 ecr 394823041], length 380
+12:30:47.362925 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 1424, win 2016, options [nop,nop,TS val 394823141 ecr 4251150504], length 0
+12:30:47.386311 enp9s0f0np0 In  IP 136.118.187.141.36854 > 192.168.200.165.22: Flags [S], seq 1647101175, win 65320, options [mss 1420,sackOK,TS val 1895881879 ecr 0,nop,wscale 10], length 0
+12:30:47.386326 enp9s0f1np1 Out IP 192.168.200.165.22 > 136.118.187.141.36854: Flags [S.], seq 755701050, ack 1647101176, win 65160, options [mss 1460,sackOK,TS val 2043042837 ecr 1895877782,nop,wscale 10], length 0
+12:30:47.462814 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 1424:2220, ack 1, win 62, options [nop,nop,TS val 4251150604 ecr 394823141], length 796
+12:30:47.462996 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 2220, win 2012, options [nop,nop,TS val 394823241 ecr 4251150604], length 0
+12:30:47.562890 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 2220:2616, ack 1, win 62, options [nop,nop,TS val 4251150704 ecr 394823241], length 396
+12:30:47.563048 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 2616, win 2012, options [nop,nop,TS val 394823341 ecr 4251150704], length 0
+12:30:47.662846 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 2616:3012, ack 1, win 62, options [nop,nop,TS val 4251150804 ecr 394823341], length 396
+12:30:47.662978 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 3012, win 2012, options [nop,nop,TS val 394823441 ecr 4251150804], length 0
+12:30:47.762851 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 3012:3408, ack 1, win 62, options [nop,nop,TS val 4251150904 ecr 394823441], length 396
+12:30:47.763012 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 3408, win 2012, options [nop,nop,TS val 394823541 ecr 4251150904], length 0
+12:30:47.862870 enp9s0f0np0 Out IP 192.168.200.165.22 > 192.168.200.100.45500: Flags [P.], seq 3408:3804, ack 1, win 62, options [nop,nop,TS val 4251151004 ecr 394823541], length 396
+12:30:47.863033 enp9s0f0np0 In  IP 192.168.200.100.45500 > 192.168.200.165.22: Flags [.], ack 3804, win 2012, options [nop,nop,TS val 394823641 ecr 4251151004], length 0
+20 packets captured
+20 packets received by filter
+0 packets dropped by kernel
