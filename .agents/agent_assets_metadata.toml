@@ -7,6 +7,7 @@ uri = "file://attached_assets/ISU_URL_import_test.xml"
 type = "unspecified"
 title = "ISU URL import test XML"
 description = "Minimal 1-clip xmeml using the exact known-good Curator gateway ISU URL — import in Premiere to test whether ISU URLs work in project XML."
+logical_id = "1bf2c1ca-7723-417a-a705-bf7c44ac6224"
 
 [[outputs]]
 id = "3q-SCbeMJj-sZMsemYV-T"
@@ -14,6 +15,7 @@ uri = "file://attached_assets/Connect_relink_test.xml"
 type = "unspecified"
 title = "Connect relink test XML"
 description = "One-clip sequence referencing a deliberately offline file path, with assetId lognote — import, then use Curator panel Connect to relink."
+logical_id = "6396d974-f2cc-4831-a35c-661f1951ea6f"
 
 [[outputs]]
 id = "kuhX-r79QsI7p3Z32iHvf"
@@ -21,6 +23,7 @@ uri = "file://attached_assets/Connect_relink_test_v2.xml"
 type = "unspecified"
 title = "Connect relink test v2"
 description = "Offline-clip test XML with declared media duration and Adobe-style Windows pathurl — import, confirm an offline clip appears, then relink via Curator panel Connect."
+logical_id = "7de7c7a0-787a-4437-aeda-21e8b66307ac"
 
 [[outputs]]
 id = "WpQ4qMiXMgf696YK_ZSKC"
@@ -28,6 +31,7 @@ uri = "file://attached_assets/Connect_relink_test_v3.xml"
 type = "unspecified"
 title = "Connect relink test v3"
 description = "Same one-clip sequence, but pointing at the real WebProxy _video.mp4 over UNC — should import online; then test Curator panel Connect swap."
+logical_id = "d9f45a72-6f04-4f99-84c4-9eacdebb569c"
 
 [[outputs]]
 id = "7997Ji9INs8WHKB-hEhQJ"
@@ -35,6 +39,7 @@ uri = "file://attached_assets/Sidecar_audio_test.xml"
 type = "unspecified"
 title = "Sidecar audio test XML"
 description = "Video clip declared video-only (<audio/>) + separate _audio1.mp4 sidecar file entry on the audio track, symmetric links."
+logical_id = "aa249394-936e-4a2c-9780-5261046beb3e"
 
 [[outputs]]
 id = "nlu6SDyJq4W-0248Su90H"
@@ -42,6 +47,7 @@ uri = "file://attached_assets/Video_only_test.xml"
 type = "unspecified"
 title = "Video only test XML"
 description = "One clip, video-only (<audio/>), no audio tracks or links — same structure as the reverted export."
+logical_id = "8c0a887c-25f6-4f64-b4b5-5e6aa3b68286"
 
 [[outputs]]
 id = "R2FEhOj7pyuVxqVDuYjLH"
@@ -49,6 +55,7 @@ uri = "file://attached_assets/Video_only_test_v2.xml"
 type = "unspecified"
 title = "Video only test v2 (five-slash UNC)"
 description = "Same video-only clip, pathurl changed to Premiere's Windows UNC form: file://///tustopd.trinity.local/IPV/..."
+logical_id = "bf558a50-6e5e-4ee1-af56-d876aa34aa75"
 
 [[outputs]]
 id = "bBKahkvfOBeAthijftJaU"
@@ -56,6 +63,7 @@ uri = "file://attached_assets/No_path_test.xml"
 type = "unspecified"
 title = "No path test XML"
 description = "One clip with no pathurl at all — file declared only by name + duration, offline by design, assetId lognote intact."
+logical_id = "f7f0931c-6f26-445d-b2b5-9b62c0e5f6ab"
 
 [[outputs]]
 id = "z0-LSRKYqDDa5D9jbdij3"
@@ -63,6 +71,7 @@ uri = "file://attached_assets/No_audio_with_path_test.xml"
 type = "unspecified"
 title = "No audio + path test XML"
 description = "Zero audio elements anywhere, real WebProxy file via five-slash UNC pathurl, assetId lognote intact."
+logical_id = "d572a103-8aa1-4f73-aa63-3092923e243a"
 
 [[outputs]]
 id = "1jU859jBrSiM5Q2npABjj"
@@ -70,6 +79,7 @@ uri = "file://attached_assets/OMDCI_URL_test.xml"
 type = "unspecified"
 title = "OMDCI URL test XML"
 description = "Pathurl uses the exact omdci://https://... IPV Server URL from the panel-imported clip's properties; no audio declarations."
+logical_id = "721b033d-07e8-48fc-8427-65dd66fdf938"
 
 [[outputs]]
 id = "o4CsOmM7K_X_sByYAxMYr"
@@ -77,6 +87,7 @@ uri = "file://attached_assets/OMDCI_audio_test.xml"
 type = "unspecified"
 title = "OMDCI audio test XML"
 description = "Same omdci stream URL, now with mono audio declared (channelcount 1) and a linked audio clipitem — should land video + audio on the timeline."
+logical_id = "9b45e108-9d0c-4ebf-9392-2a8f1616e344"
 
 [[outputs]]
 id = "5hyZShqONxvudkZrofV1x"
@@ -84,6 +95,7 @@ uri = "file://attached_assets/OMDCI_audio_decl_only_test.xml"
 type = "unspecified"
 title = "OMDCI audio-decl-only test"
 description = "Streaming omdci URL with mono audio declared on the file, but NO audio clipitems or links — isolates which piece crashed."
+logical_id = "fade0320-09cc-4b6f-ae8b-e1e2ea2b217a"
 
 [[outputs]]
 id = "Z2TmYuYff7m3gH0hB_GgQ"
@@ -91,3 +103,32 @@ uri = "file://attached_assets/image_1786511174970.png"
 type = "image"
 title = "Your example screenshot"
 description = "The screenshot you attached with the 'people page face lift' request — Cody Crouch's person page with Voice Clone left, Voice Generator right."
+logical_id = "d853b806-a867-4951-8845-5897741ec2a1"
+
+[[outputs]]
+id = "mXGxcvpHKGqBzlc8GPbZr"
+uri = "file://artifacts/voice-audit-results/longest_upload.wav"
+type = "audio"
+title = "Spanish test — longest uploaded reference"
+description = "Generated on your server with the reference selected by the current dubbing code. Normal speed, no background mix or timing compression."
+logical_id = "6068b2e0-007c-4543-aa98-1ff997fc86f1"
+content_hash = "sha256:836d21baee570c7415b66c8b0eb2a3d852db87000d6a643807d4e1242c12b0ec"
+size = 243884
+mtime_ms = 1789336476154
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/6068b2e0-007c-4543-aa98-1ff997fc86f1/2549628d-d5e1-4669-8141-3087f1372718"
+storage_version_token = "1789336488592778"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "Ki6P0SoqN0NPA2A5rHVvd"
+uri = "file://artifacts/voice-audit-results/footage_sample.wav"
+type = "audio"
+title = "Spanish test — footage reference"
+description = "Same sentence and random seed, generated on your server using the 10-second sample from this footage. Normal speed, no background mix or timing compression."
+logical_id = "4a7bc14f-4efb-459b-aef8-9ea9f760c512"
+content_hash = "sha256:e51b16a4f26dab88fd952eade0e91850648dcf95ee78c66ea0e65184bcffd7f5"
+size = 263084
+mtime_ms = 1789336476985
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/4a7bc14f-4efb-459b-aef8-9ea9f760c512/6ddecf74-b1ec-4a0e-8d94-8eabb2fe0659"
+storage_version_token = "1789336489784833"
+content_type = "audio/wav"
