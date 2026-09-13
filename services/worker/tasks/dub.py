@@ -32,11 +32,8 @@ MMS_LANG_CODES = {
 # sounds like chipmunk speech; overlong clips instead spill into the following
 # silence (the placement cursor below prevents overlap with the next segment).
 _MAX_ATEMPO = 1.35
-# Drift re-anchor: translated speech runs long and spills forward via the
-# placement cursor. On dense long-form dialogue the spill compounds into
-# seconds of lag. Once placement runs this far behind the true timecode, the
-# clip is force-fitted into the room left before the next segment (harder
-# atempo, then a tail trim) so sync re-anchors instead of drifting forever.
+# Bound spill before placing each clip. Never drop segments or trim speech
+# to hide drift: fail explicitly when the complete clip cannot fit.
 _MAX_LATENESS_S = float(os.getenv("DUB_MAX_LATENESS", "1.5"))
 _MAX_ATEMPO_FORCE = 1.6
 # Consecutive Chatterbox segment failures before the whole rest of the job
@@ -514,6 +511,49 @@ def _atempo(samples, sample_rate: int, factor: float, workdir: str):
     return data
 
 
+def _spoken_dub_rows(rows):
+    """Intentionally blank translations must not consume speech windows."""
+    return [row for row in rows if (row[2] or "").strip()]
+
+
+def _fit_dub_clip(clip, sample_rate, start, next_start, duration, cursor, workdir):
+    """Preserve complete speech within the next cue's lateness budget."""
+    offset = max(int(start * sample_rate), cursor)
+    deadline = min(duration, next_start + max(0.0, _MAX_LATENESS_S))
+    available = int(deadline * sample_rate) - offset
+    if available <= 0:
+        raise RuntimeError(
+            f"No speech window at {start:.2f}s. Shorten the translated dialogue "
+            "or correct overlapping transcript timestamps, then retry; no segment was dropped."
+        )
+    slot = max(0.5, next_start - start)
+    preferred = min(_MAX_ATEMPO, max(1.0, clip.size / sample_rate / slot))
+    required = clip.size / available
+    if required > _MAX_ATEMPO_FORCE:
+        raise RuntimeError(
+            f"Dub timing cannot fit complete speech at {start:.2f}s: needs "
+            f"{required:.2f}x speed (limit {_MAX_ATEMPO_FORCE:.2f}x). "
+            "Shorten this translated segment or correct its timestamps, then retry; "
+            "no words were trimmed."
+        )
+    factor = max(preferred, required)
+    original = clip
+    if factor > 1.0:
+        clip = _atempo(original, sample_rate, factor, workdir)
+    # FFmpeg's output length is approximate. Retry from the ORIGINAL audio,
+    # not from already accelerated audio, and never slice off spoken words.
+    if clip.size > available:
+        factor *= clip.size / available * 1.01
+        if factor <= _MAX_ATEMPO_FORCE:
+            clip = _atempo(original, sample_rate, factor, workdir)
+    if clip.size > available:
+        raise RuntimeError(
+            f"Dub timing still exceeds the speech window at {start:.2f}s. "
+            "Shorten this translated segment and retry; no words were trimmed."
+        )
+    return clip, offset, factor > _MAX_ATEMPO
+
+
 @celery_app.task(bind=True, name="tasks.dub.generate_dub", queue="gpu")
 def generate_dub(self, media_id: str, job_id: str, target_language: str, use_cloned_voices: bool = False, lip_sync: bool = False):
     db = get_session()
@@ -576,6 +616,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         if dropped:
             append_log(db, job_id, f"Skipping {len(dropped)} segment(s) with invalid timecodes")
             rows = [r for r in rows if r not in dropped]
+        rows = _spoken_dub_rows(rows)
         if not rows:
             raise RuntimeError(
                 f"No '{target}' translation found — run translation first"
@@ -649,7 +690,6 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         chatterbox_failures = 0
         unknown_gender_speakers: set = set()
         forced_refits = 0
-        dropped_late = 0
         cache_hits = 0
         placed_spans: list = []
         # Per-segment synthesis cache so a crashed/re-queued long-form job
@@ -778,47 +818,10 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 next_start = float(rows[i + 1][0]) if i + 1 < total else duration
                 if not math.isfinite(next_start):
                     next_start = duration
-                slot = max(0.5, next_start - start)
-                clip_len = clip.size / sample_rate
-                if clip_len > slot * 1.05:
-                    factor = min(_MAX_ATEMPO, clip_len / slot)
-                    if factor > 1.02:
-                        clip = _atempo(clip, sample_rate, factor, workdir)
-
-                # Never overlap the previous clip: if it ran past this
-                # segment's start, begin right after it instead. Translated
-                # speech runs longer than the original, so bounded drift
-                # sounds far better than double-talk or 2x chipmunk speed.
-                offset = max(int(start * sample_rate), place_cursor)
-
-                # Drift re-anchor: once we're running more than
-                # _MAX_LATENESS_S behind the true timecode, force this clip
-                # into the room left before the next segment — harder atempo
-                # first, tail trim as the last resort — so lag stops
-                # compounding across dense dialogue.
-                lateness = offset / sample_rate - start
-                if lateness > _MAX_LATENESS_S:
-                    avail = next_start - offset / sample_rate
-                    if avail < 0.3:
-                        # Cursor already at/past the next segment's start —
-                        # there is no room left. Dropping this one late clip
-                        # re-anchors sync; squeezing it in would push the lag
-                        # onto every following segment instead.
-                        dropped_late += 1
-                        continue
-                    clip_len = clip.size / sample_rate
-                    if clip_len > avail:
-                        factor = min(_MAX_ATEMPO_FORCE, clip_len / avail)
-                        if factor > 1.02:
-                            clip = _atempo(clip, sample_rate, factor, workdir)
-                        if clip.size / sample_rate > avail:
-                            keep = max(1, int(avail * sample_rate))
-                            clip = clip[:keep].copy()
-                            # Short fade-out so the trim doesn't click.
-                            fade = min(clip.size, int(0.05 * sample_rate))
-                            if fade > 0:
-                                clip[-fade:] *= np.linspace(1.0, 0.0, fade, dtype=np.float32)
-                        forced_refits += 1
+                clip, offset, refitted = _fit_dub_clip(
+                    clip, sample_rate, start, next_start, duration, place_cursor, workdir
+                )
+                forced_refits += int(refitted)
 
                 end = min(offset + clip.size, timeline.size)
                 if offset < timeline.size:
@@ -964,9 +967,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         if cache_hits:
             append_log(db, job_id, f"Resumed {cache_hits} segment(s) from the previous attempt's cache")
         if forced_refits:
-            append_log(db, job_id, f"Re-anchored sync on {forced_refits} segment(s) that had drifted more than {_MAX_LATENESS_S:.1f}s")
-        if dropped_late:
-            append_log(db, job_id, f"Dropped {dropped_late} segment(s) that had no room left after drift — sync re-anchored instead of compounding")
+            append_log(db, job_id, f"Fit {forced_refits} segment(s) within the sync budget using stronger pitch-preserving speed-up; no speech trimmed or dropped")
 
         update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
         cloned_note = (
