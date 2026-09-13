@@ -40,3 +40,4 @@
 - [Deploy command service names](compose-service-names.md) — no "worker" service; worker code changes rebuild worker-gpu worker-gpu-2 worker-cpu worker-graphics.
 - [Florence Transformers compatibility](florence-transformers-compat.md) — force eager and disable generation caching; remote code lacks SDPA metadata and assumes legacy KV-cache tuples.
 - [Re-Air publish attempts](reair-publish-attempts.md) — ingest has no idempotency contract; persist one attempt and never retry an ambiguous outcome.
+- [Production return routing](production-network-routing.md) — preserve Curator’s internal default route; external access needs source-based return routing, not a gateway swap.
