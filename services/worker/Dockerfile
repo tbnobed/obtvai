@@ -95,9 +95,16 @@ RUN python3.10 -m venv /opt/latentsync-venv \
         face-alignment==1.4.1 huggingface-hub==0.30.2 numpy==1.26.4 kornia==0.8.0 \
         insightface==0.7.3 onnxruntime-gpu==1.21.0 DeepCache==0.1.1
 
+# The V3 language packs ship their matching decoder in the official demo
+# runtime. Isolate it from legacy Chatterbox/Turbo and preserve the torch stack.
+# Keep this after the expensive dependency layers for incremental upgrades.
+COPY scripts/install_chatterbox_v3.py /tmp/install_chatterbox_v3.py
+RUN python3 /tmp/install_chatterbox_v3.py \
+    && PYTHONPATH=/opt/chatterbox-v3 python3 -c "from chatterbox_v3.tts import ChatterboxTTS"
+
 COPY . .
 
-ENV PYTHONPATH=/worker
+ENV PYTHONPATH=/worker:/opt/chatterbox-v3
 ENV PYTHONUNBUFFERED=1
 
 # Default: run GPU queue. Override CMD in docker-compose for CPU workers.

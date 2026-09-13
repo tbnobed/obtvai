@@ -254,16 +254,19 @@ def _to_chatterbox_lang(target: str) -> str | None:
     return lang if lang in CHATTERBOX_LANGS else None
 
 
-def _load_chatterbox():
-    """Load Chatterbox multilingual once per worker process (GPU-resident)."""
-    if "model" in _chatterbox_cache:
+def _load_chatterbox(lang="en"):
+    """Keep one V3 model resident; Spanish uses the Latin American checkpoint."""
+    from tasks.chatterbox_v3 import chatterbox_variant, load_chatterbox_v3
+    variant = chatterbox_variant(lang)
+    if "model" in _chatterbox_cache and _chatterbox_cache.get("variant") == variant:
         return _chatterbox_cache["model"]
     import torch
-    from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+    from tasks.gpu_mem import free_cuda_cache, load_with_oom_retry
+    _chatterbox_cache.clear()
+    free_cuda_cache()
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    from tasks.gpu_mem import load_with_oom_retry
     model = load_with_oom_retry(
-        "chatterbox", lambda: ChatterboxMultilingualTTS.from_pretrained(device=device)
+        "chatterbox", lambda: load_chatterbox_v3(device, lang)
     )
     # transformers>=4.48 defaults attention to sdpa, but Chatterbox's
     # generation requests output_attentions (alignment stream analyzer),
@@ -272,6 +275,7 @@ def _load_chatterbox():
     # every HF submodule config.
     _force_eager_attention(model)
     _chatterbox_cache["model"] = model
+    _chatterbox_cache["variant"] = variant
     return model
 
 
@@ -641,17 +645,13 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         elif use_cloned_voices:
             append_log(db, job_id, f"Cloned voices not supported for '{target}' — using stock voices")
 
-        # Preferred cloned-voice engine: Chatterbox multilingual. Any load
-        # failure (missing package, download issue) falls back to XTTS.
+        # Never silently substitute a different voice model after V3 is chosen.
         if voice_map and chatterbox_lang and os.getenv("DUB_ENGINE", "chatterbox") != "xtts":
-            try:
-                append_log(db, job_id, "Loading Chatterbox multilingual (cloned voices)")
-                update_job(db, job_id, progress=2.0)
-                chatterbox = _load_chatterbox()
-                print("[dub] chatterbox loaded — cloned segments will use chatterbox")
-            except Exception as e:
-                print(f"[dub] chatterbox unavailable, cloned voices will use XTTS: {e}")
-                append_log(db, job_id, f"Chatterbox unavailable ({e}) — cloned voices will use XTTS-v2")
+            from tasks.chatterbox_v3 import chatterbox_variant
+            append_log(db, job_id, f"Loading {chatterbox_variant(chatterbox_lang)} (cloned voices)")
+            update_job(db, job_id, progress=2.0)
+            chatterbox = _load_chatterbox(chatterbox_lang)
+            print(f"[dub] loaded {chatterbox.obtv_model_id}")
 
         # Generic (non-cloned) segments: prefer XTTS stock studio voices,
         # gender-matched to each diarized speaker's pitch. MMS-TTS (one
@@ -714,7 +714,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                     continue
                 cloned = voice_map.get(speaker) if (xtts or chatterbox) else None
                 intended_tag = (
-                    "cb" if (cloned and chatterbox is not None)
+                    chatterbox.obtv_model_id if (cloned and chatterbox is not None)
                     else "xtts-clone" if cloned
                     else "stock" if use_xtts_stock
                     else "mms"
@@ -756,8 +756,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                     elif cloned:
                         speaker_wavs, voice_preset, voice_settings = cloned
                         if chatterbox is not None:
-                            # Retry once before falling back — a transient
-                            # hiccup must not switch the voice engine.
+                            # Retry once, then fail rather than switching voices.
                             for attempt in (1, 2):
                                 try:
                                     clip, clip_rate = _synthesize_chatterbox(
@@ -768,13 +767,10 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                                     break
                                 except Exception as e:
                                     if attempt == 2:
-                                        chatterbox_failures += 1
-                                        append_log(db, job_id, f"Chatterbox failed twice on segment {i + 1} ({e}) — XTTS for this segment")
-                                        if chatterbox_failures >= _CHATTERBOX_MAX_FAILURES:
-                                            chatterbox = None
-                                            append_log(db, job_id,
-                                                       f"Chatterbox failed on {chatterbox_failures} segments — "
-                                                       "switching the rest of the job to XTTS for a consistent voice")
+                                        raise RuntimeError(
+                                            f"Chatterbox V3 failed twice on segment {i + 1}; "
+                                            "no fallback voice was substituted"
+                                        ) from e
                         if clip is None:
                             actual_tag = "xtts-clone"
                             clip, clip_rate = _synthesize_xtts(
@@ -804,10 +800,12 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 except Exception as e:
                     import traceback
                     tb_line = traceback.format_exc().strip().splitlines()[-3:]
-                    append_log(db, job_id, f"Segment {i + 1}/{total} failed, skipping: {e} | {' / '.join(tb_line)}")
-                    continue
+                    append_log(db, job_id, f"Segment {i + 1}/{total} failed: {e} | {' / '.join(tb_line)}")
+                    raise RuntimeError(
+                        f"Dub stopped at segment {i + 1}/{total} to avoid missing dialogue: {e}"
+                    ) from e
                 if clip is None or clip.size == 0:
-                    continue
+                    raise RuntimeError(f"Segment {i + 1}/{total} produced no speech")
                 # Cache under the engine that ACTUALLY produced the clip.
                 save_path = _seg_cache_path(actual_tag)
                 if not os.path.exists(save_path):

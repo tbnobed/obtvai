@@ -784,7 +784,7 @@ def generate_speech(self, generation_id: str):
             if cb_lang:
                 try:
                     import numpy as np
-                    model = _load_chatterbox()
+                    model = _load_chatterbox(cb_lang)
                     _update_generation(db, generation_id, progress=30.0)
                     chunks = _split_tts_chunks(text_value)
                     pieces = []
@@ -810,9 +810,11 @@ def generate_speech(self, generation_id: str):
                         samples = np.concatenate(joined)
                     _write_wav(out_path, samples, rate)
                     used_chatterbox = True
-                    print(f"[voice] generated with chatterbox for generation {generation_id}")
+                    print(f"[voice] generated with {model.obtv_model_id} for generation {generation_id}")
                 except Exception as e:
-                    print(f"[voice] chatterbox failed, falling back to XTTS: {e}")
+                    raise RuntimeError(
+                        "Chatterbox V3 generation failed; no fallback voice was substituted"
+                    ) from e
         if not used_chatterbox:
             tts = _load_xtts()
             _update_generation(db, generation_id, progress=40.0)

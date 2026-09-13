@@ -132,3 +132,31 @@ mtime_ms = 1789336476985
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/4a7bc14f-4efb-459b-aef8-9ea9f760c512/6ddecf74-b1ec-4a0e-8d94-8eabb2fe0659"
 storage_version_token = "1789336489784833"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "7EfePyn_7WjJfLMaHx7iR"
+uri = "file://artifacts/voice-audit-results/spanish-v3-clear-sentence.wav"
+type = "audio"
+title = "Spanish V3 — raw cloned-voice sample"
+description = "Generated with Cody’s existing footage reference. No background mix or timing compression."
+logical_id = "6575ca73-8ce8-42e7-b94d-c1a95f42d249"
+content_hash = "sha256:923118f8864b746d7bac252c515434cc06fd441681706d295f285a9212d6f118"
+size = 243884
+mtime_ms = 1789337730722
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/6575ca73-8ce8-42e7-b94d-c1a95f42d249/19f4b0c6-16aa-4cc4-83fe-890f6912e393"
+storage_version_token = "1789337750840697"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "jlHu74VNzIs1Sl6PPpqYi"
+uri = "file://artifacts/voice-audit-results/spanish-v3-program-excerpt.wav"
+type = "audio"
+title = "Spanish V3 — actual program excerpt"
+description = "“Zelensky también lanza la alarma.” Fresh synthesis using the Latin American Spanish V3 checkpoint and matching decoder."
+logical_id = "d82847aa-ed6f-4689-b144-54db32783755"
+content_hash = "sha256:a14f88ad66eb88da5c0b4f5c14f5bca78d4566c30cee89dea682290f612651ea"
+size = 117164
+mtime_ms = 1789337731670
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/d82847aa-ed6f-4689-b144-54db32783755/5fe0bac2-cd0d-4197-a3f5-8bf402d2100b"
+storage_version_token = "1789337752102523"
+content_type = "audio/wav"
