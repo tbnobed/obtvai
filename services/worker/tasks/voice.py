@@ -1,5 +1,6 @@
 """Voice cloning: sample preparation (CPU) and XTTS-v2 speech generation (GPU)."""
 import contextlib
+import json
 import os
 import subprocess
 import time
@@ -42,6 +43,31 @@ def _probe_duration(path: str) -> float:
     return float(result.stdout.strip())
 
 
+def _sample_audio_inputs(src: str) -> list[tuple[str, int]]:
+    """Resolve Curator's split audio and include every source audio stream."""
+    from tasks.curator import has_audio_stream, find_curator_audio, is_curator_video
+
+    paths = [src]
+    if is_curator_video(src) and not has_audio_stream(src):
+        paths = find_curator_audio(src)
+        if not paths:
+            raise RuntimeError("Source video has no audio track and no Curator audio sidecars were found")
+    inputs = []
+    for path in paths:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a",
+             "-show_entries", "stream=index", "-of", "json", path],
+            capture_output=True, text=True, timeout=60,
+        )
+        if probe.returncode != 0:
+            raise RuntimeError("Unable to read the source audio streams")
+        count = len(json.loads(probe.stdout).get("streams", []))
+        if not count:
+            raise RuntimeError("Source file contains no audio stream; choose footage with audio")
+        inputs.append((path, count))
+    return inputs
+
+
 @celery_app.task(bind=True, name="tasks.voice.prepare_voice_sample", queue="cpu")
 def prepare_voice_sample(self, sample_id: str):
     """Cut (if segment-sourced) and normalize a voice sample to 24 kHz mono WAV."""
@@ -67,7 +93,7 @@ def prepare_voice_sample(self, sample_id: str):
             if not asset or not asset[0] or not os.path.isfile(asset[0]):
                 raise RuntimeError("Source media file not found on disk")
             src = asset[0]
-            cut_args = ["-ss", str(float(start_time)), "-to", str(float(end_time))]
+            cut_args = ["-ss", str(float(start_time)), "-t", str(float(end_time) - float(start_time))]
         else:
             if not raw_path or not os.path.isfile(raw_path):
                 raise RuntimeError("Uploaded audio file not found on disk")
@@ -78,18 +104,26 @@ def prepare_voice_sample(self, sample_id: str):
         os.makedirs(samples_dir, exist_ok=True)
         out_path = os.path.join(samples_dir, f"{sample_id}.wav")
 
+        cmd = ["ffmpeg", "-y"]
+        pads = []
+        for index, (path, count) in enumerate(_sample_audio_inputs(src)):
+            cmd += [*cut_args, "-i", path]
+            pads.extend(f"[{index}:a:{stream}]" for stream in range(count))
+        normalize = (
+            "silenceremove=start_periods=1:start_threshold=-45dB,"
+            "areverse,silenceremove=start_periods=1:start_threshold=-45dB,"
+            "areverse,loudnorm=I=-20:TP=-2"
+        )
+        mix = f"amix=inputs={len(pads)}:duration=longest:normalize=0," if len(pads) > 1 else ""
+        cmd += [
+            "-filter_complex", f"{''.join(pads)}{mix}{normalize}[sample]",
+            "-map", "[sample]", "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE),
+            "-c:a", "pcm_s16le", out_path,
+        ]
         # Normalize: mono, 24 kHz, trim silence at both ends, loudness-normalize.
+        # Reverse → trim-lead → reverse preserves pauses within the sample.
         result = subprocess.run(
-            ["ffmpeg", "-y", *cut_args, "-i", src,
-             "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE),
-             # Trim leading silence, then trailing silence via reverse →
-             # trim-lead → reverse. (stop_periods=1 is NOT "trim the end":
-             # it cuts the output at the FIRST mid-speech pause, which
-             # truncated multi-minute samples to under a second.)
-             "-af", "silenceremove=start_periods=1:start_threshold=-45dB,"
-                    "areverse,silenceremove=start_periods=1:start_threshold=-45dB,"
-                    "areverse,loudnorm=I=-20:TP=-2",
-             "-c:a", "pcm_s16le", out_path],
+            cmd,
             capture_output=True, text=True, timeout=600,
         )
         if result.returncode != 0:

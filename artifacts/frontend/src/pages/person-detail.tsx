@@ -334,24 +334,24 @@ function VoiceSection({
                     <Plus className="h-3.5 w-3.5" /> From footage
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="overflow-hidden">
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-lg grid-cols-[minmax(0,1fr)] max-h-[90dvh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Add a Voice Sample from Footage</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4 pt-2">
+                  <div className="min-w-0 space-y-4 pt-2">
                     <p className="text-sm text-muted-foreground">
                       Pick a stretch where only {personName} speaks — no music, no crosstalk. 10–30 seconds is ideal.
                     </p>
                     <div className="space-y-2 min-w-0">
                       <Label>Asset</Label>
                       <Select value={sampleMedia} onValueChange={setSampleMedia}>
-                        <SelectTrigger className="min-w-0 max-w-full [&>span]:min-w-0 [&>span]:truncate">
+                        <SelectTrigger className="min-w-0 max-w-full [&>span]:min-w-0 [&>span]:flex-1 [&>span]:text-left [&>span]:truncate [&>svg]:shrink-0">
                           <SelectValue placeholder="Choose an asset they speak in" />
                         </SelectTrigger>
                         <SelectContent className="max-w-[min(90vw,28rem)]">
                           {speakingAppearances.map((a) => (
                             <SelectItem key={a.media_id} value={a.media_id}>
-                              <span className="block truncate">
+                              <span className="block truncate" title={a.filename ?? undefined}>
                                 {a.filename}
                                 {a.first_spoken_at != null ? ` — first speaks at ${formatTimecode(a.first_spoken_at)}` : ""}
                               </span>
@@ -361,11 +361,11 @@ function VoiceSection({
                       </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
+                      <div className="min-w-0 space-y-2">
                         <Label>Start</Label>
                         <Input value={sampleStart} onChange={(e) => setSampleStart(e.target.value)} placeholder="e.g. 2:05 or 125" />
                       </div>
-                      <div className="space-y-2">
+                      <div className="min-w-0 space-y-2">
                         <Label>End</Label>
                         <Input value={sampleEnd} onChange={(e) => setSampleEnd(e.target.value)} placeholder="e.g. 2:28 or 148" />
                       </div>
