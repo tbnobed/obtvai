@@ -8,3 +8,5 @@ description: Chatterbox/XTTS long-text truncation and input casing issues in the
 - "Match total runtime" is a post-processing step: ffmpeg pitch-preserving `atempo` on the finished file, clamped 0.5–2.0x. Keep it out of synthesis-settings precedence (pop it from the settings dict) or a target-only request wipes the person's saved voice style.
 
 - Single-letter name initials with a dot ("MICHAEL W. SMITH") read as sentence ends — XTTS split_sentences and the Chatterbox chunker both pause mid-name. Strip the dot before generation (keep U.S./L.A. dotted acronyms via lookbehind).
+
+- Check the actual Chatterbox checkpoint, not just the installed package version, when evaluating an upgrade. **Why:** Upstream V3 documentation still preserves V2 as the default when the model selector is omitted; updating the package alone need not select the newer model. **How to apply:** Verify the current upstream loader and checkpoint filenames; explicitly choose the intended model and its matching decoder assets. See https://github.com/resemble-ai/chatterbox and the official language-pack model cards.
