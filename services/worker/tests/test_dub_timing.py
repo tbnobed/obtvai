@@ -23,8 +23,14 @@ def load_timing():
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef)
              and n.name in {"_fit_dub_clip", "_atempo", "_spoken_dub_rows"}]
     module = types.ModuleType("timing")
-    module.__dict__.update(os=os, subprocess=subprocess, _MAX_ATEMPO=1.35,
-                           _MAX_ATEMPO_FORCE=1.6, _MAX_LATENESS_S=1.5)
+    constants = [n for n in tree.body if isinstance(n, ast.Assign)
+                 and any(isinstance(t, ast.Name) and t.id in
+                         {"_MAX_ATEMPO", "_MAX_ATEMPO_FORCE", "_MAX_LATENESS_S"}
+                         for t in n.targets)]
+    module.__dict__.update(os=os, subprocess=subprocess)
+    with unittest.mock.patch.dict(os.environ, {"DUB_MAX_LATENESS": "1.5"}):
+        exec(compile(ast.Module(body=constants, type_ignores=[]), str(path), "exec"),
+             module.__dict__)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), "exec"),
          module.__dict__)
     return module
@@ -69,6 +75,15 @@ class DubTimingTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "no words were trimmed"):
             self.fit(12000)
 
+    def test_reported_193x_segment_fits(self):
+        clip, offset, forced = self.fit(
+            5790, start=61.32, next_start=62.82, duration=70)
+        self.assertTrue(forced)
+        self.assertEqual(offset, 61320)
+        self.assertLessEqual(offset + clip.size, 64320)
+        # Decimal timestamps may lose one sample when converted to integers.
+        self.assertAlmostEqual(self.mod._atempo.call_args.args[2], 1.93, delta=0.001)
+
     def test_no_room_fails_instead_of_dropping(self):
         with self.assertRaisesRegex(RuntimeError, "no segment was dropped"):
             self.fit(1000, start=10, next_start=10, duration=10, cursor=10000)
@@ -105,11 +120,12 @@ class DubTimingTests(unittest.TestCase):
                 return Clip(count), wf.getframerate()
 
         mod._write_wav, mod._read_wav = write, read
-        with tempfile.TemporaryDirectory() as wd:
-            clip, offset, forced = mod._fit_dub_clip(
-                Clip(36000), rate, 9, 10, 10, 0, wd)
-        self.assertTrue(forced)
-        self.assertLessEqual(offset + clip.size, 10 * rate)
+        for factor in (1.5, 1.93, 2.3):
+            with self.subTest(factor=factor), tempfile.TemporaryDirectory() as wd:
+                clip, offset, forced = mod._fit_dub_clip(
+                    Clip(round(rate * factor)), rate, 9, 10, 10, 0, wd)
+                self.assertTrue(forced)
+                self.assertLessEqual(offset + clip.size, 10 * rate)
 
 
 if __name__ == "__main__":

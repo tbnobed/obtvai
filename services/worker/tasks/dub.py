@@ -28,14 +28,16 @@ MMS_LANG_CODES = {
 }
 
 # Max speed-up applied to a synthesized clip so it fits its transcript slot.
-# Cap fit-to-slot speed-up at a barely noticeable rate. Anything above ~1.35x
-# sounds like chipmunk speech; overlong clips instead spill into the following
-# silence (the placement cursor below prevents overlap with the next segment).
+# Prefer a modest speed-up; overlong clips can use the bounded lateness
+# allowance. FFmpeg atempo preserves pitch even when stronger fitting is needed.
 _MAX_ATEMPO = 1.35
 # Bound spill before placing each clip. Never drop segments or trim speech
 # to hide drift: fail explicitly when the complete clip cannot fit.
 _MAX_LATENESS_S = float(os.getenv("DUB_MAX_LATENESS", "1.5"))
-_MAX_ATEMPO_FORCE = 1.6
+# Dense translated dialogue can legitimately require nearly 2x speed. Keep
+# the ordinary preference above, but allow stronger fitting before rejecting
+# a segment. Retain a ceiling to avoid turning bad timestamps into nonsense.
+_MAX_ATEMPO_FORCE = 2.5
 # Consecutive Chatterbox segment failures before the whole rest of the job
 # switches to XTTS. Per-segment engine fallback flip-flops the voice mid-show;
 # one engine boundary is far less audible than dozens.
