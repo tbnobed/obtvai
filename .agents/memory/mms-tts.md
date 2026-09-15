@@ -5,9 +5,9 @@ description: Which languages facebook/mms-tts supports and the uroman/prefork go
 
 # MMS-TTS (facebook/mms-tts-{iso639-3})
 
-- **No model exists for Italian (ita), Japanese (jpn), or Chinese (cmn/zho).** Verified via HF API. Of the app's 12 translation languages, only es/fr/de/pt/nl/ru/ko/ar/hi can be dubbed.
+- **MMS has no model for Italian (ita), Japanese (jpn), or Chinese (cmn/zho).** Verified via HF API. This is an MMS limitation, not a limitation of the app's multilingual dubbing engines.
 - **Why:** MMS-TTS training data (religious recordings) never covered those languages; requesting them 401s on the hub.
-- **How to apply:** any TTS feature must gate language lists separately from translation language lists; check `https://huggingface.co/api/models/facebook/mms-tts-<code>` before assuming coverage.
+- **How to apply:** derive dubbing availability from the active multilingual engines, not the legacy MMS checkpoint list. Do not invent MMS checkpoints for languages served by XTTS or Chatterbox; check `https://huggingface.co/api/models/facebook/mms-tts-<code>` before assuming MMS coverage.
 - Some checkpoints set `tokenizer.is_uroman=True` (non-Latin scripts) — input must be romanized first; the `uroman` PyPI package (Python port) handles it without the perl tool.
 - Load via `snapshot_download` then `from_pretrained(local_dir)` — same daemonic-prefork-safe pattern as other HF loads in Celery workers.
 - VITS output is mono at `model.config.sampling_rate` (typically 16 kHz); fit clips into transcript slots with ffmpeg `atempo` (pitch-preserving), not resampling.

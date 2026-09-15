@@ -68,8 +68,8 @@ const TRANSLATION_LANGUAGES: { code: string; label: string }[] = [
   { code: "hi", label: "Hindi" },
 ];
 
-// Languages with a local MMS-TTS voice (Italian, Japanese, Chinese have none).
-const DUB_LANGUAGES = ["es", "fr", "de", "pt", "nl", "ru", "ko", "ar", "hi"];
+// Every menu language is supported by the multilingual dubbing engines.
+const DUB_LANGUAGES = TRANSLATION_LANGUAGES.map(({ code }) => code);
 
 function scoreColor(score: number): string {
   if (score >= 70) return "text-green-500";
@@ -779,7 +779,7 @@ export default function AssetDetail() {
                     </>
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
-                      Dubbed audio isn't available for this language — no local TTS voice exists for it.
+                      Dubbing isn't supported for this language.
                     </p>
                   )}
                 </div>

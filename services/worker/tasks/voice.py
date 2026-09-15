@@ -818,8 +818,17 @@ def generate_speech(self, generation_id: str):
         if not used_chatterbox:
             tts = _load_xtts()
             _update_generation(db, generation_id, progress=40.0)
+            # The menu/API uses ``zh`` for Chinese, while XTTS-v2 names the
+            # same locale ``zh-cn``.  Keep this conversion at the engine
+            # boundary so Chatterbox above continues to receive ``zh``.
+            from tasks.dub import _to_xtts_lang
+            xtts_language = _to_xtts_lang(language)
+            if xtts_language is None:
+                raise RuntimeError(
+                    f"XTTS-v2 does not support voice generation language '{language}'"
+                )
             # Longest 1-2 clean references beat a pile of mixed recordings.
-            synthesize_cloned(tts, text_value, language, speaker_wavs[:2], out_path,
+            synthesize_cloned(tts, text_value, xtts_language, speaker_wavs[:2], out_path,
                               preset=preset, settings=settings)
         if target_seconds:
             _fit_duration(out_path, target_seconds)

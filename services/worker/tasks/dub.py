@@ -234,10 +234,12 @@ def _resample(samples, from_rate: int, to_rate: int, workdir: str):
     return data
 
 
-# XTTS-v2 supported languages (voice cloning path).
+# XTTS-v2 supported languages (voice cloning and stock-voice paths).  ``zh``
+# is the menu/API code; XTTS itself requires the ``zh-cn`` locale and the
+# conversion is kept in _to_xtts_lang below.
 XTTS_LANGS = {
     "en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru",
-    "nl", "cs", "ar", "zh-cn", "ja", "hu", "ko", "hi",
+    "nl", "cs", "ar", "zh", "zh-cn", "ja", "hu", "ko", "hi",
 }
 
 # Chatterbox multilingual (ResembleAI) — preferred cloned-voice engine; more
@@ -249,9 +251,65 @@ CHATTERBOX_LANGS = {
 _chatterbox_cache: dict = {}
 
 
+def _normalize_language_code(language: str) -> str:
+    """Normalize a language code without choosing an engine-specific locale."""
+    return str(language).strip().lower().replace("_", "-")
+
+
+def _to_xtts_lang(target: str) -> str | None:
+    """Map a menu/API language to the locale accepted by XTTS-v2.
+
+    The dubbing API deliberately stores Chinese as ``zh`` so it matches the
+    translation menu and Chatterbox V3.  XTTS-v2 is the exception: its
+    multilingual checkpoint calls that locale ``zh-cn``.
+    """
+    lang = _normalize_language_code(target)
+    if lang == "zh":
+        lang = "zh-cn"
+    return lang if lang in XTTS_LANGS else None
+
+
 def _to_chatterbox_lang(target: str) -> str | None:
-    lang = "zh" if target == "zh-cn" else target
+    lang = _normalize_language_code(target)
+    if lang == "zh-cn":
+        lang = "zh"
     return lang if lang in CHATTERBOX_LANGS else None
+
+
+def _resolve_dub_route(target_language: str, cloned_voice: bool = False) -> dict:
+    """Resolve one target at the worker's engine boundary.
+
+    This is intentionally dependency-free so route behavior can be tested
+    without importing torch or loading any speech model.  A cloned profile
+    uses Chatterbox V3 by default; DUB_ENGINE=xtts is an explicit opt-out and
+    routes that same profile to XTTS instead.  Generic menu requests retain
+    the XTTS stock voice path, while MMS remains available for languages XTTS
+    cannot speak.
+    """
+    target = _normalize_language_code(target_language)
+    lang3 = MMS_LANG_CODES.get(target)
+    xtts_language = _to_xtts_lang(target)
+    chatterbox_language = _to_chatterbox_lang(target)
+    if not lang3 and xtts_language is None:
+        supported = sorted(set(MMS_LANG_CODES) | XTTS_LANGS)
+        raise RuntimeError(
+            f"Dubbing not supported for '{target}'. Supported: {', '.join(supported)}"
+        )
+
+    force_xtts = _normalize_language_code(os.getenv("DUB_ENGINE", "")) == "xtts"
+    if cloned_voice and xtts_language:
+        engine = "xtts-clone" if force_xtts or not chatterbox_language else "chatterbox-clone"
+    elif xtts_language:
+        engine = "xtts-stock"
+    else:
+        engine = "mms-stock"
+    return {
+        "target": target,
+        "mms": lang3,
+        "xtts": xtts_language,
+        "chatterbox": chatterbox_language,
+        "engine": engine,
+    }
 
 
 def _load_chatterbox(lang="en"):
@@ -566,13 +624,10 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
     try:
         import numpy as np
 
-        target = str(target_language).strip().lower()
-        lang3 = MMS_LANG_CODES.get(target)
-        if not lang3 and target not in XTTS_LANGS:
-            supported = sorted(set(MMS_LANG_CODES) | XTTS_LANGS)
-            raise RuntimeError(
-                f"Dubbing not supported for '{target}'. Supported: {', '.join(supported)}"
-            )
+        route = _resolve_dub_route(target_language)
+        target = route["target"]
+        lang3 = route["mms"]
+        xtts_language = route["xtts"]
 
         from sqlalchemy import text
 
@@ -633,7 +688,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         xtts = None
         chatterbox = None
         chatterbox_lang = _to_chatterbox_lang(target)
-        if use_cloned_voices and target in XTTS_LANGS:
+        if use_cloned_voices and xtts_language:
             voice_map, voice_notes = _cloned_voice_map(db, media_id)
             if voice_map:
                 append_log(db, job_id, f"{len(voice_map)} speaker(s) have ready cloned-voice profiles")
@@ -646,7 +701,9 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
             append_log(db, job_id, f"Cloned voices not supported for '{target}' — using stock voices")
 
         # Never silently substitute a different voice model after V3 is chosen.
-        if voice_map and chatterbox_lang and os.getenv("DUB_ENGINE", "chatterbox") != "xtts":
+        cloned_route = _resolve_dub_route(target, bool(voice_map))
+        force_xtts = cloned_route["engine"] == "xtts-clone"
+        if voice_map and chatterbox_lang and not force_xtts:
             from tasks.chatterbox_v3 import chatterbox_variant
             append_log(db, job_id, f"Loading {chatterbox_variant(chatterbox_lang)} (cloned voices)")
             update_job(db, job_id, progress=2.0)
@@ -658,7 +715,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         # androgynous voice per language) is only the fallback for languages
         # XTTS can't speak.
         speaker_genders: dict = {}
-        use_xtts_stock = target in XTTS_LANGS
+        use_xtts_stock = xtts_language is not None
         if use_xtts_stock or voice_map:
             append_log(db, job_id, "Loading XTTS-v2")
             update_job(db, job_id, progress=3.0)
@@ -774,7 +831,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                         if clip is None:
                             actual_tag = "xtts-clone"
                             clip, clip_rate = _synthesize_xtts(
-                                xtts, seg_text, target, speaker_wavs, workdir,
+                                xtts, seg_text, xtts_language, speaker_wavs, workdir,
                                 preset=voice_preset, settings=voice_settings,
                             )
                         clip = _resample(clip, clip_rate, sample_rate, workdir)
@@ -787,7 +844,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                                 unknown_gender_speakers.add(speaker)
                                 append_log(db, job_id, f"No pitch estimate for speaker '{speaker}' — defaulting to the male stock voice")
                         clip, clip_rate = _synthesize_stock(
-                            xtts, seg_text, target, STOCK_VOICES[gender], workdir
+                            xtts, seg_text, xtts_language, STOCK_VOICES[gender], workdir
                         )
                         clip = _resample(clip, clip_rate, sample_rate, workdir)
                     else:

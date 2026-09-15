@@ -2317,9 +2317,9 @@ async def create_translation(id: str, body: TranslateRequest, db: AsyncSession =
     return out
 
 
-# Languages with a facebook/mms-tts-* model (Italian, Japanese, Chinese have none).
+# Multilingual dubbing supports every language offered for translation.
 SUPPORTED_DUB_LANGUAGES = {
-    "es", "fr", "de", "pt", "nl", "ru", "ko", "ar", "hi",
+    "es", "fr", "de", "pt", "it", "nl", "ru", "ja", "ko", "zh", "ar", "hi",
 }
 
 

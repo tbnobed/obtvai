@@ -1613,7 +1613,7 @@ router.post("/media/:id/translate", (req, res) => {
   res.status(202).json(job);
 });
 
-const DUB_LANGS = ["es", "fr", "de", "pt", "nl", "ru", "ko", "ar", "hi"];
+const DUB_LANGS = SUPPORTED_LANGS;
 
 router.post("/media/:id/dub", (req, res) => {
   const asset = assets.find((a) => a.id === req.params.id);
@@ -1637,7 +1637,7 @@ router.post("/media/:id/dub", (req, res) => {
     error_message: null as string | null,
     logs: [
       `Target language: ${lang}`,
-      `Loading TTS model: facebook/mms-tts-${lang}`,
+      `Preview: simulating multilingual dubbing for ${lang}`,
       ...(req.body?.lip_sync ? ["Lip sync enabled — Wav2Lip pass will run after audio render"] : []),
     ],
     retry_count: 0,
