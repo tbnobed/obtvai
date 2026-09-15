@@ -42,3 +42,4 @@
 - [Re-Air publish attempts](reair-publish-attempts.md) — ingest has no idempotency contract; persist one attempt and never retry an ambiguous outcome.
 - [Production return routing](production-network-routing.md) — preserve Curator’s internal default route; external access needs source-based return routing, not a gateway swap.
 - [Remote access discovery](remote-access-discovery.md) — check ignored operational tooling before asking again for existing production connection details.
+- [Watcher SMB recovery](watcher-smb-recovery.md) — watchdog polling threads can stop on transient SMB errors while the container stays running; verify per-root liveness.
