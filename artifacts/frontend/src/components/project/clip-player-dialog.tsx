@@ -63,24 +63,24 @@ export function ClipPlayerDialog({ clip, onClose }: { clip: PlayerClip | null; o
 
   return (
     <Dialog open={!!clip} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="truncate pr-8">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-3xl max-h-[calc(100dvh-2rem)] grid-cols-[minmax(0,1fr)] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="min-w-0 truncate pr-8" title={clip?.label || clip?.filename || "Clip"}>
             {clip?.label || clip?.filename || "Clip"}
           </DialogTitle>
         </DialogHeader>
         {clip && (
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <video
               key={src}
               ref={setVideoEl}
               src={src}
               controls
               autoPlay
-              className="w-full max-h-[60vh] rounded bg-black object-contain"
+              className="block w-full min-w-0 max-w-full max-h-[60dvh] rounded bg-black object-contain"
             />
-            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-              <span className="min-w-0 truncate">
+            <div className="flex min-w-0 flex-col gap-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+              <span className="min-w-0 truncate sm:flex-1" title={clip.filename || undefined}>
                 {isClipRange && !full ? (
                   <span className="font-mono">{fmtTC(clip.start_time)} – {fmtTC(clip.end_time!)}</span>
                 ) : (
@@ -88,7 +88,7 @@ export function ClipPlayerDialog({ clip, onClose }: { clip: PlayerClip | null; o
                 )}
                 {clip.filename ? <span className="ml-2">{clip.filename}</span> : null}
               </span>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:shrink-0">
                 <Button size="sm" variant="outline" asChild data-testid="button-open-asset">
                   <Link href={`/library/${clip.media_id}?t=${Math.floor(clip.start_time)}`} onClick={onClose}>
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open asset
