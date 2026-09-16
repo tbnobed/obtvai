@@ -129,7 +129,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutGrid },
     { href: "/library", label: "Media Library", icon: Film },
-    { href: "/campaigns", label: "Campaigns", icon: Megaphone },
     { href: "/studio", label: "Studio", icon: FolderKanban },
     { href: "/insights", label: "Insights", icon: Sparkles },
     { href: "/search", label: "Search", icon: Search },
@@ -141,6 +140,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     // { href: "/graphics", label: "Graphics", icon: Wand2 },
     { href: "/socials", label: "Socials", icon: Share2 },
     { href: "/ratings", label: "Ratings", icon: BarChart3 },
+    { href: "/campaigns", label: "Campaigns", icon: Megaphone },
     { href: "/jobs", label: "Processing Pipeline", icon: Activity },
     ...(isAdmin ? [
       { href: "/curator", label: "Curator", icon: HardDrive },
