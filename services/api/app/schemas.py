@@ -1130,13 +1130,13 @@ class SocialAiSectionOut(BaseModel):
 
 
 class SocialTopVideoOut(BaseModel):
+    id: Optional[str] = None
     title: str
-    url: Optional[str] = None
-    thumbnail: Optional[str] = None
     views: Optional[int] = None
     likes: Optional[int] = None
     comments: Optional[int] = None
     published_at: Optional[str] = None
+    thumbnail_url: Optional[str] = None
 
 
 class SocialChannelAnalysisOut(BaseModel):
@@ -1144,14 +1144,18 @@ class SocialChannelAnalysisOut(BaseModel):
     status: Literal["running", "ready", "error"] = "running"
     error: Optional[str] = None
     analyzed_at: datetime
+    analysis_version: Optional[int] = None
+    analysis_metrics: Optional[dict] = None
+    data_warnings: List[str] = []
     subs3: Optional[int] = None
     subs6: Optional[int] = None
     subs12: Optional[int] = None
     ai_summary: Optional[str] = None
     ai_recommendations: List[str] = []
+    # v1 compatibility fields.  New reports leave these null/empty; clients
+    # should use analysis_metrics and ai_* instead.
     est_monthly_revenue: float = 0
     margin_percent: float = 0
-    mcn_share_percent: int = 0
     risk_level: str = "unknown"
     top_videos: List[SocialTopVideoOut] = []
     ai_sections: List[SocialAiSectionOut] = []

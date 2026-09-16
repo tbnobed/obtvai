@@ -2381,7 +2381,7 @@ paths:
     post:
       operationId: analyzeSocialChannel
       tags: [socials]
-      summary: Run the n8n analyze-channel workflow for a YouTube channel
+      summary: Run the schema v2 n8n analyze-channel workflow for a YouTube channel
       parameters:
         - name: channelId
           in: path
@@ -2390,7 +2390,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Analysis started (poll the analysis endpoint) or already running
+          description: Analysis started (poll the analysis endpoint) or already running. v2 metrics are authoritative from n8n.
           content:
             application/json:
               schema:
@@ -6126,33 +6126,127 @@ components:
         tiktok_configured:
           type: boolean
 
+    SocialAnalysisMetrics:
+      type: object
+      additionalProperties: false
+      description: Measured public YouTube observations. Missing measurements remain null.
+      properties:
+        subscriber_count:
+          type: integer
+          nullable: true
+          minimum: 0
+        total_views:
+          type: integer
+          nullable: true
+          minimum: 0
+        total_videos:
+          type: integer
+          nullable: true
+          minimum: 0
+        sample_size:
+          type: integer
+          nullable: true
+          minimum: 0
+        avg_views:
+          type: number
+          nullable: true
+          minimum: 0
+        median_views:
+          type: number
+          nullable: true
+          minimum: 0
+        avg_likes:
+          type: number
+          nullable: true
+          minimum: 0
+        avg_comments:
+          type: number
+          nullable: true
+          minimum: 0
+        engagement_rate:
+          type: number
+          nullable: true
+          minimum: 0
+        uploads_last_30d:
+          type: integer
+          nullable: true
+          minimum: 0
+        uploads_per_week:
+          type: number
+          nullable: true
+          minimum: 0
+        recent_median_views:
+          type: number
+          nullable: true
+          minimum: 0
+        previous_median_views:
+          type: number
+          nullable: true
+          minimum: 0
+        performance_change_percent:
+          type: number
+          nullable: true
+        subscriber_change:
+          type: integer
+          nullable: true
+        subscriber_change_percent:
+          type: number
+          nullable: true
+        history_days:
+          type: number
+          nullable: true
+          minimum: 0
+        observed_at:
+          type: string
+          nullable: true
+        sample_oldest_at:
+          type: string
+          nullable: true
+        sample_newest_at:
+          type: string
+          nullable: true
+
     SocialChannelAnalysis:
       type: object
-      required: [channel_id, status, analyzed_at, ai_recommendations, est_monthly_revenue, margin_percent, mcn_share_percent, risk_level, top_videos, ai_sections]
+      required: [channel_id, status, analyzed_at, analysis_version, analysis_metrics, data_warnings, ai_recommendations, est_monthly_revenue, margin_percent, risk_level, top_videos, ai_sections]
       properties:
         channel_id:
           type: string
         status:
           type: string
           enum: [running, ready, error]
-          description: '"running" while n8n is analyzing (poll); "ready" when fields below are populated'
+          description: '"running" while n8n is analyzing (poll); "ready" when v2 fields are populated'
         error:
           type: string
           nullable: true
         analyzed_at:
           type: string
+        analysis_version:
+          type: integer
+          nullable: true
+          description: 1 for a legacy report; 2 for an authoritative v2 n8n report
+        analysis_metrics:
+          oneOf:
+            - $ref: "#/components/schemas/SocialAnalysisMetrics"
+            - type: "null"
+          description: Measured public YouTube observations. Missing measurements remain null.
+        data_warnings:
+          type: array
+          items:
+            type: string
+          description: Missing-data, sampling, history, and public-data limitations
         subs3:
           type: integer
           nullable: true
-          description: Projected subscriber count at 3 months
+          description: Legacy compatibility field; never populated by v2
         subs6:
           type: integer
           nullable: true
-          description: Projected subscriber count at 6 months
+          description: Legacy compatibility field; never populated by v2
         subs12:
           type: integer
           nullable: true
-          description: Projected subscriber count at 12 months (drives the growth % string)
+          description: Legacy compatibility field; never populated by v2
         ai_summary:
           type: string
           nullable: true
@@ -6160,29 +6254,30 @@ components:
           type: array
           items:
             type: string
+          description: Recommendations grounded in the supplied observations
         est_monthly_revenue:
           type: number
+          description: Legacy compatibility field; always zero for v2 and not a v2 metric
         margin_percent:
           type: number
-        mcn_share_percent:
-          type: integer
+          description: Legacy compatibility field; always zero for v2 and not a v2 metric
         risk_level:
           type: string
-          description: lowercased risk level from n8n (low/medium/high), "unknown" if absent
+          description: Legacy compatibility field; not populated by v2
         top_videos:
           type: array
-          description: Top-5 videos by view count (YouTube Data API v3; n8n fallback)
+          description: Ranked videos within the recent sampled uploads, not an all-time channel best
           items:
             $ref: "#/components/schemas/SocialTopVideo"
         ai_sections:
           type: array
-          description: Structured sections parsed from n8n's markdown narrative (render these instead of ai_summary/ai_recommendations when non-empty)
+          description: Legacy compatibility field; v2 uses ai_summary and ai_recommendations
           items:
             $ref: "#/components/schemas/SocialAiSection"
         avg_views:
           type: number
           nullable: true
-          description: Average views over the 10 most recent uploads
+          description: Legacy compatibility field; use analysis_metrics.avg_views for v2
         avg_likes:
           type: number
           nullable: true
@@ -6192,7 +6287,6 @@ components:
         engagement_rate:
           type: number
           nullable: true
-          description: (likes+comments)/views over the 10 most recent uploads, as a percentage
     SocialAiSection:
       type: object
       required: [bullets]
@@ -6209,16 +6303,12 @@ components:
             type: string
     SocialTopVideo:
       type: object
-      required: [title]
+      required: [id, title, views, likes, comments, published_at]
       properties:
+        id:
+          type: string
         title:
           type: string
-        url:
-          type: string
-          nullable: true
-        thumbnail:
-          type: string
-          nullable: true
         views:
           type: integer
           nullable: true
@@ -6229,6 +6319,9 @@ components:
           type: integer
           nullable: true
         published_at:
+          type: string
+          nullable: true
+        thumbnail_url:
           type: string
           nullable: true
     SocialsInsights:

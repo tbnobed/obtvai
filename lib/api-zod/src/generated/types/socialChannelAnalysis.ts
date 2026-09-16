@@ -6,36 +6,44 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SocialAiSection } from './socialAiSection';
+import type { SocialAnalysisMetrics } from './socialAnalysisMetrics';
 import type { SocialChannelAnalysisStatus } from './socialChannelAnalysisStatus';
 import type { SocialTopVideo } from './socialTopVideo';
 
 export interface SocialChannelAnalysis {
   channel_id: string;
-  /** "running" while n8n is analyzing (poll); "ready" when fields below are populated */
+  /** "running" while n8n is analyzing (poll); "ready" when v2 fields are populated */
   status: SocialChannelAnalysisStatus;
   error?: string | null;
   analyzed_at: string;
-  /** Projected subscriber count at 3 months */
+  /** 1 for a legacy report; 2 for an authoritative v2 n8n report */
+  analysis_version: number | null;
+  /** Measured public YouTube observations. Missing measurements remain null. */
+  analysis_metrics: SocialAnalysisMetrics | null;
+  /** Missing-data, sampling, history, and public-data limitations */
+  data_warnings: string[];
+  /** Legacy compatibility field; never populated by v2 */
   subs3?: number | null;
-  /** Projected subscriber count at 6 months */
+  /** Legacy compatibility field; never populated by v2 */
   subs6?: number | null;
-  /** Projected subscriber count at 12 months (drives the growth % string) */
+  /** Legacy compatibility field; never populated by v2 */
   subs12?: number | null;
   ai_summary?: string | null;
+  /** Recommendations grounded in the supplied observations */
   ai_recommendations: string[];
+  /** Legacy compatibility field; always zero for v2 and not a v2 metric */
   est_monthly_revenue: number;
+  /** Legacy compatibility field; always zero for v2 and not a v2 metric */
   margin_percent: number;
-  mcn_share_percent: number;
-  /** lowercased risk level from n8n (low/medium/high), "unknown" if absent */
+  /** Legacy compatibility field; not populated by v2 */
   risk_level: string;
-  /** Top-5 videos by view count (YouTube Data API v3; n8n fallback) */
+  /** Ranked videos within the recent sampled uploads, not an all-time channel best */
   top_videos: SocialTopVideo[];
-  /** Structured sections parsed from n8n's markdown narrative (render these instead of ai_summary/ai_recommendations when non-empty) */
+  /** Legacy compatibility field; v2 uses ai_summary and ai_recommendations */
   ai_sections: SocialAiSection[];
-  /** Average views over the 10 most recent uploads */
+  /** Legacy compatibility field; use analysis_metrics.avg_views for v2 */
   avg_views?: number | null;
   avg_likes?: number | null;
   avg_comments?: number | null;
-  /** (likes+comments)/views over the 10 most recent uploads, as a percentage */
   engagement_rate?: number | null;
 }

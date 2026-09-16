@@ -1,0 +1,542 @@
+{
+  "name": "OBTV Channel Analysis v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analyze-channel",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2e8e6b76-8cc3-47d5-9f9b-1de77ff0b7c1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1500,
+        0
+      ],
+      "webhookId": "obtv-channel-analysis-v2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $json && $json.body !== undefined ? $json.body : $json;\nlet body = incoming;\nif (typeof body === 'string') {\n  try { body = JSON.parse(body); } catch (_error) { body = {}; }\n}\nbody = body && typeof body === 'object' ? body : {};\nconst channelId = typeof body.channelId === 'string' ? body.channelId.trim() : '';\nconst history = Array.isArray(body.history) ? body.history : [];\nreturn [{ json: { channelId, history } }];"
+      },
+      "id": "bb0d398d-46a7-49b7-a39b-e267350acbde",
+      "name": "Normalize Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/youtube/v3/channels",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet,statistics,contentDetails"
+            },
+            {
+              "name": "id",
+              "value": "={{ $node[\"Normalize Request\"].json.channelId }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "ebfc076e-0fa1-4a44-8c31-d4f7e9ea9b33",
+      "name": "YouTube: Get Channel Info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1040,
+        0
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "name": "YouTube Data API query auth"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json || {};\nlet response = raw && raw.body !== undefined ? raw.body : raw;\nif (typeof response === 'string') { try { response = JSON.parse(response); } catch (_error) { response = null; } }\nconst items = response && Array.isArray(response.items) ? response.items : [];\nconst videoIds = [...new Set(items.map((item) => item && item.contentDetails && item.contentDetails.videoId).filter(Boolean))].slice(0, 50);\nreturn [{ json: { videoIds: videoIds.join(','), uploadCount: items.length } }];"
+      },
+      "id": "d9a3a18e-cbd2-42e3-89ef-8e44a6f32e15",
+      "name": "Prepare Video IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-video-ids",
+              "leftValue": "={{ $json.videoIds }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7bead9c8-d2a8-41d5-9c96-4ddf302d89c5",
+      "name": "Has Video IDs",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/youtube/v3/playlistItems",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet,contentDetails"
+            },
+            {
+              "name": "playlistId",
+              "value": "={{ $node[\"YouTube: Get Channel Info\"].json.body?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads || $node[\"YouTube: Get Channel Info\"].json.items?.[0]?.contentDetails?.relatedPlaylists?.uploads || \"\" }}"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "1e4ae8f0-45d6-4ad7-8984-2c915584b095",
+      "name": "YouTube: List Uploads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -800,
+        0
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "name": "YouTube Data API query auth"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet,statistics"
+            },
+            {
+              "name": "id",
+              "value": "={{ $node[\"Prepare Video IDs\"].json.videoIds }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "494bf1e1-f191-49b1-9d5e-4e9b0324e97e",
+      "name": "YouTube: Get Video Stats HTTP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        0
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "name": "YouTube Data API query auth"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json || {};\nconst response = Object.prototype.hasOwnProperty.call(raw, 'videoIds') ? { items: [] } : raw;\nreturn [{ json: response }];"
+      },
+      "id": "76cd03fd-b03a-4b70-a28d-9994805546bf",
+      "name": "YouTube: Get Video Stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const first = (value) => Array.isArray(value) ? (value[0] || null) : value;\nconst parseBody = (value) => { if (value === null || value === undefined || value === '') return null; if (typeof value !== 'string') return value; try { return JSON.parse(value); } catch (_error) { return null; } };\nconst envelope = (value) => { const raw = first(value); if (!raw || typeof raw !== 'object') return { body: null, statusCode: null }; const full = Object.prototype.hasOwnProperty.call(raw, 'body') && (Object.prototype.hasOwnProperty.call(raw, 'statusCode') || Object.prototype.hasOwnProperty.call(raw, 'status') || Object.prototype.hasOwnProperty.call(raw, 'headers')); return full ? { body: parseBody(raw.body), statusCode: Number(raw.statusCode || raw.status) || null } : { body: raw, statusCode: Number(raw.statusCode || raw.status) || null }; };\nconst unwrap = (value) => envelope(value).body;\nconst n = (value) => { if (value === null || value === undefined || value === '') return null; const x = Number(value); return Number.isFinite(x) && x >= 0 ? x : null; };\nconst iso = (value) => { if (!value) return null; const date = new Date(value); return Number.isNaN(date.getTime()) ? null : date.toISOString(); };\nconst round = (value, places = 2) => Number.isFinite(value) ? Math.round(value * (10 ** places)) / (10 ** places) : null;\nconst median = (values) => { const a = values.filter((x) => Number.isFinite(x)).sort((x, y) => x - y); if (!a.length) return null; const i = Math.floor(a.length / 2); return a.length % 2 ? a[i] : (a[i - 1] + a[i]) / 2; };\nconst unique = (values) => [...new Set(values.filter((value) => typeof value === 'string' && value.trim()))];\nconst apiError = (value, label) => { const e = envelope(value); const body = e.body; if (!body || typeof body !== 'object' || Array.isArray(body)) return { code: `youtube_${label}_empty`, message: `YouTube ${label} response was empty.`, httpStatus: 502 }; const nested = body.error && typeof body.error === 'object' ? body.error : null; const nestedCode = nested && nested.code; const status = Number(e.statusCode || (nested && (nested.statusCode || nested.status)) || body.statusCode || body.status || nestedCode || body.code); const mapped = status === 429 ? 429 : 502; if (body.error || body.__n8nError || (body.code && body.message && !Array.isArray(body.items))) return { code: status === 429 || Number(nestedCode) === 429 ? `youtube_${label}_rate_limited` : `youtube_${label}_failed`, message: `YouTube ${label} request failed${status ? ` (HTTP ${status})` : ''}.`, httpStatus: mapped }; if (!Array.isArray(body.items)) return { code: `youtube_${label}_malformed`, message: `YouTube ${label} response did not contain an items array.`, httpStatus: 502 }; return null; };\nconst request = $node['Normalize Request'].json || {};\nconst channelRaw = ($node['YouTube: Get Channel Info'] && $node['YouTube: Get Channel Info'].json) || {};\nconst playlistRaw = ($node['YouTube: List Uploads'] && $node['YouTube: List Uploads'].json) || {};\nconst videosRaw = ($node['YouTube: Get Video Stats'] && $node['YouTube: Get Video Stats'].json) || { items: [] };\nconst channelResponse = unwrap(channelRaw);\nconst playlistResponse = unwrap(playlistRaw);\nconst videosResponse = unwrap(videosRaw);\nconst channel = Array.isArray(channelResponse && channelResponse.items) && channelResponse.items[0] ? channelResponse.items[0] : {};\nconst channelStats = channel.statistics || {};\nconst detailById = new Map((Array.isArray(videosResponse && videosResponse.items) ? videosResponse.items : []).filter((video) => video && video.id).map((video) => [video.id, video]));\nconst seen = new Set();\nconst rows = (Array.isArray(playlistResponse && playlistResponse.items) ? playlistResponse.items : []).map((upload) => {\n  const id = upload && upload.contentDetails && upload.contentDetails.videoId;\n  if (!id || seen.has(id)) return null;\n  seen.add(id);\n  const detail = detailById.get(id) || {};\n  const ps = upload.snippet || {};\n  const snippet = detail.snippet || {};\n  const stats = detail.statistics || {};\n  const thumbs = snippet.thumbnails || ps.thumbnails || {};\n  const thumb = thumbs.high || thumbs.medium || thumbs.default;\n  return { id: String(id), title: String(snippet.title || ps.title || ''), views: n(stats.viewCount), likes: n(stats.likeCount), comments: n(stats.commentCount), published_at: iso(snippet.publishedAt || (upload.contentDetails && upload.contentDetails.videoPublishedAt) || ps.publishedAt), thumbnail_url: thumb && thumb.url ? thumb.url : null };\n}).filter(Boolean).slice(0, 50);\nconst observed = iso(typeof $execution !== 'undefined' && $execution.startedAt) || new Date().toISOString();\nconst metrics = { subscriber_count: n(channelStats.subscriberCount), total_views: n(channelStats.viewCount), total_videos: n(channelStats.videoCount), sample_size: rows.length, avg_views: null, median_views: null, avg_likes: null, avg_comments: null, engagement_rate: null, uploads_last_30d: null, uploads_per_week: null, recent_median_views: null, previous_median_views: null, performance_change_percent: null, subscriber_change: null, subscriber_change_percent: null, history_days: null, observed_at: observed, sample_oldest_at: null, sample_newest_at: null };\nconst warnings = ['Sample is limited to the 50 most recent uploads returned by the uploads playlist.', 'Video views, likes, and comments are lifetime-to-date counts for sampled videos; they are not monthly channel views.', 'Public YouTube data does not provide CTR, retention, watch time, revenue, or causal explanations.'];\nconst views = rows.map((row) => row.views).filter((x) => x !== null);\nconst likes = rows.map((row) => row.likes).filter((x) => x !== null);\nconst comments = rows.map((row) => row.comments).filter((x) => x !== null);\nif (views.length) { metrics.avg_views = round(views.reduce((sum, x) => sum + x, 0) / views.length); metrics.median_views = median(views); }\nif (likes.length) metrics.avg_likes = round(likes.reduce((sum, x) => sum + x, 0) / likes.length);\nif (comments.length) metrics.avg_comments = round(comments.reduce((sum, x) => sum + x, 0) / comments.length);\nif (rows.length && (likes.length < rows.length || comments.length < rows.length)) warnings.push('Likes and/or comments are partial for the sampled uploads; engagement_rate is unavailable.');\nif (rows.length && views.length < rows.length) warnings.push('Views are partial for the sampled uploads; view aggregates and engagement_rate may be unavailable.');\nconst complete = rows.filter((row) => row.views !== null && row.likes !== null && row.comments !== null);\nconst engagementViews = complete.reduce((sum, row) => sum + row.views, 0);\nconst engagementActions = complete.reduce((sum, row) => sum + row.likes + row.comments, 0);\nif (complete.length === rows.length && complete.length && engagementViews > 0) metrics.engagement_rate = round((engagementActions / engagementViews) * 100);\nconst datedRows = rows.filter((row) => row.published_at).sort((a, b) => new Date(a.published_at) - new Date(b.published_at));\nconst DAY = 24 * 60 * 60 * 1000;\nif (datedRows.length) { metrics.sample_oldest_at = datedRows[0].published_at; metrics.sample_newest_at = datedRows[datedRows.length - 1].published_at; const observedTime = new Date(observed).getTime(); const cutoff = observedTime - 30 * DAY; metrics.uploads_last_30d = datedRows.filter((row) => new Date(row.published_at).getTime() >= cutoff && new Date(row.published_at).getTime() <= observedTime).length; if (datedRows.length > 1) { const coverageDays = (new Date(metrics.sample_newest_at) - new Date(metrics.sample_oldest_at)) / DAY; if (coverageDays > 0) metrics.uploads_per_week = round(datedRows.length / (coverageDays / 7)); } if (new Date(metrics.sample_oldest_at).getTime() > cutoff) warnings.push('The sampled publication dates do not cover a full 30-day window; uploads_last_30d may be incomplete.'); } else if (rows.length) warnings.push('Sample publication dates are missing; cadence and date coverage remain unavailable.');\nconst comparisonRows = rows.filter((row) => row.published_at && row.views !== null).sort((a, b) => new Date(b.published_at) - new Date(a.published_at));\nif (comparisonRows.length >= 6) { const recent = comparisonRows.slice(0, Math.ceil(comparisonRows.length / 2)).map((row) => row.views); const previous = comparisonRows.slice(Math.ceil(comparisonRows.length / 2)).map((row) => row.views); if (recent.length >= 3 && previous.length >= 3) { metrics.recent_median_views = median(recent); metrics.previous_median_views = median(previous); if (metrics.previous_median_views > 0) metrics.performance_change_percent = round(((metrics.recent_median_views - metrics.previous_median_views) / metrics.previous_median_views) * 100); else warnings.push('The older comparison median is zero; performance_change_percent is unavailable.'); warnings.push('The recent/previous comparison is an age-biased observed comparison of lifetime sample counts, not view velocity or causal growth.'); } } else if (rows.length) warnings.push('At least six dated uploads with views are needed for the observed recent/previous comparison.');\nconst snapshots = (Array.isArray(request.history) ? request.history : []).map((record) => ({ recorded_at: iso(record && record.recorded_at), followers: n(record && record.followers) })).filter((record) => record.recorded_at && record.followers !== null).sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));\nif (snapshots.length >= 2) { const first = snapshots[0]; const last = snapshots[snapshots.length - 1]; const days = (new Date(last.recorded_at) - new Date(first.recorded_at)) / DAY; if (days > 0) { metrics.history_days = round(days); metrics.subscriber_change = last.followers - first.followers; metrics.subscriber_change_percent = first.followers > 0 ? round((metrics.subscriber_change / first.followers) * 100) : null; } else warnings.push('OBTV history snapshots need distinct dates; subscriber change is unavailable.'); } else warnings.push('OBTV history has fewer than two dated snapshots; subscriber change is unavailable.');\nif (!rows.length) warnings.push('No public uploads were returned; upload-level metrics remain null.');\nconst requestError = request.channelId ? null : { code: 'invalid_request', message: 'channelId is required.', httpStatus: 400 };\nconst channelError = apiError(channelRaw, 'channel');\nconst playlistError = apiError(playlistRaw, 'uploads');\nconst hasUploads = Array.isArray(playlistResponse && playlistResponse.items) && playlistResponse.items.length > 0;\nconst videoError = hasUploads ? apiError(videosRaw, 'video_stats') : null;\nconst error = requestError || channelError || playlistError || videoError || (!channel.id ? { code: 'youtube_channel_not_found', message: 'YouTube did not return a channel for the supplied channelId.', httpStatus: 400 } : null);\nreturn [{ json: { analysis: { status: error ? 'error' : 'ready', error, channel: { id: channel.id || request.channelId || null, title: channel.snippet && channel.snippet.title || null, published_at: iso(channel.snippet && channel.snippet.publishedAt) }, metrics, rows, warnings: unique(warnings) } } }];"
+      },
+      "id": "00b56f55-8a44-462f-8d0b-d0af4e41f379",
+      "name": "Compute Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const analysis = $node['Compute Metrics'].json.analysis || {};\nconst supplied = { channel: analysis.channel || {}, metrics: analysis.metrics || {}, sampled_uploads: (analysis.rows || []).map((row) => ({ id: row.id, title: row.title, views: row.views, likes: row.likes, comments: row.comments, published_at: row.published_at })) };\nreturn [{ json: { model: 'gpt-4o-mini', temperature: 0.2, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'Return only a JSON object with exactly two keys: summary (string or null) and recommendations (array of strings). Ground every statement in the supplied measured numbers and sample scope. Do not invent CTR, retention, watch time, revenue, subscriber forecasts, causation, or business economics. State limitations when measurements are missing.' }, { role: 'user', content: JSON.stringify(supplied) } ] } }];"
+      },
+      "id": "b607d289-af1e-4d9c-9851-9f6005453b60",
+      "name": "Build OpenAI Strategy Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "1c928733-84f8-4408-bcb0-dfbb5fcb0107",
+      "name": "OpenAI: Strategy JSON",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "OpenAI header auth"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const analysis = $node['Compute Metrics'].json.analysis || {};\nconst aiRaw = ($node['OpenAI: Strategy JSON'] && $node['OpenAI: Strategy JSON'].json) || {};\nconst aiBody = aiRaw && aiRaw.body !== undefined ? (typeof aiRaw.body === 'string' ? (() => { try { return JSON.parse(aiRaw.body); } catch (_error) { return {}; } })() : aiRaw.body) : aiRaw;\nconst warnings = [...(analysis.warnings || [])];\nlet ai = { summary: null, recommendations: [] };\nlet aiFailed = Boolean(aiBody && aiBody.error);\nconst content = aiBody && aiBody.choices && aiBody.choices[0] && aiBody.choices[0].message ? aiBody.choices[0].message.content : null;\nif (!aiFailed && content) {\n  let parsed = content;\n  if (typeof content === 'string') { try { parsed = JSON.parse(content.replace(/^```(?:json)?\\s*|\\s*```$/g, '').trim()); } catch (_error) { aiFailed = true; } }\n  if (!aiFailed && parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {\n    ai.summary = typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : null;\n    ai.recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()) : [];\n    if (!ai.summary && !ai.recommendations.length) aiFailed = true;\n  } else if (!aiFailed) aiFailed = true;\n} else if (!content) aiFailed = true;\nif (aiFailed && analysis.status === 'ready') warnings.push('OpenAI strategy output was unavailable or not valid JSON; measured metrics remain usable.');\nconst topVideos = (analysis.rows || []).slice().sort((a, b) => b.views === null ? -1 : a.views === null ? 1 : b.views - a.views).slice(0, 5);\nconst response = { schemaVersion: 2, status: analysis.status || 'error', channel: analysis.channel || {}, metrics: analysis.metrics || {}, dataWarnings: [...new Set(warnings)], aiInsights: analysis.status === 'ready' ? ai : { summary: null, recommendations: [] }, topVideos };\nif (analysis.error) { const { httpStatus: _httpStatus, ...publicError } = analysis.error; if (publicError.code && publicError.code.endsWith('_rate_limited')) publicError.message = `YouTube upstream request failed (HTTP 429).`; response.error = publicError; }\nreturn [{ json: response }];"
+      },
+      "id": "8a42d7f2-7a35-40c2-a08d-1053a2c99d3c",
+      "name": "Assemble Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "status-ready",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b79b4962-e9a1-422a-b4de-9084eef518be",
+      "name": "Is Ready",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "c9d755df-5489-4494-af6a-60574b288f0a",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": "={{ $json.error && $json.error.code && $json.error.code.endsWith('_rate_limited') ? 429 : ($json.error && ($json.error.code === 'invalid_request' || $json.error.code === 'youtube_channel_not_found') ? 400 : ($json.error && $json.error.code && $json.error.code.startsWith('youtube_') ? 502 : 400)) }}"
+        }
+      },
+      "id": "d3afe503-c5f0-474c-a29c-2cfda5f8f345",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        80
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "YouTube: Get Channel Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube: Get Channel Info": {
+      "main": [
+        [
+          {
+            "node": "YouTube: List Uploads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube: List Uploads": {
+      "main": [
+        [
+          {
+            "node": "Prepare Video IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Video IDs": {
+      "main": [
+        [
+          {
+            "node": "Has Video IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Video IDs": {
+      "main": [
+        [
+          {
+            "node": "YouTube: Get Video Stats HTTP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "YouTube: Get Video Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube: Get Video Stats HTTP": {
+      "main": [
+        [
+          {
+            "node": "YouTube: Get Video Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube: Get Video Stats": {
+      "main": [
+        [
+          {
+            "node": "Compute Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Metrics": {
+      "main": [
+        [
+          {
+            "node": "Build OpenAI Strategy Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build OpenAI Strategy Request": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Strategy JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Strategy JSON": {
+      "main": [
+        [
+          {
+            "node": "Assemble Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Response": {
+      "main": [
+        [
+          {
+            "node": "Is Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Ready": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f8b4b6bb-9fc4-409b-80bd-5b55b0c4e3f6",
+  "meta": {},
+  "pinData": {},
+  "tags": []
+}

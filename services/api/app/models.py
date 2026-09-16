@@ -558,7 +558,13 @@ class SocialInsight(Base):
 
 
 class SocialChannelAnalysis(Base):
-    """Latest n8n analyze-channel result for a channel (one row per channel)."""
+    """Latest n8n analyze-channel result for a channel (one row per channel).
+
+    The economics/projection columns below are retained solely for compatibility
+    with rows written by the v1 application.  v2 never reads or writes them.
+    In particular, ``mcn_share_percent`` is a historical database column and is
+    intentionally not exposed by the API.
+    """
     __tablename__ = "social_channel_analyses"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
@@ -575,6 +581,7 @@ class SocialChannelAnalysis(Base):
     ai_recommendations: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     est_monthly_revenue: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     margin_percent: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    # Historical v1 column.  Do not use for v2 analysis or drop from live DBs.
     mcn_share_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     risk_level: Mapped[str] = mapped_column(String, default="unknown", nullable=False)
     top_videos: Mapped[list | None] = mapped_column(JSONB, nullable=True)
@@ -585,6 +592,11 @@ class SocialChannelAnalysis(Base):
     avg_likes: Mapped[float | None] = mapped_column(Float, nullable=True)
     avg_comments: Mapped[float | None] = mapped_column(Float, nullable=True)
     engagement_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # v2 authoritative n8n payload.  Keep the complete measured object so
+    # newly added nullable metrics do not require a database migration.
+    analysis_metrics: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    data_warnings: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    analysis_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class SocialProgram(Base):

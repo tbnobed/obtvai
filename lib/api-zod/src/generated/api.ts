@@ -2982,44 +2982,97 @@ export const RefreshSocialsResponse = zod.object({
 
 
 /**
- * @summary Run the n8n analyze-channel workflow for a YouTube channel
+ * @summary Run the schema v2 n8n analyze-channel workflow for a YouTube channel
  */
 export const AnalyzeSocialChannelParams = zod.object({
   "channelId": zod.coerce.string()
 })
 
+export const analyzeSocialChannelResponseAnalysisMetricsOneSubscriberCountMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneTotalViewsMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneTotalVideosMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneSampleSizeMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneAvgViewsMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneMedianViewsMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneAvgLikesMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneAvgCommentsMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneEngagementRateMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneUploadsLast30dMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneUploadsPerWeekMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneRecentMedianViewsMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOnePreviousMedianViewsMin = 0;
+
+export const analyzeSocialChannelResponseAnalysisMetricsOneHistoryDaysMin = 0;
+
+
+
 export const AnalyzeSocialChannelResponse = zod.object({
   "channel_id": zod.string(),
-  "status": zod.enum(['running', 'ready', 'error']).describe('\"running\" while n8n is analyzing (poll); \"ready\" when fields below are populated'),
+  "status": zod.enum(['running', 'ready', 'error']).describe('\"running\" while n8n is analyzing (poll); \"ready\" when v2 fields are populated'),
   "error": zod.string().nullish(),
   "analyzed_at": zod.string(),
-  "subs3": zod.number().nullish().describe('Projected subscriber count at 3 months'),
-  "subs6": zod.number().nullish().describe('Projected subscriber count at 6 months'),
-  "subs12": zod.number().nullish().describe('Projected subscriber count at 12 months (drives the growth % string)'),
+  "analysis_version": zod.number().nullable().describe('1 for a legacy report; 2 for an authoritative v2 n8n report'),
+  "analysis_metrics": zod.union([zod.object({
+  "subscriber_count": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneSubscriberCountMin).nullish(),
+  "total_views": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneTotalViewsMin).nullish(),
+  "total_videos": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneTotalVideosMin).nullish(),
+  "sample_size": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneSampleSizeMin).nullish(),
+  "avg_views": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneAvgViewsMin).nullish(),
+  "median_views": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneMedianViewsMin).nullish(),
+  "avg_likes": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneAvgLikesMin).nullish(),
+  "avg_comments": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneAvgCommentsMin).nullish(),
+  "engagement_rate": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneEngagementRateMin).nullish(),
+  "uploads_last_30d": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneUploadsLast30dMin).nullish(),
+  "uploads_per_week": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneUploadsPerWeekMin).nullish(),
+  "recent_median_views": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneRecentMedianViewsMin).nullish(),
+  "previous_median_views": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOnePreviousMedianViewsMin).nullish(),
+  "performance_change_percent": zod.number().nullish(),
+  "subscriber_change": zod.number().nullish(),
+  "subscriber_change_percent": zod.number().nullish(),
+  "history_days": zod.number().min(analyzeSocialChannelResponseAnalysisMetricsOneHistoryDaysMin).nullish(),
+  "observed_at": zod.string().nullish(),
+  "sample_oldest_at": zod.string().nullish(),
+  "sample_newest_at": zod.string().nullish()
+}).describe('Measured public YouTube observations. Missing measurements remain null.'),zod.null()]).describe('Measured public YouTube observations. Missing measurements remain null.'),
+  "data_warnings": zod.array(zod.string()).describe('Missing-data, sampling, history, and public-data limitations'),
+  "subs3": zod.number().nullish().describe('Legacy compatibility field; never populated by v2'),
+  "subs6": zod.number().nullish().describe('Legacy compatibility field; never populated by v2'),
+  "subs12": zod.number().nullish().describe('Legacy compatibility field; never populated by v2'),
   "ai_summary": zod.string().nullish(),
-  "ai_recommendations": zod.array(zod.string()),
-  "est_monthly_revenue": zod.number(),
-  "margin_percent": zod.number(),
-  "mcn_share_percent": zod.number(),
-  "risk_level": zod.string().describe('lowercased risk level from n8n (low\/medium\/high), \"unknown\" if absent'),
+  "ai_recommendations": zod.array(zod.string()).describe('Recommendations grounded in the supplied observations'),
+  "est_monthly_revenue": zod.number().describe('Legacy compatibility field; always zero for v2 and not a v2 metric'),
+  "margin_percent": zod.number().describe('Legacy compatibility field; always zero for v2 and not a v2 metric'),
+  "risk_level": zod.string().describe('Legacy compatibility field; not populated by v2'),
   "top_videos": zod.array(zod.object({
+  "id": zod.string(),
   "title": zod.string(),
-  "url": zod.string().nullish(),
-  "thumbnail": zod.string().nullish(),
-  "views": zod.number().nullish(),
-  "likes": zod.number().nullish(),
-  "comments": zod.number().nullish(),
-  "published_at": zod.string().nullish()
-})).describe('Top-5 videos by view count (YouTube Data API v3; n8n fallback)'),
+  "views": zod.number().nullable(),
+  "likes": zod.number().nullable(),
+  "comments": zod.number().nullable(),
+  "published_at": zod.string().nullable(),
+  "thumbnail_url": zod.string().nullish()
+})).describe('Ranked videos within the recent sampled uploads, not an all-time channel best'),
   "ai_sections": zod.array(zod.object({
   "title": zod.string().nullish(),
   "body": zod.string().nullish(),
   "bullets": zod.array(zod.string())
-})).describe('Structured sections parsed from n8n\'s markdown narrative (render these instead of ai_summary\/ai_recommendations when non-empty)'),
-  "avg_views": zod.number().nullish().describe('Average views over the 10 most recent uploads'),
+})).describe('Legacy compatibility field; v2 uses ai_summary and ai_recommendations'),
+  "avg_views": zod.number().nullish().describe('Legacy compatibility field; use analysis_metrics.avg_views for v2'),
   "avg_likes": zod.number().nullish(),
   "avg_comments": zod.number().nullish(),
-  "engagement_rate": zod.number().nullish().describe('(likes+comments)\/views over the 10 most recent uploads, as a percentage')
+  "engagement_rate": zod.number().nullish()
 })
 
 
@@ -3030,38 +3083,91 @@ export const GetSocialChannelAnalysisParams = zod.object({
   "channelId": zod.coerce.string()
 })
 
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneSubscriberCountMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneTotalViewsMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneTotalVideosMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneSampleSizeMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneAvgViewsMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneMedianViewsMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneAvgLikesMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneAvgCommentsMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneEngagementRateMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneUploadsLast30dMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneUploadsPerWeekMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneRecentMedianViewsMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOnePreviousMedianViewsMin = 0;
+
+export const getSocialChannelAnalysisResponseAnalysisMetricsOneHistoryDaysMin = 0;
+
+
+
 export const GetSocialChannelAnalysisResponse = zod.object({
   "channel_id": zod.string(),
-  "status": zod.enum(['running', 'ready', 'error']).describe('\"running\" while n8n is analyzing (poll); \"ready\" when fields below are populated'),
+  "status": zod.enum(['running', 'ready', 'error']).describe('\"running\" while n8n is analyzing (poll); \"ready\" when v2 fields are populated'),
   "error": zod.string().nullish(),
   "analyzed_at": zod.string(),
-  "subs3": zod.number().nullish().describe('Projected subscriber count at 3 months'),
-  "subs6": zod.number().nullish().describe('Projected subscriber count at 6 months'),
-  "subs12": zod.number().nullish().describe('Projected subscriber count at 12 months (drives the growth % string)'),
+  "analysis_version": zod.number().nullable().describe('1 for a legacy report; 2 for an authoritative v2 n8n report'),
+  "analysis_metrics": zod.union([zod.object({
+  "subscriber_count": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneSubscriberCountMin).nullish(),
+  "total_views": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneTotalViewsMin).nullish(),
+  "total_videos": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneTotalVideosMin).nullish(),
+  "sample_size": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneSampleSizeMin).nullish(),
+  "avg_views": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneAvgViewsMin).nullish(),
+  "median_views": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneMedianViewsMin).nullish(),
+  "avg_likes": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneAvgLikesMin).nullish(),
+  "avg_comments": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneAvgCommentsMin).nullish(),
+  "engagement_rate": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneEngagementRateMin).nullish(),
+  "uploads_last_30d": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneUploadsLast30dMin).nullish(),
+  "uploads_per_week": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneUploadsPerWeekMin).nullish(),
+  "recent_median_views": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneRecentMedianViewsMin).nullish(),
+  "previous_median_views": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOnePreviousMedianViewsMin).nullish(),
+  "performance_change_percent": zod.number().nullish(),
+  "subscriber_change": zod.number().nullish(),
+  "subscriber_change_percent": zod.number().nullish(),
+  "history_days": zod.number().min(getSocialChannelAnalysisResponseAnalysisMetricsOneHistoryDaysMin).nullish(),
+  "observed_at": zod.string().nullish(),
+  "sample_oldest_at": zod.string().nullish(),
+  "sample_newest_at": zod.string().nullish()
+}).describe('Measured public YouTube observations. Missing measurements remain null.'),zod.null()]).describe('Measured public YouTube observations. Missing measurements remain null.'),
+  "data_warnings": zod.array(zod.string()).describe('Missing-data, sampling, history, and public-data limitations'),
+  "subs3": zod.number().nullish().describe('Legacy compatibility field; never populated by v2'),
+  "subs6": zod.number().nullish().describe('Legacy compatibility field; never populated by v2'),
+  "subs12": zod.number().nullish().describe('Legacy compatibility field; never populated by v2'),
   "ai_summary": zod.string().nullish(),
-  "ai_recommendations": zod.array(zod.string()),
-  "est_monthly_revenue": zod.number(),
-  "margin_percent": zod.number(),
-  "mcn_share_percent": zod.number(),
-  "risk_level": zod.string().describe('lowercased risk level from n8n (low\/medium\/high), \"unknown\" if absent'),
+  "ai_recommendations": zod.array(zod.string()).describe('Recommendations grounded in the supplied observations'),
+  "est_monthly_revenue": zod.number().describe('Legacy compatibility field; always zero for v2 and not a v2 metric'),
+  "margin_percent": zod.number().describe('Legacy compatibility field; always zero for v2 and not a v2 metric'),
+  "risk_level": zod.string().describe('Legacy compatibility field; not populated by v2'),
   "top_videos": zod.array(zod.object({
+  "id": zod.string(),
   "title": zod.string(),
-  "url": zod.string().nullish(),
-  "thumbnail": zod.string().nullish(),
-  "views": zod.number().nullish(),
-  "likes": zod.number().nullish(),
-  "comments": zod.number().nullish(),
-  "published_at": zod.string().nullish()
-})).describe('Top-5 videos by view count (YouTube Data API v3; n8n fallback)'),
+  "views": zod.number().nullable(),
+  "likes": zod.number().nullable(),
+  "comments": zod.number().nullable(),
+  "published_at": zod.string().nullable(),
+  "thumbnail_url": zod.string().nullish()
+})).describe('Ranked videos within the recent sampled uploads, not an all-time channel best'),
   "ai_sections": zod.array(zod.object({
   "title": zod.string().nullish(),
   "body": zod.string().nullish(),
   "bullets": zod.array(zod.string())
-})).describe('Structured sections parsed from n8n\'s markdown narrative (render these instead of ai_summary\/ai_recommendations when non-empty)'),
-  "avg_views": zod.number().nullish().describe('Average views over the 10 most recent uploads'),
+})).describe('Legacy compatibility field; v2 uses ai_summary and ai_recommendations'),
+  "avg_views": zod.number().nullish().describe('Legacy compatibility field; use analysis_metrics.avg_views for v2'),
   "avg_likes": zod.number().nullish(),
   "avg_comments": zod.number().nullish(),
-  "engagement_rate": zod.number().nullish().describe('(likes+comments)\/views over the 10 most recent uploads, as a percentage')
+  "engagement_rate": zod.number().nullish()
 })
 
 

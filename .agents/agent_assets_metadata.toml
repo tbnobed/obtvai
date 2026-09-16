@@ -160,3 +160,31 @@ mtime_ms = 1789337731670
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/d82847aa-ed6f-4689-b144-54db32783755/5fe0bac2-cd0d-4197-a3f5-8bf402d2100b"
 storage_version_token = "1789337752102523"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "h2s_k4efuK1TadTwVivuk"
+uri = "file://workflows/obtv-channel-analysis.json"
+type = "unspecified"
+title = "OBTV Channel Analysis — n8n workflow"
+description = "Credential-free replacement workflow using measured YouTube data, explicit errors, and grounded recommendations. Import into n8n and bind credentials before activation."
+logical_id = "4b371360-b269-426a-a779-987875dc7b76"
+content_hash = "sha256:624c513942876bc22b6897856faff451f8f1983b4692afec52ab51d801903704"
+size = 28060
+mtime_ms = 1789573004809
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/4b371360-b269-426a-a779-987875dc7b76/84a42393-ce0a-4f16-bbaa-1ae943fec431"
+storage_version_token = "1789573066222354"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "ThiwZwiRybSRwBw7rDLK_"
+uri = "file://workflows/README.md"
+type = "text"
+title = "Workflow import instructions"
+description = "Credential setup, activation, response contract, and verification notes."
+logical_id = "939e4fd1-6050-4405-9d84-fd016b0692de"
+content_hash = "sha256:4ebb8a18bb79aecd1a6dc7e4889cf87a994087b492103895a9ee7bdb4d522191"
+size = 4246
+mtime_ms = 1789572825209
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/939e4fd1-6050-4405-9d84-fd016b0692de/44279f33-50f9-4005-ac07-9859dc0ad73f"
+storage_version_token = "1789573066855182"
+content_type = "text/markdown"

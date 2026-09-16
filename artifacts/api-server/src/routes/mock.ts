@@ -4086,6 +4086,8 @@ let mockInsightsReadyAt: number | null = null;
 let mockSavedInsights: any = null;
 
 // Per-channel n8n analyze-channel results (production calls n8n.obtv.io).
+// The mock mirrors the schema v2 response: measured public observations only.
+// It intentionally does not expose the historical MCN/economics fields.
 const channelAnalyses: Record<string, any> = {};
 const channelAnalysisReadyAt: Record<string, number> = {};
 
@@ -4097,8 +4099,9 @@ router.post("/socials/channels/:id/analyze", (req, res) => {
   channelAnalysisReadyAt[c.id] = Date.now() + 4000;
   channelAnalyses[c.id] = {
     channel_id: c.id, status: "running", error: null, analyzed_at: new Date().toISOString(),
+    analysis_version: null, analysis_metrics: null, data_warnings: [],
     subs3: null, subs6: null, subs12: null, ai_summary: null, ai_recommendations: [],
-    est_monthly_revenue: 0, margin_percent: 0, mcn_share_percent: 0, risk_level: "unknown",
+    est_monthly_revenue: 0, margin_percent: 0, risk_level: "unknown",
     top_videos: [], ai_sections: [], avg_views: null, avg_likes: null, avg_comments: null, engagement_rate: null,
   };
   res.json(channelAnalyses[c.id]);
@@ -4110,47 +4113,98 @@ router.get("/socials/channels/:id/analysis", (req, res) => {
   if (a.status === "running" && Date.now() >= (channelAnalysisReadyAt[req.params.id] ?? 0)) {
     const c = socialChannels.find((x) => x.id === req.params.id);
     const snaps = socialSnapshots[req.params.id] ?? [];
-    const followers = snaps[snaps.length - 1]?.followers ?? 100_000;
+    const posts = (socialPosts[req.params.id] ?? [])
+      .filter((p: any) => p.views != null)
+      .slice(0, 50);
+    const latest = snaps[snaps.length - 1] ?? null;
+    const oldest = snaps[0] ?? null;
+    const values = (key: string) => posts
+      .map((p: any) => p[key])
+      .filter((value: any) => typeof value === "number" && Number.isFinite(value));
+    const median = (items: number[]) => {
+      if (!items.length) return null;
+      const ordered = [...items].sort((left, right) => left - right);
+      const middle = Math.floor(ordered.length / 2);
+      return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+    };
+    const views = values("views");
+    const likes = values("likes");
+    const comments = values("comments");
+    const totalViews = views.reduce((sum, value) => sum + value, 0);
+    const recentCutoff = Date.now() - 30 * 86400e3;
+    const uploadsLast30d = posts.filter((p: any) => p.published_at && new Date(p.published_at).getTime() >= recentCutoff).length;
+    const historyDays = oldest && latest
+      ? Math.max(0, (new Date(latest.fetched_at).getTime() - new Date(oldest.fetched_at).getTime()) / 86400e3)
+      : null;
+    const subscriberChange = latest?.followers != null && oldest?.followers != null
+      ? latest.followers - oldest.followers
+      : null;
+    const subscriberChangePercent = subscriberChange != null && oldest?.followers
+      ? (subscriberChange / oldest.followers) * 100
+      : null;
+    const sampleOldest = posts.length ? posts[posts.length - 1]?.published_at ?? null : null;
+    const sampleNewest = posts.length ? posts[0]?.published_at ?? null : null;
+    const avgViews = views.length ? totalViews / views.length : null;
+    const avgLikes = likes.length ? likes.reduce((sum, value) => sum + value, 0) / likes.length : null;
+    const avgComments = comments.length ? comments.reduce((sum, value) => sum + value, 0) / comments.length : null;
+    const scope = `${views.length} sampled uploads`;
+    const warnings = [
+      `Lifetime-to-date counts from ${scope}; not monthly channel views.`,
+      `Top videos are ranked only within the recent ${scope}.`,
+      "Recent/previous median comparison omitted because sampled video age makes it misleading.",
+    ];
     Object.assign(a, {
       status: "ready",
+      analysis_version: 2,
       analyzed_at: new Date().toISOString(),
-      subs3: Math.round(followers * 1.06),
-      subs6: Math.round(followers * 1.14),
-      subs12: Math.round(followers * 1.31),
-      ai_summary: `${c?.handle ?? "This channel"} shows steady growth driven by clip-length interview content; watch time concentrates in the first 90 seconds, so stronger hooks would lift retention across the board.`,
+      analysis_metrics: {
+        subscriber_count: latest?.followers ?? null,
+        total_views: latest?.total_views ?? null,
+        total_videos: latest?.posts_count ?? null,
+        sample_size: posts.length,
+        avg_views: avgViews,
+        median_views: median(views),
+        avg_likes: avgLikes,
+        avg_comments: avgComments,
+        engagement_rate: totalViews ? ((likes.reduce((sum, value) => sum + value, 0) + comments.reduce((sum, value) => sum + value, 0)) / totalViews) * 100 : null,
+        uploads_last_30d: uploadsLast30d,
+        uploads_per_week: historyDays && historyDays > 0 ? (posts.length / historyDays) * 7 : null,
+        recent_median_views: null,
+        previous_median_views: null,
+        performance_change_percent: null,
+        subscriber_change: subscriberChange,
+        subscriber_change_percent: subscriberChangePercent,
+        history_days: historyDays,
+        observed_at: latest?.fetched_at ?? null,
+        sample_oldest_at: sampleOldest,
+        sample_newest_at: sampleNewest,
+      },
+      data_warnings: warnings,
+      subs3: null,
+      subs6: null,
+      subs12: null,
+      ai_summary: `${c?.handle ?? "This channel"} has ${latest?.followers ?? "an unavailable number of"} followers and ${avgViews != null ? Math.round(avgViews).toLocaleString() : "unavailable"} average views across ${scope}.`,
       ai_recommendations: [
-        "Post 3 Shorts per week cut from the top-performing interview segments.",
-        "Standardize thumbnails around close-up faces + 3-word text overlays.",
-        "Schedule uploads Tue/Thu 9am ET when this audience is most active.",
+        `Compare the next sampled uploads with the current ${avgViews != null ? Math.round(avgViews).toLocaleString() : "unavailable"} average-view baseline.`,
+        `Keep the observed cadence near ${historyDays && historyDays > 0 ? ((posts.length / historyDays) * 7).toFixed(1) : "the available"} uploads per week, then re-analyze.`,
       ],
-      est_monthly_revenue: 4820,
-      margin_percent: 62.5,
-      mcn_share_percent: 30,
-      risk_level: "low",
-      ai_sections: [
-        { title: "Overview", body: `${c?.handle ?? "This channel"} has a solid subscriber base and steady growth driven by clip-length interview content.`, bullets: [] },
-        { title: "Key Insights", body: null, bullets: [
-          "Content Performance Variability: Recent videos show a wide range of views, from 5.6K to over 300K.",
-          "Engagement Metrics: Average likes and comments per video are relatively low compared to views.",
-        ] },
-        { title: "Risks", body: null, bullets: [
-          "Content Saturation: A large back catalog risks viewers feeling overwhelmed.",
-          "Monetization Challenges: Current profitability poses a risk for long-term sustainability.",
-        ] },
-        { title: "Conclusion", body: "The channel has significant potential for growth with stronger hooks and consistent packaging.", bullets: [] },
-      ],
-      avg_views: 14830.4,
-      avg_likes: 902.1,
-      avg_comments: 118.6,
-      engagement_rate: 6.9,
+      est_monthly_revenue: 0,
+      margin_percent: 0,
+      risk_level: "unknown",
+      ai_sections: [],
+      avg_views: null,
+      avg_likes: null,
+      avg_comments: null,
+      engagement_rate: null,
       top_videos: (socialPosts[req.params.id] ?? [])
         .slice()
         .sort((x: any, y: any) => (y.views ?? 0) - (x.views ?? 0))
-        .slice(0, 5)
+        .slice(0, 50)
         .map((p: any) => ({
-          title: p.title, url: p.url ?? null, thumbnail: p.thumbnail_url ?? null,
+          id: p.external_id, title: p.title,
           views: p.views ?? null, likes: p.likes ?? null, comments: p.comments ?? null,
           published_at: p.published_at ?? null,
+          thumbnail_url: p.thumbnail_url ?? null,
         })),
     });
   }

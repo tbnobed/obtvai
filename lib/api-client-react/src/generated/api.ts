@@ -7890,7 +7890,7 @@ export const getAnalyzeSocialChannelUrl = (channelId: string,) => {
 }
 
 /**
- * @summary Run the n8n analyze-channel workflow for a YouTube channel
+ * @summary Run the schema v2 n8n analyze-channel workflow for a YouTube channel
  */
 export const analyzeSocialChannel = async (channelId: string, options?: RequestInit): Promise<SocialChannelAnalysis> => {
 
@@ -7939,7 +7939,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type AnalyzeSocialChannelMutationError = ErrorType<void>
 
     /**
- * @summary Run the n8n analyze-channel workflow for a YouTube channel
+ * @summary Run the schema v2 n8n analyze-channel workflow for a YouTube channel
  */
 export const useAnalyzeSocialChannel = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof analyzeSocialChannel>>, TError,{channelId: string}, TContext>, request?: SecondParameter<typeof customFetch>}

@@ -73,6 +73,9 @@ _COLUMN_MIGRATIONS = [
     ("social_channel_analyses", "avg_likes", "DOUBLE PRECISION"),
     ("social_channel_analyses", "avg_comments", "DOUBLE PRECISION"),
     ("social_channel_analyses", "engagement_rate", "DOUBLE PRECISION"),
+    ("social_channel_analyses", "analysis_metrics", "JSONB"),
+    ("social_channel_analyses", "data_warnings", "JSONB"),
+    ("social_channel_analyses", "analysis_version", "INTEGER"),
     ("projects", "media_ranges", "JSONB"),
     ("reel_jobs", "cut_version", "INTEGER"),
     ("media_assets", "creative", "JSONB"),
@@ -161,6 +164,15 @@ async def _run_startup_migrations():
             await conn.execute(text(
                 f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {coltype}"
             ))
+        # Existing successful rows predate v2.  Mark them as legacy rather than
+        # allowing a null version to look like a current measured report.
+        await conn.execute(text(
+            """
+            UPDATE social_channel_analyses
+            SET analysis_version = 1
+            WHERE analysis_version IS NULL AND status = 'ready'
+            """
+        ))
         nullable = {
             (r[0], r[1])
             for r in (await conn.execute(text(

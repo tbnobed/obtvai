@@ -6,8 +6,10 @@ program/channel registry and reads stored metrics; week-over-week deltas are
 computed at read time from snapshots.
 """
 import asyncio
+import math
 import os
 from datetime import datetime, timedelta
+from numbers import Real
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -497,10 +499,10 @@ async def _generate_insights_now(summary: str, stats: dict) -> SocialsInsightsOu
         if not model_used:
             print(
                 "Socials insights: LLM answered but no WORKING/NOT WORKING/"
-                f"RECOMMEND lines parsed; first 300 chars: {answer[:300]!r}"
+                "RECOMMEND lines parsed"
             )
     except Exception as e:
-        print(f"Socials insights: LLM generation failed: {type(e).__name__}: {e}")
+        print(f"Socials insights: LLM generation failed: {type(e).__name__}")
     if not model_used:
         working, not_working, recs = _heuristic_insights(stats)
 
@@ -551,7 +553,7 @@ async def _save_insights(result: "SocialsInsightsOut") -> None:
             ))
             await db.commit()
     except Exception as e:
-        print(f"Socials insights: failed to persist result: {type(e).__name__}: {e}")
+        print(f"Socials insights: failed to persist result: {type(e).__name__}")
         return
     try:
         async with AsyncSessionLocal() as db:
@@ -563,7 +565,7 @@ async def _save_insights(result: "SocialsInsightsOut") -> None:
                 SocialInsight.id.notin_(keep.subquery().select())))
             await db.commit()
     except Exception as e:
-        print(f"Socials insights: history prune failed (non-fatal): {type(e).__name__}: {e}")
+        print(f"Socials insights: history prune failed (non-fatal): {type(e).__name__}")
 
 
 @router.get("/insights", response_model=SocialsInsightsOut)
@@ -592,19 +594,47 @@ async def get_socials_insights(db: AsyncSession = Depends(get_db)):
 
 N8N_ANALYZE_URL = os.environ.get(
     "N8N_ANALYZE_URL", "https://n8n.obtv.io/webhook/analyze-channel")
-# Server-side only — never expose this key to the frontend.
-YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
-_YT_API = "https://www.googleapis.com/youtube/v3"
 _analysis_tasks: dict[str, asyncio.Task] = {}
 _analysis_lock = asyncio.Lock()  # serializes analyze-start across channels
+_MAX_ANALYSIS_HISTORY = 90
+_MAX_N8N_RESPONSE_BYTES = 2 * 1024 * 1024
+
+
+class _N8NEmptyResponseError(ValueError):
+    """The webhook returned no JSON object."""
+
+
+class _N8NMalformedResponseError(ValueError):
+    """The webhook returned JSON with an invalid top-level shape."""
+
+
+class _N8NHTTPStatusError(ValueError):
+    """A non-success HTTP status without a valid v2 error envelope."""
+
+    def __init__(self, status_code: int):
+        self.status_code = status_code
+        super().__init__(f"n8n returned HTTP {status_code}")
 
 
 def _analysis_out(a) -> SocialChannelAnalysisOut:
+    # Rows created before v2 have no analysis_version.  Mark successful legacy
+    # rows explicitly so the UI can show a re-analyze notice instead of
+    # presenting the old economics/projection narrative as current data.
+    version = a.analysis_version
+    legacy = version == 1 or (version is None and a.status == "ready")
+    if legacy:
+        version = 1
+    warnings = list(a.data_warnings or [])
+    if legacy and not any("Legacy analysis report" in warning for warning in warnings):
+        warnings.append("Legacy analysis report; re-run analysis for v2 measured metrics.")
     return SocialChannelAnalysisOut(
         channel_id=a.channel_id,
         status=a.status,
         error=a.error,
         analyzed_at=a.analyzed_at,
+        analysis_version=version,
+        analysis_metrics=a.analysis_metrics,
+        data_warnings=warnings,
         subs3=a.subs3,
         subs6=a.subs6,
         subs12=a.subs12,
@@ -612,7 +642,6 @@ def _analysis_out(a) -> SocialChannelAnalysisOut:
         ai_recommendations=a.ai_recommendations or [],
         est_monthly_revenue=a.est_monthly_revenue or 0,
         margin_percent=a.margin_percent or 0,
-        mcn_share_percent=a.mcn_share_percent or 0,
         risk_level=a.risk_level or "unknown",
         top_videos=a.top_videos or [],
         ai_sections=a.ai_sections or [],
@@ -623,290 +652,307 @@ def _analysis_out(a) -> SocialChannelAnalysisOut:
     )
 
 
-import re as _re
+_V2_METRIC_FIELDS = (
+    "subscriber_count",
+    "total_views",
+    "total_videos",
+    "sample_size",
+    "avg_views",
+    "median_views",
+    "avg_likes",
+    "avg_comments",
+    "engagement_rate",
+    "uploads_last_30d",
+    "uploads_per_week",
+    "recent_median_views",
+    "previous_median_views",
+    "performance_change_percent",
+    "subscriber_change",
+    "subscriber_change_percent",
+    "history_days",
+)
+_V2_METRIC_INTEGERS = {
+    "subscriber_count",
+    "total_views",
+    "total_videos",
+    "sample_size",
+    "uploads_last_30d",
+    "subscriber_change",
+}
+_V2_METRIC_NONNEGATIVE = set(_V2_METRIC_FIELDS) - {
+    "performance_change_percent",
+    "subscriber_change",
+    "subscriber_change_percent",
+}
+_V2_METRIC_DATES = ("observed_at", "sample_oldest_at", "sample_newest_at")
 
-_HEADING_BODY_SPLIT = _re.compile(
-    r"\s(?=(?:The|This|That|These|A|An|In|It|If|With|While|Based|Focus|Given|Regularly|Overall|Despite|Although|To|By|For)\b)")
 
-
-def _clean_md(s: str) -> str:
-    """Strip markdown emphasis/heading tokens so text renders as plain prose."""
-    s = _re.sub(r"\*\*(.*?)\*\*", r"\1", s)
-    s = _re.sub(r"__(.*?)__", r"\1", s)
-    s = _re.sub(r"`([^`]*)`", r"\1", s)
-    s = _re.sub(r"^#{1,6}\s*", "", s)
-    s = _re.sub(r"\s+", " ", s)
-    return s.strip(" \t-–—:*•")
-
-
-def _parse_ai_sections(text: str) -> list[dict]:
-    """Break an LLM markdown narrative (### headings, **bold**, numbered/dash
-    lists — sometimes flattened onto a single line) into structured sections:
-    [{title, body, bullets[]}]."""
-    if not text or ("#" not in text and "**" not in text and "\n- " not in text):
-        return []
-
-    # If newlines were lost, re-introduce them before headings and list markers.
-    if len(text.splitlines()) <= 2:
-        text = _re.sub(r"\s*(#{2,6}\s)", r"\n\1", text)
-        text = _re.sub(r"\s+(-\s+\*\*)", r"\n\1", text)
-        text = _re.sub(r"\s+(\d{1,2}\.\s+\*\*)", r"\n\1", text)
-
-    sections: list[dict] = []
-    cur: dict = {"title": None, "body": [], "bullets": []}
-
-    def push():
-        nonlocal cur
-        if cur["title"] or cur["body"] or cur["bullets"]:
-            sections.append({
-                "title": cur["title"],
-                "body": " ".join(cur["body"]) or None,
-                "bullets": cur["bullets"][:12],
-            })
-        cur = {"title": None, "body": [], "bullets": []}
-
-    for ln in text.splitlines():
-        t = ln.strip()
-        if not t:
-            continue
-        m = _re.match(r"#{2,6}\s*(.+)", t)
-        if m:
-            push()
-            heading = _clean_md(m.group(1))
-            # Flattened input can glue the first body sentence onto the heading.
-            if len(heading) > 30:
-                parts = _HEADING_BODY_SPLIT.split(heading, maxsplit=1)
-                if len(parts) == 2 and len(parts[0]) <= 60:
-                    heading, rest = parts[0], parts[1]
-                    cur["body"].append(rest.strip())
-                elif len(heading) > 100:
-                    # No clean sentence boundary — keep a readable prefix.
-                    words = heading.split()
-                    heading, rest = " ".join(words[:8]), " ".join(words[8:])
-                    if rest:
-                        cur["body"].append(rest)
-            cur["title"] = heading.rstrip(".")
-            continue
-        m = _re.match(r"(?:[-*•]|\d{1,2}[.)])\s+(.+)", t)
-        if m:
-            b = _clean_md(m.group(1))
-            if b:
-                cur["bullets"].append(b)
-            continue
-        p = _clean_md(t)
-        if p:
-            cur["body"].append(p)
-    push()
-    return sections[:12]
+def _validated_metric(name: str, value):
+    """Validate one v2 metric without converting unavailable data to zero."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"n8n metrics.{name} must be a finite number or null")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"n8n metrics.{name} must be a finite number or null")
+    if name in _V2_METRIC_NONNEGATIVE and number < 0:
+        raise ValueError(f"n8n metrics.{name} cannot be negative")
+    if name in _V2_METRIC_INTEGERS:
+        if not number.is_integer():
+            raise ValueError(f"n8n metrics.{name} must be an integer or null")
+        return int(number)
+    return number
 
 
 def _parse_top_videos(data: dict) -> list[dict]:
-    """Pull the top-videos list out of the n8n response, tolerating different
-    key names and item shapes (dicts with varying field names, or plain strings)."""
-    raw = None
-    for key in ("topVideos", "top_videos", "topPerformingContent", "topContent",
-                "topPosts", "bestPerforming", "topPerforming"):
-        v = data.get(key)
-        if isinstance(v, list) and v:
-            raw = v
-            break
+    """Validate the bounded v2 topVideos sample.
+
+    These are videos from the recent sampled uploads, not an all-time
+    leaderboard.  Do not manufacture zero counts when YouTube did not expose a
+    measurement.
+    """
+    raw = data.get("topVideos")
     if raw is None:
         return []
+    if not isinstance(raw, list):
+        raise ValueError("n8n topVideos must be an array")
+    if len(raw) > 50:
+        raise ValueError("n8n topVideos exceeds the 50-video sample limit")
 
-    def _int(v):
-        try:
-            return int(float(v)) if v is not None else None
-        except (TypeError, ValueError):
+    def count(item: dict, name: str) -> int | None:
+        value = item.get(name)
+        if value is None:
             return None
-
-    def pick(item: dict, *keys):
-        for k in keys:
-            v = item.get(k)
-            if v not in (None, ""):
-                return v
-        return None
+        if isinstance(value, bool) or not isinstance(value, Real):
+            raise ValueError(f"n8n topVideos.{name} must be a finite number or null")
+        if float(value) < 0 or not math.isfinite(float(value)):
+            raise ValueError(f"n8n topVideos.{name} must be a finite non-negative number or null")
+        validated = _validated_metric(f"topVideos.{name}", value)
+        if validated is not None and not isinstance(validated, int):
+            if not float(validated).is_integer():
+                raise ValueError(f"n8n topVideos.{name} must be an integer or null")
+            validated = int(validated)
+        return validated
 
     out: list[dict] = []
-    for item in raw[:10]:
-        if isinstance(item, str):
-            if item.strip():
-                out.append({"title": item.strip()})
-            continue
+    for item in raw:
         if not isinstance(item, dict):
-            continue
-        title = pick(item, "title", "name", "videoTitle", "video_title")
-        if not title:
-            continue
-        def _url(v):
-            # Only allow http(s) URLs — anything else (javascript:, data:, ...)
-            # is dropped so it can never reach an <a href> in the UI.
-            s = str(v).strip() if v is not None else ""
-            return s if s.startswith(("http://", "https://")) else None
-
+            raise ValueError("n8n topVideos items must be objects")
+        video_id = item.get("id")
+        title = item.get("title")
+        if not isinstance(video_id, str) or not video_id.strip():
+            raise ValueError("n8n topVideos.id must be a non-empty string")
+        if not isinstance(title, str) or not title.strip():
+            raise ValueError("n8n topVideos.title must be a non-empty string")
+        published = item.get("published_at")
+        if published is not None and not isinstance(published, str):
+            raise ValueError("n8n topVideos.published_at must be a string or null")
+        thumbnail = item.get("thumbnail_url")
+        if thumbnail is not None:
+            if not isinstance(thumbnail, str) or not thumbnail.startswith(("http://", "https://")):
+                raise ValueError("n8n topVideos.thumbnail_url must be an http(s) URL or null")
         out.append({
-            "title": str(title).strip(),
-            "url": _url(pick(item, "url", "link", "videoUrl", "video_url")),
-            "thumbnail": _url(pick(item, "thumbnail", "thumbnailUrl", "thumbnail_url", "image")),
-            "views": _int(pick(item, "views", "viewCount", "view_count")),
-            "likes": _int(pick(item, "likes", "likeCount", "like_count")),
-            "comments": _int(pick(item, "comments", "commentCount", "comment_count")),
-            "published_at": (lambda v: str(v).strip() if v is not None else None)(
-                pick(item, "publishedAt", "published_at", "published", "date")),
+            "id": video_id.strip(),
+            "title": title.strip(),
+            "views": count(item, "views"),
+            "likes": count(item, "likes"),
+            "comments": count(item, "comments"),
+            "published_at": published,
+            "thumbnail_url": thumbnail,
         })
     return out
 
 
 def _parse_n8n_analysis(data: dict) -> dict:
-    """Map the n8n response onto our columns, tolerating missing fields."""
-    def _int(v):
-        try:
-            return int(float(v)) if v is not None else None
-        except (TypeError, ValueError):
-            return None
+    """Validate and normalize the schemaVersion 2 n8n response.
 
-    def _float(v, default=0.0):
-        try:
-            return float(v) if v is not None else default
-        except (TypeError, ValueError):
-            return default
+    v2 deliberately does not accept the former projection/profitability shape.
+    Missing measurements remain null and are never replaced with arbitrary
+    defaults.
+    """
+    if not isinstance(data, dict) or not data:
+        raise ValueError("n8n returned an empty JSON response")
+    if data.get("schemaVersion") != 2:
+        raise ValueError("n8n returned an unsupported analysis schema")
+    status = data.get("status")
+    if status not in ("ready", "error"):
+        raise ValueError("n8n response status must be ready or error")
 
-    proj = data.get("projections") or {}
-    prof = data.get("profitability") or {}
-    risk = data.get("riskAnalysis") or {}
+    if status == "error":
+        error = data.get("error")
+        if not isinstance(error, dict):
+            raise ValueError("n8n error response is missing error details")
+        code = error.get("code")
+        message = error.get("message")
+        if not isinstance(code, str) or not code.strip():
+            raise ValueError("n8n error.code must be a non-empty string")
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("n8n error.message must be a non-empty string")
+        return {
+            "_status": "error",
+            "analysis_version": 2,
+            "error": f"{code.strip()}: {message.strip()[:500]}",
+        }
 
+    metrics = data.get("metrics")
+    if not isinstance(metrics, dict):
+        raise ValueError("n8n ready response is missing metrics")
+    # A timestamp alone is not an observation.  Require at least one supplied
+    # numeric measurement, while retaining legitimate zero values and nulls
+    # for all other unavailable fields.
+    if not any(metrics.get(key) is not None for key in _V2_METRIC_FIELDS):
+        raise ValueError("n8n ready response contains no substantive metrics")
+    normalized_metrics = {
+        key: (_validated_metric(key, metrics.get(key)) if key in _V2_METRIC_FIELDS else metrics.get(key))
+        for key in _V2_METRIC_FIELDS
+    }
+    for key in _V2_METRIC_DATES:
+        value = metrics.get(key)
+        if value is not None and not isinstance(value, str):
+            raise ValueError(f"n8n metrics.{key} must be a string or null")
+        normalized_metrics[key] = value
+
+    warnings = data.get("dataWarnings", [])
+    if not isinstance(warnings, list) or any(not isinstance(w, str) for w in warnings):
+        raise ValueError("n8n dataWarnings must be an array of strings")
     ai = data.get("aiInsights")
-    summary: str | None = None
-    recs: list[str] = []
-    sections: list[dict] = []
-    if isinstance(ai, str):
-        sections = _parse_ai_sections(ai)
-        if sections:
-            # Prefer the "Overview"/"Summary" section body; fall back to the
-            # first section with a substantive body.
-            summary = next(
-                (s["body"] for s in sections
-                 if s.get("body") and s.get("title")
-                 and _re.search(r"overview|summary", s["title"], _re.I)),
-                None,
-            ) or next((s["body"] for s in sections
-                       if s.get("body") and len(s["body"]) > 40), None)
-        else:
-            summary = _clean_md(ai) or None
-    elif isinstance(ai, dict):
-        s = ai.get("summary")
-        if s:
-            sections = _parse_ai_sections(str(s))
-            summary = (next((x["body"] for x in sections if x.get("body")), None)
-                       if sections else _clean_md(str(s)) or None)
-        raw_recs = ai.get("recommendations")
-        if isinstance(raw_recs, list):
-            recs = [_clean_md(str(r)) for r in raw_recs if _clean_md(str(r))]
+    if not isinstance(ai, dict):
+        raise ValueError("n8n ready response is missing aiInsights")
+    summary = ai.get("summary")
+    if summary is not None and not isinstance(summary, str):
+        raise ValueError("n8n aiInsights.summary must be a string or null")
+    recommendations = ai.get("recommendations", [])
+    if not isinstance(recommendations, list) or any(
+        not isinstance(rec, str) for rec in recommendations
+    ):
+        raise ValueError("n8n aiInsights.recommendations must be an array of strings")
 
-    level = risk.get("level")
     return {
-        "subs3": _int(proj.get("subs3")),
-        "subs6": _int(proj.get("subs6")),
-        "subs12": _int(proj.get("subs12")),
+        "_status": "ready",
+        "analysis_version": 2,
+        "analysis_metrics": normalized_metrics,
+        "data_warnings": warnings,
         "ai_summary": summary,
-        "ai_recommendations": recs,
-        "ai_sections": sections,
-        "est_monthly_revenue": _float(prof.get("estMonthlyRevenue")),
-        "margin_percent": _float(prof.get("marginPercent")),
-        "mcn_share_percent": _int(prof.get("mcnSharePercent")) or 0,
-        "risk_level": (str(level).strip().lower() if level else "unknown") or "unknown",
+        "ai_recommendations": recommendations,
+        "ai_sections": [],
         "top_videos": _parse_top_videos(data),
     }
 
 
-async def _yt_search_ids(client, external_id: str, order: str, max_results: int) -> list[str]:
-    """search.list returns only video IDs; stats come from a videos.list batch."""
-    resp = await client.get(f"{_YT_API}/search", params={
-        "key": YOUTUBE_API_KEY, "channelId": external_id, "part": "id",
-        "type": "video", "order": order, "maxResults": max_results,
-    })
-    resp.raise_for_status()
-    return [
-        it["id"]["videoId"]
-        for it in resp.json().get("items", [])
-        if isinstance(it.get("id"), dict) and it["id"].get("videoId")
-    ]
+def _clear_analysis_outputs(row) -> None:
+    """Remove all result fields before/after a failed fresh attempt.
 
-
-async def _yt_videos(client, ids: list[str]) -> list[dict]:
-    if not ids:
-        return []
-    resp = await client.get(f"{_YT_API}/videos", params={
-        "key": YOUTUBE_API_KEY, "part": "snippet,statistics", "id": ",".join(ids),
-    })
-    resp.raise_for_status()
-    return resp.json().get("items", [])
-
-
-def _yt_stat(v: dict, key: str) -> int:
-    try:
-        return int(v.get("statistics", {}).get(key) or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-async def _fetch_youtube_stats(external_id: str) -> dict:
-    """Two parallel YouTube Data API v3 flows:
-    - order=date, 10 latest videos  -> avg views/likes/comments + engagement rate
-    - order=viewCount, top of 50    -> top-5 videos list with snippet+stats
+    The v1 columns are deliberately reset to compatibility-safe values but the
+    historical MCN column is never touched.
     """
-    import httpx
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
-        recent_ids, top_ids = await asyncio.gather(
-            _yt_search_ids(client, external_id, "date", 10),
-            _yt_search_ids(client, external_id, "viewCount", 50),
-        )
-        recent, top = await asyncio.gather(
-            _yt_videos(client, recent_ids),
-            _yt_videos(client, top_ids[:5]),
-        )
+    row.analysis_metrics = None
+    row.data_warnings = []
+    row.analysis_version = None
+    row.subs3 = None
+    row.subs6 = None
+    row.subs12 = None
+    row.ai_summary = None
+    row.ai_recommendations = []
+    row.est_monthly_revenue = 0.0
+    row.margin_percent = 0.0
+    row.risk_level = "unknown"
+    row.top_videos = []
+    row.ai_sections = []
+    row.avg_views = None
+    row.avg_likes = None
+    row.avg_comments = None
+    row.engagement_rate = None
 
-    out: dict = {}
-    if recent:
-        n = len(recent)
-        tv = sum(_yt_stat(v, "viewCount") for v in recent)
-        tl = sum(_yt_stat(v, "likeCount") for v in recent)
-        tc = sum(_yt_stat(v, "commentCount") for v in recent)
-        out.update(
-            avg_views=tv / n,
-            avg_likes=tl / n,
-            avg_comments=tc / n,
-            engagement_rate=((tl + tc) / tv * 100) if tv else 0.0,
-        )
 
-    # videos.list does not preserve request order — re-sort by views.
-    top_sorted = sorted(top, key=lambda v: _yt_stat(v, "viewCount"), reverse=True)
-    out["top_videos"] = [
+def _snapshot_timestamp(value: datetime) -> str:
+    """Serialize DB's naive UTC timestamps for the n8n contract."""
+    result = value.isoformat()
+    return result if result.endswith("Z") else f"{result}Z"
+
+
+def _history_payload(snapshots) -> list[dict] | None:
+    """Normalize the bounded snapshot payload independently of database access."""
+    if not snapshots:
+        return None
+    latest = sorted(snapshots, key=lambda snapshot: snapshot.fetched_at, reverse=True)
+    return [
         {
-            "title": (v.get("snippet", {}).get("title") or "Untitled").strip(),
-            "url": f"https://www.youtube.com/watch?v={v.get('id')}",
-            "thumbnail": (v.get("snippet", {}).get("thumbnails", {}).get("medium", {}) or {}).get("url"),
-            "views": _yt_stat(v, "viewCount"),
-            "likes": _yt_stat(v, "likeCount"),
-            "comments": _yt_stat(v, "commentCount"),
-            "published_at": v.get("snippet", {}).get("publishedAt"),
+            "recorded_at": _snapshot_timestamp(snapshot.fetched_at),
+            "followers": snapshot.followers,
+            "total_views": snapshot.total_views,
         }
-        for v in top_sorted
-        if v.get("id")
+        for snapshot in reversed(latest[:_MAX_ANALYSIS_HISTORY])
     ]
-    return out
 
 
-def _yt_safe_error(e: Exception) -> str:
-    """httpx error strings embed the full request URL including the API key —
-    never log or persist them raw."""
-    import httpx
-    if isinstance(e, httpx.HTTPStatusError):
-        return f"YouTube API returned HTTP {e.response.status_code}"
-    if isinstance(e, httpx.TimeoutException):
-        return "YouTube API timed out"
-    if isinstance(e, httpx.HTTPError):
-        return "Could not reach the YouTube API"
-    return f"YouTube fetch failed ({type(e).__name__})"
+async def _analysis_history(channel_id: str) -> list[dict] | None:
+    """Return a bounded, dated snapshot history or null when none exists."""
+    async with AsyncSessionLocal() as db:
+        snapshots = (
+            await db.execute(
+                select(SocialChannelSnapshot)
+                .where(SocialChannelSnapshot.channel_id == channel_id)
+                .order_by(SocialChannelSnapshot.fetched_at.desc())
+                .limit(_MAX_ANALYSIS_HISTORY)
+            )
+        ).scalars().all()
+    return _history_payload(snapshots)
+
+
+async def _request_n8n_analysis(client, external_id: str, history: list[dict] | None) -> dict:
+    """Fetch and validate one bounded n8n response.
+
+    Parse JSON before interpreting HTTP status: n8n can return a useful
+    schema-v2 error envelope with a 4xx/5xx status (notably YouTube quota
+    failures).  A non-success status is only used as the fallback when no
+    valid structured v2 error is present.
+    """
+    resp = await client.post(
+        N8N_ANALYZE_URL,
+        json={"channelId": external_id, "history": history},
+        headers={"Content-Type": "application/json"},
+    )
+    status_code = int(getattr(resp, "status_code", 200))
+    raw_content = getattr(resp, "content", None)
+    if raw_content is not None:
+        try:
+            raw_size = len(raw_content.encode("utf-8") if isinstance(raw_content, str) else raw_content)
+        except (TypeError, UnicodeError):
+            raw_size = _MAX_N8N_RESPONSE_BYTES + 1
+        if raw_size > _MAX_N8N_RESPONSE_BYTES:
+            if status_code >= 400:
+                raise _N8NHTTPStatusError(status_code)
+            raise _N8NMalformedResponseError
+        if not raw_content or not raw_content.strip():
+            if status_code >= 400:
+                raise _N8NHTTPStatusError(status_code)
+            raise _N8NEmptyResponseError
+
+    try:
+        body = resp.json()
+    except ValueError as exc:
+        if status_code >= 400:
+            raise _N8NHTTPStatusError(status_code) from exc
+        raise _N8NMalformedResponseError from exc
+    if body is None or body == {}:
+        if status_code >= 400:
+            raise _N8NHTTPStatusError(status_code)
+        raise _N8NEmptyResponseError
+    if not isinstance(body, dict):
+        if status_code >= 400:
+            raise _N8NHTTPStatusError(status_code)
+        raise _N8NMalformedResponseError
+
+    try:
+        parsed = _parse_n8n_analysis(body)
+    except ValueError as exc:
+        if status_code >= 400:
+            raise _N8NHTTPStatusError(status_code) from exc
+        raise
+    if status_code >= 400 and parsed.get("_status") != "error":
+        raise _N8NHTTPStatusError(status_code)
+    return parsed
 
 
 async def _run_channel_analysis(channel_id: str, external_id: str) -> None:
@@ -914,64 +960,45 @@ async def _run_channel_analysis(channel_id: str, external_id: str) -> None:
     error: str | None = None
     parsed: dict | None = None
 
-    # Kick off the YouTube stats fetch in parallel with the n8n call.
-    yt_task: asyncio.Task | None = None
-    if YOUTUBE_API_KEY:
-        yt_task = asyncio.create_task(_fetch_youtube_stats(external_id))
-    else:
-        print("Socials channel analysis: YOUTUBE_API_KEY not set — skipping YouTube stats")
-
     try:
         import httpx
+        history = await _analysis_history(channel_id)
         async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=15.0)) as client:
-            resp = await client.post(
-                N8N_ANALYZE_URL,
-                json={"channelId": external_id},
-                headers={"Content-Type": "application/json"},
-            )
-            resp.raise_for_status()
-            body = resp.json()
-        if isinstance(body, list):  # n8n webhooks often wrap output in a list
-            body = body[0] if body else {}
-        if not isinstance(body, dict):
-            raise ValueError("n8n returned an unexpected response shape")
-        parsed = _parse_n8n_analysis(body)
+            # n8n is authoritative for all YouTube observations.  Do not
+            # launch a second YouTube Data API workflow here.
+            parsed = await _request_n8n_analysis(client, external_id, history)
     except Exception as e:
         # Persist only a user-safe message: httpx error strings embed the full
         # request URL (which can carry credentials in some deployments).
         import httpx
-        if isinstance(e, httpx.HTTPStatusError):
-            error = f"n8n returned HTTP {e.response.status_code}"
+        if isinstance(e, _N8NHTTPStatusError):
+            if e.status_code == 429:
+                error = "n8n upstream rate limit (HTTP 429)"
+            else:
+                error = f"n8n returned HTTP {e.status_code}"
+        elif isinstance(e, httpx.HTTPStatusError):
+            # Defensive compatibility for custom HTTP clients; the regular
+            # path uses _N8NHTTPStatusError after parsing the body.
+            status_code = e.response.status_code
+            if status_code == 429:
+                error = "n8n upstream rate limit (HTTP 429)"
+            else:
+                error = f"n8n returned HTTP {status_code}"
         elif isinstance(e, httpx.TimeoutException):
             error = "n8n did not respond in time (timeout)"
         elif isinstance(e, httpx.HTTPError):
             error = "Could not reach the n8n analysis service"
+        elif isinstance(e, _N8NEmptyResponseError):
+            error = "n8n returned an empty JSON response"
+        elif isinstance(e, _N8NMalformedResponseError):
+            error = "n8n returned malformed JSON"
         elif isinstance(e, ValueError):
-            error = "n8n returned an unexpected response"
+            error = "n8n returned an invalid schema v2 response"
         else:
             error = "Analysis failed — check api logs"
-        print(f"Socials channel analysis failed for {channel_id}: {type(e).__name__}: {str(e)[:300]}")
-
-    yt_data: dict | None = None
-    if yt_task is not None:
-        try:
-            yt_data = await yt_task
-        except Exception as e:
-            print(f"Socials channel analysis: {_yt_safe_error(e)} for {channel_id}")
-
-    # Ready if either source produced data; error only when both failed.
-    if yt_data:
-        merged = dict(parsed or {})
-        merged.update({k: v for k, v in yt_data.items() if k != "top_videos"})
-        # YouTube's top-5 by viewCount wins over anything n8n reported.
-        if yt_data.get("top_videos"):
-            merged["top_videos"] = yt_data["top_videos"]
-        elif parsed:
-            merged["top_videos"] = parsed.get("top_videos") or []
-        parsed = merged
-        error = None
-    elif parsed is None:
-        error = error or "Analysis failed — check api logs"
+        # Never include the exception text: external clients can embed URLs or
+        # request payloads in it.  The user-safe error above is sufficient.
+        print(f"Socials channel analysis failed for {channel_id}: {type(e).__name__}")
 
     try:
         async with AsyncSessionLocal() as db:
@@ -980,17 +1007,23 @@ async def _run_channel_analysis(channel_id: str, external_id: str) -> None:
             if row is None:
                 return
             row.analyzed_at = datetime.utcnow()
-            if error is not None:
+            if error is not None or parsed is None or parsed.get("_status") == "error":
+                _clear_analysis_outputs(row)
                 row.status = "error"
-                row.error = error
+                row.error = error or parsed.get("error")
+                if parsed is not None and parsed.get("analysis_version") is not None:
+                    row.analysis_version = parsed["analysis_version"]
             else:
                 row.status = "ready"
                 row.error = None
-                for k, v in (parsed or {}).items():
+                _clear_analysis_outputs(row)
+                for k, v in parsed.items():
+                    if k.startswith("_"):
+                        continue
                     setattr(row, k, v)
             await db.commit()
     except Exception as e:
-        print(f"Socials channel analysis: failed to persist for {channel_id}: {type(e).__name__}: {e}")
+        print(f"Socials channel analysis persistence failed for {channel_id}: {type(e).__name__}")
 
 
 @router.post("/channels/{channel_id}/analyze", response_model=SocialChannelAnalysisOut)
@@ -1018,6 +1051,9 @@ async def analyze_social_channel(channel_id: str, db: AsyncSession = Depends(get
         if row is None:
             row = SocialChannelAnalysis(channel_id=channel_id)
             db.add(row)
+        # A fresh attempt must not leave an earlier ready report visible while
+        # this run is pending or if the new run fails.
+        _clear_analysis_outputs(row)
         row.status = "running"
         row.error = None
         row.analyzed_at = datetime.utcnow()
@@ -1041,6 +1077,7 @@ async def get_social_channel_analysis(channel_id: str, db: AsyncSession = Depend
         task = _analysis_tasks.get(channel_id)
         if (task is None or task.done()) and \
                 (datetime.utcnow() - row.analyzed_at).total_seconds() > 600:
+            _clear_analysis_outputs(row)
             row.status = "error"
             row.error = "Analysis was interrupted — run it again"
             await db.commit()
@@ -1069,7 +1106,7 @@ async def generate_socials_insights(db: AsyncSession = Depends(get_db)):
             exc = _insights_task.exception()
             if exc is not None:
                 _insights_task = None
-                print(f"Socials insights: background task failed: {type(exc).__name__}: {exc}")
+                print(f"Socials insights: background task failed: {type(exc).__name__}")
                 raise HTTPException(status_code=500, detail="Insight generation failed — check api logs")
             # Task finished successfully: deliver the cached result while fresh.
             if _insights_result is not None:

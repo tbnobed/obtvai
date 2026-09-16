@@ -7,11 +7,11 @@
  */
 
 export interface SocialTopVideo {
+  id: string;
   title: string;
-  url?: string | null;
-  thumbnail?: string | null;
-  views?: number | null;
-  likes?: number | null;
-  comments?: number | null;
-  published_at?: string | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  published_at: string | null;
+  thumbnail_url?: string | null;
 }

@@ -233,6 +233,7 @@ export * from './sessionUser';
 export * from './sessionUserRole';
 export * from './similarMomentQuery';
 export * from './socialAiSection';
+export * from './socialAnalysisMetrics';
 export * from './socialChannel';
 export * from './socialChannelAnalysis';
 export * from './socialChannelAnalysisStatus';

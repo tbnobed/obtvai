@@ -7,7 +7,7 @@
  */
 
 /**
- * "running" while n8n is analyzing (poll); "ready" when fields below are populated
+ * "running" while n8n is analyzing (poll); "ready" when v2 fields are populated
  */
 export type SocialChannelAnalysisStatus = typeof SocialChannelAnalysisStatus[keyof typeof SocialChannelAnalysisStatus];
 

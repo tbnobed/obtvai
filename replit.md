@@ -71,6 +71,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 
 ## Gotchas
 
+- Socials channel analysis uses the credential-free n8n export in `workflows/obtv-channel-analysis.json` (import steps in `workflows/README.md`). It reports measured public-data samples and observed subscriber history, not MCN economics or forecasts. Old reports require re-analysis; the app and n8n v2 workflow must be updated together.
 - Always restart the API server workflow after changing `src/routes/mock.ts`
 - Auth is enforced by ASGI middleware on all `/api/*` paths (incl. the StaticFiles thumbnail mount) — allowlist only `/api/auth/login` + `/api/healthz`; viewer POST allowlist lives in `services/api/app/auth.py` (`VIEWER_POST_ALLOWLIST`) and must be mirrored in `artifacts/api-server/src/routes/auth.ts`
 - `INTERNAL_API_TOKEN` env is REQUIRED in production — the watcher authenticates with the `X-Internal-Token` header; watched-folder ingest breaks without it
