@@ -4257,13 +4257,6 @@ export const createCampaignBodyProjectActionOneNameMax = 200;
 export const createCampaignBodyNameMax = 200;
 
 
-
-
-
-
-
-
-
 export const createCampaignBodyStatusDefault = `draft`;
 export const createCampaignBodySelectedClipsItemStartTimeMin = 0;
 
@@ -4278,13 +4271,13 @@ export const CreateCampaignBody = zod.object({
 }),zod.null()]).optional(),
   "name": zod.string().min(1).max(createCampaignBodyNameMax),
   "brief": zod.string().min(1),
-  "objective": zod.string().min(1),
-  "audience": zod.string().min(1),
-  "key_message": zod.string().min(1),
-  "tone": zod.string().min(1),
-  "call_to_action": zod.string().min(1),
-  "channels": zod.array(zod.string()).min(1),
-  "languages": zod.array(zod.string()).min(1),
+  "objective": zod.string(),
+  "audience": zod.string(),
+  "key_message": zod.string(),
+  "tone": zod.string(),
+  "call_to_action": zod.string(),
+  "channels": zod.array(zod.string()),
+  "languages": zod.array(zod.string()),
   "due_date": zod.coerce.date().nullish(),
   "status": zod.enum(['draft', 'active', 'completed', 'archived']).default(createCampaignBodyStatusDefault),
   "selected_clips": zod.array(zod.object({
@@ -4294,7 +4287,7 @@ export const CreateCampaignBody = zod.object({
   "filename": zod.string().nullish(),
   "snippet": zod.string().nullish()
 }).describe('Timecodes are seconds and are also validated against source media duration by the API.')).optional()
-}).describe('Exactly one of project_id or project_action is required.')
+}).describe('Exactly one of project_id or project_action is required. Name and brief must be non-empty; other brief strings and distribution lists may be empty for a saved draft.')
 
 export const createCampaignResponseDataSelectedClipsItemStartTimeMin = 0;
 
@@ -4423,13 +4416,6 @@ export const UpdateCampaignParams = zod.object({
 export const updateCampaignBodyNameMax = 200;
 
 
-
-
-
-
-
-
-
 export const updateCampaignBodySelectedClipsItemStartTimeMin = 0;
 
 export const updateCampaignBodySelectedClipsItemEndTimeExclusiveMin = 0;
@@ -4439,13 +4425,13 @@ export const updateCampaignBodySelectedClipsItemEndTimeExclusiveMin = 0;
 export const UpdateCampaignBody = zod.object({
   "name": zod.string().min(1).max(updateCampaignBodyNameMax).optional(),
   "brief": zod.string().min(1).optional(),
-  "objective": zod.string().min(1).optional(),
-  "audience": zod.string().min(1).optional(),
-  "key_message": zod.string().min(1).optional(),
-  "tone": zod.string().min(1).optional(),
-  "call_to_action": zod.string().min(1).optional(),
-  "channels": zod.array(zod.string()).min(1).optional(),
-  "languages": zod.array(zod.string()).min(1).optional(),
+  "objective": zod.string().optional(),
+  "audience": zod.string().optional(),
+  "key_message": zod.string().optional(),
+  "tone": zod.string().optional(),
+  "call_to_action": zod.string().optional(),
+  "channels": zod.array(zod.string()).optional(),
+  "languages": zod.array(zod.string()).optional(),
   "due_date": zod.coerce.date().nullish(),
   "status": zod.enum(['draft', 'active', 'completed', 'archived']).optional(),
   "selected_clips": zod.array(zod.object({

@@ -16,19 +16,12 @@ export interface CampaignUpdate {
   name?: string;
   /** @minLength 1 */
   brief?: string;
-  /** @minLength 1 */
   objective?: string;
-  /** @minLength 1 */
   audience?: string;
-  /** @minLength 1 */
   key_message?: string;
-  /** @minLength 1 */
   tone?: string;
-  /** @minLength 1 */
   call_to_action?: string;
-  /** @minItems 1 */
   channels?: string[];
-  /** @minItems 1 */
   languages?: string[];
   /** @nullable */
   due_date?: Date | null;

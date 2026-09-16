@@ -151,6 +151,27 @@ function truncate(text: string, maxLength = 300): string {
 function buildErrorMessage(response: Response, data: unknown): string {
   const prefix = `HTTP ${response.status} ${response.statusText}`;
 
+  // Campaign errors use an envelope; FastAPI validation may also return a
+  // detail array. Show field/message only, never rejected input or context.
+  const record = data && typeof data === "object" ? data as Record<string, unknown> : null;
+  const envelope = record?.error && typeof record.error === "object"
+    ? record.error as Record<string, unknown> : null;
+  const issues = envelope?.details ?? record?.detail;
+  if (Array.isArray(issues)) {
+    const messages = issues.flatMap((issue) => {
+      if (!issue || typeof issue !== "object") return [];
+      const item = issue as Record<string, unknown>;
+      if (typeof item.msg !== "string") return [];
+      const field = Array.isArray(item.loc)
+        ? item.loc.filter((part) => part !== "body").join(".").replaceAll("_", " ")
+        : "";
+      return [`${field ? `${field}: ` : ""}${item.msg}`];
+    });
+    if (messages.length) return `${prefix}: ${truncate(messages.join("; "), 600)}`;
+  }
+  const envelopeMessage = getStringField(envelope, "message");
+  if (envelopeMessage) return `${prefix}: ${truncate(envelopeMessage)}`;
+
   if (typeof data === "string") {
     const text = data.trim();
     return text ? `${prefix}: ${truncate(text)}` : prefix;

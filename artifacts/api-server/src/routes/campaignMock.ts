@@ -169,12 +169,13 @@ function stringField(
   field: string,
   required: boolean,
   maxLength?: number,
+  allowEmpty = false,
 ): { value?: string; error?: string } {
   const value = body[field];
   if (value === undefined) {
     return required ? { error: `${field} is required` } : {};
   }
-  if (typeof value !== "string" || !value.trim()) return { error: `${field} must be a non-empty string` };
+  if (typeof value !== "string" || (!allowEmpty && !value.trim())) return { error: `${field} must be ${allowEmpty ? "a string" : "a non-empty string"}` };
   if (maxLength !== undefined && value.trim().length > maxLength) {
     return { error: `${field} must be at most ${maxLength} characters` };
   }
@@ -184,7 +185,6 @@ function stringField(
 function validateStringArray(body: Record<string, unknown>, field: string): { value?: string[]; error?: string } {
   const value = body[field];
   if (!Array.isArray(value)) return { error: `${field} must be an array of strings` };
-  if (!value.length) return { error: `${field} must contain at least one string` };
   const result: string[] = [];
   for (const item of value) {
     if (typeof item !== "string" || !item.trim()) return { error: `${field} must contain only non-empty strings` };
@@ -475,7 +475,7 @@ export function createCampaignRouter(adapters: CampaignMockAdapters) {
     if (extra.length) return { error: `Unknown campaign field(s): ${extra.join(", ")}` };
     const values: Partial<Campaign> = {};
     for (const field of ["name", "brief", "objective", "audience", "key_message", "tone", "call_to_action"]) {
-      const parsed = stringField(body, field, required, field === "name" ? 200 : undefined);
+      const parsed = stringField(body, field, required, field === "name" ? 200 : undefined, !["name", "brief"].includes(field));
       if (parsed.error) return { error: parsed.error };
       if (parsed.value !== undefined) (values as Record<string, unknown>)[field] = parsed.value;
     }

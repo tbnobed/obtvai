@@ -8049,27 +8049,20 @@ components:
           minLength: 1
         objective:
           type: string
-          minLength: 1
         audience:
           type: string
-          minLength: 1
         key_message:
           type: string
-          minLength: 1
         tone:
           type: string
-          minLength: 1
         call_to_action:
           type: string
-          minLength: 1
         channels:
           type: array
-          minItems: 1
           items:
             type: string
         languages:
           type: array
-          minItems: 1
           items:
             type: string
         due_date:
@@ -8082,7 +8075,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CampaignClip"
-      description: Exactly one of project_id or project_action is required.
+      description: Exactly one of project_id or project_action is required. Name and brief must be non-empty; other brief strings and distribution lists may be empty for a saved draft.
 
     CampaignUpdate:
       type: object
@@ -8096,27 +8089,20 @@ components:
           minLength: 1
         objective:
           type: string
-          minLength: 1
         audience:
           type: string
-          minLength: 1
         key_message:
           type: string
-          minLength: 1
         tone:
           type: string
-          minLength: 1
         call_to_action:
           type: string
-          minLength: 1
         channels:
           type: array
-          minItems: 1
           items:
             type: string
         languages:
           type: array
-          minItems: 1
           items:
             type: string
         due_date:

@@ -1267,13 +1267,13 @@ class CampaignCreate(BaseModel):
     project_action: Optional[CampaignProjectAction] = None
     name: str = Field(min_length=1, max_length=200)
     brief: str = Field(min_length=1)
-    objective: str = Field(min_length=1)
-    audience: str = Field(min_length=1)
-    key_message: str = Field(min_length=1)
-    tone: str = Field(min_length=1)
-    call_to_action: str = Field(min_length=1)
-    channels: List[str] = Field(min_length=1)
-    languages: List[str] = Field(min_length=1)
+    objective: str
+    audience: str
+    key_message: str
+    tone: str
+    call_to_action: str
+    channels: List[str]
+    languages: List[str]
     due_date: Optional[datetime] = None
     status: CampaignStatus = CampaignStatus.draft
     selected_clips: List[CampaignClip] = []
@@ -1288,13 +1288,13 @@ class CampaignCreate(BaseModel):
 class CampaignUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     brief: Optional[str] = Field(default=None, min_length=1)
-    objective: Optional[str] = Field(default=None, min_length=1)
-    audience: Optional[str] = Field(default=None, min_length=1)
-    key_message: Optional[str] = Field(default=None, min_length=1)
-    tone: Optional[str] = Field(default=None, min_length=1)
-    call_to_action: Optional[str] = Field(default=None, min_length=1)
-    channels: Optional[List[str]] = Field(default=None, min_length=1)
-    languages: Optional[List[str]] = Field(default=None, min_length=1)
+    objective: Optional[str] = None
+    audience: Optional[str] = None
+    key_message: Optional[str] = None
+    tone: Optional[str] = None
+    call_to_action: Optional[str] = None
+    channels: Optional[List[str]] = None
+    languages: Optional[List[str]] = None
     due_date: Optional[datetime] = None
     status: Optional[CampaignStatus] = None
     selected_clips: Optional[List[CampaignClip]] = None

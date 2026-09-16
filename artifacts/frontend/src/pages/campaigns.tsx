@@ -91,7 +91,7 @@ export default function Campaigns() {
     if (formData.projectMode === "existing" && formData.projectId) {
       payload.project_id = formData.projectId;
     } else {
-      payload.project_action = { name: formData.projectName.trim() || `${formData.name.trim()} Project` };
+      payload.project_action = { name: formData.projectName.trim() || `${formData.name.trim()} Project`.slice(0, 200) };
     }
 
     createMutation.mutate({ data: payload }, {
@@ -187,13 +187,14 @@ export default function Campaigns() {
             <DialogTitle className="flex items-center gap-2">
               <Megaphone className="h-5 w-5" /> New Campaign
             </DialogTitle>
-            <DialogDescription>Define your marketing brief and project links.</DialogDescription>
+            <DialogDescription>Name and brief are required. You can save a draft and fill in the other details later.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2 col-span-2">
               <Label htmlFor="create-name">Campaign Name *</Label>
               <Input
                 id="create-name"
+                maxLength={200}
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Summer Sale 2025"
@@ -228,6 +229,7 @@ export default function Campaigns() {
                 <Label htmlFor="create-project-name">New Project Name (optional)</Label>
                 <Input
                   id="create-project-name"
+                  maxLength={200}
                   value={formData.projectName}
                   onChange={e => setFormData({ ...formData, projectName: e.target.value })}
                   placeholder="Leave blank to use campaign name"

@@ -10,7 +10,7 @@ import type { CampaignProjectAction } from './campaignProjectAction';
 import type { CampaignStatus } from './campaignStatus';
 
 /**
- * Exactly one of project_id or project_action is required.
+ * Exactly one of project_id or project_action is required. Name and brief must be non-empty; other brief strings and distribution lists may be empty for a saved draft.
  */
 export interface CampaignCreate {
   /** @nullable */
@@ -23,19 +23,12 @@ export interface CampaignCreate {
   name: string;
   /** @minLength 1 */
   brief: string;
-  /** @minLength 1 */
   objective: string;
-  /** @minLength 1 */
   audience: string;
-  /** @minLength 1 */
   key_message: string;
-  /** @minLength 1 */
   tone: string;
-  /** @minLength 1 */
   call_to_action: string;
-  /** @minItems 1 */
   channels: string[];
-  /** @minItems 1 */
   languages: string[];
   /** @nullable */
   due_date?: Date | null;
