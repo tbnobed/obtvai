@@ -20,14 +20,17 @@ except OSError:
     pass  # volume not mounted (e.g. local dev) — fall back to default /tmp
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, project_chat, voice, graphics, trends, ratings, folders, socials, curator, auth as auth_router, users as users_router, audit as audit_router
+from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, project_chat, voice, graphics, trends, ratings, folders, socials, curator, campaigns, auth as auth_router, users as users_router, audit as audit_router
 from .auth import auth_middleware
+from .routers.campaigns import CampaignAPIError
 
 
 # Columns created as `json` by earlier versions must become `jsonb` so workers
@@ -78,6 +81,7 @@ _COLUMN_MIGRATIONS = [
     ("reel_jobs", "project_id", "TEXT"),
     ("story_jobs", "project_id", "TEXT"),
     ("story_jobs", "target_duration_seconds", "DOUBLE PRECISION"),
+    ("story_jobs", "clip_ranges", "JSONB"),
     ("processing_jobs", "heartbeat_at", "TIMESTAMP"),
     ("processing_jobs", "cleared_at", "TIMESTAMP"),
     ("media_assets", "folder_id", "TEXT"),
@@ -106,6 +110,9 @@ _COLUMN_MIGRATIONS = [
     ("people", "face_search", "JSONB"),
     ("media_assets", "recorded_at", "TIMESTAMP"),
     ("media_assets", "source_path", "TEXT"),
+    ("campaign_deliverables", "dispatch_state", "TEXT NOT NULL DEFAULT 'not_started'"),
+    ("campaign_deliverables", "created_by", "VARCHAR"),
+    ("campaign_deliverables", "updated_by", "VARCHAR"),
     ("story_jobs", "script", "TEXT"),
     ("media_assets", "curator_asset_id", "VARCHAR"),
     ("media_assets", "curator_folder_path", "VARCHAR"),
@@ -521,6 +528,66 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.exception_handler(CampaignAPIError)
+async def _campaign_error_handler(_request: Request, exc: CampaignAPIError):
+    error = {
+        "code": exc.error_code,
+        "message": exc.error_message,
+    }
+    if exc.error_details is not None:
+        error["details"] = exc.error_details
+    return JSONResponse(status_code=exc.status_code, content={"error": error})
+
+
+@app.exception_handler(HTTPException)
+async def _campaign_http_error_handler(request: Request, exc: HTTPException):
+    # Campaign dependencies (notably auth) can raise FastAPI's base exception
+    # before the router-local CampaignAPIError is constructed. Keep those
+    # failures in the same contract envelope without changing other APIs.
+    if not request.url.path.startswith("/api/campaigns"):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": jsonable_encoder(exc.detail)},
+            headers=exc.headers,
+        )
+    detail = exc.detail
+    if isinstance(detail, dict) and "error" in detail:
+        content = detail
+    else:
+        content = {
+            "error": {
+                "code": "http_error",
+                "message": str(detail),
+            }
+        }
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=content,
+        headers=exc.headers,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def _request_validation_error_handler(
+    request: Request, exc: RequestValidationError
+):
+    if not request.url.path.startswith("/api/campaigns"):
+        return JSONResponse(
+            status_code=422,
+            content={"detail": jsonable_encoder(exc.errors())},
+        )
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": {
+                "code": "validation_error",
+                "message": "Request validation failed",
+                "details": jsonable_encoder(exc.errors()),
+            }
+        },
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -571,6 +638,7 @@ app.include_router(graphics.router, prefix="/api")
 app.include_router(trends.router, prefix="/api")
 app.include_router(socials.router, prefix="/api")
 app.include_router(ratings.router, prefix="/api")
+app.include_router(campaigns.router, prefix="/api")
 
 
 @app.get("/api/healthz")

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { normalizeTopicKey, topicLabel, groupTopics } from "../lib/topics";
+import { createCampaignRouter, type CampaignClip } from "./campaignMock";
 
 const router = Router();
 
@@ -4416,6 +4417,153 @@ router.get("/graphics/generations/:id/output", (_req, res) => {
 router.get("/graphics/generations/:id/thumbnail", (_req, res) => {
   res.status(404).json({ error: "No thumbnail in Replit preview" });
 });
+
+// Campaign Builder uses the same in-memory projects, media, and preview jobs
+// as the rest of this router. Keeping the campaign implementation in its own
+// module makes the preview contract testable without duplicating those stores.
+function syncCampaignProjectSelection(projectId: string, clips: CampaignClip[]) {
+  const project = projects.find((item) => item.id === projectId);
+  if (!project) return;
+  // Campaign selection is additive project metadata. Never remove an
+  // existing source when a campaign is edited or deleted; this also means
+  // direct project edits remain the source of truth on every sync.
+  const selectedIds = [...new Set(clips.map((clip) => clip.media_id))];
+  project.media_ids = [...new Set([...project.media_ids, ...selectedIds])];
+
+  const selectedRanges: Record<string, { in: number; out: number }> = {};
+  for (const mediaId of selectedIds) {
+    const selected = clips.filter((clip) => clip.media_id === mediaId);
+    selectedRanges[mediaId] = {
+      in: Math.min(...selected.map((clip) => clip.start_time)),
+      out: Math.max(...selected.map((clip) => clip.end_time)),
+    };
+  }
+  const ranges = Object.fromEntries(
+    Object.entries(project.media_ranges || {}).map(([mediaId, range]) => [
+      mediaId,
+      { in: range.in, out: range.out },
+    ]),
+  );
+  for (const [mediaId, range] of Object.entries(selectedRanges)) {
+    const current = ranges[mediaId];
+    ranges[mediaId] = current
+      ? { in: Math.min(current.in, range.in), out: Math.max(current.out, range.out) }
+      : range;
+  }
+  project.media_ranges = Object.keys(ranges).length ? ranges : null;
+  project.updated_at = new Date().toISOString();
+}
+
+router.use("/campaigns", createCampaignRouter({
+  listProjects: () => projects.filter((project) => project.status !== "asset"),
+  getProject: (id) => projects.find((project) => project.id === id && project.status !== "asset"),
+  createProject: (name) => {
+    const project: MockProject = {
+      id: `proj-campaign-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      name,
+      description: null,
+      script: null,
+      status: "active",
+      media_ids: [],
+      media_ranges: null,
+      target_runtime_seconds: null,
+      created_at: new Date().toISOString(),
+      updated_at: null,
+    };
+    projects.unshift(project);
+    return project;
+  },
+  syncProjectSelection: syncCampaignProjectSelection,
+  getMedia: (id) => assets.find((asset) => asset.id === id),
+  createStory: ({ projectId, assetIds, prompt, targetDurationSeconds }) => {
+    const story: MockStory = {
+      id: `story-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      prompt: prompt || null,
+      project_id: projectId,
+      asset_ids: assetIds,
+      status: "pending",
+      progress: 0,
+      title: null,
+      narrative: null,
+      script: null,
+      clip_list_id: null,
+      target_duration_seconds: targetDurationSeconds,
+      error_message: null,
+      created_at: new Date().toISOString(),
+      finished_at: null,
+      _startedAt: Date.now(),
+    };
+    stories.unshift(story);
+    touchProject(projectId);
+    return story;
+  },
+  getStory: (id) => {
+    const story = stories.find((item) => item.id === id);
+    if (story) tickStory(story);
+    return story;
+  },
+  createReel: ({ projectId, prompt, targetDurationSeconds, aspectRatio, clips }) => {
+    const reel = makeMockReel(
+      prompt || "Campaign reel preview",
+      clips[0]?.media_id ?? null,
+      aspectRatio === "9:16" ? "vertical" : "original",
+      false,
+      clips.map((clip) => ({
+        media_id: clip.media_id,
+        filename: clip.filename || assets.find((asset) => asset.id === clip.media_id)?.filename || "unknown.mp4",
+        start_time: clip.start_time,
+        end_time: clip.end_time,
+        snippet: clip.snippet ?? null,
+        thumbnail_url: nearestSceneThumb(clip.media_id, clip.start_time),
+      })),
+      projectId,
+      false,
+      null,
+    );
+    reel.target_duration_seconds = targetDurationSeconds;
+    return reel;
+  },
+  getReel: (id) => {
+    const reel = reels.find((item) => item.id === id);
+    if (reel) tickReel(reel);
+    return reel;
+  },
+  createGraphics: ({ prompt, aspectRatio }) => {
+    const preset = graphicsPresets.find((item) => item.id === "flux-schnell");
+    const dimensions: Record<string, [number, number]> = {
+      "9:16": [576, 1024],
+      "16:9": [1024, 576],
+      "1:1": [1024, 1024],
+    };
+    const [width, height] = dimensions[aspectRatio] || [1024, 1024];
+    const generation: any = {
+      id: `ggen-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      kind: preset?.kind || "image",
+      preset_id: preset?.id || "flux-schnell",
+      preset_name: preset?.name || "FLUX Schnell — Fast Image",
+      prompt,
+      negative: null,
+      status: "pending",
+      progress: 0,
+      queue_position: null,
+      error_message: null,
+      width,
+      height,
+      frames: null,
+      seed: null,
+      duration_seconds: null,
+      output_url: null,
+      thumbnail_url: null,
+      media_id: null,
+      created_at: new Date().toISOString(),
+      completed_at: null,
+    };
+    graphicsGenerations.unshift(generation);
+    simulateGraphicsGen(generation);
+    return generation;
+  },
+  getGraphics: (id) => graphicsGenerations.find((generation) => generation.id === id),
+}));
 
 router.post("/graphics/generations/:id/add-to-library", (req, res) => {
   const gen = graphicsGenerations.find((g) => g.id === req.params.id);

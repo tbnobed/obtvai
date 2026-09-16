@@ -46,6 +46,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 
 ## Product
 
+- **Campaign Builder:** `/campaigns` — saved marketing briefs linked to Studio projects, timecoded library selections, and editable deliverable plans for promos, reels, thumbnails, and social copy. Uses existing generation engines; editable video drafts are distinguished from completed outputs. Preview generation is simulated; production saves campaigns in PostgreSQL. Deleting a campaign preserves its project, source media, and jobs.
 - **Media library:** Browse all indexed video assets with status, duration, codec info; upload video files directly from the browser (`POST /media/upload`, stored under `UPLOAD_PATH` → `/uploads`) in addition to watched-folder ingest
 - **Asset detail:** Video player with timecode deep-linking, scene timeline, full transcript with speaker labels, face clusters, processing job history
 - **Semantic search:** Natural language search across transcripts and visual scene content; results link directly to the matching timecode in the video player

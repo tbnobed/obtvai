@@ -2859,6 +2859,275 @@ export interface UserUpdate {
   password?: string | null;
 }
 
+export type CampaignStatus = typeof CampaignStatus[keyof typeof CampaignStatus];
+
+
+export const CampaignStatus = {
+  draft: 'draft',
+  active: 'active',
+  completed: 'completed',
+  archived: 'archived',
+} as const;
+
+export type CampaignDeliverableKind = typeof CampaignDeliverableKind[keyof typeof CampaignDeliverableKind];
+
+
+export const CampaignDeliverableKind = {
+  promo: 'promo',
+  reel: 'reel',
+  thumbnail: 'thumbnail',
+  social_copy: 'social_copy',
+} as const;
+
+/**
+ * dispatch_unknown means the existing linked job may still start or complete and is not safely retryable.
+ */
+export type DeliverableStatus = typeof DeliverableStatus[keyof typeof DeliverableStatus];
+
+
+export const DeliverableStatus = {
+  pending: 'pending',
+  queued: 'queued',
+  running: 'running',
+  dispatch_unknown: 'dispatch_unknown',
+  draft_ready: 'draft_ready',
+  ready: 'ready',
+  failed: 'failed',
+} as const;
+
+export type CampaignErrorResponseError = {
+  code: string;
+  message: string;
+  details?: unknown;
+};
+
+export interface CampaignErrorResponse {
+  error: CampaignErrorResponseError;
+}
+
+/**
+ * Timecodes are seconds and are also validated against source media duration by the API.
+ */
+export interface CampaignClip {
+  media_id: string;
+  /** @minimum 0 */
+  start_time: number;
+  /** @exclusiveMinimum 0 */
+  end_time: number;
+  /** @nullable */
+  filename?: string | null;
+  /** @nullable */
+  snippet?: string | null;
+}
+
+export interface CampaignProjectAction {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+}
+
+/**
+ * Exactly one of project_id or project_action is required.
+ */
+export interface CampaignCreate {
+  /** @nullable */
+  project_id?: string | null;
+  project_action?: CampaignProjectAction | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /** @minLength 1 */
+  brief: string;
+  /** @minLength 1 */
+  objective: string;
+  /** @minLength 1 */
+  audience: string;
+  /** @minLength 1 */
+  key_message: string;
+  /** @minLength 1 */
+  tone: string;
+  /** @minLength 1 */
+  call_to_action: string;
+  /** @minItems 1 */
+  channels: string[];
+  /** @minItems 1 */
+  languages: string[];
+  /** @nullable */
+  due_date?: string | null;
+  status?: CampaignStatus;
+  selected_clips?: CampaignClip[];
+}
+
+export interface CampaignUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name?: string;
+  /** @minLength 1 */
+  brief?: string;
+  /** @minLength 1 */
+  objective?: string;
+  /** @minLength 1 */
+  audience?: string;
+  /** @minLength 1 */
+  key_message?: string;
+  /** @minLength 1 */
+  tone?: string;
+  /** @minLength 1 */
+  call_to_action?: string;
+  /** @minItems 1 */
+  channels?: string[];
+  /** @minItems 1 */
+  languages?: string[];
+  /** @nullable */
+  due_date?: string | null;
+  status?: CampaignStatus;
+  selected_clips?: CampaignClip[];
+}
+
+export interface CampaignDeliverableCreate {
+  kind: CampaignDeliverableKind;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  label: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  channel: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  language: string;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  target_duration_seconds?: number | null;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  aspect_ratio: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface CampaignDeliverableUpdate {
+  kind?: CampaignDeliverableKind;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  label?: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  channel?: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  language?: string;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  target_duration_seconds?: number | null;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  aspect_ratio?: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface CampaignExecute {
+  retry?: boolean;
+}
+
+export type CampaignJobReferenceType = typeof CampaignJobReferenceType[keyof typeof CampaignJobReferenceType];
+
+
+export const CampaignJobReferenceType = {
+  story_job: 'story_job',
+  reel_job: 'reel_job',
+  graphics_generation: 'graphics_generation',
+  llm_generation: 'llm_generation',
+} as const;
+
+export interface CampaignJobReference {
+  type: CampaignJobReferenceType;
+  id: string;
+}
+
+export interface CampaignDeliverable {
+  id: string;
+  campaign_id: string;
+  kind: CampaignDeliverableKind;
+  label: string;
+  channel: string;
+  language: string;
+  /** @nullable */
+  target_duration_seconds?: number | null;
+  aspect_ratio: string;
+  /** @nullable */
+  notes?: string | null;
+  status: DeliverableStatus;
+  job_reference?: CampaignJobReference | null;
+  /** @nullable */
+  output_url?: string | null;
+  /** @nullable */
+  output_text?: string | null;
+  /** @nullable */
+  error?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Campaign {
+  id: string;
+  project_id: string;
+  name: string;
+  brief: string;
+  objective: string;
+  audience: string;
+  key_message: string;
+  tone: string;
+  call_to_action: string;
+  channels: string[];
+  languages: string[];
+  /** @nullable */
+  due_date?: string | null;
+  status: CampaignStatus;
+  selected_clips: CampaignClip[];
+  deliverables: CampaignDeliverable[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignResponse {
+  data: Campaign;
+}
+
+export interface CampaignListResponse {
+  data: Campaign[];
+}
+
+export interface CampaignDeliverableResponse {
+  data: CampaignDeliverable;
+}
+
 export type ListMediaParams = {
 status?: string;
 /**
@@ -3116,6 +3385,11 @@ export const RenderProjectCutBodyPreset = {
 export type RenderProjectCutBody = {
   preset?: RenderProjectCutBodyPreset;
   burn_captions?: boolean;
+};
+
+export type ListCampaignsParams = {
+status?: CampaignStatus;
+project_id?: string;
 };
 
 export type ListClipListsParams = {

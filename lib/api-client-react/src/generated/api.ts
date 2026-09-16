@@ -25,6 +25,15 @@ import type {
   AIQuestion,
   AssetPerson,
   AuditLogList,
+  CampaignCreate,
+  CampaignDeliverableCreate,
+  CampaignDeliverableResponse,
+  CampaignDeliverableUpdate,
+  CampaignErrorResponse,
+  CampaignExecute,
+  CampaignListResponse,
+  CampaignResponse,
+  CampaignUpdate,
   ClipExportInput,
   ClipExportResult,
   ClipFeedbackCreate,
@@ -70,6 +79,7 @@ import type {
   LibraryStats,
   LipsyncReferenceUploadInput,
   ListAuditLogParams,
+  ListCampaignsParams,
   ListClipListsParams,
   ListEmotionMomentsParams,
   ListGraphicsGenerationsParams,
@@ -11311,6 +11321,674 @@ export const useRenderProjectCut = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRenderProjectCutMutationOptions(options));
+    }
+
+export const getListCampaignsUrl = (params?: ListCampaignsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/campaigns?${stringifiedParams}` : `/api/campaigns`
+}
+
+/**
+ * @summary List persisted campaigns
+ */
+export const listCampaigns = async (params?: ListCampaignsParams, options?: RequestInit): Promise<CampaignListResponse> => {
+
+  return customFetch<CampaignListResponse>(getListCampaignsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCampaignsQueryKey = (params?: ListCampaignsParams,) => {
+    return [
+    `/api/campaigns`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCampaignsQueryOptions = <TData = Awaited<ReturnType<typeof listCampaigns>>, TError = ErrorType<unknown>>(params?: ListCampaignsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCampaigns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCampaignsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCampaigns>>> = ({ signal }) => listCampaigns(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCampaigns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCampaignsQueryResult = NonNullable<Awaited<ReturnType<typeof listCampaigns>>>
+export type ListCampaignsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List persisted campaigns
+ */
+
+export function useListCampaigns<TData = Awaited<ReturnType<typeof listCampaigns>>, TError = ErrorType<unknown>>(
+ params?: ListCampaignsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCampaigns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCampaignsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCampaignUrl = () => {
+
+
+
+
+  return `/api/campaigns`
+}
+
+/**
+ * @summary Create and link a campaign to an existing or newly-created Project
+ */
+export const createCampaign = async (campaignCreate: CampaignCreate, options?: RequestInit): Promise<CampaignResponse> => {
+
+  return customFetch<CampaignResponse>(getCreateCampaignUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(campaignCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCampaignMutationOptions = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCampaign>>, TError,{data: BodyType<CampaignCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCampaign>>, TError,{data: BodyType<CampaignCreate>}, TContext> => {
+
+const mutationKey = ['createCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCampaign>>, {data: BodyType<CampaignCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCampaign(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof createCampaign>>>
+    export type CreateCampaignMutationBody = BodyType<CampaignCreate>
+    export type CreateCampaignMutationError = ErrorType<CampaignErrorResponse>
+
+    /**
+ * @summary Create and link a campaign to an existing or newly-created Project
+ */
+export const useCreateCampaign = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCampaign>>, TError,{data: BodyType<CampaignCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCampaign>>,
+        TError,
+        {data: BodyType<CampaignCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCampaignMutationOptions(options));
+    }
+
+export const getGetCampaignUrl = (campaignId: string,) => {
+
+
+
+
+  return `/api/campaigns/${campaignId}`
+}
+
+/**
+ * @summary Get a campaign and derive deliverable state from real jobs
+ */
+export const getCampaign = async (campaignId: string, options?: RequestInit): Promise<CampaignResponse> => {
+
+  return customFetch<CampaignResponse>(getGetCampaignUrl(campaignId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCampaignQueryKey = (campaignId: string,) => {
+    return [
+    `/api/campaigns/${campaignId}`
+    ] as const;
+    }
+
+
+export const getGetCampaignQueryOptions = <TData = Awaited<ReturnType<typeof getCampaign>>, TError = ErrorType<CampaignErrorResponse>>(campaignId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCampaign>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCampaignQueryKey(campaignId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCampaign>>> = ({ signal }) => getCampaign(campaignId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: campaignId !== null && campaignId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCampaign>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCampaignQueryResult = NonNullable<Awaited<ReturnType<typeof getCampaign>>>
+export type GetCampaignQueryError = ErrorType<CampaignErrorResponse>
+
+
+/**
+ * @summary Get a campaign and derive deliverable state from real jobs
+ */
+
+export function useGetCampaign<TData = Awaited<ReturnType<typeof getCampaign>>, TError = ErrorType<CampaignErrorResponse>>(
+ campaignId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCampaign>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCampaignQueryOptions(campaignId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateCampaignUrl = (campaignId: string,) => {
+
+
+
+
+  return `/api/campaigns/${campaignId}`
+}
+
+/**
+ * @summary Update a campaign brief and synchronize selected clips to its Project
+ */
+export const updateCampaign = async (campaignId: string,
+    campaignUpdate: CampaignUpdate, options?: RequestInit): Promise<CampaignResponse> => {
+
+  return customFetch<CampaignResponse>(getUpdateCampaignUrl(campaignId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(campaignUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCampaignMutationOptions = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCampaign>>, TError,{campaignId: string;data: BodyType<CampaignUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCampaign>>, TError,{campaignId: string;data: BodyType<CampaignUpdate>}, TContext> => {
+
+const mutationKey = ['updateCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCampaign>>, {campaignId: string;data: BodyType<CampaignUpdate>}> = (props) => {
+          const {campaignId,data} = props ?? {};
+
+          return  updateCampaign(campaignId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof updateCampaign>>>
+    export type UpdateCampaignMutationBody = BodyType<CampaignUpdate>
+    export type UpdateCampaignMutationError = ErrorType<CampaignErrorResponse>
+
+    /**
+ * @summary Update a campaign brief and synchronize selected clips to its Project
+ */
+export const useUpdateCampaign = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCampaign>>, TError,{campaignId: string;data: BodyType<CampaignUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCampaign>>,
+        TError,
+        {campaignId: string;data: BodyType<CampaignUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCampaignMutationOptions(options));
+    }
+
+export const getDeleteCampaignUrl = (campaignId: string,) => {
+
+
+
+
+  return `/api/campaigns/${campaignId}`
+}
+
+/**
+ * @summary Delete campaign metadata without deleting its Project, media, or jobs
+ */
+export const deleteCampaign = async (campaignId: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCampaignUrl(campaignId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteCampaignMutationOptions = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCampaign>>, TError,{campaignId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCampaign>>, TError,{campaignId: string}, TContext> => {
+
+const mutationKey = ['deleteCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCampaign>>, {campaignId: string}> = (props) => {
+          const {campaignId} = props ?? {};
+
+          return  deleteCampaign(campaignId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCampaign>>>
+
+    export type DeleteCampaignMutationError = ErrorType<CampaignErrorResponse>
+
+    /**
+ * @summary Delete campaign metadata without deleting its Project, media, or jobs
+ */
+export const useDeleteCampaign = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCampaign>>, TError,{campaignId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCampaign>>,
+        TError,
+        {campaignId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteCampaignMutationOptions(options));
+    }
+
+export const getCreateCampaignDeliverableUrl = (campaignId: string,) => {
+
+
+
+
+  return `/api/campaigns/${campaignId}/deliverables`
+}
+
+/**
+ * @summary Add a deliverable to a campaign
+ */
+export const createCampaignDeliverable = async (campaignId: string,
+    campaignDeliverableCreate: CampaignDeliverableCreate, options?: RequestInit): Promise<CampaignDeliverableResponse> => {
+
+  return customFetch<CampaignDeliverableResponse>(getCreateCampaignDeliverableUrl(campaignId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(campaignDeliverableCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCampaignDeliverableMutationOptions = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCampaignDeliverable>>, TError,{campaignId: string;data: BodyType<CampaignDeliverableCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCampaignDeliverable>>, TError,{campaignId: string;data: BodyType<CampaignDeliverableCreate>}, TContext> => {
+
+const mutationKey = ['createCampaignDeliverable'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCampaignDeliverable>>, {campaignId: string;data: BodyType<CampaignDeliverableCreate>}> = (props) => {
+          const {campaignId,data} = props ?? {};
+
+          return  createCampaignDeliverable(campaignId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCampaignDeliverableMutationResult = NonNullable<Awaited<ReturnType<typeof createCampaignDeliverable>>>
+    export type CreateCampaignDeliverableMutationBody = BodyType<CampaignDeliverableCreate>
+    export type CreateCampaignDeliverableMutationError = ErrorType<CampaignErrorResponse>
+
+    /**
+ * @summary Add a deliverable to a campaign
+ */
+export const useCreateCampaignDeliverable = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCampaignDeliverable>>, TError,{campaignId: string;data: BodyType<CampaignDeliverableCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCampaignDeliverable>>,
+        TError,
+        {campaignId: string;data: BodyType<CampaignDeliverableCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCampaignDeliverableMutationOptions(options));
+    }
+
+export const getUpdateCampaignDeliverableUrl = (campaignId: string,
+    deliverableId: string,) => {
+
+
+
+
+  return `/api/campaigns/${campaignId}/deliverables/${deliverableId}`
+}
+
+/**
+ * @summary Update a campaign deliverable before or after execution
+ */
+export const updateCampaignDeliverable = async (campaignId: string,
+    deliverableId: string,
+    campaignDeliverableUpdate: CampaignDeliverableUpdate, options?: RequestInit): Promise<CampaignDeliverableResponse> => {
+
+  return customFetch<CampaignDeliverableResponse>(getUpdateCampaignDeliverableUrl(campaignId,deliverableId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(campaignDeliverableUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCampaignDeliverableMutationOptions = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCampaignDeliverable>>, TError,{campaignId: string;deliverableId: string;data: BodyType<CampaignDeliverableUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCampaignDeliverable>>, TError,{campaignId: string;deliverableId: string;data: BodyType<CampaignDeliverableUpdate>}, TContext> => {
+
+const mutationKey = ['updateCampaignDeliverable'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCampaignDeliverable>>, {campaignId: string;deliverableId: string;data: BodyType<CampaignDeliverableUpdate>}> = (props) => {
+          const {campaignId,deliverableId,data} = props ?? {};
+
+          return  updateCampaignDeliverable(campaignId,deliverableId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCampaignDeliverableMutationResult = NonNullable<Awaited<ReturnType<typeof updateCampaignDeliverable>>>
+    export type UpdateCampaignDeliverableMutationBody = BodyType<CampaignDeliverableUpdate>
+    export type UpdateCampaignDeliverableMutationError = ErrorType<CampaignErrorResponse>
+
+    /**
+ * @summary Update a campaign deliverable before or after execution
+ */
+export const useUpdateCampaignDeliverable = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCampaignDeliverable>>, TError,{campaignId: string;deliverableId: string;data: BodyType<CampaignDeliverableUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCampaignDeliverable>>,
+        TError,
+        {campaignId: string;deliverableId: string;data: BodyType<CampaignDeliverableUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCampaignDeliverableMutationOptions(options));
+    }
+
+export const getDeleteCampaignDeliverableUrl = (campaignId: string,
+    deliverableId: string,) => {
+
+
+
+
+  return `/api/campaigns/${campaignId}/deliverables/${deliverableId}`
+}
+
+/**
+ * @summary Delete campaign deliverable metadata without deleting referenced jobs
+ */
+export const deleteCampaignDeliverable = async (campaignId: string,
+    deliverableId: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCampaignDeliverableUrl(campaignId,deliverableId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteCampaignDeliverableMutationOptions = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCampaignDeliverable>>, TError,{campaignId: string;deliverableId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCampaignDeliverable>>, TError,{campaignId: string;deliverableId: string}, TContext> => {
+
+const mutationKey = ['deleteCampaignDeliverable'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCampaignDeliverable>>, {campaignId: string;deliverableId: string}> = (props) => {
+          const {campaignId,deliverableId} = props ?? {};
+
+          return  deleteCampaignDeliverable(campaignId,deliverableId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCampaignDeliverableMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCampaignDeliverable>>>
+
+    export type DeleteCampaignDeliverableMutationError = ErrorType<CampaignErrorResponse>
+
+    /**
+ * @summary Delete campaign deliverable metadata without deleting referenced jobs
+ */
+export const useDeleteCampaignDeliverable = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCampaignDeliverable>>, TError,{campaignId: string;deliverableId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCampaignDeliverable>>,
+        TError,
+        {campaignId: string;deliverableId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteCampaignDeliverableMutationOptions(options));
+    }
+
+export const getExecuteCampaignDeliverableUrl = (campaignId: string,
+    deliverableId: string,) => {
+
+
+
+
+  return `/api/campaigns/${campaignId}/deliverables/${deliverableId}/execute`
+}
+
+/**
+ * @summary Execute one deliverable using an existing generation engine
+ */
+export const executeCampaignDeliverable = async (campaignId: string,
+    deliverableId: string,
+    campaignExecute?: CampaignExecute, options?: RequestInit): Promise<CampaignDeliverableResponse> => {
+
+  return customFetch<CampaignDeliverableResponse>(getExecuteCampaignDeliverableUrl(campaignId,deliverableId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(campaignExecute)
+  }
+);}
+
+
+
+
+
+export const getExecuteCampaignDeliverableMutationOptions = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeCampaignDeliverable>>, TError,{campaignId: string;deliverableId: string;data?: BodyType<CampaignExecute>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof executeCampaignDeliverable>>, TError,{campaignId: string;deliverableId: string;data?: BodyType<CampaignExecute>}, TContext> => {
+
+const mutationKey = ['executeCampaignDeliverable'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof executeCampaignDeliverable>>, {campaignId: string;deliverableId: string;data?: BodyType<CampaignExecute>}> = (props) => {
+          const {campaignId,deliverableId,data} = props ?? {};
+
+          return  executeCampaignDeliverable(campaignId,deliverableId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExecuteCampaignDeliverableMutationResult = NonNullable<Awaited<ReturnType<typeof executeCampaignDeliverable>>>
+    export type ExecuteCampaignDeliverableMutationBody = BodyType<CampaignExecute> | undefined
+    export type ExecuteCampaignDeliverableMutationError = ErrorType<CampaignErrorResponse>
+
+    /**
+ * @summary Execute one deliverable using an existing generation engine
+ */
+export const useExecuteCampaignDeliverable = <TError = ErrorType<CampaignErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeCampaignDeliverable>>, TError,{campaignId: string;deliverableId: string;data?: BodyType<CampaignExecute>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof executeCampaignDeliverable>>,
+        TError,
+        {campaignId: string;deliverableId: string;data?: BodyType<CampaignExecute>},
+        TContext
+      > => {
+      return useMutation(getExecuteCampaignDeliverableMutationOptions(options));
     }
 
 export const getListClipListsUrl = (params?: ListClipListsParams,) => {

@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime
 from app import celery_app
 from db import get_session
+from tasks.story_ranges import constrain_candidate, normalise_clip_ranges
 
 
 def _segments_between(db, media_id: str, start: float, end: float):
@@ -133,13 +134,17 @@ def build_story(self, story_id: str):
         from tasks.creative import _clamp
 
         row = db.execute(
-            text("SELECT asset_ids, prompt, target_duration_seconds FROM story_jobs WHERE id = :sid"),
+            text(
+                "SELECT asset_ids, prompt, target_duration_seconds, clip_ranges "
+                "FROM story_jobs WHERE id = :sid"
+            ),
             {"sid": story_id},
         ).fetchone()
         if not row:
             return
         asset_ids, user_prompt = list(row[0] or []), (row[1] or "").strip()
         target_duration = float(row[2]) if row[2] else None
+        ranges_by_media = normalise_clip_ranges(row[3])
 
         # Project context from the Find tab: the working script steers both
         # the mining and the final ordering.
@@ -252,13 +257,14 @@ def build_story(self, story_id: str):
             s_t, e_t = float(pr[2] or 0), float(pr[3] or 0)
             if e_t - s_t < 1.0:
                 continue
-            candidates.append({
+            picked = {
                 "media_id": pr[0], "filename": pr[1],
                 "start": round(s_t, 1), "end": round(e_t, 1),
                 "title": ((pr[4] or "").strip() or "Editor-picked clip")[:120],
                 "why": ((pr[5] or "").strip() or "Hand-picked from search in Find")[:300],
                 "picked": True,
-            })
+            }
+            candidates.extend(constrain_candidate(picked, ranges_by_media))
         for idx, a in enumerate(assets):
             mid, fname = a[0], a[1]
             duration = float(a[2] or 0)
@@ -273,24 +279,25 @@ def build_story(self, story_id: str):
                 for c in suggestions[:8]:
                     if c.get("start") is None or c.get("end") is None:
                         continue
-                    candidates.append({
+                    suggestion = {
                         "media_id": mid, "filename": fname,
                         "start": float(c["start"]), "end": float(c["end"]),
                         "title": c.get("title") or "clip",
                         "why": c.get("reason") or "",
-                    })
+                    }
+                    candidates.extend(constrain_candidate(suggestion, ranges_by_media))
             else:
-                segs = db.execute(
+                all_segs = db.execute(
                     text("""
                         SELECT start_time, speaker, text FROM transcript_segments
                         WHERE media_id = :mid ORDER BY start_time
                     """),
                     {"mid": mid},
                 ).fetchall()
-                if not segs:
+                if not all_segs:
                     continue
                 if not duration:
-                    duration = float(segs[-1][0]) + 30.0
+                    duration = float(all_segs[-1][0]) + 30.0
                 chunk_cap = 6 if user_prompt else 3
                 if target_duration and target_duration > 600:
                     # Long production: cover more of each asset so there is
@@ -298,59 +305,70 @@ def build_story(self, story_id: str):
                     chunk_cap = max(chunk_cap, 8)
                 if target_duration and target_duration > 1800:
                     chunk_cap = max(chunk_cap, 12)
-                chunks = _build_chunks(segs)[:chunk_cap]
                 mine_direction = (
                     f"The editor's direction for this story: {user_prompt}\n"
                     "Pick ONLY moments that directly serve that direction — quote or discuss it. "
                     "If a segment has nothing relevant, return an empty clips list.\n\n"
                     if user_prompt else ""
                 )
-                for chunk_text, c_start, c_end in chunks:
-                    prompt = (
-                        f"You are a creative video editor. {CREATIVE_PERSONA}\n"
-                        f"{EDITOR_RULES}\n"
-                        "You are mining raw footage for a "
-                        "multi-video story edit.\n\n"
-                        f"{mine_direction}"
-                        f"{script_block}"
-                        f"Source file: {fname}\n"
-                        f"Transcript segment ({_format_timecode(c_start)}–{_format_timecode(c_end)}):\n"
-                        f"{chunk_text}\n\n"
-                        'Respond with ONLY JSON: {"clips": [{"start": "MM:SS", "end": "MM:SS", '
-                        '"title": "short title", "why": "one sentence"}]}\n'
-                        f"Rules: 1-3 strongest self-contained moments, each {clip_min}-{clip_max} seconds."
-                        + (
-                            " The finished production is long-form — prefer complete "
-                            "thoughts and full exchanges over quick soundbites."
-                            if target_duration and target_duration > 600 else ""
-                        )
-                    )
-                    raw = _generate(tokenizer, model, prompt, max_new_tokens=700)
-                    try:
-                        data = _extract_json(raw)
-                    except (ValueError, json.JSONDecodeError):
+                windows = ranges_by_media.get(mid) or [(0.0, duration)]
+                for window_start, window_end in windows:
+                    segs = [
+                        row for row in all_segs
+                        if float(row[0]) < window_end and float(row[0]) + 1e-6 > window_start
+                    ]
+                    if not segs:
                         continue
-                    for c in (data.get("clips") or []):
-                        if not isinstance(c, dict) or not c.get("title"):
+                    chunks = _build_chunks(segs)[:chunk_cap]
+                    for chunk_text, c_start, c_end in chunks:
+                        c_start = max(float(c_start), window_start)
+                        c_end = min(float(c_end), window_end)
+                        if c_end <= c_start:
                             continue
-                        s = _clamp(_timecode_to_seconds(c.get("start", c_start)), c_start, c_end or duration)
-                        e = _clamp(_timecode_to_seconds(c.get("end", s + 20)), s, duration or s + float(clip_max))
-                        e = min(e, duration) if duration else e
-                        if e - s < float(clip_min):
-                            # Enforce the target-driven minimum, not just a
-                            # sanity floor — short-form bites can't add up to a
-                            # long-form runtime.
-                            e = s + float(clip_min)
-                        if e - s > float(clip_max):
-                            e = s + float(clip_max)
-                        if duration:
-                            e = min(e, duration)
-                        candidates.append({
-                            "media_id": mid, "filename": fname,
-                            "start": round(s, 1), "end": round(e, 1),
-                            "title": str(c["title"]).strip()[:120],
-                            "why": str(c.get("why", "")).strip()[:300],
-                        })
+                        prompt = (
+                            f"You are a creative video editor. {CREATIVE_PERSONA}\n"
+                            f"{EDITOR_RULES}\n"
+                            "You are mining raw footage for a "
+                            "multi-video story edit.\n\n"
+                            f"{mine_direction}"
+                            f"{script_block}"
+                            f"Source file: {fname}\n"
+                            f"Transcript segment ({_format_timecode(c_start)}–{_format_timecode(c_end)}):\n"
+                            f"{chunk_text}\n\n"
+                            'Respond with ONLY JSON: {"clips": [{"start": "MM:SS", "end": "MM:SS", '
+                            '"title": "short title", "why": "one sentence"}]}\n'
+                            f"Rules: 1-3 strongest self-contained moments, each {clip_min}-{clip_max} seconds."
+                            + (
+                                " The finished production is long-form — prefer complete "
+                                "thoughts and full exchanges over quick soundbites."
+                                if target_duration and target_duration > 600 else ""
+                            )
+                        )
+                        raw = _generate(tokenizer, model, prompt, max_new_tokens=700)
+                        try:
+                            data = _extract_json(raw)
+                        except (ValueError, json.JSONDecodeError):
+                            continue
+                        for c in (data.get("clips") or []):
+                            if not isinstance(c, dict) or not c.get("title"):
+                                continue
+                            s = _clamp(_timecode_to_seconds(c.get("start", c_start)), c_start, c_end)
+                            e = _clamp(_timecode_to_seconds(c.get("end", s + 20)), s, c_end)
+                            e = min(e, c_end)
+                            if e - s < float(clip_min):
+                                # Enforce the target-driven minimum, not just a
+                                # sanity floor — short-form bites can't add up to a
+                                # long-form runtime.
+                                e = s + float(clip_min)
+                            if e - s > float(clip_max):
+                                e = s + float(clip_max)
+                            e = min(e, c_end)
+                            candidates.extend(constrain_candidate({
+                                "media_id": mid, "filename": fname,
+                                "start": round(s, 1), "end": round(e, 1),
+                                "title": str(c["title"]).strip()[:120],
+                                "why": str(c.get("why", "")).strip()[:300],
+                            }, ranges_by_media))
             _set_story(db, story_id, progress=round(8.0 + 62.0 * (idx + 1) / len(assets), 1))
 
         if not candidates:
@@ -360,15 +378,29 @@ def build_story(self, story_id: str):
         # ends mid-sentence, and attach what is actually said so ordering can
         # follow the conversation, not just the titles.
         durations = {a[0]: float(a[2] or 0) for a in assets}
+        snapped = []
         for c in candidates:
             s, e = _snap_to_sentences(
                 db, c["media_id"], c["start"], c["end"],
                 float(clip_max), durations.get(c["media_id"]) or None,
             )
+            windows = ranges_by_media.get(str(c["media_id"]))
+            if windows:
+                # Sentence completion is useful, but a campaign's explicit
+                # editorial window is authoritative and must not be exceeded.
+                constrained = constrain_candidate(
+                    {**c, "start": s, "end": e}, ranges_by_media
+                )
+                if not constrained:
+                    continue
+                c = constrained[0]
+                s, e = c["start"], c["end"]
             c["start"], c["end"] = s, e
             segs_c = _segments_between(db, c["media_id"], s, e)
             spoken = " ".join((r[3] or "").strip() for r in segs_c).strip()
             c["spoken"] = spoken[:220] + ("…" if len(spoken) > 220 else "")
+            snapped.append(c)
+        candidates = snapped
 
         # Drop exact duplicates created by snapping (two mined moments can
         # collapse onto the same sentence span).
@@ -540,6 +572,14 @@ def build_story(self, story_id: str):
                         break
                     c_end = float(c["end"])
                     ceiling = durations.get(c["media_id"]) or float("inf")
+                    windows = ranges_by_media.get(str(c["media_id"]))
+                    if windows:
+                        matching_ends = [
+                            hi for lo, hi in windows
+                            if float(c["start"]) >= lo and c_end <= hi + 1e-6
+                        ]
+                        if matching_ends:
+                            ceiling = min(ceiling, max(matching_ends))
                     for o in ordered:
                         if o is not c and o["media_id"] == c["media_id"] \
                                 and float(o["start"]) >= c_end:

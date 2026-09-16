@@ -1,5 +1,7 @@
+import math
 import os
 from datetime import datetime
+from enum import Enum
 from typing import Optional, List, Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
@@ -1208,6 +1210,216 @@ class ProjectUpdate(BaseModel):
     media_ids: Optional[List[str]] = None
     media_ranges: Optional[dict] = None
     target_runtime_seconds: Optional[float] = None
+
+
+# ── Campaign Builder ──────────────────────────────────────────────────────────
+
+class CampaignStatus(str, Enum):
+    draft = "draft"
+    active = "active"
+    completed = "completed"
+    archived = "archived"
+
+
+class CampaignDeliverableKind(str, Enum):
+    promo = "promo"
+    reel = "reel"
+    thumbnail = "thumbnail"
+    social_copy = "social_copy"
+
+
+class DeliverableStatus(str, Enum):
+    pending = "pending"
+    queued = "queued"
+    running = "running"
+    dispatch_unknown = "dispatch_unknown"
+    draft_ready = "draft_ready"
+    ready = "ready"
+    failed = "failed"
+
+
+class CampaignClip(BaseModel):
+    media_id: str = Field(min_length=1)
+    start_time: float = Field(ge=0)
+    end_time: float = Field(gt=0)
+    filename: Optional[str] = None
+    snippet: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_timecode(self):
+        if not math.isfinite(self.start_time) or not math.isfinite(self.end_time):
+            raise ValueError("Clip timecodes must be finite numbers")
+        if self.end_time <= self.start_time:
+            raise ValueError("end_time must be greater than start_time")
+        return self
+
+
+class CampaignProjectAction(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
+class CampaignCreate(BaseModel):
+    project_id: Optional[str] = None
+    project_action: Optional[CampaignProjectAction] = None
+    name: str = Field(min_length=1, max_length=200)
+    brief: str = Field(min_length=1)
+    objective: str = Field(min_length=1)
+    audience: str = Field(min_length=1)
+    key_message: str = Field(min_length=1)
+    tone: str = Field(min_length=1)
+    call_to_action: str = Field(min_length=1)
+    channels: List[str] = Field(min_length=1)
+    languages: List[str] = Field(min_length=1)
+    due_date: Optional[datetime] = None
+    status: CampaignStatus = CampaignStatus.draft
+    selected_clips: List[CampaignClip] = []
+
+    @model_validator(mode="after")
+    def validate_project_choice(self):
+        if bool(self.project_id) == bool(self.project_action):
+            raise ValueError("Provide exactly one of project_id or project_action")
+        return self
+
+
+class CampaignUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    brief: Optional[str] = Field(default=None, min_length=1)
+    objective: Optional[str] = Field(default=None, min_length=1)
+    audience: Optional[str] = Field(default=None, min_length=1)
+    key_message: Optional[str] = Field(default=None, min_length=1)
+    tone: Optional[str] = Field(default=None, min_length=1)
+    call_to_action: Optional[str] = Field(default=None, min_length=1)
+    channels: Optional[List[str]] = Field(default=None, min_length=1)
+    languages: Optional[List[str]] = Field(default=None, min_length=1)
+    due_date: Optional[datetime] = None
+    status: Optional[CampaignStatus] = None
+    selected_clips: Optional[List[CampaignClip]] = None
+
+    @model_validator(mode="after")
+    def reject_null_for_non_nullable_fields(self):
+        non_nullable = {
+            "name",
+            "brief",
+            "objective",
+            "audience",
+            "key_message",
+            "tone",
+            "call_to_action",
+            "channels",
+            "languages",
+            "status",
+            "selected_clips",
+        }
+        invalid = [
+            field
+            for field in non_nullable
+            if field in self.model_fields_set and getattr(self, field) is None
+        ]
+        if invalid:
+            raise ValueError(
+                f"These fields cannot be null: {', '.join(sorted(invalid))}"
+            )
+        return self
+
+
+class CampaignDeliverableCreate(BaseModel):
+    kind: CampaignDeliverableKind
+    label: str = Field(min_length=1, max_length=200)
+    channel: str = Field(min_length=1, max_length=100)
+    language: str = Field(min_length=1, max_length=40)
+    target_duration_seconds: Optional[float] = Field(default=None, gt=0)
+    aspect_ratio: str = Field(min_length=1, max_length=40)
+    notes: Optional[str] = None
+
+
+class CampaignDeliverableUpdate(BaseModel):
+    kind: Optional[CampaignDeliverableKind] = None
+    label: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    channel: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    language: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    target_duration_seconds: Optional[float] = Field(default=None, gt=0)
+    aspect_ratio: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    notes: Optional[str] = None
+
+    @model_validator(mode="after")
+    def reject_null_for_non_nullable_fields(self):
+        non_nullable = {
+            "kind",
+            "label",
+            "channel",
+            "language",
+            "aspect_ratio",
+        }
+        invalid = [
+            field
+            for field in non_nullable
+            if field in self.model_fields_set and getattr(self, field) is None
+        ]
+        if invalid:
+            raise ValueError(
+                f"These fields cannot be null: {', '.join(sorted(invalid))}"
+            )
+        return self
+
+
+class CampaignExecute(BaseModel):
+    retry: bool = False
+
+
+class CampaignJobReference(BaseModel):
+    type: Literal["story_job", "reel_job", "graphics_generation", "llm_generation"]
+    id: str
+
+
+class CampaignDeliverableOut(BaseModel):
+    id: str
+    campaign_id: str
+    kind: CampaignDeliverableKind
+    label: str
+    channel: str
+    language: str
+    target_duration_seconds: Optional[float] = None
+    aspect_ratio: str
+    notes: Optional[str] = None
+    status: DeliverableStatus
+    job_reference: Optional[CampaignJobReference] = None
+    output_url: Optional[str] = None
+    output_text: Optional[str] = None
+    error: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CampaignOut(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    brief: str
+    objective: str
+    audience: str
+    key_message: str
+    tone: str
+    call_to_action: str
+    channels: List[str]
+    languages: List[str]
+    due_date: Optional[datetime] = None
+    status: CampaignStatus
+    selected_clips: List[CampaignClip] = []
+    deliverables: List[CampaignDeliverableOut] = []
+    created_at: datetime
+    updated_at: datetime
+
+
+class CampaignEnvelope(BaseModel):
+    data: CampaignOut
+
+
+class CampaignListEnvelope(BaseModel):
+    data: List[CampaignOut]
+
+
+class CampaignDeliverableEnvelope(BaseModel):
+    data: CampaignDeliverableOut
 
 
 class ProjectChatMessageOut(BaseModel):

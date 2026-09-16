@@ -411,6 +411,9 @@ class StoryJob(Base):
     script: Mapped[str | None] = mapped_column(Text, nullable=True)
     clip_list_id: Mapped[str | None] = mapped_column(String, nullable=True)
     target_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Optional editorial windows supplied by Campaign Builder.  The story
+    # worker constrains candidate mining to these ranges when present.
+    clip_ranges: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -766,4 +769,90 @@ class RatingRecord(Base):
     __table_args__ = (
         Index("ix_ratings_records_air_date_station", "air_date", "station"),
         Index("ix_ratings_records_import_id", "import_id"),
+    )
+
+
+class Campaign(Base):
+    """Persisted campaign brief and its link to an editorial Project.
+
+    Campaign deletion is intentionally independent of the linked Project and
+    source media.  Selected clip metadata is snapshotted here so a campaign
+    remains reproducible even when library search results change.
+    """
+
+    __tablename__ = "campaigns"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    brief: Mapped[str] = mapped_column(Text, nullable=False)
+    objective: Mapped[str] = mapped_column(Text, nullable=False)
+    audience: Mapped[str] = mapped_column(Text, nullable=False)
+    key_message: Mapped[str] = mapped_column(Text, nullable=False)
+    tone: Mapped[str] = mapped_column(Text, nullable=False)
+    call_to_action: Mapped[str] = mapped_column(Text, nullable=False)
+    channels: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    languages: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    due_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="draft")
+    selected_clips: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    created_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    deliverables: Mapped[list["CampaignDeliverable"]] = relationship(
+        "CampaignDeliverable",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        order_by="CampaignDeliverable.created_at",
+    )
+
+
+class CampaignDeliverable(Base):
+    """One real generation target belonging to a campaign.
+
+    `job_reference` points at the existing StoryJob, ReelJob, or
+    GraphicsGeneration row.  Social-copy executions use a durable generation
+    id for the existing LLM helper invocation and persist the returned text.
+    `execution_lock` and `idempotency_key` are persisted so a process restart
+    cannot silently dispatch a second job for the same deliverable.
+    """
+
+    __tablename__ = "campaign_deliverables"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    campaign_id: Mapped[str] = mapped_column(
+        String, ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    label: Mapped[str] = mapped_column(String, nullable=False)
+    channel: Mapped[str] = mapped_column(String, nullable=False)
+    language: Mapped[str] = mapped_column(String, nullable=False)
+    target_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    aspect_ratio: Mapped[str] = mapped_column(String, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    job_reference: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    output_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    output_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String, nullable=True)
+    execution_lock: Mapped[str | None] = mapped_column(String, nullable=True)
+    execution_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    execution_attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    dispatch_state: Mapped[str] = mapped_column(
+        String, nullable=False, default="not_started"
+    )
+    created_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    campaign: Mapped["Campaign"] = relationship(
+        "Campaign", back_populates="deliverables"
     )

@@ -17,6 +17,8 @@ import PersonDetail from "@/pages/person-detail";
 import Insights from "@/pages/insights";
 import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
+import Campaigns from "@/pages/campaigns";
+import CampaignDetail from "@/pages/campaign-detail";
 // import Graphics from "@/pages/graphics"; // hidden (GPU contention)
 import Ratings from "@/pages/ratings";
 import Socials from "@/pages/socials";
@@ -60,6 +62,8 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/campaigns" component={Campaigns} />
+        <Route path="/campaigns/:id" component={CampaignDetail} />
         <Route path="/studio" component={Projects} />
         <Route path="/studio/:id" component={ProjectDetail} />
         {/* Old /projects URLs keep working */}

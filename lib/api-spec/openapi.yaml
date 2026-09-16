@@ -37,6 +37,8 @@ tags:
     description: Session authentication
   - name: users
     description: User management (admin only)
+  - name: campaigns
+    description: Production campaign briefs and deliverable generation
 paths:
   /healthz:
     get:
@@ -3353,6 +3355,210 @@ paths:
         "404":
           description: Project not found
 
+  # ── Campaign Builder ───────────────────────────────────────────────────────
+  /campaigns:
+    get:
+      operationId: listCampaigns
+      tags: [campaigns]
+      summary: List persisted campaigns
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/CampaignStatus"
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Campaign list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignListResponse"
+    post:
+      operationId: createCampaign
+      tags: [campaigns]
+      summary: Create and link a campaign to an existing or newly-created Project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignCreate"
+      responses:
+        "201":
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "404":
+          $ref: "#/components/responses/CampaignError"
+        "422":
+          $ref: "#/components/responses/CampaignError"
+
+  /campaigns/{campaign_id}:
+    get:
+      operationId: getCampaign
+      tags: [campaigns]
+      summary: Get a campaign and derive deliverable state from real jobs
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+      responses:
+        "200":
+          description: Campaign detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "404":
+          $ref: "#/components/responses/CampaignError"
+    patch:
+      operationId: updateCampaign
+      tags: [campaigns]
+      summary: Update a campaign brief and synchronize selected clips to its Project
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignUpdate"
+      responses:
+        "200":
+          description: Campaign updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "403":
+          $ref: "#/components/responses/CampaignError"
+        "404":
+          $ref: "#/components/responses/CampaignError"
+        "422":
+          $ref: "#/components/responses/CampaignError"
+    delete:
+      operationId: deleteCampaign
+      tags: [campaigns]
+      summary: Delete campaign metadata without deleting its Project, media, or jobs
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+      responses:
+        "204":
+          description: Campaign deleted; linked resources are retained
+        "403":
+          $ref: "#/components/responses/CampaignError"
+        "404":
+          $ref: "#/components/responses/CampaignError"
+
+  /campaigns/{campaign_id}/deliverables:
+    post:
+      operationId: createCampaignDeliverable
+      tags: [campaigns]
+      summary: Add a deliverable to a campaign
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignDeliverableCreate"
+      responses:
+        "201":
+          description: Deliverable created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignDeliverableResponse"
+        "404":
+          $ref: "#/components/responses/CampaignError"
+
+  /campaigns/{campaign_id}/deliverables/{deliverable_id}:
+    patch:
+      operationId: updateCampaignDeliverable
+      tags: [campaigns]
+      summary: Update a campaign deliverable before or after execution
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/DeliverableId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignDeliverableUpdate"
+      responses:
+        "200":
+          description: Deliverable updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignDeliverableResponse"
+        "403":
+          $ref: "#/components/responses/CampaignError"
+        "404":
+          $ref: "#/components/responses/CampaignError"
+        "409":
+          $ref: "#/components/responses/CampaignError"
+    delete:
+      operationId: deleteCampaignDeliverable
+      tags: [campaigns]
+      summary: Delete campaign deliverable metadata without deleting referenced jobs
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/DeliverableId"
+      responses:
+        "204":
+          description: Deliverable deleted; referenced job retained
+        "403":
+          $ref: "#/components/responses/CampaignError"
+        "404":
+          $ref: "#/components/responses/CampaignError"
+
+  /campaigns/{campaign_id}/deliverables/{deliverable_id}/execute:
+    post:
+      operationId: executeCampaignDeliverable
+      tags: [campaigns]
+      summary: Execute one deliverable using an existing generation engine
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/DeliverableId"
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignExecute"
+      responses:
+        "202":
+          description: Existing job queued or social copy generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignDeliverableResponse"
+        "403":
+          $ref: "#/components/responses/CampaignError"
+        "404":
+          $ref: "#/components/responses/CampaignError"
+        "409":
+          $ref: "#/components/responses/CampaignError"
+        "422":
+          $ref: "#/components/responses/CampaignError"
+        "503":
+          $ref: "#/components/responses/CampaignError"
+
   # ── Clips ─────────────────────────────────────────────────────────────────
   /clips:
     get:
@@ -4154,6 +4360,26 @@ paths:
           description: Admin only
 
 components:
+  parameters:
+    CampaignId:
+      name: campaign_id
+      in: path
+      required: true
+      schema:
+        type: string
+    DeliverableId:
+      name: deliverable_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    CampaignError:
+      description: Structured campaign API error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CampaignErrorResponse"
   schemas:
     HealthStatus:
       type: object
@@ -7655,3 +7881,343 @@ components:
           minLength: 8
           maxLength: 72
           description: Set to reset the user's password (8-72 chars, bcrypt limit); invalidates their sessions
+
+    # ── Campaign Builder ─────────────────────────────────────────────────────
+    CampaignStatus:
+      type: string
+      enum: [draft, active, completed, archived]
+
+    CampaignDeliverableKind:
+      type: string
+      enum: [promo, reel, thumbnail, social_copy]
+
+    DeliverableStatus:
+      type: string
+      enum: [pending, queued, running, dispatch_unknown, draft_ready, ready, failed]
+      description: dispatch_unknown means the existing linked job may still start or complete and is not safely retryable.
+
+    CampaignErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details: {}
+
+    CampaignClip:
+      type: object
+      required: [media_id, start_time, end_time]
+      properties:
+        media_id:
+          type: string
+        start_time:
+          type: number
+          minimum: 0
+        end_time:
+          type: number
+          exclusiveMinimum: 0
+        filename:
+          type: ["string", "null"]
+        snippet:
+          type: ["string", "null"]
+      description: Timecodes are seconds and are also validated against source media duration by the API.
+
+    CampaignProjectAction:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    CampaignCreate:
+      type: object
+      required: [name, brief, objective, audience, key_message, tone, call_to_action, channels, languages]
+      properties:
+        project_id:
+          type: ["string", "null"]
+        project_action:
+          oneOf:
+            - $ref: "#/components/schemas/CampaignProjectAction"
+            - type: "null"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        brief:
+          type: string
+          minLength: 1
+        objective:
+          type: string
+          minLength: 1
+        audience:
+          type: string
+          minLength: 1
+        key_message:
+          type: string
+          minLength: 1
+        tone:
+          type: string
+          minLength: 1
+        call_to_action:
+          type: string
+          minLength: 1
+        channels:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        languages:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        due_date:
+          type: ["string", "null"]
+          format: date-time
+        status:
+          $ref: "#/components/schemas/CampaignStatus"
+          default: draft
+        selected_clips:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignClip"
+      description: Exactly one of project_id or project_action is required.
+
+    CampaignUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        brief:
+          type: string
+          minLength: 1
+        objective:
+          type: string
+          minLength: 1
+        audience:
+          type: string
+          minLength: 1
+        key_message:
+          type: string
+          minLength: 1
+        tone:
+          type: string
+          minLength: 1
+        call_to_action:
+          type: string
+          minLength: 1
+        channels:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        languages:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        due_date:
+          type: ["string", "null"]
+          format: date-time
+        status:
+          $ref: "#/components/schemas/CampaignStatus"
+        selected_clips:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignClip"
+
+    CampaignDeliverableCreate:
+      type: object
+      required: [kind, label, channel, language, aspect_ratio]
+      properties:
+        kind:
+          $ref: "#/components/schemas/CampaignDeliverableKind"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 200
+        channel:
+          type: string
+          minLength: 1
+          maxLength: 100
+        language:
+          type: string
+          minLength: 1
+          maxLength: 40
+        target_duration_seconds:
+          type: ["number", "null"]
+          exclusiveMinimum: 0
+        aspect_ratio:
+          type: string
+          minLength: 1
+          maxLength: 40
+        notes:
+          type: ["string", "null"]
+
+    CampaignDeliverableUpdate:
+      type: object
+      properties:
+        kind:
+          $ref: "#/components/schemas/CampaignDeliverableKind"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 200
+        channel:
+          type: string
+          minLength: 1
+          maxLength: 100
+        language:
+          type: string
+          minLength: 1
+          maxLength: 40
+        target_duration_seconds:
+          type: ["number", "null"]
+          exclusiveMinimum: 0
+        aspect_ratio:
+          type: string
+          minLength: 1
+          maxLength: 40
+        notes:
+          type: ["string", "null"]
+
+    CampaignExecute:
+      type: object
+      properties:
+        retry:
+          type: boolean
+          default: false
+
+    CampaignJobReference:
+      type: object
+      required: [type, id]
+      properties:
+        type:
+          type: string
+          enum: [story_job, reel_job, graphics_generation, llm_generation]
+        id:
+          type: string
+
+    CampaignDeliverable:
+      type: object
+      required: [id, campaign_id, kind, label, channel, language, aspect_ratio, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        campaign_id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/CampaignDeliverableKind"
+        label:
+          type: string
+        channel:
+          type: string
+        language:
+          type: string
+        target_duration_seconds:
+          type: ["number", "null"]
+        aspect_ratio:
+          type: string
+        notes:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/DeliverableStatus"
+        job_reference:
+          oneOf:
+            - $ref: "#/components/schemas/CampaignJobReference"
+            - type: "null"
+        output_url:
+          type: ["string", "null"]
+        output_text:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Campaign:
+      type: object
+      required: [id, project_id, name, brief, objective, audience, key_message, tone, call_to_action, channels, languages, status, selected_clips, deliverables, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        name:
+          type: string
+        brief:
+          type: string
+        objective:
+          type: string
+        audience:
+          type: string
+        key_message:
+          type: string
+        tone:
+          type: string
+        call_to_action:
+          type: string
+        channels:
+          type: array
+          items:
+            type: string
+        languages:
+          type: array
+          items:
+            type: string
+        due_date:
+          type: ["string", "null"]
+          format: date-time
+        status:
+          $ref: "#/components/schemas/CampaignStatus"
+        selected_clips:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignClip"
+        deliverables:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignDeliverable"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CampaignResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Campaign"
+
+    CampaignListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Campaign"
+
+    CampaignDeliverableResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/CampaignDeliverable"

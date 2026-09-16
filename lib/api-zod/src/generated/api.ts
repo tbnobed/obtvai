@@ -4081,6 +4081,509 @@ export const RenderProjectCutResponse = zod.object({
 
 
 /**
+ * @summary List persisted campaigns
+ */
+export const ListCampaignsQueryParams = zod.object({
+  "status": zod.enum(['draft', 'active', 'completed', 'archived']).optional(),
+  "project_id": zod.coerce.string().optional()
+})
+
+export const listCampaignsResponseDataItemSelectedClipsItemStartTimeMin = 0;
+
+export const listCampaignsResponseDataItemSelectedClipsItemEndTimeExclusiveMin = 0;
+
+
+
+export const ListCampaignsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.string(),
+  "project_id": zod.string(),
+  "name": zod.string(),
+  "brief": zod.string(),
+  "objective": zod.string(),
+  "audience": zod.string(),
+  "key_message": zod.string(),
+  "tone": zod.string(),
+  "call_to_action": zod.string(),
+  "channels": zod.array(zod.string()),
+  "languages": zod.array(zod.string()),
+  "due_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['draft', 'active', 'completed', 'archived']),
+  "selected_clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "start_time": zod.number().min(listCampaignsResponseDataItemSelectedClipsItemStartTimeMin),
+  "end_time": zod.number().gt(listCampaignsResponseDataItemSelectedClipsItemEndTimeExclusiveMin),
+  "filename": zod.string().nullish(),
+  "snippet": zod.string().nullish()
+}).describe('Timecodes are seconds and are also validated against source media duration by the API.')),
+  "deliverables": zod.array(zod.object({
+  "id": zod.string(),
+  "campaign_id": zod.string(),
+  "kind": zod.enum(['promo', 'reel', 'thumbnail', 'social_copy']),
+  "label": zod.string(),
+  "channel": zod.string(),
+  "language": zod.string(),
+  "target_duration_seconds": zod.number().nullish(),
+  "aspect_ratio": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'queued', 'running', 'dispatch_unknown', 'draft_ready', 'ready', 'failed']).describe('dispatch_unknown means the existing linked job may still start or complete and is not safely retryable.'),
+  "job_reference": zod.union([zod.object({
+  "type": zod.enum(['story_job', 'reel_job', 'graphics_generation', 'llm_generation']),
+  "id": zod.string()
+}),zod.null()]).optional(),
+  "output_url": zod.string().nullish(),
+  "output_text": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create and link a campaign to an existing or newly-created Project
+ */
+export const createCampaignBodyProjectActionOneNameMax = 200;
+
+export const createCampaignBodyNameMax = 200;
+
+
+
+
+
+
+
+
+
+export const createCampaignBodyStatusDefault = `draft`;
+export const createCampaignBodySelectedClipsItemStartTimeMin = 0;
+
+export const createCampaignBodySelectedClipsItemEndTimeExclusiveMin = 0;
+
+
+
+export const CreateCampaignBody = zod.object({
+  "project_id": zod.string().nullish(),
+  "project_action": zod.union([zod.object({
+  "name": zod.string().min(1).max(createCampaignBodyProjectActionOneNameMax)
+}),zod.null()]).optional(),
+  "name": zod.string().min(1).max(createCampaignBodyNameMax),
+  "brief": zod.string().min(1),
+  "objective": zod.string().min(1),
+  "audience": zod.string().min(1),
+  "key_message": zod.string().min(1),
+  "tone": zod.string().min(1),
+  "call_to_action": zod.string().min(1),
+  "channels": zod.array(zod.string()).min(1),
+  "languages": zod.array(zod.string()).min(1),
+  "due_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['draft', 'active', 'completed', 'archived']).default(createCampaignBodyStatusDefault),
+  "selected_clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "start_time": zod.number().min(createCampaignBodySelectedClipsItemStartTimeMin),
+  "end_time": zod.number().gt(createCampaignBodySelectedClipsItemEndTimeExclusiveMin),
+  "filename": zod.string().nullish(),
+  "snippet": zod.string().nullish()
+}).describe('Timecodes are seconds and are also validated against source media duration by the API.')).optional()
+}).describe('Exactly one of project_id or project_action is required.')
+
+export const createCampaignResponseDataSelectedClipsItemStartTimeMin = 0;
+
+export const createCampaignResponseDataSelectedClipsItemEndTimeExclusiveMin = 0;
+
+
+
+export const CreateCampaignResponse = zod.object({
+  "data": zod.object({
+  "id": zod.string(),
+  "project_id": zod.string(),
+  "name": zod.string(),
+  "brief": zod.string(),
+  "objective": zod.string(),
+  "audience": zod.string(),
+  "key_message": zod.string(),
+  "tone": zod.string(),
+  "call_to_action": zod.string(),
+  "channels": zod.array(zod.string()),
+  "languages": zod.array(zod.string()),
+  "due_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['draft', 'active', 'completed', 'archived']),
+  "selected_clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "start_time": zod.number().min(createCampaignResponseDataSelectedClipsItemStartTimeMin),
+  "end_time": zod.number().gt(createCampaignResponseDataSelectedClipsItemEndTimeExclusiveMin),
+  "filename": zod.string().nullish(),
+  "snippet": zod.string().nullish()
+}).describe('Timecodes are seconds and are also validated against source media duration by the API.')),
+  "deliverables": zod.array(zod.object({
+  "id": zod.string(),
+  "campaign_id": zod.string(),
+  "kind": zod.enum(['promo', 'reel', 'thumbnail', 'social_copy']),
+  "label": zod.string(),
+  "channel": zod.string(),
+  "language": zod.string(),
+  "target_duration_seconds": zod.number().nullish(),
+  "aspect_ratio": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'queued', 'running', 'dispatch_unknown', 'draft_ready', 'ready', 'failed']).describe('dispatch_unknown means the existing linked job may still start or complete and is not safely retryable.'),
+  "job_reference": zod.union([zod.object({
+  "type": zod.enum(['story_job', 'reel_job', 'graphics_generation', 'llm_generation']),
+  "id": zod.string()
+}),zod.null()]).optional(),
+  "output_url": zod.string().nullish(),
+  "output_text": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Get a campaign and derive deliverable state from real jobs
+ */
+export const GetCampaignParams = zod.object({
+  "campaign_id": zod.coerce.string()
+})
+
+export const getCampaignResponseDataSelectedClipsItemStartTimeMin = 0;
+
+export const getCampaignResponseDataSelectedClipsItemEndTimeExclusiveMin = 0;
+
+
+
+export const GetCampaignResponse = zod.object({
+  "data": zod.object({
+  "id": zod.string(),
+  "project_id": zod.string(),
+  "name": zod.string(),
+  "brief": zod.string(),
+  "objective": zod.string(),
+  "audience": zod.string(),
+  "key_message": zod.string(),
+  "tone": zod.string(),
+  "call_to_action": zod.string(),
+  "channels": zod.array(zod.string()),
+  "languages": zod.array(zod.string()),
+  "due_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['draft', 'active', 'completed', 'archived']),
+  "selected_clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "start_time": zod.number().min(getCampaignResponseDataSelectedClipsItemStartTimeMin),
+  "end_time": zod.number().gt(getCampaignResponseDataSelectedClipsItemEndTimeExclusiveMin),
+  "filename": zod.string().nullish(),
+  "snippet": zod.string().nullish()
+}).describe('Timecodes are seconds and are also validated against source media duration by the API.')),
+  "deliverables": zod.array(zod.object({
+  "id": zod.string(),
+  "campaign_id": zod.string(),
+  "kind": zod.enum(['promo', 'reel', 'thumbnail', 'social_copy']),
+  "label": zod.string(),
+  "channel": zod.string(),
+  "language": zod.string(),
+  "target_duration_seconds": zod.number().nullish(),
+  "aspect_ratio": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'queued', 'running', 'dispatch_unknown', 'draft_ready', 'ready', 'failed']).describe('dispatch_unknown means the existing linked job may still start or complete and is not safely retryable.'),
+  "job_reference": zod.union([zod.object({
+  "type": zod.enum(['story_job', 'reel_job', 'graphics_generation', 'llm_generation']),
+  "id": zod.string()
+}),zod.null()]).optional(),
+  "output_url": zod.string().nullish(),
+  "output_text": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Update a campaign brief and synchronize selected clips to its Project
+ */
+export const UpdateCampaignParams = zod.object({
+  "campaign_id": zod.coerce.string()
+})
+
+export const updateCampaignBodyNameMax = 200;
+
+
+
+
+
+
+
+
+
+export const updateCampaignBodySelectedClipsItemStartTimeMin = 0;
+
+export const updateCampaignBodySelectedClipsItemEndTimeExclusiveMin = 0;
+
+
+
+export const UpdateCampaignBody = zod.object({
+  "name": zod.string().min(1).max(updateCampaignBodyNameMax).optional(),
+  "brief": zod.string().min(1).optional(),
+  "objective": zod.string().min(1).optional(),
+  "audience": zod.string().min(1).optional(),
+  "key_message": zod.string().min(1).optional(),
+  "tone": zod.string().min(1).optional(),
+  "call_to_action": zod.string().min(1).optional(),
+  "channels": zod.array(zod.string()).min(1).optional(),
+  "languages": zod.array(zod.string()).min(1).optional(),
+  "due_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['draft', 'active', 'completed', 'archived']).optional(),
+  "selected_clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "start_time": zod.number().min(updateCampaignBodySelectedClipsItemStartTimeMin),
+  "end_time": zod.number().gt(updateCampaignBodySelectedClipsItemEndTimeExclusiveMin),
+  "filename": zod.string().nullish(),
+  "snippet": zod.string().nullish()
+}).describe('Timecodes are seconds and are also validated against source media duration by the API.')).optional()
+})
+
+export const updateCampaignResponseDataSelectedClipsItemStartTimeMin = 0;
+
+export const updateCampaignResponseDataSelectedClipsItemEndTimeExclusiveMin = 0;
+
+
+
+export const UpdateCampaignResponse = zod.object({
+  "data": zod.object({
+  "id": zod.string(),
+  "project_id": zod.string(),
+  "name": zod.string(),
+  "brief": zod.string(),
+  "objective": zod.string(),
+  "audience": zod.string(),
+  "key_message": zod.string(),
+  "tone": zod.string(),
+  "call_to_action": zod.string(),
+  "channels": zod.array(zod.string()),
+  "languages": zod.array(zod.string()),
+  "due_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['draft', 'active', 'completed', 'archived']),
+  "selected_clips": zod.array(zod.object({
+  "media_id": zod.string(),
+  "start_time": zod.number().min(updateCampaignResponseDataSelectedClipsItemStartTimeMin),
+  "end_time": zod.number().gt(updateCampaignResponseDataSelectedClipsItemEndTimeExclusiveMin),
+  "filename": zod.string().nullish(),
+  "snippet": zod.string().nullish()
+}).describe('Timecodes are seconds and are also validated against source media duration by the API.')),
+  "deliverables": zod.array(zod.object({
+  "id": zod.string(),
+  "campaign_id": zod.string(),
+  "kind": zod.enum(['promo', 'reel', 'thumbnail', 'social_copy']),
+  "label": zod.string(),
+  "channel": zod.string(),
+  "language": zod.string(),
+  "target_duration_seconds": zod.number().nullish(),
+  "aspect_ratio": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'queued', 'running', 'dispatch_unknown', 'draft_ready', 'ready', 'failed']).describe('dispatch_unknown means the existing linked job may still start or complete and is not safely retryable.'),
+  "job_reference": zod.union([zod.object({
+  "type": zod.enum(['story_job', 'reel_job', 'graphics_generation', 'llm_generation']),
+  "id": zod.string()
+}),zod.null()]).optional(),
+  "output_url": zod.string().nullish(),
+  "output_text": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Delete campaign metadata without deleting its Project, media, or jobs
+ */
+export const DeleteCampaignParams = zod.object({
+  "campaign_id": zod.coerce.string()
+})
+
+export const DeleteCampaignResponse = zod.void()
+
+
+/**
+ * @summary Add a deliverable to a campaign
+ */
+export const CreateCampaignDeliverableParams = zod.object({
+  "campaign_id": zod.coerce.string()
+})
+
+export const createCampaignDeliverableBodyLabelMax = 200;
+
+export const createCampaignDeliverableBodyChannelMax = 100;
+
+export const createCampaignDeliverableBodyLanguageMax = 40;
+
+export const createCampaignDeliverableBodyTargetDurationSecondsExclusiveMin = 0;
+
+export const createCampaignDeliverableBodyAspectRatioMax = 40;
+
+
+
+export const CreateCampaignDeliverableBody = zod.object({
+  "kind": zod.enum(['promo', 'reel', 'thumbnail', 'social_copy']),
+  "label": zod.string().min(1).max(createCampaignDeliverableBodyLabelMax),
+  "channel": zod.string().min(1).max(createCampaignDeliverableBodyChannelMax),
+  "language": zod.string().min(1).max(createCampaignDeliverableBodyLanguageMax),
+  "target_duration_seconds": zod.number().gt(createCampaignDeliverableBodyTargetDurationSecondsExclusiveMin).nullish(),
+  "aspect_ratio": zod.string().min(1).max(createCampaignDeliverableBodyAspectRatioMax),
+  "notes": zod.string().nullish()
+})
+
+export const CreateCampaignDeliverableResponse = zod.object({
+  "data": zod.object({
+  "id": zod.string(),
+  "campaign_id": zod.string(),
+  "kind": zod.enum(['promo', 'reel', 'thumbnail', 'social_copy']),
+  "label": zod.string(),
+  "channel": zod.string(),
+  "language": zod.string(),
+  "target_duration_seconds": zod.number().nullish(),
+  "aspect_ratio": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'queued', 'running', 'dispatch_unknown', 'draft_ready', 'ready', 'failed']).describe('dispatch_unknown means the existing linked job may still start or complete and is not safely retryable.'),
+  "job_reference": zod.union([zod.object({
+  "type": zod.enum(['story_job', 'reel_job', 'graphics_generation', 'llm_generation']),
+  "id": zod.string()
+}),zod.null()]).optional(),
+  "output_url": zod.string().nullish(),
+  "output_text": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Update a campaign deliverable before or after execution
+ */
+export const UpdateCampaignDeliverableParams = zod.object({
+  "campaign_id": zod.coerce.string(),
+  "deliverable_id": zod.coerce.string()
+})
+
+export const updateCampaignDeliverableBodyLabelMax = 200;
+
+export const updateCampaignDeliverableBodyChannelMax = 100;
+
+export const updateCampaignDeliverableBodyLanguageMax = 40;
+
+export const updateCampaignDeliverableBodyTargetDurationSecondsExclusiveMin = 0;
+
+export const updateCampaignDeliverableBodyAspectRatioMax = 40;
+
+
+
+export const UpdateCampaignDeliverableBody = zod.object({
+  "kind": zod.enum(['promo', 'reel', 'thumbnail', 'social_copy']).optional(),
+  "label": zod.string().min(1).max(updateCampaignDeliverableBodyLabelMax).optional(),
+  "channel": zod.string().min(1).max(updateCampaignDeliverableBodyChannelMax).optional(),
+  "language": zod.string().min(1).max(updateCampaignDeliverableBodyLanguageMax).optional(),
+  "target_duration_seconds": zod.number().gt(updateCampaignDeliverableBodyTargetDurationSecondsExclusiveMin).nullish(),
+  "aspect_ratio": zod.string().min(1).max(updateCampaignDeliverableBodyAspectRatioMax).optional(),
+  "notes": zod.string().nullish()
+})
+
+export const UpdateCampaignDeliverableResponse = zod.object({
+  "data": zod.object({
+  "id": zod.string(),
+  "campaign_id": zod.string(),
+  "kind": zod.enum(['promo', 'reel', 'thumbnail', 'social_copy']),
+  "label": zod.string(),
+  "channel": zod.string(),
+  "language": zod.string(),
+  "target_duration_seconds": zod.number().nullish(),
+  "aspect_ratio": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'queued', 'running', 'dispatch_unknown', 'draft_ready', 'ready', 'failed']).describe('dispatch_unknown means the existing linked job may still start or complete and is not safely retryable.'),
+  "job_reference": zod.union([zod.object({
+  "type": zod.enum(['story_job', 'reel_job', 'graphics_generation', 'llm_generation']),
+  "id": zod.string()
+}),zod.null()]).optional(),
+  "output_url": zod.string().nullish(),
+  "output_text": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Delete campaign deliverable metadata without deleting referenced jobs
+ */
+export const DeleteCampaignDeliverableParams = zod.object({
+  "campaign_id": zod.coerce.string(),
+  "deliverable_id": zod.coerce.string()
+})
+
+export const DeleteCampaignDeliverableResponse = zod.void()
+
+
+/**
+ * @summary Execute one deliverable using an existing generation engine
+ */
+export const ExecuteCampaignDeliverableParams = zod.object({
+  "campaign_id": zod.coerce.string(),
+  "deliverable_id": zod.coerce.string()
+})
+
+export const executeCampaignDeliverableHeaderIdempotencyKeyMax = 200;
+
+
+
+export const ExecuteCampaignDeliverableHeader = zod.object({
+  "Idempotency-Key": zod.string().max(executeCampaignDeliverableHeaderIdempotencyKeyMax).optional()
+})
+
+export const executeCampaignDeliverableBodyRetryDefault = false;
+
+export const ExecuteCampaignDeliverableBody = zod.object({
+  "retry": zod.boolean().default(executeCampaignDeliverableBodyRetryDefault)
+})
+
+export const ExecuteCampaignDeliverableResponse = zod.object({
+  "data": zod.object({
+  "id": zod.string(),
+  "campaign_id": zod.string(),
+  "kind": zod.enum(['promo', 'reel', 'thumbnail', 'social_copy']),
+  "label": zod.string(),
+  "channel": zod.string(),
+  "language": zod.string(),
+  "target_duration_seconds": zod.number().nullish(),
+  "aspect_ratio": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'queued', 'running', 'dispatch_unknown', 'draft_ready', 'ready', 'failed']).describe('dispatch_unknown means the existing linked job may still start or complete and is not safely retryable.'),
+  "job_reference": zod.union([zod.object({
+  "type": zod.enum(['story_job', 'reel_job', 'graphics_generation', 'llm_generation']),
+  "id": zod.string()
+}),zod.null()]).optional(),
+  "output_url": zod.string().nullish(),
+  "output_text": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+})
+
+
+/**
  * @summary List all clip lists
  */
 export const ListClipListsQueryParams = zod.object({
