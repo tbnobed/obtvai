@@ -30,6 +30,16 @@ STABLE_SECONDS = int(os.getenv("STABLE_SECONDS", "5"))
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "30"))
 SCAN_ON_START = os.getenv("SCAN_ON_START", "1") not in ("0", "false", "no")
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wmv", ".flv", ".webm"}
+INBOX_RECONCILE_SECONDS = max(
+    1, int(os.getenv("CURATOR_INBOX_RECONCILE_SECONDS", str(POLL_INTERVAL)))
+)
+ROOT_RETRY_SECONDS = max(
+    1, int(os.getenv("WATCHER_ROOT_RETRY_SECONDS", str(POLL_INTERVAL)))
+)
+HEALTH_PATH = os.getenv(
+    "WATCHER_HEALTH_FILE",
+    os.getenv("WATCHER_HEALTH_PATH", "/tmp/watcher-health.json"),
+)
 
 pending: dict[str, dict] = {}
 
@@ -38,6 +48,13 @@ pending: dict[str, dict] = {}
 XML_RETRY_SECONDS = int(os.getenv("CURATOR_XML_RETRY_SECONDS", "120"))
 XML_MAX_RETRIES = int(os.getenv("CURATOR_XML_MAX_RETRIES", "720"))  # ~24h at 120s
 xml_retries: dict[str, int] = {}
+
+# These are deliberately process-local.  The XML file is the durable queue;
+# these records only prevent a watchdog event or a reconciliation pass from
+# resetting a stability/retry deadline while an item is already pending.
+_watch_states: dict[str, dict] = {}
+_last_inbox_scan_at: float | None = None
+_last_inbox_scan_ok = False
 
 
 def _is_video(path: str) -> bool:
@@ -95,8 +112,7 @@ def _refresh_curator_selected() -> None:
         for dirpath, _dirnames, filenames in os.walk(root):
             for fn in filenames:
                 p = os.path.join(dirpath, fn)
-                if p not in pending and _should_ingest(p):
-                    pending[p] = {"detected_at": time.time(), "size": _size(p)}
+                if _should_ingest(p) and _queue_pending(p):
                     count += 1
         log.info(f"Curator folder selected '{rel}': {count} file(s) queued")
 
@@ -126,6 +142,91 @@ def _size(path: str) -> int | None:
         return os.path.getsize(path)
     except OSError:
         return None
+
+
+def _size_state(path: str) -> tuple[int | None, bool]:
+    """Return (size, readable).
+
+    ``None`` from ``_size`` historically meant either a missing file or a
+    transient SMB read error.  The watcher must distinguish those cases:
+    missing files can leave the queue, while an access/read error must remain
+    queued for a later attempt.
+    """
+    try:
+        return os.path.getsize(path), True
+    except FileNotFoundError:
+        return None, True
+    except OSError as e:
+        log.warning("Could not read size for %s; will retry: %s", path, e)
+        return None, False
+
+
+def _queue_pending(path: str, detected_at: float | None = None) -> bool:
+    """Queue a path without changing an existing item's deadline.
+
+    Watchdog can emit several created/modified/moved events for one file, and
+    the periodic inbox reconciliation intentionally observes the same files.
+    Treating either as a new queue item would reset stability and, for XML,
+    could reset the retry budget.  A path already present in ``pending`` is
+    therefore authoritative until its current attempt completes.
+    """
+    if path in pending:
+        return False
+    now = time.time() if detected_at is None else detected_at
+    candidate = {
+        "path": path,
+        "detected_at": now,
+        "next_attempt_at": now + STABLE_SECONDS,
+        "size": _size(path),
+    }
+    # Stat'ing an SMB path can yield to the watchdog thread.  Never overwrite
+    # an item that arrived between the fast check and this assignment.
+    return pending.setdefault(path, candidate) is candidate
+
+
+def _defer_pending(
+    info: dict, now: float, delay: float, *, refresh_size: bool = True
+) -> None:
+    """Move an existing queue item to a future deadline without replacing it."""
+    info["detected_at"] = now + delay - STABLE_SECONDS
+    info["next_attempt_at"] = now + delay
+    if refresh_size and info.get("path"):
+        size = _size(info["path"])
+        if size is not None:
+            info["size"] = size
+    info["processing"] = False
+
+
+def _reconcile_curator_inbox(now: float | None = None) -> bool:
+    """Reconcile only top-level XML files in the manifest inbox.
+
+    This is deliberately not an ``os.walk`` and never touches media roots.
+    A failed directory/entry read is reported as an unsuccessful scan, so the
+    next pass retries it and health does not incorrectly become green.
+    """
+    global _last_inbox_scan_at, _last_inbox_scan_ok
+    scan_time = time.time() if now is None else now
+    count = 0
+    try:
+        with os.scandir(CURATOR_INBOX_ROOT) as entries:
+            for entry in entries:
+                try:
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    path = entry.path
+                    if _is_inbox_manifest(path):
+                        if _queue_pending(path, detected_at=scan_time):
+                            count += 1
+                except OSError as e:
+                    raise OSError(f"reading inbox entry {entry.path}: {e}") from e
+    except OSError as e:
+        _last_inbox_scan_ok = False
+        log.error("Could not reconcile Curator inbox %s: %s", CURATOR_INBOX_ROOT, e)
+        return False
+    _last_inbox_scan_at = scan_time
+    _last_inbox_scan_ok = True
+    log.info("Reconciled Curator inbox: %s manifest(s) queued", count)
+    return True
 
 
 def _is_inbox_manifest(path: str) -> bool:
@@ -203,6 +304,10 @@ def _submit_curator_manifest(path: str) -> tuple[str, str | None]:
         payload = _parse_curator_manifest(path)
     except ValueError as e:
         return "failed", str(e)
+    except OSError as e:
+        # A manifest may be visible before its contents are readable on SMB.
+        # Keep it in the durable inbox queue rather than killing the watcher.
+        return "retry", f"Could not read manifest: {e}"
     try:
         resp = httpx.post(
             f"{API_URL}/media/curator-import",
@@ -252,6 +357,8 @@ def _submit_legacy_curator_xml(path: str) -> tuple[str, str | None]:
         # watcher ignored those terminally rather than treating them as errors.
         log.debug("Ignoring non-manifest legacy XML %s: %s", path, e)
         return "success", None
+    except OSError as e:
+        return "retry", f"Could not read legacy XML: {e}"
     for record in payload["assets"]:
         try:
             resp = httpx.post(
@@ -311,8 +418,8 @@ class VideoHandler(FileSystemEventHandler):
     @staticmethod
     def _queue(path: str) -> None:
         if _is_inbox_manifest(path) or _should_ingest(path):
-            log.info(f"New file detected: {path}")
-            pending[path] = {"detected_at": time.time(), "size": _size(path)}
+            if _queue_pending(path):
+                log.info(f"New file detected: {path}")
 
     def on_created(self, event):
         if event.is_directory:
@@ -341,51 +448,395 @@ def _initial_scan():
     appeared while the watcher was down (or on a newly added mount)."""
     for root in MEDIA_ROOTS:
         count = 0
-        for dirpath, _dirnames, filenames in os.walk(root):
-            for fn in filenames:
-                path = os.path.join(dirpath, fn)
-                if path not in pending and _should_ingest(path, filenames):
-                    pending[path] = {"detected_at": time.time(), "size": _size(path)}
-                    count += 1
+        try:
+            for dirpath, _dirnames, filenames in os.walk(root):
+                for fn in filenames:
+                    path = os.path.join(dirpath, fn)
+                    if _should_ingest(path, filenames) and _queue_pending(path):
+                        count += 1
+        except OSError as e:
+            # The polling emitter is responsible for recovering this mount;
+            # startup scanning must not prevent other roots from starting.
+            log.error("Could not scan media root %s: %s", root, e)
         log.info(f"Initial scan of {root}: {count} video file(s) queued")
-    count = 0
+    _reconcile_curator_inbox()
+
+
+def _find_emitter(observer, watch):
+    """Find the emitter belonging to an ObservedWatch.
+
+    ``emitters`` is a public watchdog property, while a few lightweight test
+    observers only expose the backing ``_emitters`` set.  Supporting both also
+    keeps recovery independent of watchdog's internal container type.
+    """
+    emitters = getattr(observer, "emitters", None)
+    if emitters is None:
+        emitters = getattr(observer, "_emitters", ())
+    if isinstance(emitters, dict):
+        emitters = emitters.values()
+    for emitter in emitters:
+        emitter_watch = getattr(emitter, "watch", None)
+        if emitter_watch is watch or emitter_watch == watch:
+            return emitter
+        if (
+            emitter_watch is not None
+            and watch is not None
+            and getattr(emitter_watch, "path", None) == getattr(watch, "path", None)
+        ):
+            return emitter
+    return None
+
+
+def _emitter_live(observer, state: dict) -> bool:
+    watch = state.get("watch")
+    if watch is None:
+        return False
+    emitter = _find_emitter(observer, watch)
+    if emitter is None:
+        return False
     try:
-        entries = os.scandir(CURATOR_INBOX_ROOT)
+        return bool(emitter.is_alive())
+    except Exception:
+        return False
+
+
+def _dispatcher_live(observer) -> bool:
+    """Return whether the watchdog dispatcher thread is running."""
+    if observer is None:
+        return False
+    is_alive = getattr(observer, "is_alive", None)
+    if callable(is_alive):
+        try:
+            return bool(is_alive())
+        except Exception:
+            return False
+    dispatcher_thread = getattr(observer, "_thread", None)
+    thread_alive = getattr(dispatcher_thread, "is_alive", None)
+    if callable(thread_alive):
+        try:
+            return bool(thread_alive())
+        except Exception:
+            return False
+    return False
+
+
+def _write_health(observer=None, now: float | None = None) -> dict:
+    """Publish the local watcher heartbeat and return the written snapshot.
+
+    The required contract is intentionally small: ``updated_at`` is an epoch
+    number and ``healthy`` is true only when every configured watch has a live
+    emitter and a successful inbox scan is recent.  Additional diagnostics are
+    useful when a particular SMB mount is unhealthy but do not change the
+    contract consumed by the health checker.
+    """
+    current = time.time() if now is None else now
+    root_details = {}
+    for key, state in _watch_states.items():
+        live = _emitter_live(observer, state) if observer is not None else bool(
+            state.get("healthy", False)
+        )
+        root_details[key] = {
+            "path": state.get("path", key),
+            "healthy": live,
+            "error": state.get("error"),
+        }
+
+    # A scan is considered stale before the external heartbeat's 180-second
+    # freshness limit.  This prevents a permanently failing inbox from
+    # looking healthy merely because the heartbeat writer itself is alive.
+    scan_max_age = min(
+        180,
+        max(60, INBOX_RECONCILE_SECONDS * 2, POLL_INTERVAL * 2),
+    )
+    scan_recent = bool(
+        _last_inbox_scan_ok
+        and _last_inbox_scan_at is not None
+        and current - _last_inbox_scan_at <= scan_max_age
+    )
+    dispatcher_live = _dispatcher_live(observer)
+    healthy = dispatcher_live and bool(root_details) and all(
+        detail["healthy"] for detail in root_details.values()
+    ) and scan_recent
+    snapshot = {
+        "updated_at": current,
+        "healthy": healthy,
+        "dispatcher": {"healthy": dispatcher_live},
+        "roots": root_details,
+        "inbox_scan": {
+            "healthy": scan_recent,
+            "updated_at": _last_inbox_scan_at,
+        },
+    }
+    try:
+        directory = os.path.dirname(HEALTH_PATH)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        temporary = HEALTH_PATH + ".tmp"
+        with open(temporary, "w", encoding="utf-8") as f:
+            import json
+            json.dump(snapshot, f, separators=(",", ":"))
+        os.replace(temporary, HEALTH_PATH)
     except OSError as e:
-        log.error(f"Could not scan Curator inbox {CURATOR_INBOX_ROOT}: {e}")
+        # Failure to write diagnostics must not stop ingest.  The previous
+        # heartbeat remains visible to the external health checker.
+        log.error("Could not write watcher health file %s: %s", HEALTH_PATH, e)
+    return snapshot
+
+
+def _schedule_watch(observer, handler, state: dict, now: float | None = None) -> bool:
+    """Schedule one root, retaining a retryable state on startup failure."""
+    current = time.time() if now is None else now
+    if state.get("watch") is not None:
+        return True
+    if current < state.get("next_retry_at", 0):
+        return False
+    try:
+        state["watch"] = observer.schedule(
+            handler,
+            state["path"],
+            recursive=state["recursive"],
+        )
+    except Exception as e:
+        state["watch"] = None
+        state["error"] = str(e)
+        state["next_retry_at"] = current + ROOT_RETRY_SECONDS
+        log.error("Could not watch %s; retrying: %s", state["path"], e)
+        return False
+    state["error"] = None
+    state["next_retry_at"] = 0
+    return True
+
+
+def _recover_dead_emitters(
+    observer, handler, states: dict[str, dict] | None = None, now: float | None = None
+) -> None:
+    """Restart only dead polling emitters; never rescan media roots.
+
+    A PollingObserver can remain alive after an individual PollingEmitter
+    exits (notably after an SMB ``OSError``).  Unscheduling and scheduling just
+    that watch recreates its emitter and lets watchdog discover missed events.
+    """
+    current = time.time() if now is None else now
+    states = _watch_states if states is None else states
+    # A dead dispatcher cannot create a working emitter.  Keep all states
+    # unhealthy and let the process supervisor deal with a dispatcher failure
+    # rather than repeatedly scheduling watches on a stopped thread.
+    if not _dispatcher_live(observer):
         return
-    with entries:
-        for entry in entries:
-            if not entry.is_file(follow_symlinks=False):
-                continue
-            if _is_inbox_manifest(entry.path) and entry.path not in pending:
-                pending[entry.path] = {
-                    "detected_at": time.time(),
-                    "size": _size(entry.path),
-                }
-                count += 1
-    log.info(f"Initial scan of Curator inbox: {count} manifest(s) queued")
+    for state in states.values():
+        watch = state.get("watch")
+        if watch is not None and _emitter_live(observer, state):
+            continue
+        if watch is not None:
+            try:
+                observer.unschedule(watch)
+            except Exception as e:
+                log.warning("Could not unschedule dead watch %s: %s", state["path"], e)
+            state["watch"] = None
+            state["next_retry_at"] = current
+        _schedule_watch(observer, handler, state, current)
+
+
+def _archive_pending(path: str, info: dict, target_dir: str, error: str | None,
+                     now: float) -> None:
+    """Archive an already-submitted XML, retrying archive only on failure."""
+    info["archive_pending"] = True
+    info["archive_target"] = target_dir
+    info["archive_error"] = error
+    info["processing"] = True
+    try:
+        _archive_manifest(path, target_dir, error)
+    except OSError as e:
+        # Keep the submitted marker in pending.  Future events/reconciliation
+        # therefore retry this move, never the API submission.
+        log.error("Could not archive manifest %s: %s", path, e)
+        _defer_pending(info, now, XML_RETRY_SECONDS)
+        pending[path] = info
+        return
+    if info.pop("clear_retry_budget", False):
+        xml_retries.pop(path, None)
+    pending.pop(path, None)
+
+
+def _process_pending(now: float | None = None) -> None:
+    """Process one due pass of the in-memory queue."""
+    current = time.time() if now is None else now
+    for path, info in list(pending.items()):
+        if pending.get(path) is not info or info.get("processing"):
+            continue
+        info.setdefault("path", path)
+        due_at = info.get(
+            "next_attempt_at",
+            info.get("detected_at", current) + STABLE_SECONDS,
+        )
+        if current < due_at:
+            continue
+
+        # An archive failure is a completed API submission.  It has a
+        # separate state so archive retries cannot submit the same XML again.
+        if info.get("archive_pending"):
+            _archive_pending(
+                path,
+                info,
+                info["archive_target"],
+                info.get("archive_error"),
+                current,
+            )
+            continue
+
+        size, readable = _size_state(path)
+        if not readable:
+            # Do not carry a pre-failure baseline across an unreadable SMB
+            # window.  Recovery must establish a fresh size and then wait the
+            # complete stability interval before submission.
+            info["size"] = None
+            _defer_pending(
+                info,
+                current,
+                STABLE_SECONDS,
+                refresh_size=False,
+            )
+            continue
+        if size is None:
+            pending.pop(path, None)
+            continue
+        expected_size = info.get("size")
+        if expected_size is None:
+            # The initial stat may have raced an SMB write/readability window.
+            # A first successful size is only a baseline; it must still
+            # remain unchanged for the full stability interval.
+            info["size"] = size
+            info["detected_at"] = current
+            info["next_attempt_at"] = current + STABLE_SECONDS
+            continue
+        if size <= 0 or size != expected_size:
+            info["size"] = size
+            info["detected_at"] = current
+            info["next_attempt_at"] = current + STABLE_SECONDS
+            continue
+
+        info["processing"] = True
+        if _is_inbox_manifest(path):
+            outcome, detail = _submit_curator_manifest(path)
+            if outcome == "retry":
+                tries = xml_retries.get(path, 0) + 1
+                if tries <= XML_MAX_RETRIES:
+                    xml_retries[path] = tries
+                    log.warning(
+                        "Curator manifest retry %s/%s for %s: %s",
+                        tries, XML_MAX_RETRIES, path, detail,
+                    )
+                    _defer_pending(info, current, XML_RETRY_SECONDS)
+                    pending[path] = info
+                else:
+                    error = (
+                        f"Retry budget exhausted after {tries - 1} attempts. "
+                        f"Last error: {detail or 'unknown'}"
+                    )
+                    log.error("Giving up on Curator manifest: %s: %s", path, error)
+                    info["clear_retry_budget"] = True
+                    _archive_pending(path, info, CURATOR_FAILED_DIR, error, current)
+            elif outcome == "failed":
+                log.error("Invalid Curator manifest %s: %s", path, detail)
+                info["clear_retry_budget"] = True
+                _archive_pending(
+                    path, info, CURATOR_FAILED_DIR, detail or "Invalid manifest", current
+                )
+            else:
+                log.info("Curator manifest processed: %s", path)
+                info["clear_retry_budget"] = True
+                _archive_pending(path, info, CURATOR_PROCESSED_DIR, None, current)
+        elif _is_legacy_curator_xml(path):
+            outcome, detail = _submit_legacy_curator_xml(path)
+            if outcome == "retry":
+                tries = xml_retries.get(path, 0) + 1
+                if tries <= XML_MAX_RETRIES:
+                    xml_retries[path] = tries
+                    _defer_pending(info, current, XML_RETRY_SECONDS)
+                    pending[path] = info
+                    log.warning(
+                        "Legacy Curator XML retry %s/%s for %s: %s",
+                        tries, XML_MAX_RETRIES, path, detail,
+                    )
+                else:
+                    log.error(
+                        "Giving up on legacy Curator XML after %s retries: %s",
+                        tries - 1,
+                        path,
+                    )
+                    xml_retries.pop(path, None)
+                    pending.pop(path, None)
+            else:
+                xml_retries.pop(path, None)
+                pending.pop(path, None)
+        elif _should_ingest(path):
+            # Re-check selection at ingest time, as before.
+            _ingest(path)
+            pending.pop(path, None)
+        else:
+            pending.pop(path, None)
 
 
 def main():
     # PollingObserver instead of inotify: inotify events never fire for files
     # created remotely on network mounts (SMB/NFS), which is exactly where
     # production footage lives.
+    global _watch_states, _last_inbox_scan_at, _last_inbox_scan_ok
+    _watch_states = {}
+    _last_inbox_scan_at = None
+    _last_inbox_scan_ok = False
     observer = PollingObserver(timeout=POLL_INTERVAL)
     handler = VideoHandler()
+    # Start the dispatcher with no watches.  PollingEmitter snapshots happen
+    # when a watch is started; scheduling before this point lets one SMB
+    # snapshot OSError abort observer.start() for every otherwise healthy
+    # root.
+    try:
+        observer.start()
+    except Exception as e:
+        log.error("Could not start watcher observer: %s", e)
+
     seen_roots = set()
     for root in MEDIA_ROOTS:
-        real = os.path.realpath(root)
+        try:
+            real = os.path.realpath(root)
+        except OSError as e:
+            # Keep the failed root in diagnostics so health is red and the
+            # watcher can retry it without preventing other roots from start.
+            real = root
+            log.error("Could not resolve media root %s: %s", root, e)
         if real in seen_roots:
             continue
         seen_roots.add(real)
-        os.makedirs(root, exist_ok=True)
-        log.info(f"Watching: {root} (poll every {POLL_INTERVAL}s)")
-        observer.schedule(handler, root, recursive=True)
-    os.makedirs(CURATOR_INBOX_ROOT, exist_ok=True)
-    os.makedirs(CURATOR_PROCESSED_DIR, exist_ok=True)
-    os.makedirs(CURATOR_FAILED_DIR, exist_ok=True)
-    inbox_real = os.path.realpath(CURATOR_INBOX_ROOT)
+        state = {
+            "path": root,
+            "recursive": True,
+            "watch": None,
+            "next_retry_at": 0,
+            "error": None,
+        }
+        _watch_states[root] = state
+        try:
+            os.makedirs(root, exist_ok=True)
+            log.info(f"Watching: {root} (poll every {POLL_INTERVAL}s)")
+        except Exception as e:
+            # os.makedirs can fail before schedule (for example while an SMB
+            # share is offline).  Leave this state retryable.
+            state["error"] = str(e)
+            state["next_retry_at"] = time.time() + ROOT_RETRY_SECONDS
+            log.error("Could not initialize media root %s: %s", root, e)
+        if _dispatcher_live(observer):
+            _schedule_watch(observer, handler, state)
+    try:
+        os.makedirs(CURATOR_INBOX_ROOT, exist_ok=True)
+        os.makedirs(CURATOR_PROCESSED_DIR, exist_ok=True)
+        os.makedirs(CURATOR_FAILED_DIR, exist_ok=True)
+    except OSError as e:
+        log.error("Could not initialize Curator inbox directories: %s", e)
+    try:
+        inbox_real = os.path.realpath(CURATOR_INBOX_ROOT)
+    except OSError:
+        inbox_real = CURATOR_INBOX_ROOT
     if inbox_real not in seen_roots:
         seen_roots.add(inbox_real)
         log.info(
@@ -394,119 +845,48 @@ def main():
         )
         # Jack's plug-in writes manifests at the inbox root. Do not recurse
         # into processed/failed archives.
-        observer.schedule(handler, CURATOR_INBOX_ROOT, recursive=False)
-    observer.start()
+        inbox_state = {
+            "path": CURATOR_INBOX_ROOT,
+            "recursive": False,
+            "watch": None,
+            "next_retry_at": 0,
+            "error": None,
+        }
+        _watch_states[CURATOR_INBOX_ROOT] = inbox_state
+        if _dispatcher_live(observer):
+            _schedule_watch(observer, handler, inbox_state)
 
-    curator_watched = any(os.path.realpath(r) == os.path.realpath(CURATOR_ROOT) for r in MEDIA_ROOTS)
+    try:
+        curator_watched = any(
+            os.path.realpath(r) == os.path.realpath(CURATOR_ROOT)
+            for r in MEDIA_ROOTS
+        )
+    except OSError:
+        curator_watched = False
     if curator_watched and not CURATOR_INGEST_ALL:
         _refresh_curator_selected()
 
     if SCAN_ON_START:
         _initial_scan()
+    else:
+        # Inbox recovery is independent of the optional (and potentially
+        # expensive) media-root startup scan.
+        _reconcile_curator_inbox()
 
     last_selected_refresh = time.time()
+    last_inbox_reconcile = time.time()
     try:
         while True:
             now = time.time()
+            _recover_dead_emitters(observer, handler, _watch_states, now)
             if curator_watched and not CURATOR_INGEST_ALL and now - last_selected_refresh >= CURATOR_SELECTED_REFRESH:
                 last_selected_refresh = now
                 _refresh_curator_selected()
-            to_process = []
-            for path, info in list(pending.items()):
-                age = now - info["detected_at"]
-                if age < STABLE_SECONDS:
-                    continue
-                # Stability = size unchanged across the STABLE_SECONDS window,
-                # compared against the size recorded at detection time — no
-                # per-file sleep, so a 100-file startup rescan clears in one
-                # pass instead of 5 s x N serially.
-                size = _size(path)
-                if size is None:
-                    del pending[path]
-                elif size > 0 and size == info.get("size"):
-                    to_process.append(path)
-                else:
-                    info["size"] = size
-                    info["detected_at"] = now
-
-            for path in to_process:
-                del pending[path]
-                if _is_inbox_manifest(path):
-                    outcome, detail = _submit_curator_manifest(path)
-                    if outcome == "retry":
-                        # The XML itself is the durable queue record. Keep it
-                        # in the inbox until the proxy/API becomes available.
-                        tries = xml_retries.get(path, 0) + 1
-                        if tries <= XML_MAX_RETRIES:
-                            xml_retries[path] = tries
-                            log.warning(
-                                "Curator manifest retry %s/%s for %s: %s",
-                                tries, XML_MAX_RETRIES, path, detail,
-                            )
-                            pending[path] = {
-                                "detected_at": now + XML_RETRY_SECONDS - STABLE_SECONDS,
-                                "size": _size(path),
-                            }
-                        else:
-                            error = (
-                                f"Retry budget exhausted after {tries - 1} attempts. "
-                                f"Last error: {detail or 'unknown'}"
-                            )
-                            log.error(f"Giving up on Curator manifest: {path}: {error}")
-                            try:
-                                _archive_manifest(path, CURATOR_FAILED_DIR, error)
-                            except OSError as e:
-                                log.error(f"Could not archive failed manifest {path}: {e}")
-                            xml_retries.pop(path, None)
-                    elif outcome == "failed":
-                        log.error(f"Invalid Curator manifest {path}: {detail}")
-                        try:
-                            _archive_manifest(
-                                path, CURATOR_FAILED_DIR, detail or "Invalid manifest"
-                            )
-                        except OSError as e:
-                            log.error(f"Could not archive failed manifest {path}: {e}")
-                        xml_retries.pop(path, None)
-                    else:
-                        try:
-                            _archive_manifest(path, CURATOR_PROCESSED_DIR)
-                            log.info(f"Curator manifest processed: {path}")
-                            xml_retries.pop(path, None)
-                        except OSError as e:
-                            # Import is idempotent; retaining/retrying the XML
-                            # is safer than losing the audit manifest.
-                            log.error(f"Could not archive processed manifest {path}: {e}")
-                            pending[path] = {
-                                "detected_at": now + XML_RETRY_SECONDS - STABLE_SECONDS,
-                                "size": _size(path),
-                            }
-                elif _is_legacy_curator_xml(path):
-                    outcome, detail = _submit_legacy_curator_xml(path)
-                    if outcome == "retry":
-                        tries = xml_retries.get(path, 0) + 1
-                        if tries <= XML_MAX_RETRIES:
-                            xml_retries[path] = tries
-                            pending[path] = {
-                                "detected_at": now + XML_RETRY_SECONDS - STABLE_SECONDS,
-                                "size": _size(path),
-                            }
-                            log.warning(
-                                "Legacy Curator XML retry %s/%s for %s: %s",
-                                tries, XML_MAX_RETRIES, path, detail,
-                            )
-                        else:
-                            log.error(
-                                "Giving up on legacy Curator XML after %s retries: %s",
-                                tries - 1, path,
-                            )
-                            xml_retries.pop(path, None)
-                    else:
-                        xml_retries.pop(path, None)
-                elif _should_ingest(path):
-                    # Re-checked at ingest time: an admin may have deselected
-                    # the folder while the file sat in the stability window.
-                    _ingest(path)
-
+            if now - last_inbox_reconcile >= INBOX_RECONCILE_SECONDS:
+                last_inbox_reconcile = now
+                _reconcile_curator_inbox(now)
+            _process_pending(now)
+            _write_health(observer, now)
             time.sleep(2)
     except KeyboardInterrupt:
         observer.stop()

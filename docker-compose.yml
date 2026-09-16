@@ -389,6 +389,10 @@ services:
       CURATOR_DIRECT_INGEST: "${CURATOR_DIRECT_INGEST:-0}"
       CURATOR_XML_RETRY_SECONDS: "${CURATOR_XML_RETRY_SECONDS:-120}"
       CURATOR_XML_MAX_RETRIES: "${CURATOR_XML_MAX_RETRIES:-720}"
+      # Recovery never rescans media roots. On an approved watcher rollout,
+      # SCAN_ON_START=0 avoids the otherwise broad startup media rescan.
+      SCAN_ON_START: "${SCAN_ON_START:-1}"
+      WATCHER_HEALTH_MAX_AGE: "180"
     volumes:
       - "${MEDIA_PATH:-./sample_media}:/media:ro"
       - "${MEDIA_PATH_2:-./sample_media_2}:/media2:ro"
