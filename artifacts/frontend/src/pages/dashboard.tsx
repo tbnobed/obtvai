@@ -42,6 +42,7 @@ const EMOTION_COLORS: Record<string, string> = {
   fear: "#c084fc",
 };
 import { Button } from "@/components/ui/button";
+import { VoiceInput } from "@/components/voice-input";
 import { formatHours } from "@/lib/format";
 
 const SEARCH_PROMPTS = [
@@ -230,22 +231,25 @@ export default function Dashboard() {
           )}
           <div className="mt-4 relative max-w-3xl mx-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-            <input
-              value={quickQuery}
-              onChange={(e) => setQuickQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submitQuickSearch()}
-              placeholder={`Find ${SEARCH_PROMPTS[promptIdx]}`}
-              className="w-full h-12 pl-12 pr-32 rounded-xl bg-card border border-border text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/70 transition-shadow"
-              data-testid="input-hero-search"
-            />
-            <Button
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-10"
-              onClick={submitQuickSearch}
-              disabled={quickQuery.trim().length < 2}
-              data-testid="button-hero-search"
-            >
-              Search
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <VoiceInput
+                wrapperClassName="flex-1 min-w-0"
+                value={quickQuery}
+                onChange={(e) => setQuickQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitQuickSearch()}
+                placeholder={`Find ${SEARCH_PROMPTS[promptIdx]}`}
+                className="w-full h-12 pl-12 pr-10 rounded-xl bg-card border border-border text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/70 transition-shadow"
+                data-testid="input-hero-search"
+              />
+              <Button
+                className="h-10 shrink-0"
+                onClick={submitQuickSearch}
+                disabled={quickQuery.trim().length < 2}
+                data-testid="button-hero-search"
+              >
+                Search
+              </Button>
+            </div>
           </div>
           <p className="mt-2 text-xs text-muted-foreground/70">
             Semantic search across transcripts, visuals, and people — not just filenames.

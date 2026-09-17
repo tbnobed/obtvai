@@ -5,6 +5,11 @@ import { createCampaignRouter, type CampaignClip } from "./campaignMock";
 
 const router = Router();
 
+// Preview has no local Whisper engine.  Never fabricate dictation text.
+router.post("/speech/transcribe", (_req, res) => {
+  res.status(503).json({ detail: "Local transcription is not available in preview" });
+});
+
 const VIDEO_EXTENSIONS = new Set([
   ".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".m2ts", ".wmv", ".flv", ".webm",
 ]);

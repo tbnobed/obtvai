@@ -28,7 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
 from .config import settings
-from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, project_chat, voice, graphics, trends, ratings, folders, socials, curator, campaigns, auth as auth_router, users as users_router, audit as audit_router
+from .routers import media, search, jobs, ai, clips, people, insights, renders, reels, stories, projects, project_chat, voice, graphics, trends, ratings, folders, socials, curator, campaigns, speech, auth as auth_router, users as users_router, audit as audit_router
 from .auth import auth_middleware
 from .routers.campaigns import CampaignAPIError
 
@@ -651,6 +651,7 @@ app.include_router(trends.router, prefix="/api")
 app.include_router(socials.router, prefix="/api")
 app.include_router(ratings.router, prefix="/api")
 app.include_router(campaigns.router, prefix="/api")
+app.include_router(speech.router, prefix="/api")
 
 
 @app.get("/api/healthz")

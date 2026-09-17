@@ -9,6 +9,17 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface SpeechTranscription {
+  text: string;
+  /**
+     * Detected ISO language code, or null when unavailable
+     * @nullable
+     */
+  language: string | null;
+  /** @minimum 0 */
+  duration_seconds: number;
+}
+
 export interface CuratorFolderOut {
   path: string;
   name: string;

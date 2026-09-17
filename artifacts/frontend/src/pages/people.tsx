@@ -30,6 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VoiceInput } from "@/components/voice-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQueryClient } from "@tanstack/react-query";
 import CoAppearanceMap from "@/components/co-appearance-map";
@@ -251,15 +252,16 @@ export default function People() {
           {view !== "map" ? (
             <div className="relative w-full lg:w-96">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
+              <VoiceInput
+                wrapperClassName="w-full"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search people by name..."
-                className="h-10 pl-10 pr-10 rounded-full bg-card/50 border-border/50 focus-visible:ring-primary/50 shadow-sm transition-all focus:bg-card"
+                className="h-10 pl-10 pr-16 rounded-full bg-card/50 border-border/50 focus-visible:ring-primary/50 shadow-sm transition-all focus:bg-card"
               />
               {searchInput && (
                 <button
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-10 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => setSearchInput("")}
                   title="Clear search"
                 >

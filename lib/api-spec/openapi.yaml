@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: speech
+    description: Short local speech dictation
   - name: media
     description: Media library management
   - name: search
@@ -52,6 +54,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /speech/transcribe:
+    post:
+      operationId: transcribeSpeech
+      tags: [speech]
+      summary: Transcribe a short audio Blob locally
+      description: Accepts a raw application/octet-stream audio body. Audio is not persisted.
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Transcription result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeechTranscription"
+        "400":
+          description: Invalid Content-Length
+        "401":
+          description: Not authenticated
+        "403":
+          description: Viewer is not allowed to use this endpoint
+        "413":
+          description: Request body exceeds 8 MiB
+        "415":
+          description: Content-Type must be application/octet-stream
+        "422":
+          description: Empty, invalid, too long, or silent audio
+        "429":
+          description: The single local transcription job is busy
+        "503":
+          description: Local transcription engine unavailable
 
   # ── Media ──────────────────────────────────────────────────────────────────
   /media/curator-link:
@@ -4387,6 +4426,19 @@ components:
         status:
           type: string
       required: [status]
+
+    SpeechTranscription:
+      type: object
+      required: [text, language, duration_seconds]
+      properties:
+        text:
+          type: string
+        language:
+          type: ["string", "null"]
+          description: Detected ISO language code, or null when unavailable
+        duration_seconds:
+          type: number
+          minimum: 0
 
     # ── Curator selective ingest ─────────────────────────────────────────────
     CuratorFolderOut:

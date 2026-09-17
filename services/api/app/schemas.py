@@ -10,6 +10,12 @@ class HealthStatus(BaseModel):
     status: str
 
 
+class SpeechTranscriptionOut(BaseModel):
+    text: str
+    language: Optional[str] = None
+    duration_seconds: float
+
+
 # ── Media ─────────────────────────────────────────────────────────────────────
 
 class MediaAssetOut(BaseModel):

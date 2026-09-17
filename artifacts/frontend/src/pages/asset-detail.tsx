@@ -38,7 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Trash2, Sparkles, Film, Loader2, Download, Share2, Youtube, Instagram, Facebook, Twitter, Music2, TrendingUp, ThumbsUp, ThumbsDown, Clapperboard, Hash, Languages, Volume2, AudioLines, Scissors, Wand2, Smartphone, Monitor, Captions, Star, Flag, XCircle, ListPlus, AlertTriangle, Users, BarChart3, RefreshCw, Search, Pencil, Check, X, ChevronUp, ChevronDown, PanelLeftClose, PanelLeftOpen, Play } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceInput, VoiceTextarea } from "@/components/voice-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -857,7 +857,8 @@ export default function AssetDetail() {
                       </div>
                       {editingSegId === String(segment.id) ? (
                         <div onClick={(e) => e.stopPropagation()}>
-                          <Textarea
+                          <VoiceTextarea
+                            wrapperClassName="w-full"
                             value={editText}
                             onChange={(e) => setEditText(e.target.value)}
                             className="text-sm min-h-[60px]"
@@ -1942,7 +1943,8 @@ function AssetPeople({
       </div>
       <div className="relative max-w-2xl">
         <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
+        <VoiceInput
+          wrapperClassName="w-full"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={
@@ -2741,7 +2743,8 @@ function AssetSearchTab({ mediaId, seekTo }: { mediaId: string; seekTo: (t: numb
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
-        <Input
+        <VoiceInput
+          wrapperClassName="flex-1 min-w-0"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && run()}

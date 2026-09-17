@@ -29,3 +29,5 @@ scikit-learn==1.6.1
 scipy==1.15.3
 python-jose==3.3.0
 bcrypt==4.2.1
+faster-whisper==1.2.0
+ctranslate2==4.8.1

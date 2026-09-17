@@ -37,7 +37,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceInput, VoiceTextarea } from "@/components/voice-input";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -561,7 +561,8 @@ function VoiceSection({
           ) : null}
           {profile?.ready ? (
             <>
-              <Textarea
+              <VoiceTextarea
+                wrapperClassName="w-full"
                 rows={3}
                 value={genText}
                 onChange={(e) => setGenText(e.target.value)}
@@ -1212,7 +1213,8 @@ export default function PersonDetail() {
           </div>
           {editingBio ? (
             <div className="mt-3 max-w-3xl space-y-2">
-              <Textarea
+              <VoiceTextarea
+                wrapperClassName="w-full"
                 value={bioDraft}
                 onChange={(e) => setBioDraft(e.target.value)}
                 rows={4}
@@ -1312,7 +1314,8 @@ export default function PersonDetail() {
                   </p>
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
+                    <VoiceInput
+                      wrapperClassName="w-full"
                       autoFocus
                       placeholder="Search people by name..."
                       value={mergeSearch}

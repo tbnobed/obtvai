@@ -255,6 +255,7 @@ export * from './socialSnapshot';
 export * from './socialsOverview';
 export * from './socialTopVideo';
 export * from './speakingMoment';
+export * from './speechTranscription';
 export * from './storyBeat';
 export * from './storyJob';
 export * from './storyOpportunity';

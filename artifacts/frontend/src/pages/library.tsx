@@ -85,6 +85,7 @@ function HoverScrubThumb({ asset }: { asset: MediaAsset }) {
 }
 import { Link, useLocation, useSearch } from "wouter";
 import { Input } from "@/components/ui/input";
+import { VoiceInput } from "@/components/voice-input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -963,7 +964,8 @@ export default function Library() {
         <div className="flex gap-3 items-center flex-wrap justify-end">
           <div className="relative">
             <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <VoiceInput
+              wrapperClassName="w-56"
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               placeholder="Search media..."

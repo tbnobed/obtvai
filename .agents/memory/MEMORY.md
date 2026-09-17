@@ -45,3 +45,4 @@
 - [Watcher SMB recovery](watcher-smb-recovery.md) — watchdog polling threads can stop on transient SMB errors while the container stays running; verify per-root liveness.
 - [Campaign selection boundaries](campaign-selection-boundaries.md) — shared project pools are additive; exact campaign windows must remain a separate generation constraint.
 - [n8n export verification](n8n-export-verification.md) — execute exported node code in tests; helper-only tests miss escaping and unexecuted-branch failures.
+- [Interactive dictation safety](interactive-dictation-safety.md) — use owned recording sessions and killable inference; request cancellation alone stops neither permission callbacks nor model work.

@@ -17,6 +17,21 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * Accepts a raw application/octet-stream audio body. Audio is not persisted.
+ * @summary Transcribe a short audio Blob locally
+ */
+export const transcribeSpeechResponseDurationSecondsMin = 0;
+
+
+
+export const TranscribeSpeechResponse = zod.object({
+  "text": zod.string(),
+  "language": zod.string().nullable().describe('Detected ISO language code, or null when unavailable'),
+  "duration_seconds": zod.number().min(transcribeSpeechResponseDurationSecondsMin)
+})
+
+
+/**
  * @summary Link a Curator asset record (from a dropped asset XML) to existing library media (internal watcher endpoint, X-Internal-Token required)
  */
 export const CuratorLinkBody = zod.object({

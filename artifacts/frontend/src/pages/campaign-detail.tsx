@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceInput, VoiceTextarea } from "@/components/voice-input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -258,7 +258,8 @@ export default function CampaignDetail() {
                   </CardTitle>
                   <CardDescription>Search the library for moments that match your brief.</CardDescription>
                   <div className="flex gap-2 mt-4">
-                    <Input 
+                    <VoiceInput
+                      wrapperClassName="flex-1 min-w-0"
                       value={searchQuery} 
                       onChange={e => setSearchQuery(e.target.value)} 
                       placeholder="What are you looking for?"
@@ -403,27 +404,27 @@ export default function CampaignDetail() {
             </div>
             <div className="space-y-2 col-span-2">
               <Label htmlFor="edit-brief">Brief</Label>
-              <Textarea id="edit-brief" value={editForm.brief || ""} onChange={e => setEditForm({ ...editForm, brief: e.target.value })} rows={3} />
+              <VoiceTextarea id="edit-brief" value={editForm.brief || ""} onChange={e => setEditForm({ ...editForm, brief: e.target.value })} rows={3} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-objective">Objective</Label>
-              <Input id="edit-objective" value={editForm.objective || ""} onChange={e => setEditForm({ ...editForm, objective: e.target.value })} />
+              <VoiceInput id="edit-objective" value={editForm.objective || ""} onChange={e => setEditForm({ ...editForm, objective: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-audience">Audience</Label>
-              <Input id="edit-audience" value={editForm.audience || ""} onChange={e => setEditForm({ ...editForm, audience: e.target.value })} />
+              <VoiceInput id="edit-audience" value={editForm.audience || ""} onChange={e => setEditForm({ ...editForm, audience: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-key_message">Key Message</Label>
-              <Input id="edit-key_message" value={editForm.key_message || ""} onChange={e => setEditForm({ ...editForm, key_message: e.target.value })} />
+              <VoiceInput id="edit-key_message" value={editForm.key_message || ""} onChange={e => setEditForm({ ...editForm, key_message: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-tone">Tone</Label>
-              <Input id="edit-tone" value={editForm.tone || ""} onChange={e => setEditForm({ ...editForm, tone: e.target.value })} />
+              <VoiceInput id="edit-tone" value={editForm.tone || ""} onChange={e => setEditForm({ ...editForm, tone: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-call_to_action">Call to Action</Label>
-              <Input id="edit-call_to_action" value={editForm.call_to_action || ""} onChange={e => setEditForm({ ...editForm, call_to_action: e.target.value })} />
+              <VoiceInput id="edit-call_to_action" value={editForm.call_to_action || ""} onChange={e => setEditForm({ ...editForm, call_to_action: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-channels">Channels</Label>

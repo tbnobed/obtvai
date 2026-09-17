@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Play, Loader2, ExternalLink, History, Bookmark, BookmarkPlus, X, HeartPulse, Check, FolderKanban, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { VoiceInput } from "@/components/voice-input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -304,16 +305,17 @@ export default function SearchPage() {
           )}
           <div className={`relative max-w-3xl mx-auto ${hasResults ? "" : "mt-5"}`}>
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder='Try "mayor talks about the housing vote" or "crowd outside city hall at night"'
-              onKeyDown={(e) => e.key === "Enter" && runSearch()}
-              autoFocus
-              className="w-full h-12 pl-12 pr-36 rounded-xl bg-card border border-border text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/70 transition-shadow"
-              data-testid="input-search"
-            />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5">
+              <VoiceInput
+                wrapperClassName="flex-1 min-w-0"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder='Try "mayor talks about the housing vote" or "crowd outside city hall at night"'
+                onKeyDown={(e) => e.key === "Enter" && runSearch()}
+                autoFocus
+                className="w-full h-12 pl-12 pr-10 rounded-xl bg-card border border-border text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/70 transition-shadow"
+                data-testid="input-search"
+              />
               <Button
                 size="icon"
                 variant="ghost"

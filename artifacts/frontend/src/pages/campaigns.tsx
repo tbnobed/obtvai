@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceInput, VoiceTextarea } from "@/components/voice-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -239,7 +239,7 @@ export default function Campaigns() {
             
             <div className="space-y-2 col-span-2">
               <Label htmlFor="create-brief">Brief *</Label>
-              <Textarea
+              <VoiceTextarea
                 id="create-brief"
                 value={formData.brief}
                 onChange={e => setFormData({ ...formData, brief: e.target.value })}
@@ -250,7 +250,7 @@ export default function Campaigns() {
 
             <div className="space-y-2">
               <Label htmlFor="create-objective">Objective</Label>
-              <Input
+              <VoiceInput
                 id="create-objective"
                 value={formData.objective}
                 onChange={e => setFormData({ ...formData, objective: e.target.value })}
@@ -260,7 +260,7 @@ export default function Campaigns() {
 
             <div className="space-y-2">
               <Label htmlFor="create-audience">Audience</Label>
-              <Input
+              <VoiceInput
                 id="create-audience"
                 value={formData.audience}
                 onChange={e => setFormData({ ...formData, audience: e.target.value })}
@@ -270,7 +270,7 @@ export default function Campaigns() {
 
             <div className="space-y-2">
               <Label htmlFor="create-key_message">Key Message</Label>
-              <Input
+              <VoiceInput
                 id="create-key_message"
                 value={formData.key_message}
                 onChange={e => setFormData({ ...formData, key_message: e.target.value })}
@@ -280,7 +280,7 @@ export default function Campaigns() {
 
             <div className="space-y-2">
               <Label htmlFor="create-tone">Tone</Label>
-              <Input
+              <VoiceInput
                 id="create-tone"
                 value={formData.tone}
                 onChange={e => setFormData({ ...formData, tone: e.target.value })}
@@ -290,7 +290,7 @@ export default function Campaigns() {
 
             <div className="space-y-2">
               <Label htmlFor="create-call_to_action">Call to Action</Label>
-              <Input
+              <VoiceInput
                 id="create-call_to_action"
                 value={formData.call_to_action}
                 onChange={e => setFormData({ ...formData, call_to_action: e.target.value })}

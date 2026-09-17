@@ -15,7 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceInput, VoiceTextarea } from "@/components/voice-input";
 import { Badge } from "@/components/ui/badge";
 import {
   Wand2,
@@ -208,7 +208,7 @@ export default function Graphics() {
             <Label htmlFor="gfx-prompt" className="text-xs uppercase tracking-wide text-muted-foreground">
               Prompt
             </Label>
-            <Textarea
+            <VoiceTextarea
               id="gfx-prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -227,7 +227,7 @@ export default function Graphics() {
               <Label htmlFor="gfx-negative" className="text-xs uppercase tracking-wide text-muted-foreground">
                 Negative prompt <span className="normal-case text-muted-foreground/70">(optional)</span>
               </Label>
-              <Input
+              <VoiceInput
                 id="gfx-negative"
                 value={negative}
                 onChange={(e) => setNegative(e.target.value)}

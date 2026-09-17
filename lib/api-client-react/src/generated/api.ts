@@ -170,6 +170,7 @@ import type {
   SocialSnapshot,
   SocialsInsights,
   SocialsOverview,
+  SpeechTranscription,
   StoryJob,
   StoryRequestIn,
   StreamDubParams,
@@ -296,6 +297,78 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+
+export const getTranscribeSpeechUrl = () => {
+
+
+
+
+  return `/api/speech/transcribe`
+}
+
+/**
+ * Accepts a raw application/octet-stream audio body. Audio is not persisted.
+ * @summary Transcribe a short audio Blob locally
+ */
+export const transcribeSpeech = async (transcribeSpeechBody: Blob, options?: RequestInit): Promise<SpeechTranscription> => {
+
+  return customFetch<SpeechTranscription>(getTranscribeSpeechUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream', ...options?.headers },
+    body: transcribeSpeechBody
+  }
+);}
+
+
+
+
+
+export const getTranscribeSpeechMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transcribeSpeech>>, TError,{data: BodyType<Blob>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transcribeSpeech>>, TError,{data: BodyType<Blob>}, TContext> => {
+
+const mutationKey = ['transcribeSpeech'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transcribeSpeech>>, {data: BodyType<Blob>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  transcribeSpeech(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TranscribeSpeechMutationResult = NonNullable<Awaited<ReturnType<typeof transcribeSpeech>>>
+    export type TranscribeSpeechMutationBody = BodyType<Blob>
+    export type TranscribeSpeechMutationError = ErrorType<void>
+
+    /**
+ * @summary Transcribe a short audio Blob locally
+ */
+export const useTranscribeSpeech = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transcribeSpeech>>, TError,{data: BodyType<Blob>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof transcribeSpeech>>,
+        TError,
+        {data: BodyType<Blob>},
+        TContext
+      > => {
+      return useMutation(getTranscribeSpeechMutationOptions(options));
+    }
 
 export const getCuratorLinkUrl = () => {
 

@@ -13,7 +13,7 @@ import type { ProjectChatMessage, ProjectCut, CutClip, Project } from "@workspac
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/voice-input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -444,7 +444,8 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
           ))}
         </div>
         <div className="p-3 border-t border-border flex gap-2">
-          <Textarea
+          <VoiceTextarea
+            wrapperClassName="flex-1 min-w-0"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

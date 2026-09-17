@@ -6,7 +6,7 @@ import {
   useDeleteConversation,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Input } from "@/components/ui/input";
+import { VoiceInput } from "@/components/voice-input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, User, Bot, Plus, MessageSquare, Trash2 } from "lucide-react";
@@ -139,9 +139,9 @@ export default function AIQA() {
   }, []);
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden">
+    <div className="flex-1 flex flex-col md:flex-row h-full min-h-0 overflow-hidden">
       {/* Conversation history sidebar */}
-      <div className="w-64 border-r border-border bg-card flex flex-col shrink-0">
+      <div className="w-full md:w-64 max-h-40 md:max-h-none border-b md:border-b-0 md:border-r border-border bg-card flex flex-col shrink-0">
         <div className="p-3 border-b border-border">
           <Button variant="outline" size="sm" className="w-full gap-2" onClick={newChat}>
             <Plus className="h-4 w-4" />
@@ -185,7 +185,7 @@ export default function AIQA() {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
         <div className="p-4 border-b border-border bg-card shrink-0">
           <h1 className="text-xl font-bold tracking-tight">AI Assistant</h1>
         </div>
@@ -245,7 +245,8 @@ export default function AIQA() {
 
         <div className="p-4 border-t border-border bg-card">
           <form onSubmit={handleAsk} className="max-w-3xl mx-auto flex gap-2">
-            <Input
+            <VoiceInput
+              wrapperClassName="flex-1 min-w-0"
               value={question}
               onChange={e => setQuestion(e.target.value)}
               placeholder="Ask a question..."

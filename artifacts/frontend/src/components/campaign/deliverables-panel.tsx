@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/voice-input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -94,7 +94,7 @@ export function DeliverableFormDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor={`deliv-notes-${isEdit ? 'edit' : 'new'}`}>Notes</Label>
-            <Textarea id={`deliv-notes-${isEdit ? 'edit' : 'new'}`} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Specific instructions for generation..." rows={2} />
+            <VoiceTextarea id={`deliv-notes-${isEdit ? 'edit' : 'new'}`} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Specific instructions for generation..." rows={2} />
           </div>
           <p className="text-xs text-muted-foreground flex items-start gap-1.5 bg-muted p-2 rounded">
             <Info className="h-4 w-4 shrink-0" /> 

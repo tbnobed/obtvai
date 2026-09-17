@@ -43,6 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReelRatingButtons } from "@/components/reel-rating";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VoiceInput } from "@/components/voice-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -767,7 +768,8 @@ export default function ProjectDetail() {
             {findMode === "search" && (
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Input
+                <VoiceInput
+                  wrapperClassName="flex-1 min-w-0"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={searchType === "visual"
