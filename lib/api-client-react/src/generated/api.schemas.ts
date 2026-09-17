@@ -3172,6 +3172,13 @@ export interface CampaignDeliverableResponse {
   data: CampaignDeliverable;
 }
 
+export type TranscribeSpeechParams = {
+/**
+ * Use fast live-dictation inference; valid silent/no-speech snapshots return an empty transcription.
+ */
+partial?: boolean;
+};
+
 export type ListMediaParams = {
 status?: string;
 /**

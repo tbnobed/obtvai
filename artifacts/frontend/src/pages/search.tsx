@@ -304,8 +304,8 @@ export default function SearchPage() {
             </>
           )}
           <div className={`relative max-w-3xl mx-auto ${hasResults ? "" : "mt-5"}`}>
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-            <div className="flex items-center gap-1.5">
+            <Search className="absolute left-4 top-6 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+            <div className="flex items-start gap-1.5">
               <VoiceInput
                 wrapperClassName="flex-1 min-w-0"
                 value={query}
@@ -319,7 +319,7 @@ export default function SearchPage() {
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-9 w-9"
+                className="mt-1.5 h-9 w-9"
                 title={alreadySaved ? "Already saved" : "Save this search — it re-runs live, so it grows as new footage is indexed"}
                 disabled={query.trim().length < 2 || !!alreadySaved || createSaved.isPending}
                 onClick={() =>
@@ -331,7 +331,7 @@ export default function SearchPage() {
               >
                 <BookmarkPlus className="h-4 w-4" />
               </Button>
-              <Button className="h-9" onClick={() => runSearch()} disabled={query.trim().length < 2 || searchMutation.isPending}>
+              <Button className="mt-1.5 h-9" onClick={() => runSearch()} disabled={query.trim().length < 2 || searchMutation.isPending}>
                 {searchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
               </Button>
             </div>

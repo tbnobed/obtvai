@@ -230,8 +230,8 @@ export default function Dashboard() {
             </p>
           )}
           <div className="mt-4 relative max-w-3xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-            <div className="flex items-center gap-1.5">
+            <Search className="absolute left-4 top-6 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+            <div className="flex items-start gap-1.5">
               <VoiceInput
                 wrapperClassName="flex-1 min-w-0"
                 value={quickQuery}
@@ -242,7 +242,7 @@ export default function Dashboard() {
                 data-testid="input-hero-search"
               />
               <Button
-                className="h-10 shrink-0"
+                className="mt-1 h-10 shrink-0"
                 onClick={submitQuickSearch}
                 disabled={quickQuery.trim().length < 2}
                 data-testid="button-hero-search"

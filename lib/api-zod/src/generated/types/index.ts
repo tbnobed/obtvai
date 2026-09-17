@@ -266,6 +266,7 @@ export * from './tightenInput';
 export * from './tightenResult';
 export * from './topPerson';
 export * from './topTopic';
+export * from './transcribeSpeechParams';
 export * from './transcriptSegment';
 export * from './transcriptSegmentUpdate';
 export * from './translateRequest';

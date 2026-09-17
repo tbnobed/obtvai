@@ -1,264 +1,376 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { transcribeSpeech } from '../../../../lib/api-client-react/src/generated/api';
+import {
+  createAudioCapture,
+  DICTATION_MAX_REQUEST_BYTES,
+  DICTATION_MAX_SECONDS,
+  type AudioCapture,
+} from './audio-capture';
 
 let globalActiveSession: number | null = null;
 let sessionCounter = 0;
 
-export type VoiceInputStatus = 'idle' | 'recording' | 'transcribing' | 'error';
+export type VoiceInputStatus =
+  | 'idle'
+  | 'requesting'
+  | 'recording'
+  | 'transcribing'
+  | 'error';
 
-export function useVoiceInput(onInsert: (text: string) => void) {
+export interface VoiceInputCallbacks {
+  onStart: () => void;
+  onTranscript: (text: string, final: boolean) => void;
+  onCancel: () => void;
+  onError: () => void;
+}
+
+interface Session {
+  id: number;
+  capture: AudioCapture;
+  stream: MediaStream | null;
+  timer: number | null;
+  request: AbortController | null;
+  pending: { blob: Blob; partial: boolean } | null;
+  stopRequested: boolean;
+  finalDelivered: boolean;
+  lastPartialSampleCount: number;
+  lastPartialAt: number;
+  elapsedSeconds: number;
+}
+
+type LegacyCallbacks = VoiceInputCallbacks | ((text: string) => void);
+
+const isAbortError = (error: unknown) =>
+  Boolean(error && typeof error === 'object' && 'name' in error && error.name === 'AbortError');
+
+const errorMessage = (error: unknown) => {
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String(error.message);
+  }
+  return 'Failed to capture or transcribe audio.';
+};
+
+/**
+ * Live, self-hosted dictation. A partial request never owns the microphone
+ * lifecycle: only the current session does, so stale permission/request
+ * callbacks cannot affect a newer input.
+ *
+ * The overload accepting a function keeps existing consumers source-compatible
+ * while the callbacks object is the public live-recording contract.
+ */
+export function useVoiceInput(callbacks: VoiceInputCallbacks): VoiceInputResult;
+export function useVoiceInput(onInsert: (text: string) => void): VoiceInputResult;
+export function useVoiceInput(input: LegacyCallbacks): VoiceInputResult {
+  const callbacksRef = useRef<VoiceInputCallbacks>(
+    typeof input === 'function'
+      ? {
+          onStart: () => undefined,
+          onTranscript: (text, final) => {
+            if (final) input(text);
+          },
+          onCancel: () => undefined,
+          onError: () => undefined,
+        }
+      : input,
+  );
+  // Assignment (rather than a dependency-bound callback) keeps the latest
+  // editor caret callbacks visible to delayed partial/final responses.
+  callbacksRef.current =
+    typeof input === 'function'
+      ? {
+          onStart: () => undefined,
+          onTranscript: (text, final) => {
+            if (final) input(text);
+          },
+          onCancel: () => undefined,
+          onError: () => undefined,
+        }
+      : input;
+
   const [status, setStatus] = useState<VoiceInputStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const mountedRef = useRef(true);
+  const sessionRef = useRef<Session | null>(null);
 
-  const isMounted = useRef(true);
-  const sessionRef = useRef<number | null>(null);
-
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const sizeRef = useRef(0);
-  const timerRef = useRef<number | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  const cleanupMedia = useCallback(() => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.onstop = null;
-      mediaRecorderRef.current.ondataavailable = null;
-      mediaRecorderRef.current.onerror = null;
-      if (mediaRecorderRef.current.state !== 'inactive') {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch (e) {
-          // Ignore state errors during cleanup
-        }
+  const finishSession = useCallback(
+    (session: Session, nextStatus: VoiceInputStatus = 'idle') => {
+      if (session.timer !== null) {
+        window.clearInterval(session.timer);
+        session.timer = null;
       }
-      mediaRecorderRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-  }, []);
-
-  const cancelRecording = useCallback(() => {
-    cleanupMedia();
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    
-    if (sessionRef.current !== null && globalActiveSession === sessionRef.current) {
-      globalActiveSession = null;
-    }
-    sessionRef.current = null;
-    
-    if (isMounted.current) {
-      setStatus('idle');
-      setRecordingTime(0);
-      setError(null);
-    }
-  }, [cleanupMedia]);
-
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-      cancelRecording();
-    };
-  }, [cancelRecording]);
-
-  const processAudio = async (blob: Blob) => {
-    if (!isMounted.current) return;
-    const mySession = sessionRef.current;
-    
-    setStatus('transcribing');
-    const abortCtrl = new AbortController();
-    abortControllerRef.current = abortCtrl;
-    
-    try {
-      const res = await transcribeSpeech(blob, {
-        signal: abortCtrl.signal,
-      });
-
-      if (!isMounted.current || sessionRef.current !== mySession) return;
-
-      if (res && res.text) {
-        onInsert(res.text);
+      session.capture.dispose();
+      session.stream?.getTracks().forEach((track) => track.stop());
+      session.stream = null;
+      if (globalActiveSession === session.id) globalActiveSession = null;
+      if (sessionRef.current === session) sessionRef.current = null;
+      if (mountedRef.current) {
+        setRecordingTime(0);
+        setStatus(nextStatus);
       }
-      setStatus('idle');
-    } catch (err: any) {
-      if (!isMounted.current || sessionRef.current !== mySession) return;
-      
-      if (err.name === 'AbortError') {
-        // Ignored, user cancelled or unmounted
-      } else if (err.status === 503) {
-        setError('Local transcription service is currently unavailable.');
-        setStatus('error');
-      } else {
-        console.error('Transcription error:', err);
-        setError(err.message || 'Failed to transcribe audio.');
-        setStatus('error');
-      }
-    } finally {
-      if (sessionRef.current === mySession) {
-        if (abortControllerRef.current === abortCtrl) abortControllerRef.current = null;
-        if (globalActiveSession === mySession) globalActiveSession = null;
-        sessionRef.current = null;
-      }
-    }
-  };
+    },
+    [],
+  );
 
-  const stopRecording = useCallback(() => {
-    if (!isMounted.current || status !== 'recording' || !mediaRecorderRef.current) return;
+  const markError = useCallback(
+    (session: Session, message: string) => {
+      if (sessionRef.current !== session || !mountedRef.current) return;
+      session.request?.abort();
+      session.request = null;
+      finishSession(session, 'error');
+      setError(message);
+      callbacksRef.current.onError();
+    },
+    [finishSession],
+  );
 
-    try {
-      mediaRecorderRef.current.stop();
-    } catch (e) {
-      // Ignore
-    }
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, [status]);
-
-  const startRecording = useCallback(async () => {
-    if (globalActiveSession !== null) {
-      setError('Another recording is already in progress.');
-      setStatus('error');
-      return;
-    }
-    
-    if (typeof window !== 'undefined' && !window.isSecureContext) {
-      setError('Microphone requires a secure context (HTTPS or localhost).');
-      setStatus('error');
-      return;
-    }
-    
-    if (typeof window === 'undefined' || !window.MediaRecorder) {
-      setError('Audio recording is not supported in this browser.');
-      setStatus('error');
-      return;
-    }
-    
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setError('Microphone not supported in this browser.');
-      setStatus('error');
-      return;
-    }
-
-    setError(null);
-    const mySession = ++sessionCounter;
-    globalActiveSession = mySession;
-    sessionRef.current = mySession;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Permission race: component unmounted, recording cancelled, or session changed while waiting
-      if (!isMounted.current || sessionRef.current !== mySession) {
-        stream.getTracks().forEach(t => t.stop());
-        if (globalActiveSession === mySession) globalActiveSession = null;
+  const sendSnapshot = useCallback(
+    (session: Session, blob: Blob, partial: boolean) => {
+      if (sessionRef.current !== session || session.finalDelivered) return;
+      if (session.request) {
+        // Only the newest cumulative WAV matters. This is the coalescing
+        // queue: no request can be overtaken by an older snapshot.
+        session.pending = { blob, partial };
         return;
       }
 
-      streamRef.current = stream;
+      const controller = new AbortController();
+      session.request = controller;
+      if (!partial && mountedRef.current) setStatus('transcribing');
 
-      const mimeType =
-        [
-          'audio/webm;codecs=opus',
-          'audio/webm',
-          'audio/ogg;codecs=opus',
-          'audio/ogg',
-          'audio/mp4',
-        ].find((type) => MediaRecorder.isTypeSupported(type)) || '';
-
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
-      sizeRef.current = 0;
-      setRecordingTime(0);
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-          sizeRef.current += e.data.size;
-          // 8 MiB limit
-          if (sizeRef.current >= 8 * 1024 * 1024) {
-            recorder.stop();
-          }
-        }
-      };
-
-      recorder.onstop = () => {
-        const currentSession = sessionRef.current;
-        const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
-        cleanupMedia();
-        if (currentSession === mySession && isMounted.current) {
-          if (blob.size > 0) {
-            processAudio(blob);
+      // New generated clients take (blob, { partial }, { signal }); keeping
+      // this call shape also makes request cancellation explicit.
+      void transcribeSpeech(blob, { partial }, { signal: controller.signal })
+        .then((result) => {
+          if (sessionRef.current !== session || session.finalDelivered) return;
+          const text = typeof result?.text === 'string' ? result.text : '';
+          if (partial) {
+            // Empty partials must not erase the editor's visible interim text.
+            if (text.trim()) callbacksRef.current.onTranscript(text, false);
+            if (
+              mountedRef.current &&
+              !session.stopRequested &&
+              sessionRef.current === session
+            ) {
+              setStatus('recording');
+            }
           } else {
-            if (globalActiveSession === mySession) globalActiveSession = null;
-            sessionRef.current = null;
-            setStatus('idle');
+            session.finalDelivered = true;
+            callbacksRef.current.onTranscript(text, true);
+            // A final callback may synchronously cancel the input (for
+            // example, a controlled editor replacing its text region).
+            if (sessionRef.current === session) finishSession(session);
           }
-        }
-      };
+        })
+        .catch((requestError: unknown) => {
+          if (sessionRef.current !== session || !mountedRef.current) return;
+          if (isAbortError(requestError)) return;
+          markError(session, errorMessage(requestError));
+        })
+        .finally(() => {
+          if (session.request === controller) session.request = null;
+          if (sessionRef.current !== session || session.finalDelivered) return;
+          if (session.pending) {
+            const pending = session.pending;
+            session.pending = null;
+            sendSnapshot(session, pending.blob, pending.partial);
+          } else if (session.stopRequested) {
+            // stopRecording always enqueues a final snapshot, but this guard
+            // protects against a capture ending with no samples.
+            finishSession(session);
+          }
+        });
+    },
+    [finishSession, markError],
+  );
 
-      recorder.onerror = (e: any) => {
-        cleanupMedia();
-        if (sessionRef.current === mySession && isMounted.current) {
-          if (globalActiveSession === mySession) globalActiveSession = null;
-          sessionRef.current = null;
-          setError(e.error?.message || 'Error capturing audio.');
-          setStatus('error');
-        }
-      };
+  const queueSnapshot = useCallback(
+    (session: Session, partial: boolean) => {
+      const blob = session.capture.snapshot();
+      if (!blob) {
+        if (!partial) finishSession(session);
+        return;
+      }
+      if (blob.size > DICTATION_MAX_REQUEST_BYTES) {
+        markError(session, 'Audio snapshot exceeds the 8 MiB limit.');
+        return;
+      }
+      sendSnapshot(session, blob, partial);
+    },
+    [finishSession, markError, sendSnapshot],
+  );
 
-      recorder.start(1000);
+  const stopRecording = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session || session.stopRequested) return;
+    session.stopRequested = true;
+    if (mountedRef.current) setStatus('transcribing');
+    if (session.timer !== null) {
+      window.clearInterval(session.timer);
+      session.timer = null;
+    }
+    // Snapshot before stopping the stream/context. One final request is
+    // queued behind any partial currently in flight.
+    const finalBlob = session.capture.snapshot();
+    session.capture.dispose();
+    session.stream?.getTracks().forEach((track) => track.stop());
+    session.stream = null;
+    if (finalBlob) {
+      if (session.request) session.pending = { blob: finalBlob, partial: false };
+      else sendSnapshot(session, finalBlob, false);
+    } else if (!session.request) {
+      finishSession(session);
+    }
+  }, [finishSession, sendSnapshot]);
+
+  const cancelRecording = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    sessionRef.current = null;
+    session.request?.abort();
+    session.request = null;
+    finishSession(session);
+    // A mounted, user-initiated cancellation is observable. Unmount cleanup
+    // uses the same resource path but intentionally does not call this.
+    if (mountedRef.current) callbacksRef.current.onCancel();
+  }, [finishSession]);
+
+  const startRecording = useCallback(async () => {
+    if (globalActiveSession !== null) {
+      if (mountedRef.current) {
+        setError('Another recording is already in progress.');
+        setStatus('error');
+        callbacksRef.current.onError();
+      }
+      return;
+    }
+    if (typeof window === 'undefined' || !window.isSecureContext) {
+      setError('Microphone requires a secure context (HTTPS or localhost).');
+      setStatus('error');
+      callbacksRef.current.onError();
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('Microphone is not supported in this browser.');
+      setStatus('error');
+      callbacksRef.current.onError();
+      return;
+    }
+
+    let ownedSession: Session | null = null;
+    let capture: AudioCapture | null = null;
+    try {
+      capture = createAudioCapture({
+        onError: (captureError) => {
+          if (ownedSession && sessionRef.current === ownedSession) {
+            markError(ownedSession, errorMessage(captureError));
+          }
+        },
+      });
+      // Prepare and notify before awaiting permission so editors can capture
+      // the caret in the initiating click handler.
+      capture.prepare();
+    } catch (captureError: unknown) {
+      capture?.dispose();
+      if (mountedRef.current) {
+        setError(errorMessage(captureError));
+        setStatus('error');
+        callbacksRef.current.onError();
+      }
+      return;
+    }
+    if (!capture) return;
+    try {
+      callbacksRef.current.onStart();
+    } catch (callbackError: unknown) {
+      capture.dispose();
+      if (mountedRef.current) {
+        setError(errorMessage(callbackError));
+        setStatus('error');
+        callbacksRef.current.onError();
+      }
+      return;
+    }
+    const session: Session = {
+      id: ++sessionCounter,
+      capture,
+      stream: null,
+      timer: null,
+      request: null,
+      pending: null,
+      stopRequested: false,
+      finalDelivered: false,
+      lastPartialSampleCount: 0,
+      lastPartialAt: Date.now(),
+      elapsedSeconds: 0,
+    };
+    ownedSession = session;
+    globalActiveSession = session.id;
+    sessionRef.current = session;
+    setError(null);
+    setRecordingTime(0);
+    setStatus('requesting');
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mountedRef.current || sessionRef.current !== session) {
+        stream.getTracks().forEach((track) => track.stop());
+        capture.dispose();
+        if (globalActiveSession === session.id) globalActiveSession = null;
+        return;
+      }
+      session.stream = stream;
+      await capture.start(stream);
+      if (!mountedRef.current || sessionRef.current !== session) return;
       setStatus('recording');
-
-      timerRef.current = window.setInterval(() => {
-        if (!isMounted.current || sessionRef.current !== mySession) {
-          window.clearInterval(timerRef.current!);
-          timerRef.current = null;
+      session.timer = window.setInterval(() => {
+        if (sessionRef.current !== session || session.stopRequested) return;
+        session.elapsedSeconds += 1;
+        if (session.elapsedSeconds >= DICTATION_MAX_SECONDS) {
+          setRecordingTime(DICTATION_MAX_SECONDS);
+          stopRecording();
           return;
         }
-        setRecordingTime((t) => {
-          const next = t + 1;
-          if (next >= 60) {
-            if (mediaRecorderRef.current?.state === 'recording') {
-              mediaRecorderRef.current.stop();
-            }
-          }
-          return next;
-        });
+        setRecordingTime(session.elapsedSeconds);
+        if (
+          Date.now() - session.lastPartialAt >= 2_000 &&
+          session.capture.sampleCount > session.lastPartialSampleCount &&
+          session.capture.hasSpeechSince(session.lastPartialSampleCount)
+        ) {
+          session.lastPartialAt = Date.now();
+          session.lastPartialSampleCount = session.capture.sampleCount;
+          queueSnapshot(session, true);
+        }
       }, 1000);
-    } catch (err: any) {
-      if (globalActiveSession === mySession) {
-        globalActiveSession = null;
+    } catch (startError: unknown) {
+      if (!mountedRef.current || sessionRef.current !== session) {
+        capture.dispose();
+        return;
       }
-      
-      if (!isMounted.current || sessionRef.current !== mySession) {
-        return; // Ignore errors if we cancelled while waiting
-      }
-      
-      sessionRef.current = null;
-      cleanupMedia();
-      
-      if (err.name === 'NotAllowedError') {
-        setError('Microphone access denied.');
-      } else {
-        setError(err.message || 'Failed to access microphone.');
-      }
-      setStatus('error');
+      const message =
+        startError && typeof startError === 'object' && 'name' in startError &&
+        startError.name === 'NotAllowedError'
+          ? 'Microphone access denied.'
+          : errorMessage(startError);
+      markError(session, message);
     }
-  }, [cleanupMedia]);
+  }, [markError, queueSnapshot, stopRecording]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const session = sessionRef.current;
+      if (!session) return;
+      sessionRef.current = null;
+      session.request?.abort();
+      session.request = null;
+      if (session.timer !== null) window.clearInterval(session.timer);
+      session.capture.dispose();
+      session.stream?.getTracks().forEach((track) => track.stop());
+      if (globalActiveSession === session.id) globalActiveSession = null;
+    };
+  }, []);
 
   return {
     status,
@@ -268,4 +380,13 @@ export function useVoiceInput(onInsert: (text: string) => void) {
     stopRecording,
     cancelRecording,
   };
+}
+
+export interface VoiceInputResult {
+  status: VoiceInputStatus;
+  error: string | null;
+  recordingTime: number;
+  startRecording: () => Promise<void>;
+  stopRecording: () => void;
+  cancelRecording: () => void;
 }

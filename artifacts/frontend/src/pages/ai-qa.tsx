@@ -244,7 +244,7 @@ export default function AIQA() {
         </ScrollArea>
 
         <div className="p-4 border-t border-border bg-card">
-          <form onSubmit={handleAsk} className="max-w-3xl mx-auto flex gap-2">
+          <form onSubmit={handleAsk} className="max-w-3xl mx-auto flex items-start gap-2">
             <VoiceInput
               wrapperClassName="flex-1 min-w-0"
               value={question}

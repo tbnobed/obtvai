@@ -176,6 +176,7 @@ import type {
   StreamDubParams,
   TightenInput,
   TightenResult,
+  TranscribeSpeechParams,
   TranscriptSegment,
   TranscriptSegmentUpdate,
   TranslateRequest,
@@ -298,21 +299,29 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
-export const getTranscribeSpeechUrl = () => {
+export const getTranscribeSpeechUrl = (params?: TranscribeSpeechParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/speech/transcribe`
+  return stringifiedParams.length > 0 ? `/api/speech/transcribe?${stringifiedParams}` : `/api/speech/transcribe`
 }
 
 /**
  * Accepts a raw application/octet-stream audio body. Audio is not persisted.
  * @summary Transcribe a short audio Blob locally
  */
-export const transcribeSpeech = async (transcribeSpeechBody: Blob, options?: RequestInit): Promise<SpeechTranscription> => {
+export const transcribeSpeech = async (transcribeSpeechBody: Blob,
+    params?: TranscribeSpeechParams, options?: RequestInit): Promise<SpeechTranscription> => {
 
-  return customFetch<SpeechTranscription>(getTranscribeSpeechUrl(),
+  return customFetch<SpeechTranscription>(getTranscribeSpeechUrl(params),
   {
     ...options,
     method: 'POST',
@@ -326,8 +335,8 @@ export const transcribeSpeech = async (transcribeSpeechBody: Blob, options?: Req
 
 
 export const getTranscribeSpeechMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transcribeSpeech>>, TError,{data: BodyType<Blob>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof transcribeSpeech>>, TError,{data: BodyType<Blob>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transcribeSpeech>>, TError,{data: BodyType<Blob>;params?: TranscribeSpeechParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transcribeSpeech>>, TError,{data: BodyType<Blob>;params?: TranscribeSpeechParams}, TContext> => {
 
 const mutationKey = ['transcribeSpeech'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -339,10 +348,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transcribeSpeech>>, {data: BodyType<Blob>}> = (props) => {
-          const {data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transcribeSpeech>>, {data: BodyType<Blob>;params?: TranscribeSpeechParams}> = (props) => {
+          const {data,params} = props ?? {};
 
-          return  transcribeSpeech(data,requestOptions)
+          return  transcribeSpeech(data,params,requestOptions)
         }
 
 
@@ -360,11 +369,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Transcribe a short audio Blob locally
  */
 export const useTranscribeSpeech = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transcribeSpeech>>, TError,{data: BodyType<Blob>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transcribeSpeech>>, TError,{data: BodyType<Blob>;params?: TranscribeSpeechParams}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof transcribeSpeech>>,
         TError,
-        {data: BodyType<Blob>},
+        {data: BodyType<Blob>;params?: TranscribeSpeechParams},
         TContext
       > => {
       return useMutation(getTranscribeSpeechMutationOptions(options));

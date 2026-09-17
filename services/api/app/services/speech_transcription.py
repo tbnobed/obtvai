@@ -26,7 +26,7 @@ MODEL_TIMEOUT_SECONDS = 120.0
 
 
 class SpeechInputError(ValueError):
-    """The request did not contain usable, non-silent speech audio."""
+    """The request did not contain usable speech audio for final inference."""
 
 
 class SpeechBusyError(RuntimeError):
@@ -71,7 +71,7 @@ def _load_model() -> Any:
     return _model
 
 
-async def _decode_audio(path: str) -> tuple[bytes, float]:
+async def _decode_audio(path: str, partial: bool = False) -> tuple[bytes, float]:
     """Decode one temporary input to bounded mono 16 kHz signed PCM."""
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -140,11 +140,15 @@ async def _decode_audio(path: str) -> tuple[bytes, float]:
     peak = max(abs(value) for value in values)
     rms = math.sqrt(sum(value * value for value in values) / len(values))
     if peak < 128 or rms < 32:
+        if partial:
+            # A valid, decoded silent snapshot is a useful live-dictation
+            # result.  Keep its duration, but skip model inference entirely.
+            return b"", duration
         raise SpeechInputError("Audio contains no detectable speech")
     return pcm, duration
 
 
-def _transcribe_pcm(pcm: bytes) -> tuple[str, str | None]:
+def _transcribe_pcm(pcm: bytes, partial: bool = False) -> tuple[str, str | None]:
     """Run one inference in the spawned worker process."""
     try:
         import numpy as np
@@ -154,7 +158,7 @@ def _transcribe_pcm(pcm: bytes) -> tuple[str, str | None]:
         segments, info = model.transcribe(
             audio,
             language=None,
-            beam_size=5,
+            beam_size=1 if partial else 5,
             vad_filter=True,
             condition_on_previous_text=False,
         )
@@ -162,6 +166,8 @@ def _transcribe_pcm(pcm: bytes) -> tuple[str, str | None]:
             segment.text.strip() for segment in segments if segment.text.strip()
         ).strip()
         if not text:
+            if partial:
+                return "", None
             raise SpeechInputError("Audio contains no detectable speech")
         return text, getattr(info, "language", None) or None
     except (SpeechInputError, SpeechUnavailableError):
@@ -179,7 +185,18 @@ def _speech_worker_main(connection: Any) -> None:
             if message is None:
                 return
             try:
-                text, language = _transcribe_pcm(message)
+                # Keep the mode inside the worker message rather than relying
+                # on mutable process-global state.  Reject malformed messages
+                # instead of silently treating them as final inference.
+                if (
+                    not isinstance(message, tuple)
+                    or len(message) != 2
+                    or not isinstance(message[0], bytes)
+                    or type(message[1]) is not bool
+                ):
+                    connection.send(("unavailable",))
+                    continue
+                text, language = _transcribe_pcm(message[0], partial=message[1])
                 connection.send(("ok", text, language))
             except SpeechInputError:
                 connection.send(("input",))
@@ -241,10 +258,12 @@ def _stop_worker() -> None:
         logger.exception("Speech worker cleanup failed")
 
 
-async def _transcribe_in_worker(pcm: bytes) -> tuple[str, str | None]:
+async def _transcribe_in_worker(
+    pcm: bytes, partial: bool = False
+) -> tuple[str, str | None]:
     process, connection = _ensure_worker()
     try:
-        connection.send(pcm)
+        connection.send((pcm, bool(partial)))
         while True:
             if connection.poll():
                 response = connection.recv()
@@ -260,16 +279,30 @@ async def _transcribe_in_worker(pcm: bytes) -> tuple[str, str | None]:
         raise SpeechUnavailableError("Local transcription is unavailable") from exc
 
 
-async def transcribe_file(path: str) -> tuple[str, str | None, float]:
+async def transcribe_file(
+    path: str, partial: bool = False
+) -> tuple[str, str | None, float]:
     """Transcribe a temporary file, with exactly one bounded model job."""
     if not _job_slot.acquire(blocking=False):
         raise SpeechBusyError("Speech transcription is busy")
 
     try:
-        pcm, duration = await _decode_audio(path)
+        # Keep the final path's call shape compatible with existing callers
+        # and test doubles; only live snapshots need the explicit mode flag.
+        if partial:
+            pcm, duration = await _decode_audio(path, partial=True)
+        else:
+            pcm, duration = await _decode_audio(path)
+        if partial and not pcm:
+            return "", None, duration
         try:
+            inference = (
+                _transcribe_in_worker(pcm, partial=True)
+                if partial
+                else _transcribe_in_worker(pcm)
+            )
             text, language = await asyncio.wait_for(
-                _transcribe_in_worker(pcm),
+                inference,
                 timeout=MODEL_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError as exc:

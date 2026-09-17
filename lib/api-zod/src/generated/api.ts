@@ -20,6 +20,12 @@ export const HealthCheckResponse = zod.object({
  * Accepts a raw application/octet-stream audio body. Audio is not persisted.
  * @summary Transcribe a short audio Blob locally
  */
+export const transcribeSpeechQueryPartialDefault = false;
+
+export const TranscribeSpeechQueryParams = zod.object({
+  "partial": zod.coerce.boolean().default(transcribeSpeechQueryPartialDefault).describe('Use fast live-dictation inference; valid silent\/no-speech snapshots return an empty transcription.')
+})
+
 export const transcribeSpeechResponseDurationSecondsMin = 0;
 
 

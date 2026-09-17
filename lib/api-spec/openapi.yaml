@@ -61,6 +61,14 @@ paths:
       tags: [speech]
       summary: Transcribe a short audio Blob locally
       description: Accepts a raw application/octet-stream audio body. Audio is not persisted.
+      parameters:
+        - name: partial
+          in: query
+          required: false
+          description: Use fast live-dictation inference; valid silent/no-speech snapshots return an empty transcription.
+          schema:
+            type: boolean
+            default: false
       requestBody:
         required: true
         content:
@@ -86,7 +94,7 @@ paths:
         "415":
           description: Content-Type must be application/octet-stream
         "422":
-          description: Empty, invalid, too long, or silent audio
+          description: Empty, invalid, too long, or (for final requests) silent audio
         "429":
           description: The single local transcription job is busy
         "503":
