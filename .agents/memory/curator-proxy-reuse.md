@@ -10,6 +10,7 @@ description: IPV Curator WebProxy layout (video-only fMP4 + audio sidecars) and 
   - **Why:** the "video never loads" incident — proxy was a symlink into `/curator`.
   - **How to apply:** materialize a local file (stream-copy remux is enough — no re-encode). A `-c copy -movflags +faststart` remux also converts fragmented MP4 into progressive MP4, which browsers buffer properly.
 - A/V from separate Curator render files muxes cleanly (`-map 0:v:0` + sidecar audio → AAC); both are rendered from the same source so timestamps align from 0.
+  - **Current requirement:** The archive storage policy in `replit.md` now forbids retained local playback proxies and requires SMB-backed playback. The local-remux workaround above describes historical/current implementation, not an acceptable target design. Preserve the SMB playback failure evidence when replacing it.
 
 ## Selective ingest (Aug 2026)
 - /curator is always watched; watcher polls `/api/curator/selected` (internal token) every ~45s and only ingests *_video.mp4 under admin-selected folders. `CURATOR_DIRECT_INGEST=1` = ingest everything (legacy).
@@ -42,6 +43,13 @@ description: IPV Curator WebProxy layout (video-only fMP4 + audio sidecars) and 
 - `MediaInfoDuration` is human-readable hours/minutes/seconds, and `MediaInfoTotalSizeMiB` is a numeric string. `DurationFrame` can be a placeholder of 1 even on long programs.
   - **Why:** Unvalidated frame-derived duration understates capacity. DateTime wildcard searches also returned HTTP 500, so they cannot establish arrival rates.
   - **How to apply:** Parse MediaInfo duration or use ffprobe, report missing-duration coverage, and validate ingestion-rate queries before using their counts.
+
+- Capacity-query caveat: `IngestCompleteDate:*` successfully filters records with that date, including with `assetTypes=Media` or `Audio`. Date-prefix queries fail on numeric fields, and an ISO date-range expression returned HTTP 200 with zero results despite known matching records.
+  - **Why:** HTTP success alone does not establish that Curator interpreted a date-range query correctly.
+  - **How to apply:** Use the presence filter and parse dates client-side when no verified range syntax exists. Validate any proposed server-side filter against known matching records; distinguish dated records, qualifying records, and missing-date records. Deduplicate by asset ID during pagination because live catalog changes shift offsets.
+- Include `assetTypes=Image` in an all-assets eligibility census; Media and Audio alone omit a material part of the dated catalog. Combining `AssetType:-Media` / `AssetType:-Audio` text queries returned the unfiltered collection in a live check.
+  - **Why:** Video-centric sizing missed image assets even though they carry the same eligibility date.
+  - **How to apply:** Reconcile typed collection totals with the unfiltered date-present total, verify returned types, and budget an image-specific processing path rather than charging images as video hours.
 
 ## ClipLink OBTV extension automation
 - The OBTV extension is not equivalent to Gateway `/api/v1/assets/sendto`. It submits `Plug-in - Send to genericV4` through ClipLink `PluginHandler/SubmitProcess`, with `AssetIds` and destination `MODIFY-ASSET-CURATORFOLDERPATH,EXPORT-OBTV-XML`, then polls `PluginHandler/GetProcess`.
