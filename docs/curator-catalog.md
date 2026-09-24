@@ -1,5 +1,55 @@
 # Bounded Curator catalog ingest
 
+## Managed 2025 test bed
+
+`CURATOR_CATALOG_CUTOFF` is a strict inclusive ISO date, default `2023-01-01`.
+Production test-bed policy is `2025-01-01`; this uses **IngestCompleteDate**,
+never air dates or file modification dates. Stored eligible/retry candidates
+are rechecked immediately before admission. Existing indexed media and catalog
+rows are not removed when this policy changes.
+Recreate **both API and catalog-runner** when changing cutoff/ceiling settings;
+each process reads its own container environment.
+
+The `archive-catalog` Compose profile adds `catalog-runner` using the API image,
+the same source/output mounts, and no listening ports. It wakes every 60 seconds,
+discovers one page, and admits at most one asset with a global one-inflight
+ceiling. Set `CURATOR_CATALOG_MAX_INFLIGHT=1` and
+`CURATOR_CATALOG_MAX_ASSETS=1` to enforce these ceilings on manual API runs too.
+Discovery rotates Media/Audio/Image every page and remembers each type's cursor;
+admission also rotates types. Every tenth page-budget turn refreshes a type's
+first dated page without losing its deep-sweep checkpoint (roughly every 30
+minutes per type at the configured cadence). Full sweeps remain necessary for
+larger bursts or assets not returned on the first page. This avoids waiting for the whole Media inventory
+before Audio/Image can begin. Offset sweeps still reconcile new arrivals.
+
+Start after archive preflight and a capacity check:
+
+```sh
+docker compose -f docker-compose.yml -f archive-artifacts.compose.yml --profile archive-catalog up -d --no-build catalog-runner
+```
+
+Stop new automatic admissions (already queued work may finish):
+
+```sh
+docker compose -f docker-compose.yml -f archive-artifacts.compose.yml stop catalog-runner
+```
+
+The admin Curator page shows the effective cutoff, runner heartbeat/state, errors
+and recent runs. A worker failure or three admission/discovery errors without an
+intervening successful admission latches a **persistent pause**, including across
+container restarts. Review jobs and correct the cause, then use **Resume managed
+runner**; this clears the pause but does not start a stopped container. Logs are
+available with `docker compose -f docker-compose.yml -f archive-artifacts.compose.yml logs catalog-runner`.
+
+On the current shared host, physical GPU0 has insufficient free VRAM from
+other services. `GPU_SECONDARY_QUEUES=gpu-secondary` keeps worker-gpu-2 running
+on an explicit standby queue, while the normal `gpu` queue (including manual
+jobs) runs sequentially on worker-gpu / physical GPU1. This is durable Compose
+configuration, not a temporary cancelled consumer. Other GPU services are not
+stopped. Restore `GPU_SECONDARY_QUEUES=gpu` only after a capacity check.
+The runner reserves 20 GiB plus 1 GiB per admission on output/scratch volumes.
+No stage/model is skipped. This is a bounded test bed, not a throughput promise.
+
 **This feature is opt-in. No deployment, catalog scan, ingestion, proxy deletion,
 or recurring process is performed by adding the code.** API startup only creates
 three new tables through the existing bounded-lock schema initializer.
@@ -10,7 +60,8 @@ three new tables through the existing bounded-lock schema initializer.
   `assetTypes` and `limit=199`. The known presence query is
   `IngestCompleteDate:*`; no date-range or date-prefix queries are used.
 - Compare the explicitly supplied ISO calendar date in `IngestCompleteDate`
-  against **2023-01-01 inclusive**. For ISO timestamps, their supplied calendar
+  against **CURATOR_CATALOG_CUTOFF inclusive** (default 2023-01-01;
+  current production test bed 2025-01-01). For ISO timestamps, their supplied calendar
   day is used; there is no guessed local timezone or substitution with mtime,
   production date, air date, or library creation date. Missing, ambiguous, and
   invalid dates are `review`, never queued.
@@ -87,16 +138,18 @@ are always checked, even if omitted from CLI arguments.
 
 Recurring discovery requires **explicit** `--enable-recurring`, optionally
 `--interval-seconds 3600` (minimum 60). Without `--apply`, recurring mode remains
-dry-run. No service, beat entry, cron job, or startup hook is installed. Stop the
-operator process to stop recurrence; bounded progress remains in PostgreSQL.
-Preflight/option errors exit nonzero rather than silently continuing.
+dry-run. No API startup scheduler, beat entry or cron job is installed. The
+explicit Compose profile above is the managed deployment option. Stop its
+service (or a manually launched CLI process) to stop recurrence; bounded progress remains in PostgreSQL.
+One-shot preflight/option errors exit nonzero. Managed recurrence records errors
+and persistently pauses after its error budget rather than silently retrying forever.
 
 ## Admin integration and recovery
 
 - `GET /api/curator/catalog`: counts by status, checkpoint and latest 20 runs.
-  `automatic_discovery:false` means the API installs no automatic scheduler;
-  an explicitly launched external recurring CLI process is not tracked as a
-  scheduler by this endpoint.
+  `automatic_discovery` reflects the recurring CLI's fresh, unpaused heartbeat;
+  the runner checkpoint includes state, interval, bounds and errors. API startup
+  never starts a scheduler.
 - `GET /api/curator/catalog/assets?status=review&after=&limit=100`: keyset-paged
   review records. Also inspect `retry` and `failed`.
 - `POST /api/curator/catalog/run`: same bounded options; `dry_run` defaults true.
@@ -138,6 +191,13 @@ audio, missing paths and other unsupported formats fail explicitly.
 
 Source playback/player-format support is separate from semantic indexing.
 No new persistent playback copies are created by these Audio/Image paths.
+
+The transcript-based creative pass honors valid empty model selections. When
+every map response explicitly selects zero clips and the valid reduce response
+selects zero story beats, it stores `outcome: no_suggestions` with an explicit
+reason in the result, editorial notes and job log. It does not invent clips or
+skip inference. Malformed responses, missing selection arrays and rejected
+nonempty model selections remain failures rather than empty successes.
 
 ## Tests
 

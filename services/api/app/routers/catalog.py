@@ -7,6 +7,8 @@ from ..database import get_db
 from ..catalog_models import CatalogAsset, CatalogCheckpoint, CatalogRun
 from ..catalog_service import CatalogOptions, run_catalog
 from ..commands.import_curator_workbook import ImportFailure
+from ..catalog import cutoff
+from datetime import datetime
 
 router = APIRouter(prefix="/curator/catalog", tags=["curator"])
 
@@ -15,11 +17,28 @@ router = APIRouter(prefix="/curator/catalog", tags=["curator"])
 async def status(request: Request, db: AsyncSession = Depends(get_db)):
     require_admin(request)
     checkpoint = await db.get(CatalogCheckpoint, "catalog")
+    runner = await db.get(CatalogCheckpoint, "runner")
+    fresh = runner is not None and (datetime.utcnow() - runner.updated_at).total_seconds() < max(
+        300, 3 * runner.cursor.get("interval_seconds", 60))
     counts = (await db.execute(select(CatalogAsset.status, func.count())
                               .group_by(CatalogAsset.status))).all()
     runs = (await db.execute(select(CatalogRun).order_by(CatalogRun.started_at.desc()).limit(20))).scalars().all()
-    return {"automatic_discovery": False, "cutoff": "2023-01-01",
+    return {"automatic_discovery": bool(fresh and not runner.cursor.get("paused") and
+                                       runner.cursor.get("state") in ("running", "waiting")),
+            "cutoff": cutoff().isoformat(), "runner": runner, "runner_heartbeat_fresh": fresh,
             "counts": dict(counts), "checkpoint": checkpoint, "runs": runs}
+
+
+@router.post("/runner/resume")
+async def resume(request: Request, db: AsyncSession = Depends(get_db)):
+    require_admin(request)
+    row = await db.get(CatalogCheckpoint, "runner")
+    if not row:
+        raise HTTPException(404, "No managed catalog runner has registered")
+    row.cursor = {**row.cursor, "paused": False, "consecutive_errors": 0, "state": "resumed"}
+    row.last_error = None
+    await db.commit()
+    return {"note": "Pause cleared. A running managed runner may admit the next bounded asset; a stopped service is not started."}
 
 
 @router.get("/assets")

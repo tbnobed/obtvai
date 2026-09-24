@@ -13,6 +13,18 @@ from config import LLM_MODEL
 
 _BEATS = {"hook", "setup", "development", "turn", "climax", "resolution"}
 _NOTE_CATEGORIES = {"pacing", "structure", "cuts", "broll", "delivery", "best_take"}
+_EMPTY_REASON = "Creative review completed; the model selected no qualifying soundbites or narrative beats."
+
+
+def _deliberately_empty(maps_empty: bool, reduced) -> bool:
+    """A valid empty selection is a finding, not an LLM transport/parse failure."""
+    return (maps_empty and isinstance(reduced, dict)
+            and isinstance(reduced.get("logline"), str)
+            and isinstance(reduced.get("story_beats"), list)
+            and len(reduced["story_beats"]) == 0
+            and isinstance(reduced.get("editorial_notes"), list)
+            and all(isinstance(note, dict) and isinstance(note.get("note"), str)
+                    and bool(note["note"].strip()) for note in reduced["editorial_notes"]))
 
 
 def _clamp(value, lo: float, hi: float) -> float:
@@ -64,6 +76,7 @@ def creative_pass(self, media_id: str, job_id: str):
         # ── Map: per-chunk soundbite mining ─────────────────────────────────
         all_clips = []
         chunk_notes = []
+        maps_deliberately_empty = bool(chunks)
         for i, (chunk_text, c_start, c_end) in enumerate(chunks):
             prompt = (
                 f"You are a senior creative video editor reviewing raw footage. {CREATIVE_PERSONA}\n{EDITOR_RULES}\nBelow is "
@@ -88,8 +101,15 @@ def creative_pass(self, media_id: str, job_id: str):
             try:
                 data = _extract_json(raw)
             except (ValueError, json.JSONDecodeError):
+                maps_deliberately_empty = False
                 append_log(db, job_id, f"Chunk {i + 1}/{len(chunks)}: unparseable LLM output, skipping")
                 continue
+            if not isinstance(data, dict) or not isinstance(data.get("clips"), list):
+                maps_deliberately_empty = False
+                append_log(db, job_id, f"Chunk {i + 1}/{len(chunks)}: invalid clips schema, skipping")
+                continue
+            maps_deliberately_empty = (maps_deliberately_empty and not data["clips"]
+                                       and isinstance(data.get("segment_note"), str))
 
             for c in (data.get("clips") or []):
                 if not isinstance(c, dict) or not c.get("title") or not c.get("reason"):
@@ -177,8 +197,10 @@ def creative_pass(self, media_id: str, job_id: str):
         logline = None
         story_beats = []
         editorial_notes = []
+        reduced = None
         try:
             data = _extract_json(raw)
+            reduced = data
             logline = str(data.get("logline", "")).strip()[:300] or None
             for b in (data.get("story_beats") or []):
                 if not isinstance(b, dict) or not b.get("title"):
@@ -244,8 +266,12 @@ def creative_pass(self, media_id: str, job_id: str):
                 break
         clips.sort(key=lambda c: c["start"])
 
-        if not clips and not story_beats:
+        empty_selection = not clips and not story_beats and _deliberately_empty(maps_deliberately_empty, reduced)
+        if not clips and not story_beats and not empty_selection:
             raise RuntimeError("Creative pass produced no usable output")
+        if empty_selection:
+            editorial_notes.append({"category": "structure", "note": _EMPTY_REASON})
+            append_log(db, job_id, _EMPTY_REASON)
 
         creative = {
             "logline": logline,
@@ -253,6 +279,8 @@ def creative_pass(self, media_id: str, job_id: str):
             "clip_suggestions": clips,
             "editorial_notes": editorial_notes,
             "generated_at": datetime.utcnow().isoformat() + "Z",
+            "outcome": "no_suggestions" if empty_selection else "suggestions",
+            "empty_reason": _EMPTY_REASON if empty_selection else None,
         }
         db.execute(
             text("UPDATE media_assets SET creative = CAST(:c AS jsonb) WHERE id = :mid"),

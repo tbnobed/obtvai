@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import os
 from datetime import date, datetime
 from urllib.parse import urljoin
 
@@ -10,6 +11,16 @@ from .commands.import_curator_workbook import CuratorClient, ImportFailure, _fie
 ASSET_TYPES = ("Media", "Audio", "Image")
 CUTOFF = date(2023, 1, 1)
 PAGE_SIZE = 199
+
+
+def cutoff() -> date:
+    value = os.getenv("CURATOR_CATALOG_CUTOFF", CUTOFF.isoformat())
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ImportFailure("CURATOR_CATALOG_CUTOFF must be an ISO YYYY-MM-DD date")
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ImportFailure("CURATOR_CATALOG_CUTOFF is not a valid date") from None
 
 
 def exact_id(asset: dict) -> str:
@@ -21,6 +32,7 @@ def exact_id(asset: dict) -> str:
 
 
 def eligibility(asset: dict) -> tuple[str, str | None]:
+    minimum = cutoff()  # Invalid policy fails closed, even for malformed assets.
     values = list(dict.fromkeys(_field_values(asset, ("IngestCompleteDate",))))
     if len(values) != 1:
         return "review", "Missing or ambiguous IngestCompleteDate"
@@ -32,7 +44,7 @@ def eligibility(asset: dict) -> tuple[str, str | None]:
         day = datetime.fromisoformat(value.replace("Z", "+00:00")).date()
     except ValueError:
         return "review", "Invalid IngestCompleteDate"
-    return ("eligible", None) if day >= CUTOFF else ("excluded", None)
+    return ("eligible", None) if day >= minimum else ("excluded", None)
 
 
 class CatalogClient(CuratorClient):
@@ -78,21 +90,31 @@ class CatalogClient(CuratorClient):
         return page
 
 
-def next_cursor(cursor: dict, count: int) -> dict:
-    """Do not trust a shifting total as a high-water mark; sweep from zero again."""
+def next_cursor(cursor: dict, count: int, *, head_refresh: bool = False) -> dict:
+    """Round-robin types; each retains its own full/presence sweep checkpoint."""
     result = dict(cursor)
-    if count:
-        result["offset"] += count
+    lanes = {k: dict(v) for k, v in cursor.get("lanes", {}).items()}
+    index = cursor["type_index"]
+    lane = lanes.get(str(index), {
+        "offset": cursor["offset"], "dated": cursor["dated"],
+        "generation": cursor["generation"],
+    })
+    if head_refresh:
+        pass  # Bounded fresh-arrival lookback must not reset historical progress.
+    elif count:
+        lane["offset"] += count
     else:
-        result["offset"] = 0
-        result["type_index"] += 1
-        if result["type_index"] == len(ASSET_TYPES):
-            result["type_index"] = 0
-            if result["dated"]:
-                result["dated"] = False
-            else:
-                result["dated"] = True
-                result["generation"] += 1
+        lane["offset"] = 0
+        if lane["dated"]:
+            lane["dated"] = False
+        else:
+            lane["dated"] = True
+            lane["generation"] += 1
+    lanes[str(index)] = lane
+    index = (index + 1) % len(ASSET_TYPES)
+    next_lane = lanes.get(str(index), {"offset": 0, "dated": True, "generation": 0})
+    result.update(next_lane, type_index=index, lanes=lanes,
+                  discovery_turn=cursor.get("discovery_turn", 0) + 1)
     return result
 
 

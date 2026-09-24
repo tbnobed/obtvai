@@ -69,6 +69,9 @@ x-python-env: &python-env
   # container paths; existing non-archive proxies remain on local artifacts_data.
   CURATOR_ARCHIVE_MODE: "${CURATOR_ARCHIVE_MODE:-0}"
   CURATOR_ARCHIVE_ROOTS: "${CURATOR_ARCHIVE_ROOTS:-/curator}"
+  CURATOR_CATALOG_CUTOFF: "${CURATOR_CATALOG_CUTOFF:-2023-01-01}"
+  CURATOR_CATALOG_MAX_INFLIGHT: "${CURATOR_CATALOG_MAX_INFLIGHT:-100}"
+  CURATOR_CATALOG_MAX_ASSETS: "${CURATOR_CATALOG_MAX_ASSETS:-100}"
   # Curator SendToOBTV writes small XML manifests here. Unlike /curator this
   # is a writable command inbox; the watcher archives handled files beneath it.
   CURATOR_INBOX_ROOT: "/curator-inbox"
@@ -266,7 +269,7 @@ services:
       - "${CURATOR_PROXY_PATH:-./curator_proxies}:/curator:ro"
       - artifacts_data:/artifacts
       - models_cache:/root/.cache
-    command: celery -A app worker --queues=gpu --concurrency=1 --loglevel=info --hostname=worker-gpu-2@%h
+    command: celery -A app worker --queues=${GPU_SECONDARY_QUEUES:-gpu} --concurrency=1 --loglevel=info --hostname=worker-gpu-2@%h
     depends_on:
       redis:
         condition: service_healthy

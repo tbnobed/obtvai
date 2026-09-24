@@ -1,10 +1,11 @@
 """Dependency-light policy/transport tests; no production connections or ingest."""
 import unittest
-from unittest.mock import Mock
+import os
+from unittest.mock import Mock, patch
 
 from app.catalog import (
     ASSET_TYPES, CUTOFF, INITIAL_CURSOR, CatalogClient, eligibility,
-    exact_id, next_cursor,
+    exact_id, next_cursor, cutoff,
 )
 from app.commands.import_curator_workbook import ImportFailure
 from app.commands.curator_catalog import parser
@@ -15,6 +16,27 @@ def asset(identifier="id-1", day="2023-01-01"):
 
 
 class CatalogTests(unittest.TestCase):
+    def test_testbed_cutoff_is_strict_and_inclusive(self):
+        with patch.dict(os.environ, {"CURATOR_CATALOG_CUTOFF": "2025-01-01"}):
+            self.assertEqual(cutoff().isoformat(), "2025-01-01")
+            self.assertEqual(eligibility(asset(day="2024-12-31T23:59:59Z"))[0], "excluded")
+            self.assertEqual(eligibility(asset(day="2025-01-01T00:00:00Z"))[0], "eligible")
+        for value in ("2025-1-1", "2025-02-30", "", "2025-01-01T00:00:00"):
+            with patch.dict(os.environ, {"CURATOR_CATALOG_CUTOFF": value}):
+                with self.assertRaises(ImportFailure):
+                    eligibility(asset())
+
+    def test_types_round_robin_even_when_media_has_more_pages(self):
+        cursor = dict(INITIAL_CURSOR)
+        seen = []
+        for _ in range(6):
+            seen.append(ASSET_TYPES[cursor["type_index"]])
+            cursor = next_cursor(cursor, 199)
+        self.assertEqual(seen, list(ASSET_TYPES) * 2)
+        self.assertEqual([lane["offset"] for lane in cursor["lanes"].values()], [398] * 3)
+        refreshed = next_cursor(cursor, 199, head_refresh=True)
+        self.assertEqual(refreshed["lanes"]["0"]["offset"], 398)
+
     def test_cutoff_inclusive(self):
         self.assertEqual(eligibility(asset(day="2023-01-01"))[0], "eligible")
         self.assertEqual(eligibility(asset(day="2022-12-31T23:59:59Z"))[0], "excluded")
@@ -51,7 +73,7 @@ class CatalogTests(unittest.TestCase):
         for row in [asset("b"), asset("c")]:
             persisted[exact_id(row)] = row
         self.assertEqual(set(persisted), {"a", "b", "c"})
-        self.assertEqual(restored["offset"], 3)
+        self.assertEqual(restored["lanes"]["0"]["offset"], 3)
         self.assertEqual(INITIAL_CURSOR["offset"], 0)
 
     def test_reconciliation_restarts_zero_and_scans_missing_dates(self):

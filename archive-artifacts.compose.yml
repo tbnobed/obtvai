@@ -7,7 +7,7 @@
 # The watcher does NOT mount this output tree (and must never scan it).
 services:
   api:
-    volumes:
+    volumes: &archive-output-volumes
       - type: bind
         source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/audio
         target: /artifacts/audio
@@ -36,6 +36,20 @@ services:
         source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/graphics
         target: /artifacts/graphics
         bind: { create_host_path: false }
+  catalog-runner:
+    extends:
+      file: docker-compose.yml
+      service: api
+    image: ${CATALOG_API_IMAGE:-obtv-ai-api}
+    profiles: ["archive-catalog"]
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes: *archive-output-volumes
+    command: ["python", "-m", "app.commands.curator_catalog", "--apply", "--confirm", "QUEUE_BOUNDED_CATALOG", "--enable-recurring", "--interval-seconds", "60", "--max-pages", "1", "--max-assets", "1", "--max-inflight", "1", "--max-attempts", "3", "--storage-path", "/tmp"]
   worker-gpu:
     volumes:
       - type: bind

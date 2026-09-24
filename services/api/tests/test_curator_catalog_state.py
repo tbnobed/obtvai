@@ -162,13 +162,13 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
         with patch("app.catalog_service.CatalogClient", return_value=client):
             async with self.session() as db:
                 result = await _run(db, CatalogOptions())
-                self.assertEqual(result["cursor"]["offset"], 3)
+                self.assertEqual(result["cursor"]["lanes"]["0"]["offset"], 3)
                 self.assertEqual(result["stats"]["new"], 2)
                 self.assertEqual(result["stats"]["duplicates"], 1)
             client.page.side_effect = RuntimeError("network failure")
             async with self.session() as db:
                 failed = await _run(db, CatalogOptions())
-                self.assertEqual(failed["cursor"]["offset"], 3)
+                self.assertEqual(failed["cursor"]["lanes"]["0"]["offset"], 3)
                 self.assertEqual(failed["stats"]["stop"], "error")
                 self.assertIn("network failure", failed["error"])
                 rows = (await db.execute(select(CatalogAsset))).scalars().all()
@@ -177,8 +177,11 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
             client.page.side_effect = None
             client.page.return_value = [{"Id": "two"}, {"Id": "three", "IngestCompleteDate": "2024-01-01"}]
             async with self.session() as db:
+                checkpoint = await db.get(CatalogCheckpoint, "catalog")
+                checkpoint.cursor = {**checkpoint.cursor, "type_index": 0, "offset": 3}
+                await db.commit()
                 resumed = await _run(db, CatalogOptions())
-                self.assertEqual(resumed["cursor"]["offset"], 5)
+                self.assertEqual(resumed["cursor"]["lanes"]["0"]["offset"], 5)
                 self.assertEqual((await db.execute(select(func.count()).select_from(CatalogAsset))).scalar(), 3)
 
     async def test_invalid_id_rolls_back_entire_page(self):
@@ -230,3 +233,84 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(result["stats"]["new"], 20)
                 self.assertEqual(result["stats"]["admitted"], 2)
                 self.assertEqual(importer.call_count, 2)
+
+    async def test_new_cutoff_rechecks_stored_eligible_and_retry_without_deletion(self):
+        client = Mock()
+        client.page.return_value = []
+        async with self.session() as db:
+            for name, status, day in (("a", "eligible", "2024-01-01"),
+                                      ("b", "retry", "2024-12-31"),
+                                      ("c", "eligible", "2025-01-01")):
+                db.add(CatalogAsset(asset_id=name, asset_type="Media", status=status,
+                                   attempts=0, metadata_snapshot={"Id": name, "IngestCompleteDate": day}))
+            db.add(MediaAsset(id="historical", filename="old", status="ready"))
+            await db.commit()
+            with patch.dict(os.environ, {"CURATOR_CATALOG_CUTOFF": "2025-01-01"}), \
+                    patch("app.catalog_service.CatalogClient", return_value=client), \
+                    patch("app.catalog_service.storage_available", return_value=True), \
+                    patch("app.catalog_service.import_asset", new=AsyncMock(return_value=(None, "queued"))) as importer:
+                result = await _run(db, CatalogOptions(dry_run=False, max_assets=1))
+                await _run(db, CatalogOptions(dry_run=False, max_assets=1))
+            self.assertEqual(result["stats"]["admitted"], 1)
+            self.assertEqual(importer.call_args.args[1].asset_id, "c")
+            self.assertEqual((await db.get(CatalogAsset, "a")).status, "excluded")
+            self.assertEqual((await db.get(CatalogAsset, "b")).status, "excluded")
+            self.assertEqual((await db.get(MediaAsset, "historical")).status, "ready")
+
+    async def test_recurring_worker_failure_latches_pause_across_ticks(self):
+        from app.commands.curator_catalog import recurring_tick, parser
+        args = parser().parse_args(["--apply", "--enable-recurring", "--max-assets", "1", "--max-inflight", "1"])
+        with patch("app.database.AsyncSessionLocal", self.session), \
+                patch("app.database.engine", types.SimpleNamespace(dispose=AsyncMock())), \
+                patch("app.commands.curator_catalog.execute", new=AsyncMock(return_value={
+                    "run_id": "test", "stats": {"worker_failures": 1, "errors": 0}, "error": None,
+                })) as execute:
+            await recurring_tick(args)
+            result = await recurring_tick(args)
+            self.assertTrue(result["paused"])
+            self.assertEqual(execute.await_count, 1)
+            async with self.session() as db:
+                row = await db.get(CatalogCheckpoint, "runner")
+                self.assertTrue(row.cursor["paused"])
+                self.assertIn("Worker processing failed", row.last_error)
+
+    async def test_recurring_three_errors_pause_without_restart_reset(self):
+        from app.commands.curator_catalog import recurring_tick, parser
+        args = parser().parse_args(["--apply", "--enable-recurring"])
+        with patch("app.database.AsyncSessionLocal", self.session), \
+                patch("app.database.engine", types.SimpleNamespace(dispose=AsyncMock())), \
+                patch("app.commands.curator_catalog.execute", new=AsyncMock(return_value={
+                    "stats": {"errors": 1}, "error": "Gateway unavailable",
+                })) as execute:
+            for _ in range(4):
+                await recurring_tick(args)
+            self.assertEqual(execute.await_count, 3)
+            async with self.session() as db:
+                row = await db.get(CatalogCheckpoint, "runner")
+                self.assertTrue(row.cursor["paused"])
+                self.assertEqual(row.last_error, "Gateway unavailable")
+
+    async def test_manual_dryrun_cannot_consume_worker_failure_before_runner(self):
+        from app.commands.curator_catalog import recurring_tick, parser
+        client = Mock()
+        client.page.return_value = []
+        async with self.session() as db:
+            candidate = await self.candidate(db)
+            await prepare_dispatch(db, candidate)
+            candidate.status, candidate.dispatch_state = "queued", "published"
+            job = await db.get(ProcessingJob, candidate.job_id)
+            job.status = "error"
+            media = await db.get(MediaAsset, candidate.media_id)
+            media.status = "error"
+            await db.commit()
+            with patch("app.catalog_service.CatalogClient", return_value=client):
+                result = await _run(db, CatalogOptions(dry_run=True))
+            self.assertEqual(result["stats"]["worker_failures"], 1)
+            self.assertTrue((await db.get(CatalogCheckpoint, "runner")).cursor["paused"])
+        args = parser().parse_args(["--apply", "--enable-recurring"])
+        with patch("app.database.AsyncSessionLocal", self.session), \
+                patch("app.database.engine", types.SimpleNamespace(dispose=AsyncMock())), \
+                patch("app.commands.curator_catalog.execute", new=AsyncMock()) as execute:
+            result = await recurring_tick(args)
+            self.assertTrue(result["paused"])
+            execute.assert_not_called()

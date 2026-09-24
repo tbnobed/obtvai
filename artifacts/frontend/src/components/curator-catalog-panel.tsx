@@ -22,6 +22,8 @@ type CatalogStatus = {
   counts: Record<string, number>;
   checkpoint: { cursor: Record<string, unknown>; last_error: string | null; updated_at: string } | null;
   runs: Run[];
+  runner?: { cursor: { paused?: boolean; state?: string; max_inflight?: number }; last_error: string | null; updated_at: string } | null;
+  runner_heartbeat_fresh?: boolean;
 };
 type ReviewItem = {
   asset_id: string;
@@ -71,8 +73,8 @@ export function CuratorCatalogPanel() {
   const submitting = useRef(false);
   const [after, setAfter] = useState("");
   const [pages, setPages] = useState(1);
-  const [assets, setAssets] = useState(10);
-  const [inflight, setInflight] = useState(10);
+  const [assets, setAssets] = useState(1);
+  const [inflight, setInflight] = useState(1);
   const [paths, setPaths] = useState("/artifacts/audio\n/artifacts/thumbnails");
   const [minFree, setMinFree] = useState(20);
   const [reserve, setReserve] = useState(1);
@@ -84,6 +86,7 @@ export function CuratorCatalogPanel() {
     queryFn: () => catalogRequest<CatalogStatus>(""),
     enabled: isAdmin,
     retry: false,
+    refetchInterval: 15000,
   });
   const review = useQuery({
     queryKey: [...KEY, "review", after],
@@ -135,7 +138,7 @@ export function CuratorCatalogPanel() {
       <div className="flex items-center justify-between gap-2">
         <div>
           <h2 className="font-semibold">Bounded catalog</h2>
-          <p className="text-xs text-muted-foreground">Manual batches only. Automatic discovery remains off; assets before January 1, 2023 are excluded.</p>
+          <p className="text-xs text-muted-foreground">Bounded ingestion by IngestCompleteDate. {status.data ? `Assets before ${status.data.cutoff} are excluded from new admission; existing media is preserved.` : "Loading effective date policy…"}</p>
         </div>
         <Button variant="outline" size="sm" disabled={status.isFetching || review.isFetching || run.isPending}
           onClick={() => { void status.refetch(); void review.refetch(); }}>
@@ -148,6 +151,15 @@ export function CuratorCatalogPanel() {
         <>
           <div className="text-sm space-y-1">
             <p>Automatic discovery: <Badge variant="secondary">{status.data.automatic_discovery ? "On" : "Off"}</Badge> · Cutoff: {status.data.cutoff}</p>
+            {status.data.runner && <p>Managed runner: {status.data.runner_heartbeat_fresh ? status.data.runner.cursor.state : "Heartbeat stale / stopped"} · last heartbeat {date(status.data.runner.updated_at)} · maximum inflight {status.data.runner.cursor.max_inflight ?? "unknown"}</p>}
+            {status.data.runner?.last_error && <p role="alert" className="text-destructive">Runner: {status.data.runner.last_error}</p>}
+            {status.data.runner?.cursor.paused && <Button variant="outline" size="sm" onClick={async () => {
+              if (!window.confirm("Resume bounded automatic ingestion after reviewing the reported failure?")) return;
+              try {
+                await catalogRequest("/runner/resume", { method: "POST" });
+                await status.refetch();
+              } catch (error) { setActionError(message(error)); }
+            }}>Resume managed runner</Button>}
             <p>Counts: {Object.entries(status.data.counts).length ? Object.entries(status.data.counts).map(([key, count]) => `${key}: ${count}`).join(" · ") : "No catalog assets yet"}</p>
             <p className="text-muted-foreground">Checkpoint: {status.data.checkpoint ? `${JSON.stringify(status.data.checkpoint.cursor)} · ${date(status.data.checkpoint.updated_at)}` : "Not started"}</p>
             {status.data.checkpoint?.last_error && <p className="text-destructive">Checkpoint error: {status.data.checkpoint.last_error}</p>}

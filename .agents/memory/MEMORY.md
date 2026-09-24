@@ -47,3 +47,4 @@
 - [Campaign selection boundaries](campaign-selection-boundaries.md) — shared project pools are additive; exact campaign windows must remain a separate generation constraint.
 - [n8n export verification](n8n-export-verification.md) — execute exported node code in tests; helper-only tests miss escaping and unexecuted-branch failures.
 - [Interactive dictation safety](interactive-dictation-safety.md) — use owned recording sessions and killable inference; request cancellation alone stops neither permission callbacks nor model work.
+- [Catalog failure pauses](catalog-failure-latches.md) — dry/manual reconciliation must latch failures durably, not consume notifications before the recurring runner sees them.

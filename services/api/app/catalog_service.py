@@ -8,10 +8,10 @@ from pathlib import Path
 
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, case
 from starlette.requests import Request
 
-from .catalog import ASSET_TYPES, INITIAL_CURSOR, CatalogClient, eligibility, exact_id, next_cursor
+from .catalog import ASSET_TYPES, INITIAL_CURSOR, CatalogClient, eligibility, exact_id, next_cursor, cutoff
 from .catalog_models import CatalogAsset, CatalogCheckpoint, CatalogRun
 from .commands.import_curator_workbook import ImportFailure, _field_values
 from .database import AsyncSessionLocal, engine
@@ -226,6 +226,7 @@ async def reconcile(db, options):
     rows = (await db.execute(select(CatalogAsset).where(
         CatalogAsset.status.in_(("queued", "existing", "retry", "failed"))
     ).order_by(CatalogAsset.updated_at, CatalogAsset.asset_id).limit(100))).scalars().all()
+    failures = 0
     for candidate in rows:
         candidate.updated_at = datetime.utcnow()
         if candidate.attempts >= options.max_attempts and candidate.status == "retry":
@@ -255,15 +256,22 @@ async def reconcile(db, options):
                 ProcessingJob.created_at >= root_job.created_at,
             ))).scalar()
         if media.status == "error" or errors:
+            if candidate.dispatch_state != "failed":
+                failures += 1
             candidate.status = "retry" if candidate.attempts < options.max_attempts else "failed"
             candidate.dispatch_state = "failed"
             candidate.error = "Worker processing failed; bounded retry required"
         elif media.status == "ready":
             candidate.status, candidate.error = "complete", None
     await db.commit()
+    return failures
 
 
 async def run_catalog(options: CatalogOptions) -> dict:
+    cutoff()
+    # Deployment ceilings also constrain manual API runs during the test bed.
+    options.max_inflight = min(options.max_inflight, int(os.getenv("CURATOR_CATALOG_MAX_INFLIGHT", "100")))
+    options.max_assets = min(options.max_assets, int(os.getenv("CURATOR_CATALOG_MAX_ASSETS", "100")))
     if not options.dry_run and options.confirm != "QUEUE_BOUNDED_CATALOG":
         raise ImportFailure("Apply requires confirm=QUEUE_BOUNDED_CATALOG")
     if not options.dry_run:
@@ -285,6 +293,9 @@ async def run_catalog(options: CatalogOptions) -> dict:
             raise ImportFailure("A catalog run is already active")
         try:
             async with AsyncSessionLocal() as db:
+                runner = await db.get(CatalogCheckpoint, "runner")
+                if not options.dry_run and runner and runner.cursor.get("paused"):
+                    raise ImportFailure("Catalog runner is paused: " + (runner.last_error or "operator review required"))
                 return await _run(db, options)
         finally:
             await lock.execute(text("SELECT pg_advisory_unlock(hashtext('obtv_catalog_run'))"))
@@ -294,8 +305,8 @@ async def run_catalog(options: CatalogOptions) -> dict:
 async def _run(db, options):
     run_id = str(uuid.uuid4())
     stats = {"pages": 0, "seen": 0, "new": 0, "duplicates": 0, "review": 0,
-             "admitted": 0, "errors": 0, "stop": "bounded"}
-    run = CatalogRun(id=run_id, options=options.model_dump(exclude={"confirm"}), stats=dict(stats))
+             "admitted": 0, "attempted": 0, "errors": 0, "stop": "bounded"}
+    run = CatalogRun(id=run_id, options={**options.model_dump(exclude={"confirm"}), "cutoff": cutoff().isoformat()}, stats=dict(stats))
     db.add(run)
     checkpoint = await db.get(CatalogCheckpoint, "catalog")
     if checkpoint is None:
@@ -308,7 +319,13 @@ async def _run(db, options):
         for _ in range(options.max_pages):
             cursor = dict(checkpoint.cursor)
             asset_type = ASSET_TYPES[cursor["type_index"]]
-            page = await run_in_threadpool(client.page, asset_type, cursor["offset"], dated=cursor["dated"])
+            # Every tenth turn refreshes a type's first dated page (types rotate,
+            # so each receives this lookback ~every 30 minutes at a 60s cadence).
+            # Uses the existing page budget, never loses deep-sweep progress.
+            head_refresh = cursor.get("discovery_turn", 0) % 10 == 0 and cursor["offset"] > 0
+            page = await run_in_threadpool(client.page, asset_type,
+                                          0 if head_refresh else cursor["offset"],
+                                          dated=True if head_refresh else cursor["dated"])
             for asset in page:
                 asset_id = exact_id(asset)  # malformed IDs stop without advancing the page
                 state, error = eligibility(asset)
@@ -330,19 +347,36 @@ async def _run(db, options):
                 if state == "review":
                     stats["review"] += 1
                 await db.flush()
-            checkpoint.cursor = next_cursor(cursor, len(page))
+            checkpoint.cursor = next_cursor(cursor, len(page), head_refresh=head_refresh)
             checkpoint.updated_at = datetime.utcnow()
             checkpoint.last_error = None
             stats["pages"] += 1
             run.stats = dict(stats)
             await db.commit()  # page rows + cursor atomically committed
-        await reconcile(db, options)
-        if not options.dry_run:
+        stats["worker_failures"] = await reconcile(db, options)
+        if stats["worker_failures"]:
+            stats["stop"] = "worker_failure"
+            runner = await db.get(CatalogCheckpoint, "runner")
+            if runner is None:
+                runner = CatalogCheckpoint(id="runner", cursor={}, stats={})
+                db.add(runner)
+            # Any observer (including a manual dry-run) must latch this;
+            # otherwise reconciliation could consume the failure signal
+            # before the recurring process sees it.
+            runner.cursor = {**runner.cursor, "paused": True, "state": "paused"}
+            runner.last_error = "Worker processing failed; inspect catalog/jobs before resuming"
+            await db.commit()
+        if not options.dry_run and not stats["worker_failures"]:
+            first_type = checkpoint.cursor.get("admission_type", 0)
+            priority = {ASSET_TYPES[(first_type + n) % len(ASSET_TYPES)]: n for n in range(len(ASSET_TYPES))}
             candidates = (await db.execute(select(CatalogAsset).where(
                 CatalogAsset.status.in_(("eligible", "retry")),
                 CatalogAsset.attempts < options.max_attempts,
-            ).order_by(CatalogAsset.updated_at, CatalogAsset.asset_id).limit(options.max_assets))).scalars().all()
+            ).order_by(case(priority, value=CatalogAsset.asset_type),
+                       CatalogAsset.updated_at, CatalogAsset.asset_id).limit(199))).scalars().all()
             for candidate in candidates:
+                if stats["attempted"] >= options.max_assets:
+                    break
                 state, error = eligibility(candidate.metadata_snapshot)
                 if state != "eligible":
                     candidate.status, candidate.error = state, error
@@ -384,6 +418,9 @@ async def _run(db, options):
                     stats["stop"] = "storage_watermark"
                     break
                 candidate.attempts += 1
+                stats["attempted"] += 1
+                checkpoint = await db.get(CatalogCheckpoint, "catalog")
+                checkpoint.cursor = {**checkpoint.cursor, "admission_type": (ASSET_TYPES.index(candidate.asset_type) + 1) % len(ASSET_TYPES)}
                 candidate.updated_at = datetime.utcnow()
                 await db.commit()
                 candidate_id = candidate.asset_id
