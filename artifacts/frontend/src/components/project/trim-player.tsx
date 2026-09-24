@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { ArchiveVideo } from "@/components/archive-video";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Pause, Play, Plus } from "lucide-react";
 import { formatTC } from "@/lib/timecode";
@@ -208,7 +209,7 @@ export const TrimPlayer = forwardRef<TrimPlayerHandle, TrimPlayerProps>(function
 
   return (
     <div className="space-y-2">
-      <video
+      <ArchiveVideo
         ref={videoRef}
         src={`/api/media/${mediaId}/stream`}
         className="w-full aspect-video rounded bg-black"

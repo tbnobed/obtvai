@@ -59,6 +59,16 @@ def run_ingest_pipeline(self, media_id: str, job_id: str = None):
             raise ValueError("No source file path for asset")
 
         src_path = row[0]
+        # Catalog work must fail closed even if this worker was deployed with
+        # different mounts/env than the API. Existing non-catalog imports keep
+        # their previous behavior; no broad migration or filesystem scan.
+        catalog_import = db.execute(text(
+            "SELECT 1 FROM curator_inbox_imports "
+            "WHERE media_id=:mid AND manifest_name='bounded-catalog' LIMIT 1"
+        ), {"mid": media_id}).scalar()
+        if catalog_import:
+            from catalog_storage import require_archive_storage
+            require_archive_storage()
         append_log(db, job_id, f"Starting ingest for: {src_path}")
 
         # Direct Curator-proxy ingest: the file IS a Curator web proxy.

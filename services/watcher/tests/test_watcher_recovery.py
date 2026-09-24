@@ -45,6 +45,7 @@ def _load_watcher():
 
         events.FileSystemEventHandler = FileSystemEventHandler
         polling.PollingObserver = PollingObserver
+        polling.PollingObserverVFS = PollingObserver
         observers.polling = polling
         watchdog.events = events
         watchdog.observers = observers
@@ -469,6 +470,119 @@ class WatcherRecoveryTests(unittest.TestCase):
             finally:
                 observer.stop()
                 observer.join()
+
+
+class WatcherExclusionTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.media = self.root / "media"
+        self.output = self.media / "ipv" / "OBTV-AI"
+        self.output.mkdir(parents=True)
+        self.allowed = self.media / "shows" / "OBTV-AI"
+        self.allowed.mkdir(parents=True)
+        self.excluded_video = self.output / "export.mp4"
+        self.excluded_video.write_bytes(b"output")
+        self.allowed_video = self.allowed / "program.mp4"
+        self.allowed_video.write_bytes(b"source")
+        self.original = (
+            w.WATCHER_EXCLUDE_ROOTS, w.MEDIA_ROOTS, w.CURATOR_ROOT,
+            w.CURATOR_INBOX_ROOT, w.STABLE_SECONDS, w.curator_selected,
+            w.CURATOR_LEGACY_FOLDER_WATCH,
+        )
+        w.WATCHER_EXCLUDE_ROOTS = [os.path.realpath(self.output)]
+        w.MEDIA_ROOTS = [str(self.media)]
+        w.CURATOR_ROOT = str(self.root / "curator")
+        w.CURATOR_INBOX_ROOT = str(self.root / "inbox")
+        Path(w.CURATOR_INBOX_ROOT).mkdir()
+        w.STABLE_SECONDS = 0
+        w.curator_selected = set()
+        w.CURATOR_LEGACY_FOLDER_WATCH = False
+        w.pending.clear()
+
+    def tearDown(self):
+        (
+            w.WATCHER_EXCLUDE_ROOTS, w.MEDIA_ROOTS, w.CURATOR_ROOT,
+            w.CURATOR_INBOX_ROOT, w.STABLE_SECONDS, w.curator_selected,
+            w.CURATOR_LEGACY_FOLDER_WATCH,
+        ) = self.original
+        w.pending.clear()
+        w.xml_retries.clear()
+
+    def test_defaults_only_identify_artifacts_not_arbitrary_obtv_ai(self):
+        self.assertIn("/artifacts", self.original[0])
+        self.assertTrue(w._excluded(str(self.excluded_video)))
+        self.assertFalse(w._excluded(str(self.allowed_video)))
+        self.assertFalse(w._excluded(str(self.media / "OBTV-AI" / "legitimate.mp4")))
+        self.assertFalse(w._excluded(str(self.output.parent / "OBTV-AI-other" / "clip.mp4")))
+
+    def test_env_paths_are_normalized_and_do_not_exclude_by_basename(self):
+        with mock.patch.dict(os.environ, {
+            "WATCHER_EXCLUDE_ROOTS": f"{self.output}/../OBTV-AI:{self.root}/another-output",
+        }):
+            configured = _load_watcher()
+        self.assertIn(str(self.output), configured.WATCHER_EXCLUDE_ROOTS)
+        self.assertIn(str(self.root / "another-output"), configured.WATCHER_EXCLUDE_ROOTS)
+        self.assertFalse(configured._excluded(str(self.allowed_video)))
+
+    def test_pruned_startup_selection_and_polling_recursion(self):
+        self.assertNotIn(str(self.output), [str(p) for p, _ in w._media_walk(str(self.media))])
+        self.assertNotIn("ipv", [e.name for e in w._media_scandir(str(self.media / "ipv"))])
+        w._initial_scan()
+        self.assertNotIn(str(self.excluded_video), w.pending)
+        self.assertIn(str(self.allowed_video), w.pending)
+        w.pending.clear()
+        w.CURATOR_ROOT = str(self.media)
+        w.CURATOR_LEGACY_FOLDER_WATCH = True
+        excluded_proxy = self.output / "proxy_video.mp4"
+        excluded_proxy.write_bytes(b"output")
+        allowed_proxy = self.allowed / "proxy_video.mp4"
+        allowed_proxy.write_bytes(b"source")
+        with mock.patch.object(w.httpx, "get") as get:
+            get.return_value.json.return_value = {"paths": ["ipv", "shows"]}
+            get.return_value.raise_for_status.return_value = None
+            w._refresh_curator_selected()
+        self.assertNotIn(str(excluded_proxy), w.pending)
+        self.assertIn(str(allowed_proxy), w.pending)
+
+    def test_symlink_events_queue_and_due_recheck(self):
+        alias = self.media / "linked-output"
+        alias.symlink_to(self.output, target_is_directory=True)
+        linked_video = str(alias / "export.mp4")
+        self.assertTrue(w._excluded(linked_video))
+        handler = w.VideoHandler()
+        handler.on_created(_Event(linked_video))
+        handler.on_modified(_Event(str(self.excluded_video)))
+        handler.on_moved(_Event(linked_video))
+        self.assertFalse(w._queue_pending(linked_video))
+        self.assertFalse(w._should_ingest(linked_video))
+        self.assertFalse(w.pending)
+        # Simulate an already queued path becoming excluded after a config change.
+        w.pending[str(self.excluded_video)] = {"size": 6, "detected_at": 0}
+        with mock.patch.object(w, "_ingest") as ingest:
+            w._process_pending(now=100)
+            ingest.assert_not_called()
+        self.assertFalse(w.pending)
+
+    def test_inbox_xml_survives_even_when_in_excluded_tree(self):
+        inbox = self.output / "xml-inbox"
+        inbox.mkdir()
+        w.CURATOR_INBOX_ROOT = str(inbox)
+        manifest = inbox / "request.xml"
+        manifest.write_text("<assets/>", encoding="utf-8")
+        self.assertNotIn("xml-inbox", [e.name for e in w._media_scandir(str(self.output))])
+        self.assertIn("request.xml", [e.name for e in w._media_scandir(str(inbox))])
+        w.VideoHandler().on_created(_Event(str(manifest)))
+        self.assertIn(str(manifest), w.pending)
+        w.pending.clear()
+        self.assertTrue(w._reconcile_curator_inbox(now=1))
+        self.assertIn(str(manifest), w.pending)
+        w.CURATOR_LEGACY_FOLDER_WATCH = True
+        w.CURATOR_ROOT = str(self.media)
+        legacy = self.output / "legacy.xml"
+        legacy.write_text("<assets/>", encoding="utf-8")
+        self.assertFalse(w._should_ingest(str(legacy)))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,158 @@
+# Opt-in ONLY: docker compose -f docker-compose.yml -f archive-artifacts.compose.yml ...
+# Keep the original artifacts_data volume mounted at /artifacts. Bind only the
+# designated derived-output subdirectories beneath it to SMB. This retains
+# legacy /artifacts/proxies on LOCAL storage (no proxy media is copied to SMB).
+# Never enable before archive-artifacts-migrate.sh has verified the copy.
+# PostgreSQL, Qdrant, Redis and model caches remain on their local volumes.
+# The watcher does NOT mount this output tree (and must never scan it).
+services:
+  api:
+    volumes:
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/audio
+        target: /artifacts/audio
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/thumbnails
+        target: /artifacts/thumbnails
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/reels
+        target: /artifacts/reels
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/renders
+        target: /artifacts/renders
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/dubs
+        target: /artifacts/dubs
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/voices
+        target: /artifacts/voices
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/graphics
+        target: /artifacts/graphics
+        bind: { create_host_path: false }
+  worker-gpu:
+    volumes:
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/audio
+        target: /artifacts/audio
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/thumbnails
+        target: /artifacts/thumbnails
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/reels
+        target: /artifacts/reels
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/renders
+        target: /artifacts/renders
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/dubs
+        target: /artifacts/dubs
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/voices
+        target: /artifacts/voices
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/graphics
+        target: /artifacts/graphics
+        bind: { create_host_path: false }
+  worker-gpu-2:
+    volumes:
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/audio
+        target: /artifacts/audio
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/thumbnails
+        target: /artifacts/thumbnails
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/reels
+        target: /artifacts/reels
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/renders
+        target: /artifacts/renders
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/dubs
+        target: /artifacts/dubs
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/voices
+        target: /artifacts/voices
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/graphics
+        target: /artifacts/graphics
+        bind: { create_host_path: false }
+  worker-cpu:
+    volumes:
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/audio
+        target: /artifacts/audio
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/thumbnails
+        target: /artifacts/thumbnails
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/reels
+        target: /artifacts/reels
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/renders
+        target: /artifacts/renders
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/dubs
+        target: /artifacts/dubs
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/voices
+        target: /artifacts/voices
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/graphics
+        target: /artifacts/graphics
+        bind: { create_host_path: false }
+  worker-graphics:
+    volumes:
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/audio
+        target: /artifacts/audio
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/thumbnails
+        target: /artifacts/thumbnails
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/reels
+        target: /artifacts/reels
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/renders
+        target: /artifacts/renders
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/dubs
+        target: /artifacts/dubs
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/voices
+        target: /artifacts/voices
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/graphics
+        target: /artifacts/graphics
+        bind: { create_host_path: false }

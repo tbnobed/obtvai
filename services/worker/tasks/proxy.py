@@ -10,6 +10,24 @@ from tasks.base import update_job, append_log, update_asset
 from config import PROXIES_DIR, THUMBNAILS_DIR
 
 
+def _check_archive_mounts(roots):
+    """Fail closed on missing bind/SMB mounts, not an empty local mount dir."""
+    import re
+    from pathlib import Path
+    try:
+        lines = Path("/proc/self/mountinfo").read_text().splitlines()
+        mounts = [Path(re.sub(r"\\([0-7]{3})", lambda m: chr(int(m[1], 8)), line.split()[4]))
+                  for line in lines if len(line.split()) >= 5 and line.split()[4] != "/"]
+    except OSError:
+        mounts = []
+    if not roots or any(
+        not root.is_dir() or not os.access(root, os.R_OK | os.X_OK)
+        or not any(root == mount or root.is_relative_to(mount) for mount in mounts)
+        for root in roots
+    ):
+        raise RuntimeError("Archive mount unavailable or unreadable")
+
+
 def _run_ffmpeg_with_progress(cmd, duration, on_progress, timeout=3600):
     """Run ffmpeg, streaming -progress output. Returns (returncode, output_tail).
 
@@ -64,6 +82,48 @@ def create_proxy(self, media_id: str, job_id: str):
         from sqlalchemy import text
         row = db.execute(text("SELECT original_path FROM media_assets WHERE id = :mid"), {"mid": media_id}).fetchone()
         src = row[0]
+
+        # Opt-in read-only archive: never generate a retained playback proxy.
+        # Keep proxy_path usable by existing frame/sprite/analysis consumers.
+        if os.getenv("CURATOR_ARCHIVE_MODE", "").lower() in ("1", "true", "yes"):
+            from pathlib import Path
+            roots = [Path(p).resolve() for p in os.getenv("CURATOR_ARCHIVE_ROOTS", "/curator").split(os.pathsep) if p]
+            candidate = Path(src).resolve()
+            if any(candidate.is_relative_to(root) and candidate != root for root in roots):
+                _check_archive_mounts(roots)
+                if not candidate.is_file():
+                    raise FileNotFoundError("Archive source unavailable")
+                import mimetypes
+                mime = mimetypes.guess_type(str(candidate))[0] or ""
+                if mime.startswith(("audio/", "image/")):
+                    # Audio/image catalog pipelines own their derived outputs.
+                    # proxy_path is strictly a video source for video consumers.
+                    update_asset(db, media_id, proxy_path=None,
+                                 processing_stage="proxy_complete", processing_progress=40.0)
+                    update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
+                    append_log(db, job_id, "Archive audio/image uses original source; video proxy skipped")
+                    return
+                os.makedirs(THUMBNAILS_DIR, exist_ok=True)
+                thumb_path = os.path.join(THUMBNAILS_DIR, f"{media_id}.jpg")
+                result = subprocess.run(
+                    ["ffmpeg", "-nostdin", "-y", "-ss", "0", "-i", str(candidate),
+                     "-vframes", "1", "-q:v", "2", thumb_path],
+                    capture_output=True, timeout=30,
+                )
+                values = dict(proxy_path=str(candidate), processing_stage="proxy_complete",
+                              processing_progress=40.0)
+                if result.returncode == 0:
+                    values["thumbnail_url"] = f"{media_id}.jpg"
+                else:
+                    append_log(db, job_id, "No video thumbnail available for archive source")
+                update_asset(db, media_id, **values)
+                update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
+                append_log(db, job_id, "Archive playback uses source directly; no retained proxy generated")
+                if result.returncode == 0:
+                    from tasks.base import create_job
+                    from tasks.sprites import generate_sprite
+                    generate_sprite.delay(media_id, create_job(db, media_id, "sprite"))
+                return
 
         os.makedirs(PROXIES_DIR, exist_ok=True)
         os.makedirs(THUMBNAILS_DIR, exist_ok=True)

@@ -34,6 +34,7 @@ async def enqueue_ingest(media_id: str) -> str:
 async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: dict | None = None) -> str:
     task_map = {
         "ingest": ("ingest", "tasks.ingest.run_ingest_pipeline"),
+        "catalog_ingest": ("ingest", "tasks.catalog_media.ingest"),
         "proxy": ("cpu", "tasks.proxy.create_proxy"),
         "audio_extract": ("cpu", "tasks.audio.extract_audio"),
         "transcribe": ("gpu", "tasks.transcribe.transcribe_audio"),
@@ -61,10 +62,19 @@ async def enqueue_job(job_type: str, media_id: str | None, job_id: str, extra: d
         "social_sync": ("cpu", "tasks.social_sync.sync_social_channels"),
     }
     queue, task_name = task_map.get(job_type, ("cpu", f"tasks.{job_type}.run"))
+    if job_type == "catalog_ingest":
+        asset_type = (extra or {}).get("asset_type")
+        if asset_type not in ("Audio", "Image"):
+            raise ValueError("catalog_ingest requires an explicit Audio or Image asset_type")
+        queue = "gpu" if asset_type == "Image" else "ingest"
     payload = {"media_id": media_id, "job_id": job_id}
     if extra:
         payload.update(extra)
-    await _publish(queue, task_name, payload, str(uuid.uuid4()))
+    # Ingest publication is at-least-once (durable Curator outboxes). Keeping
+    # the task identity stable lets the worker resume its own running job after
+    # a broker/ack gap instead of treating the retry as a different producer.
+    task_id = job_id if job_type in ("ingest", "catalog_ingest") else str(uuid.uuid4())
+    await _publish(queue, task_name, payload, task_id)
     return job_id
 
 

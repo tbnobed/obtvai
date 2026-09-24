@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ArchiveVideo } from "@/components/archive-video";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Expand, ExternalLink, RotateCcw } from "lucide-react";
@@ -71,7 +72,7 @@ export function ClipPlayerDialog({ clip, onClose }: { clip: PlayerClip | null; o
         </DialogHeader>
         {clip && (
           <div className="min-w-0 space-y-3">
-            <video
+            <ArchiveVideo
               key={src}
               ref={setVideoEl}
               src={src}

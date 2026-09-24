@@ -1644,10 +1644,61 @@ async def stream_media(id: str, db: AsyncSession = Depends(get_db)):
     asset = result.scalar_one_or_none()
     if not asset:
         raise HTTPException(status_code=404, detail="Media not found")
+    from .. import playback
+    if playback.archive_asset(asset):
+        import mimetypes
+        path = playback.source(asset)
+        mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+        if mime.startswith("image/"):
+            return FileResponse(path, media_type=mime, headers=playback.NO_STORE)
+        # Do not silently serve a video-only Curator source. Clients negotiate
+        # /playback first; non-HLS integrations get an actionable error.
+        raise HTTPException(409, "Archive playback requires /playback and HLS")
     proxy = asset.proxy_path or asset.original_path
     if not proxy or not os.path.exists(proxy):
         raise HTTPException(status_code=404, detail="No streamable file available")
     return FileResponse(proxy, media_type="video/mp4")
+
+
+@router.get("/{id}/playback")
+async def playback_info(id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    from .. import playback
+    import mimetypes
+    asset = (await db.execute(select(MediaAsset).where(MediaAsset.id == id))).scalar_one_or_none()
+    if not asset:
+        raise HTTPException(404, "Media not found")
+    info = {"type": "file", "url": f"/api/media/{id}/stream"}
+    if playback.archive_asset(asset):
+        mime = mimetypes.guess_type(str(playback.source(asset)))[0] or ""
+        if mime.startswith("image/"):
+            info["type"] = "image"
+        else:
+            _, duration, video, audio, sides = await playback.describe(asset, request)
+            info = {"type": "hls", "url": f"/api/media/{id}/hls.m3u8",
+                    "duration": duration, "hasVideo": video, "hasAudio": audio or bool(sides)}
+    from fastapi.responses import JSONResponse
+    return JSONResponse(info, headers=playback.NO_STORE)
+
+
+@router.get("/{id}/hls.m3u8")
+async def archive_playlist(id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    from .. import playback
+    asset = (await db.execute(select(MediaAsset).where(MediaAsset.id == id))).scalar_one_or_none()
+    if not asset or not playback.archive_asset(asset):
+        raise HTTPException(404, "Archive playback unavailable")
+    _, duration, _, _, _ = await playback.describe(asset, request)
+    return Response(playback.playlist(duration), media_type="application/vnd.apple.mpegurl", headers=playback.NO_STORE)
+
+
+@router.get("/{id}/segments/{number}.ts")
+async def archive_segment(id: str, number: int, request: Request, db: AsyncSession = Depends(get_db)):
+    from .. import playback
+    asset = (await db.execute(select(MediaAsset).where(MediaAsset.id == id))).scalar_one_or_none()
+    if not asset or not playback.archive_asset(asset):
+        raise HTTPException(404, "Archive playback unavailable")
+    if request.headers.get("range"):
+        raise HTTPException(416, "Generated segments use time-based seeking, not byte ranges")
+    return await playback.segment_response(asset, number, request)
 
 
 @router.get("/{id}/frame")
@@ -1660,6 +1711,15 @@ async def get_media_frame(id: str, t: float = 0.0, db: AsyncSession = Depends(ge
     if not asset:
         raise HTTPException(status_code=404, detail="Media not found")
     src = asset.proxy_path or asset.original_path
+    from .. import playback
+    if playback.archive_asset(asset):
+        import mimetypes
+        src = str(playback.source(asset))
+        mime = mimetypes.guess_type(src)[0] or ""
+        if mime.startswith("audio/"):
+            raise HTTPException(415, "Audio assets do not have video frames")
+        if mime.startswith("image/"):
+            return FileResponse(src, media_type=mime, headers=playback.NO_STORE)
     if not src or not os.path.exists(src):
         raise HTTPException(status_code=404, detail="No source file available")
     t = max(0.0, t)

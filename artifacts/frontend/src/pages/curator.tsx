@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CuratorCatalogPanel } from "@/components/curator-catalog-panel";
 import {
   Folder, HardDrive, Loader2, RefreshCw, Search,
 } from "lucide-react";
@@ -136,6 +137,7 @@ export default function CuratorPage() {
               </div>
             )}
           </div>
+          <CuratorCatalogPanel />
         </div>
       </div>
     </div>

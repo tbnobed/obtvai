@@ -78,6 +78,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "hls.js": "^1.7.3",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   }

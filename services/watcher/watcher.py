@@ -10,7 +10,7 @@ import time
 import logging
 import hashlib
 import httpx
-from watchdog.observers.polling import PollingObserver
+from watchdog.observers.polling import PollingObserverVFS
 from watchdog.events import FileSystemEventHandler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -23,6 +23,46 @@ log = logging.getLogger("watcher")
 MEDIA_ROOTS = [
     p for p in os.getenv("MEDIA_ROOTS", os.getenv("MEDIA_ROOT", "/media")).split(":") if p
 ]
+# WATCHER_EXCLUDE_ROOTS is a colon-separated list of *container* paths.
+# /artifacts is always output, never a media source. The IPV/OBTV-AI share
+# can be mounted in several different places; only exclude its actual mount
+# path when explicitly configured, never every folder named "OBTV-AI".
+WATCHER_EXCLUDE_ROOTS = [
+    os.path.realpath(p)
+    for p in ("/artifacts", *os.getenv("WATCHER_EXCLUDE_ROOTS", "").split(":"))
+    if p
+]
+
+
+def _excluded(path: str) -> bool:
+    try:
+        real = os.path.realpath(path)
+        return any(
+            os.path.commonpath((real, root)) == root
+            for root in WATCHER_EXCLUDE_ROOTS
+        )
+    except (OSError, ValueError):
+        return False
+
+
+def _media_scandir(path: str):
+    """Don't snapshot excluded subtrees in the polling emitter."""
+    inbox = os.path.realpath(path) == os.path.realpath(CURATOR_INBOX_ROOT)
+    with os.scandir(path) as entries:
+        for entry in entries:
+            if inbox or not _excluded(entry.path):
+                yield entry
+
+
+def _media_walk(root: str):
+    """Prune excluded subtrees before scanning their contents."""
+    if _excluded(root):
+        return
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if not _excluded(os.path.join(dirpath, name))]
+        yield dirpath, filenames
+
+
 API_URL = os.getenv("API_URL", "http://api:8000/api")
 INTERNAL_API_TOKEN = os.getenv("INTERNAL_API_TOKEN", "")
 _HEADERS = {"X-Internal-Token": INTERNAL_API_TOKEN} if INTERNAL_API_TOKEN else {}
@@ -109,7 +149,7 @@ def _refresh_curator_selected() -> None:
     for rel in added:
         root = os.path.join(CURATOR_ROOT, rel)
         count = 0
-        for dirpath, _dirnames, filenames in os.walk(root):
+        for dirpath, filenames in _media_walk(root):
             for fn in filenames:
                 p = os.path.join(dirpath, fn)
                 if _should_ingest(p) and _queue_pending(p):
@@ -123,6 +163,8 @@ def _should_ingest(path: str, dir_files: list[str] | None = None) -> bool:
     assets, and (unless CURATOR_DIRECT_INGEST=1) only clips under
     admin-selected folders ingest. Outside /curator, every video ingests
     exactly as before."""
+    if _excluded(path):
+        return False
     if _is_legacy_curator_xml(path):
         return True
     if not _is_video(path):
@@ -170,6 +212,8 @@ def _queue_pending(path: str, detected_at: float | None = None) -> bool:
     could reset the retry budget.  A path already present in ``pending`` is
     therefore authoritative until its current attempt completes.
     """
+    if not _is_inbox_manifest(path) and _excluded(path):
+        return False
     if path in pending:
         return False
     now = time.time() if detected_at is None else detected_at
@@ -449,7 +493,7 @@ def _initial_scan():
     for root in MEDIA_ROOTS:
         count = 0
         try:
-            for dirpath, _dirnames, filenames in os.walk(root):
+            for dirpath, filenames in _media_walk(root):
                 for fn in filenames:
                     path = os.path.join(dirpath, fn)
                     if _should_ingest(path, filenames) and _queue_pending(path):
@@ -664,6 +708,10 @@ def _process_pending(now: float | None = None) -> None:
     for path, info in list(pending.items()):
         if pending.get(path) is not info or info.get("processing"):
             continue
+        if not _is_inbox_manifest(path) and _excluded(path):
+            pending.pop(path, None)
+            xml_retries.pop(path, None)
+            continue
         info.setdefault("path", path)
         due_at = info.get(
             "next_attempt_at",
@@ -785,7 +833,9 @@ def main():
     _watch_states = {}
     _last_inbox_scan_at = None
     _last_inbox_scan_ok = False
-    observer = PollingObserver(timeout=POLL_INTERVAL)
+    observer = PollingObserverVFS(
+        stat=os.stat, listdir=_media_scandir, polling_interval=POLL_INTERVAL
+    )
     handler = VideoHandler()
     # Start the dispatcher with no watches.  PollingEmitter snapshots happen
     # when a watch is started; scheduling before this point lets one SMB
@@ -798,6 +848,9 @@ def main():
 
     seen_roots = set()
     for root in MEDIA_ROOTS:
+        if _excluded(root):
+            log.info("Skipping excluded media root: %s", root)
+            continue
         try:
             real = os.path.realpath(root)
         except OSError as e:

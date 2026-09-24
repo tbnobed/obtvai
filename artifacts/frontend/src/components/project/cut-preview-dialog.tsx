@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArchiveVideo } from "@/components/archive-video";
 import { Button } from "@/components/ui/button";
 import type { CutClip } from "@workspace/api-client-react";
 import { Maximize2, Minimize2, Pause, Play, SkipBack, SkipForward, X } from "lucide-react";
@@ -206,7 +207,7 @@ export function CutPreviewPlayer({
             </Button>
           </div>
         </div>
-        <video
+        <ArchiveVideo
           key={clip.media_id}
           ref={videoRef}
           src={`/api/media/${clip.media_id}/stream#t=${clip.start_time},${clip.end_time}`}

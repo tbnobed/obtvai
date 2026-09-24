@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArchiveVideo } from "@/components/archive-video";
 import {
   useUpdateClipList,
   useCreateClipList,
@@ -429,7 +430,7 @@ export function RefineTab({ projectId, clipLists, assets, onChanged, focusList }
                     }}
                   />
                   {playAllIdx != null && draft[playAllIdx + 1] && draft[playAllIdx + 1].media_id !== draft[playAllIdx].media_id && (
-                    <video className="hidden" preload="auto" muted
+                    <ArchiveVideo className="hidden" preload="auto" muted
                       src={`/api/media/${draft[playAllIdx + 1].media_id}/stream`} />
                   )}
                   <div className="flex items-center gap-2">

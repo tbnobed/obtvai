@@ -5,6 +5,16 @@ import { createCampaignRouter, type CampaignClip } from "./campaignMock";
 
 const router = Router();
 
+// Catalog discovery requires the production Curator mount and database. Never
+// simulate a successful scan or admission in the preview server.
+router.use("/curator/catalog", (req, res) => {
+  if ((req as typeof req & { user?: { role: string } }).user?.role !== "admin") {
+    res.status(403).json({ detail: "Admin only" });
+    return;
+  }
+  res.status(503).json({ detail: "Bounded catalog is available only on the production API with the Curator mount and catalog database." });
+});
+
 // Preview has no local Whisper engine.  Never fabricate dictation text.
 router.post("/speech/transcribe", (_req, res) => {
   res.status(503).json({ detail: "Local transcription is not available in preview" });

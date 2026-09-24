@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArchiveVideo } from "@/components/archive-video";
 import { useParams, useSearch, useLocation, Link } from "wouter";
 import { 
   useGetMedia, getGetMediaQueryKey,
@@ -956,7 +957,7 @@ export default function AssetDetail() {
           <div className="flex-1 flex flex-col overflow-y-auto">
           <div className={`relative px-6 pt-3 pb-2 bg-black flex-1 min-h-0 flex-col z-20 shadow-lg shadow-black/50 ${(activeTab ?? "studio") === "studio" ? "flex" : "hidden"}`}>
             {asset.status === 'ready' ? (
-              <video 
+              <ArchiveVideo
                 ref={videoRef}
                 src={dubOn && dubAvailable
                   ? `/api/media/${id}/dub/${transcriptLang}/video`
@@ -1550,7 +1551,7 @@ export default function AssetDetail() {
             <DialogTitle>Preview at {popPreview != null ? formatTimecode(popPreview) : ""}</DialogTitle>
           </DialogHeader>
           {popPreview != null && (
-            <video
+            <ArchiveVideo
               key={popPreview}
               src={`/api/media/${id}/stream#t=${popPreview}`}
               controls

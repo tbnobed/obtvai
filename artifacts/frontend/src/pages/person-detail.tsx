@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArchiveVideo } from "@/components/archive-video";
 import { useRoute, Link } from "wouter";
 import {
   useGetPerson,
@@ -779,7 +780,7 @@ function MomentPlayerDialog({
           </DialogTitle>
         </DialogHeader>
         {startTime != null && (
-          <video
+          <ArchiveVideo
             ref={videoRef}
             src={`/api/media/${mediaId}/stream`}
             controls

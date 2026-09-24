@@ -8,6 +8,7 @@ celery_app = Celery(
     include=[
         "tasks.gpu_mem",
         "tasks.ingest",
+        "tasks.catalog_media",
         "tasks.proxy",
         "tasks.audio",
         "tasks.transcribe",

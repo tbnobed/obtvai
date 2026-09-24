@@ -65,6 +65,10 @@ x-python-env: &python-env
   # IPV Curator proxy reuse: mount point inside containers + index cache TTL
   CURATOR_PROXY_ROOT: "/curator"
   CURATOR_INDEX_TTL: "${CURATOR_INDEX_TTL:-900}"
+  # Opt-in archive playback/ingest: no retained proxy for assets within these
+  # container paths; existing non-archive proxies remain on local artifacts_data.
+  CURATOR_ARCHIVE_MODE: "${CURATOR_ARCHIVE_MODE:-0}"
+  CURATOR_ARCHIVE_ROOTS: "${CURATOR_ARCHIVE_ROOTS:-/curator}"
   # Curator SendToOBTV writes small XML manifests here. Unlike /curator this
   # is a writable command inbox; the watcher archives handled files beneath it.
   CURATOR_INBOX_ROOT: "/curator-inbox"
@@ -89,6 +93,8 @@ volumes:
   postgres_data:
   qdrant_data:
   redis_data:
+  # Default local storage. Opt-in overlay retains this root and proxies while
+  # binding only designated derived-output child directories to SMB.
   artifacts_data:
   models_cache:
   bagel_model:
@@ -385,6 +391,10 @@ services:
       # proxy tree. Set CURATOR_LEGACY_FOLDER_WATCH=1 only for a backfill;
       # selected-folder/direct-ingest behavior then remains available.
       MEDIA_ROOTS: "/media:/media2"
+      # Container paths only; /artifacts is always excluded in watcher code.
+      # Add another path only if an archive output tree is visible under a
+      # watched media mount (prefer keeping output outside discovery entirely).
+      WATCHER_EXCLUDE_ROOTS: "${WATCHER_EXCLUDE_ROOTS:-/artifacts}"
       CURATOR_LEGACY_FOLDER_WATCH: "${CURATOR_LEGACY_FOLDER_WATCH:-0}"
       CURATOR_DIRECT_INGEST: "${CURATOR_DIRECT_INGEST:-0}"
       CURATOR_XML_RETRY_SECONDS: "${CURATOR_XML_RETRY_SECONDS:-120}"
