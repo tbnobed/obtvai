@@ -35,6 +35,14 @@ description: IPV Curator WebProxy layout (video-only fMP4 + audio sidecars) and 
   - **Why:** both host and API container timed out against the private address, while a hostname-preserving public-IP override authenticated and fetched asset metadata successfully.
   - **How to apply:** keep the Curator hostname for TLS, but scope the verified public-IP DNS override to the API container; revalidate the public address before changing it.
 
+## Catalog capacity estimates
+- “All assets” includes Clipmark, Bookmark, Folder and other non-media records. Use verified `assetTypes` filters and collection `size` for media/audio counts rather than budgeting one video job per record.
+  - **Why:** Markers dominated the catalog in a live capacity audit; multiplying the all-assets count by video storage grossly overestimates capacity.
+  - **How to apply:** Treat markers and hierarchy as linked metadata; separately inventory media/audio eligibility and duplicate source paths.
+- `MediaInfoDuration` is human-readable hours/minutes/seconds, and `MediaInfoTotalSizeMiB` is a numeric string. `DurationFrame` can be a placeholder of 1 even on long programs.
+  - **Why:** Unvalidated frame-derived duration understates capacity. DateTime wildcard searches also returned HTTP 500, so they cannot establish arrival rates.
+  - **How to apply:** Parse MediaInfo duration or use ffprobe, report missing-duration coverage, and validate ingestion-rate queries before using their counts.
+
 ## ClipLink OBTV extension automation
 - The OBTV extension is not equivalent to Gateway `/api/v1/assets/sendto`. It submits `Plug-in - Send to genericV4` through ClipLink `PluginHandler/SubmitProcess`, with `AssetIds` and destination `MODIFY-ASSET-CURATORFOLDERPATH,EXPORT-OBTV-XML`, then polls `PluginHandler/GetProcess`.
   - **Why:** Gateway SendTo returned a completed no-op, while a ten-asset sequential production gate through the same-origin ClipLink process completed cleanly.
