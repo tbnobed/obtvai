@@ -107,6 +107,7 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 
 ## Archive ingestion target requirements (not yet implemented)
 
+- The user designated `\\tustopd.trinity.local\ipv\OBTV-AI` (also `\\10.81.100.220\ipv\OBTV-AI`) for retained analysis files. Keep active PostgreSQL/vector-search data on local NVMe and playback sources in their existing SMB locations. This output folder must remain outside media-discovery scanning. The folder is created, but application mounts, SMB write access, and any quota still need validation/configuration.
 - Use Curator `IngestCompleteDate` for the inclusive January 1, 2023 cutoff and subsequent arrivals, not production date, original/last air date, file modification time, or OBTV creation time.
 - Do not retain local playback proxies or a persistent playback-proxy cache. Playback media must come from SMB, delivered through the server to the browser; handle separate Curator video/audio tracks without retaining a local combined playback file.
 - These requirements supersede the permanent-local-proxy design as a target, but the current implementation still performs the local remux documented above. Do not mistake these requirements for an implemented or deployed change.
