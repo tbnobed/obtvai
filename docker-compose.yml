@@ -320,6 +320,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - "${COMFY_WORKFLOWS_PATH:-./comfy_workflows}:/workflows:ro"
+      - "${CURATOR_PROXY_PATH:-./curator_proxies}:/curator:ro"
       - artifacts_data:/artifacts
     command: celery -A app worker --queues=graphics --concurrency=2 --loglevel=info --hostname=worker-graphics@%h
     depends_on:

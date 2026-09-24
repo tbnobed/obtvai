@@ -49,7 +49,9 @@ class CatalogClient(CuratorClient):
         # sweep is essential: existence queries cannot report missing dates.
         if dated:
             params.append(("queries", "IngestCompleteDate:*"))
-        for name in ("Id", "Name", "IngestCompleteDate", "WebProxyPath", "FolderPath"):
+        # FolderPath is optional import metadata, not a defined Gateway field:
+        # requesting it makes the live server reject the entire page with 500.
+        for name in ("Id", "Name", "IngestCompleteDate", "WebProxyPath"):
             params.append(("names", name))
         for attempt in range(2):
             response = self.http.get(

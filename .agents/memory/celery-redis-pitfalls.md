@@ -26,6 +26,11 @@ Docker worker containers must mount a named volume at `/root/.cache` (HF hub, to
 **Why:** container filesystems are recreated on rebuild; only named volumes survive. Bit us when Qwen 7B (~15 GB) re-downloaded after every worker rebuild.
 **How to apply:** declare `models_cache:` in top-level volumes and mount `models_cache:/root/.cache` in EVERY service that loads models — workers AND the api container (the api lazy-loads the Q&A LLM + embedding model; without the mount, the first /ai/ask after a rebuild hangs for minutes re-downloading shards).
 
+## Synchronous bound tasks still need a Celery request identity
+Do not invoke a bound task with `.run()` if it calls `self.update_state`; use `.apply(args=..., task_id=<stage job id>, throw=True)` for synchronous execution.
+**Why:** Calling `.run()` bypasses Celery's request context. A live image canary produced its caption but then failed while reporting progress because the task ID was empty; mocked task tests had missed this.
+**How to apply:** When composing existing tasks synchronously, pass a real stage identity and test request-dependent state reporting, not only the resulting media output.
+
 # HF from_pretrained spawns subprocesses — forbidden in prefork workers
 Loading a hub repo id directly via `from_pretrained` can crash Celery prefork tasks with "daemonic processes are not allowed to have children" (surfaces as a misleading OSError "Can't load the model").
 **Why:** transformers spawns a background process to auto-convert legacy `pytorch_model.bin`-only repos (e.g. NLLB) to safetensors; Celery prefork children are daemonic and cannot spawn.

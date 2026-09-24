@@ -123,10 +123,14 @@ worker job that remains indefinitely `running` after a hard worker loss.
 
 ## Audio/Image scope
 
-Audio/Image must supply an exact nonempty **file** in `WebProxyPath` beneath the
-verified read-only Curator mount. A directory-only path is explicitly blocked;
-the importer does not guess an original/audio/image filename or an alternative
-UNC mapping. Audio is ffprobe-validated and runs existing extraction,
+Audio/Image must supply an exact nonempty file or a verified render directory in
+`WebProxyPath` beneath the read-only Curator mount. A directory image requires
+exactly one supported image with the directory's basename. Directory audio
+requires a same-basename master HLS manifest declaring exactly one audio track,
+whose playlist references exactly one matching media file. Multiple tracks,
+ambiguous images, other render prefixes, missing files and escaped references
+are blocked; no arbitrary first-file or alternate UNC mapping is guessed.
+Audio is ffprobe-validated and runs existing extraction,
 transcription and indexing without video proxy/scene jobs. Image is decoded,
 orientation-corrected, thumbnailed, visually embedded and captioned; readiness
 requires real embedding and caption outputs. Animated/multipage images, invalid

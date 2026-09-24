@@ -1,5 +1,6 @@
 """Durable checkpoints and bounded admission; all side effects explicitly opted in."""
 import os
+import re
 import shutil
 import uuid
 from datetime import datetime
@@ -47,8 +48,8 @@ def storage_available(options, admitted):
     return True
 
 
-def exact_nonvideo_source(value: str) -> str:
-    """Only an explicit file path, never a guessed filename in a proxy folder."""
+def exact_nonvideo_source(value: str, asset_type: str | None = None) -> str:
+    """Resolve exact files or verified single-render directory references."""
     root = Path(os.environ.get("CURATOR_PROXY_ROOT", "/curator")).resolve()
     raw = (value or "").replace("\\", "/")
     parts = [p for p in raw.split("/") if p]
@@ -61,7 +62,56 @@ def exact_nonvideo_source(value: str) -> str:
         if not markers:
             raise ImportFailure("Non-video WebProxyPath has no verified WebProxy mount mapping")
         path = root.joinpath(*parts[markers[-1] + 1:]).resolve()
-    if not path.is_relative_to(root) or not path.is_file() or path.stat().st_size == 0:
+    if not path.is_relative_to(root) or path == root:
+        raise ImportFailure("Non-video WebProxyPath escapes the Curator mount")
+    if path.is_dir():
+        directory = path
+
+        def child(name):
+            if not name or Path(name).name != name or "\\" in name:
+                raise ImportFailure("Invalid non-video manifest reference")
+            p = (directory / name).resolve()
+            if p.parent != directory or not p.is_file() or not p.stat().st_size:
+                raise ImportFailure("Non-video render reference is missing or escapes its directory")
+            return p
+
+        def playlist(p):
+            if p.stat().st_size > 8 * 1024 * 1024:
+                raise ImportFailure("Non-video manifest exceeds size limit")
+            content = p.read_text(encoding="utf-8-sig")
+            if not content.startswith("#EXTM3U"):
+                raise ImportFailure("Invalid non-video HLS manifest")
+            return content
+
+        if asset_type == "Image":
+            candidates = [p.name for p in directory.iterdir()
+                          if p.stem == directory.name and p.suffix.lower() in
+                          {".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp", ".gif"}]
+            if len(candidates) != 1:
+                raise ImportFailure("Image render requires exactly one same-basename image")
+            path = child(candidates[0])
+        elif asset_type == "Audio":
+            master = playlist(child(directory.name + ".m3u8"))
+            audio_lines = [line for line in master.splitlines()
+                           if line.startswith("#EXT-X-MEDIA:") and
+                           re.search(r"(?:[:,])TYPE=AUDIO(?:,|$)", line)]
+            references = [re.findall(r'(?:[:,])URI="([^"]+)"', line) for line in audio_lines]
+            if len(references) != 1 or len(references[0]) != 1:
+                raise ImportFailure("Audio render requires exactly one manifest audio track")
+            reference = references[0][0]
+            if not re.fullmatch(re.escape(directory.name) + r"_audio\d+\.m3u8", reference):
+                raise ImportFailure("Audio manifest reference does not match this render")
+            track = playlist(child(reference))
+            files = set(re.findall(r'URI="([^"]+)"', track))
+            files.update(line.strip() for line in track.splitlines()
+                         if line.strip() and not line.startswith("#"))
+            expected = reference.removesuffix(".m3u8") + ".mp4"
+            if files != {expected}:
+                raise ImportFailure("Audio manifest must reference one matching media file")
+            path = child(expected)
+        else:
+            raise ImportFailure("Directory WebProxyPath requires explicit Audio or Image type")
+    if not path.is_file() or path.stat().st_size == 0:
         raise ImportFailure("Non-video WebProxyPath must identify one readable nonempty file under the Curator mount")
     return str(path)
 
@@ -103,7 +153,7 @@ async def import_asset(db, candidate):
         return item.media_id, item.status
     if candidate.asset_type not in ("Audio", "Image"):
         raise ImportFailure(f"Unsupported asset type: {candidate.asset_type}")
-    source = await run_in_threadpool(exact_nonvideo_source, proxy)
+    source = await run_in_threadpool(exact_nonvideo_source, proxy, candidate.asset_type)
     await db.execute(text(
         "SELECT pg_advisory_xact_lock(hashtext('obtv_curator_import:' || :id))"
     ), {"id": candidate.asset_id})

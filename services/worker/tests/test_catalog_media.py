@@ -76,3 +76,27 @@ class MediaTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "Animated/multipage"):
                     self.module.prepare_image(str(source), "asset")
             self.assertFalse((root / "out").exists())
+
+    def test_image_subtasks_have_real_task_identity(self):
+        db = Mock()
+        db.execute.return_value.scalar.side_effect = [
+            True, "pending", "/curator/image.png", "vector-id", "caption",
+        ]
+        embed, caption = Mock(), Mock()
+        with patch.object(self.module, "get_session", return_value=db), \
+             patch.object(self.module.os.path, "isfile", return_value=True), \
+             patch.object(self.module, "prepare_image", return_value=(10, 10, "PNG", "thumb.jpg")), \
+             patch.object(self.module, "create_job", side_effect=["visual-job", "caption-job"]), \
+             patch.dict(sys.modules, {
+                 "catalog_storage": types.SimpleNamespace(require_archive_storage=Mock()),
+                 "tasks.visual_embed": types.SimpleNamespace(embed_scenes=embed),
+                 "tasks.florence_caption": types.SimpleNamespace(caption_scenes=caption),
+             }):
+            self.module.ingest(types.SimpleNamespace(request=types.SimpleNamespace(id="root")),
+                               "media", "root", "Image")
+        embed.apply.assert_called_once_with(args=("media", "visual-job"),
+                                           task_id="visual-job", throw=True)
+        caption.apply.assert_called_once_with(args=("media", "caption-job"),
+                                             task_id="caption-job", throw=True)
+        embed.run.assert_not_called()
+        caption.run.assert_not_called()

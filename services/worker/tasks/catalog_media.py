@@ -106,14 +106,16 @@ def ingest(self, media_id: str, job_id: str, asset_type: str):
             # Synchronous substage execution preserves honest readiness/failure.
             from tasks.visual_embed import embed_scenes
             stage = create_job(db, media_id, "visual_embed")
-            embed_scenes.run(media_id, stage)
+            # Eager execution still needs a genuine Celery request/task id:
+            # captioning reports progress through self.update_state().
+            embed_scenes.apply(args=(media_id, stage), task_id=stage, throw=True)
             embedded = db.execute(text("SELECT embedding_id FROM scenes WHERE id=:id"),
                                   {"id": scene_id}).scalar()
             if not embedded:
                 raise RuntimeError("Image did not produce a searchable visual embedding")
             from tasks.florence_caption import caption_scenes
             stage = create_job(db, media_id, "florence_caption")
-            caption_scenes.run(media_id, stage)
+            caption_scenes.apply(args=(media_id, stage), task_id=stage, throw=True)
             description = db.execute(text("SELECT description FROM scenes WHERE id=:id"),
                                      {"id": scene_id}).scalar()
             if not description:

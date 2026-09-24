@@ -1,4 +1,5 @@
 - [Celery/SQLAlchemy worker pitfalls](celery-redis-pitfalls.md) — publish via Celery send_task not raw Redis; use CAST(:p AS jsonb) not ::casts in text(); rollback before error-status writes.
+- [Bound Celery child stages](celery-redis-pitfalls.md) — synchronous stages that report state still need genuine task IDs and Celery request context; direct .run() bypasses both.
 - [nginx in Docker caches upstream IPs](docker-nginx-dns.md) — static upstream blocks 502 after backend rebuilds; use resolver 127.0.0.11 + variable proxy_pass.
 - [Worker task DB/SQL binding rules](celery-redis-pitfalls.md) — cast numpy floats to Python float before SQL binds; long tasks must report throttled progress; make retries idempotent (delete prior rows first).
 - [ffmpeg progress parsing](ffmpeg-progress.md) — use -progress pipe:1 -nostats, merge stderr into stdout (single stream avoids pipe deadlock), out_time_ms is microseconds.
