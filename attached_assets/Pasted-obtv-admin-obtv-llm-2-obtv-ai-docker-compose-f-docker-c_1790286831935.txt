@@ -1,0 +1,162 @@
+obtv-admin@obtv-llm-2:~/obtv-ai$ docker compose -f docker-compose.yml -f archive-artifacts.compose.yml up -d --build api frontend worker-gpu worker-gpu-2 worker-cpu worker-graphics watcher
+[+] Building 2.9s (76/76) FINISHED
+ => [internal] load local bake definitions                                                                     0.0s
+ => => reading from stdin 3.29kB                                                                               0.0s
+ => [worker-gpu-2 internal] load build definition from Dockerfile                                              0.0s
+ => => transferring dockerfile: 5.85kB                                                                         0.0s
+ => [api internal] load build definition from Dockerfile                                                       0.1s
+ => => transferring dockerfile: 628B                                                                           0.0s
+ => [frontend internal] load build definition from Dockerfile.production                                       0.1s
+ => => transferring dockerfile: 1.13kB                                                                         0.0s
+ => [watcher internal] load build definition from Dockerfile                                                   0.1s
+ => => transferring dockerfile: 362B                                                                           0.0s
+ => [worker-gpu-2 internal] load metadata for docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04           0.1s
+ => [watcher internal] load metadata for docker.io/library/python:3.11-slim                                    0.1s
+ => [frontend internal] load metadata for docker.io/library/nginx:alpine                                       0.6s
+ => [frontend internal] load metadata for docker.io/library/node:20-slim                                       0.6s
+ => [worker-gpu-2 internal] load .dockerignore                                                                 0.0s
+ => => transferring context: 2B                                                                                0.0s
+ => [watcher internal] load .dockerignore                                                                      0.0s
+ => => transferring context: 2B                                                                                0.0s
+ => [api internal] load .dockerignore                                                                          0.0s
+ => => transferring context: 2B                                                                                0.0s
+ => [worker-graphics internal] load build context                                                              0.1s
+ => => transferring context: 2.44kB                                                                            0.0s
+ => [worker-graphics  1/18] FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa961  0.1s
+ => => resolve docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0  0.1s
+ => [worker-gpu-2  3/18] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-lates  0.5s
+ => [watcher 1/6] FROM docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da2  0.1s
+ => => resolve docker.io/library/python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627ac  0.1s
+ => [watcher internal] load build context                                                                      0.0s
+ => => transferring context: 102B                                                                              0.0s
+ => [api internal] load build context                                                                          0.1s
+ => => transferring context: 2.42kB                                                                            0.0s
+ => CACHED [api 2/6] RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libpq-de  0.0s
+ => CACHED [api 3/6] WORKDIR /app                                                                              0.0s
+ => CACHED [api 4/6] COPY requirements.txt .                                                                   0.0s
+ => CACHED [api 5/6] RUN pip install --no-cache-dir -r requirements.txt                                        0.0s
+ => CACHED [api 6/6] COPY app/ ./app/                                                                          0.0s
+ => CACHED [watcher 2/6] WORKDIR /watcher                                                                      0.0s
+ => CACHED [watcher 3/6] COPY requirements.txt .                                                               0.0s
+ => CACHED [watcher 4/6] RUN pip install --no-cache-dir -r requirements.txt                                    0.0s
+ => CACHED [watcher 5/6] COPY watcher.py .                                                                     0.0s
+ => CACHED [watcher 6/6] COPY healthcheck.py .                                                                 0.0s
+ => [api] exporting to image                                                                                   0.3s
+ => => exporting layers                                                                                        0.0s
+ => => exporting manifest sha256:5458e5be4d53f3577a3c3edce64e1339ec85bb58d4e58d82b1d376f4c1cfb505              0.0s
+ => => exporting config sha256:4e29d311d04bc70a392a83d31736bf1c11c65417179c09bc1f72344eba00fdb1                0.0s
+ => => exporting attestation manifest sha256:d953f7e0ed10ccb9cc05028c696639d6d145d70948f81e2c590695aee576e5ca  0.1s
+ => => exporting manifest list sha256:8668b4bb40ddfc35fe35ca0513238f1cf52ac70f6a2cd3bdcfed6c158f6e5616         0.1s
+ => => naming to docker.io/library/obtv-ai-api:latest                                                          0.0s
+ => => unpacking to docker.io/library/obtv-ai-api:latest                                                       0.0s
+ => [watcher] exporting to image                                                                               0.3s
+ => => exporting layers                                                                                        0.0s
+ => => exporting manifest sha256:c47a249ba76a018a99a861f2cdd66e1133b4400f7c2285d1517cbb194b43e8d8              0.0s
+ => => exporting config sha256:be9e7198555dd4140dbc7755d85cb2c8dc0685174ef33b8df87a9c597d8b7241                0.0s
+ => => exporting attestation manifest sha256:65566a022e7b7cda76a2756661fc9fb333495595a26f82fe9f3aed9a0aff0610  0.1s
+ => => exporting manifest list sha256:8ad3f11810c17c1ac0ab98a408757e348ddbba73cf9f9cd9395c0285d9b59390         0.1s
+ => => naming to docker.io/library/obtv-ai-watcher:latest                                                      0.0s
+ => => unpacking to docker.io/library/obtv-ai-watcher:latest                                                   0.0s
+ => [frontend internal] load .dockerignore                                                                     0.0s
+ => => transferring context: 186B                                                                              0.0s
+ => CACHED [worker-graphics  2/18] RUN apt-get update && apt-get install -y --no-install-recommends     pytho  0.0s
+ => CACHED [worker-graphics  3/18] ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-  0.0s
+ => CACHED [worker-graphics  4/18] RUN tar -xf /tmp/ffmpeg.tar.xz -C /tmp     && cp /tmp/ffmpeg-n8.1-latest-l  0.0s
+ => CACHED [worker-graphics  5/18] RUN ln -s /usr/bin/python3.11 /usr/bin/python                               0.0s
+ => CACHED [worker-graphics  6/18] WORKDIR /worker                                                             0.0s
+ => CACHED [worker-graphics  7/18] COPY requirements.txt .                                                     0.0s
+ => CACHED [worker-graphics  8/18] RUN pip install --no-cache-dir -r requirements.txt                          0.0s
+ => CACHED [worker-graphics  9/18] RUN pip install --no-cache-dir requests                                     0.0s
+ => CACHED [worker-graphics 10/18] RUN pip install --no-cache-dir --no-deps chatterbox-tts==0.1.7     && pip   0.0s
+ => CACHED [worker-graphics 11/18] RUN pip install --no-cache-dir qwen-tts     "torch==2.8.0+cu128" "torchvis  0.0s
+ => CACHED [worker-graphics 12/18] RUN pip install --no-cache-dir --force-reinstall --no-deps onnxruntime-gpu  0.0s
+ => CACHED [worker-graphics 13/18] RUN python3 -c "from chatterbox.mtl_tts import ChatterboxMultilingualTTS"   0.0s
+ => CACHED [worker-graphics 14/18] RUN git clone --depth 1 https://github.com/bytedance/LatentSync /opt/laten  0.0s
+ => CACHED [worker-graphics 15/18] RUN python3.10 -m venv /opt/latentsync-venv     && /opt/latentsync-venv/bi  0.0s
+ => CACHED [worker-graphics 16/18] COPY scripts/install_chatterbox_v3.py /tmp/install_chatterbox_v3.py         0.0s
+ => CACHED [worker-graphics 17/18] RUN python3 /tmp/install_chatterbox_v3.py     && PYTHONPATH=/opt/chatterbo  0.0s
+ => CACHED [worker-gpu 18/18] COPY . .                                                                         0.0s
+ => [worker-gpu] exporting to image                                                                            0.8s
+ => => exporting layers                                                                                        0.0s
+ => => exporting manifest sha256:5607e1ffc83115d81c026641692181bc2600cb5ebfdd1a40f63f0ec3e3012436              0.0s
+ => => exporting config sha256:b79e10ad14ba1efd3404100752e49b3ff8db6dc8eaad25cb2cda05a83cf6972e                0.0s
+ => => exporting attestation manifest sha256:9804bf7f5460cdf7bd87069b98aaa7c2ba7eca3672229328f2ae559c290eb740  0.3s
+ => => exporting manifest list sha256:f62acbe77d35cd7abaf72e0cdbb22112dcc5443219fcf9555d622c0d4c0e9594         0.1s
+ => => naming to docker.io/library/obtv-ai-worker-gpu:latest                                                   0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-gpu:latest                                                0.1s
+ => [worker-gpu-2] exporting to image                                                                          0.9s
+ => => exporting layers                                                                                        0.0s
+ => => exporting manifest sha256:d74c199e70682c72b92dc86cac9465fa01ccc918905765cebd76d97aa982dca2              0.0s
+ => => exporting config sha256:8f832628f4aa3872b20e26e1bcb360ca0fa7bed9939c6b07aca841502ef0af27                0.0s
+ => => exporting attestation manifest sha256:ae1b6a97216c046c161b8652437c1ae10a1e2d9ba2caf9c19fd4c79b9f0cf43e  0.2s
+ => => exporting manifest list sha256:ede127c37a63ccea79fb87abbddeccc60fd50a6e7c470f77c410826624a8ae80         0.2s
+ => => naming to docker.io/library/obtv-ai-worker-gpu-2:latest                                                 0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-gpu-2:latest                                              0.1s
+ => [worker-cpu] exporting to image                                                                            0.9s
+ => => exporting layers                                                                                        0.0s
+ => => exporting manifest sha256:0013675470bab7bb6740c8492806dcf706347afede4ecfe63f692ee416bebca2              0.0s
+ => => exporting config sha256:8d0ac60a34aec02adaa5f03cab564e5b4fc4a63fa8187074ff8b87570c90f0e9                0.0s
+ => => exporting attestation manifest sha256:47f1da78a01ac18143399c60f7041543f5193657c00f213f2180a41d64228fa5  0.2s
+ => => exporting manifest list sha256:468550b9a03fe16a7a57d80ff126d361585d4e53b38e4d84fb97ef8a647a878c         0.1s
+ => => naming to docker.io/library/obtv-ai-worker-cpu:latest                                                   0.0s
+ => => unpacking to docker.io/library/obtv-ai-worker-cpu:latest                                                0.1s
+ => [worker-graphics] exporting to image                                                                       0.9s
+ => => exporting layers                                                                                        0.0s
+ => => exporting manifest sha256:a6510bfc213694c6b548e7c9b8b8fe71e8454ecf9bb7dd4d9c9591e14a9addd2              0.0s
+ => => exporting config sha256:199de51ea360cc336cb8eddf763ab0df5311a2e29ca54d5988e1f343edfd1ea4                0.0s
+ => => exporting attestation manifest sha256:dde7948c84a8dc7063014f8c85b58d9fd8318fee6cb2ab8a702916f2245fb42a  0.3s
+ => => exporting manifest list sha256:0abdee323127491172331e82185622e47acc14f7f73301838ec74f6ba69920aa         0.1s
+ => => naming to docker.io/library/obtv-ai-worker-graphics:latest                                              0.1s
+ => => unpacking to docker.io/library/obtv-ai-worker-graphics:latest                                           0.1s
+ => [frontend internal] load build context                                                                     0.1s
+ => => transferring context: 33.48kB                                                                           0.0s
+ => [frontend builder  1/12] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a9423  0.3s
+ => => resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162  0.3s
+ => [frontend stage-1 1/3] FROM docker.io/library/nginx:alpine@sha256:1ed1b0e1d7652937d6cbdaf4018c7b6fc009a7d  0.3s
+ => => resolve docker.io/library/nginx:alpine@sha256:1ed1b0e1d7652937d6cbdaf4018c7b6fc009a7dd6c3047351e2eddda  0.3s
+ => CACHED [frontend stage-1 2/3] COPY nginx/nginx.conf /etc/nginx/nginx.conf                                  0.0s
+ => CACHED [frontend builder  2/12] WORKDIR /app                                                               0.0s
+ => CACHED [frontend builder  3/12] RUN npm install -g pnpm@10                                                 0.0s
+ => CACHED [frontend builder  4/12] COPY pnpm-lock.yaml pnpm-workspace.yaml ./                                 0.0s
+ => CACHED [frontend builder  5/12] RUN pnpm fetch                                                             0.0s
+ => CACHED [frontend builder  6/12] COPY package.json tsconfig.base.json tsconfig.json ./                      0.0s
+ => CACHED [frontend builder  7/12] COPY lib/ ./lib/                                                           0.0s
+ => CACHED [frontend builder  8/12] COPY artifacts/frontend/ ./artifacts/frontend/                             0.0s
+ => CACHED [frontend builder  9/12] RUN pnpm install --frozen-lockfile --prefer-offline                        0.0s
+ => CACHED [frontend builder 10/12] COPY attached_assets/ ./attached_assets/                                   0.0s
+ => CACHED [frontend builder 11/12] RUN pnpm --filter @workspace/api-spec run codegen                          0.0s
+ => CACHED [frontend builder 12/12] RUN BASE_PATH=/ PORT=3000 pnpm --filter @workspace/frontend run build      0.0s
+ => CACHED [frontend stage-1 3/3] COPY --from=builder /app/artifacts/frontend/dist/public /usr/share/nginx/ht  0.0s
+ => [frontend] exporting to image                                                                              0.5s
+ => => exporting layers                                                                                        0.0s
+ => => exporting manifest sha256:2c12a952940b88ca071aef64465fc4c3ecc0b0fc9ba4c293b132cff0a783020c              0.0s
+ => => exporting config sha256:d0bdeb7a5e2c9edcf6804d448f9f0ee510ccc6881b5ca9b14d5d12b0d5db8fc6                0.0s
+ => => exporting attestation manifest sha256:1724eb68e2c7d6f458413d6d90661e78e729f8bc3f85dad25295c18d6c81ee87  0.1s
+ => => exporting manifest list sha256:761f30d3f8b72395f8638484babf8963bcd525881b94962a1db81085e47f4727         0.0s
+ => => naming to docker.io/library/obtv-ai-frontend:latest                                                     0.0s
+ => => unpacking to docker.io/library/obtv-ai-frontend:latest                                                  0.1s
+ => [watcher] resolving provenance for metadata file                                                           0.0s
+ => [api] resolving provenance for metadata file                                                               0.0s
+ => [frontend] resolving provenance for metadata file                                                          0.0s
+ => [worker-gpu] resolving provenance for metadata file                                                        0.3s
+ => [worker-gpu-2] resolving provenance for metadata file                                                      0.2s
+ => [worker-cpu] resolving provenance for metadata file                                                        0.1s
+ => [worker-graphics] resolving provenance for metadata file                                                   0.0s
+[+] up 17/17
+ ✔ Image obtv-ai-frontend              Built                                                                    3.0s
+ ✔ Image obtv-ai-worker-gpu            Built                                                                    3.0s
+ ✔ Image obtv-ai-watcher               Built                                                                    3.0s
+ ✔ Image obtv-ai-api                   Built                                                                    3.0s
+ ✔ Image obtv-ai-worker-gpu-2          Built                                                                    3.0s
+ ✔ Image obtv-ai-worker-cpu            Built                                                                    3.0s
+ ✔ Image obtv-ai-worker-graphics       Built                                                                    3.0s
+ ✔ Container obtv-ai-redis-1           Healthy                                                                 13.1s
+ ✔ Container obtv-ai-qdrant-1          Healthy                                                                 13.1s
+ ✔ Container obtv-ai-postgres-1        Healthy                                                                 13.1s
+ ✔ Container obtv-ai-api-1             Healthy                                                                 24.0s
+ ✔ Container obtv-ai-worker-gpu-1      Started                                                                 13.4s
+ ✔ Container obtv-ai-worker-graphics-1 Started                                                                 13.3s
+ ✔ Container obtv-ai-worker-gpu-2-1    Started                                                                 13.5s
+ ✔ Container obtv-ai-worker-cpu-1      Started                                                                 13.5s
+ ✔ Container obtv-ai-frontend-1        Started                                                                 22.2s
+ ✔ Container obtv-ai-watcher-1         Started                                                                 22.3s
