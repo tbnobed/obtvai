@@ -105,6 +105,13 @@ A fully local AI-powered media intelligence and semantic video search platform. 
 - NLE relink exports: `EXPORT_PATH_MAP` (semicolon `serverPath=editorPath` pairs, longest prefix wins, backslash targets auto-convert) rewrites original paths in EDL (`* SOURCE FILE:`), FCPXML (`media-rep src`), and OTIO (`target_url`) so Premiere/Resolve relink to hi-res
 - Topic normalization is intentionally triplicated: `artifacts/api-server/src/lib/topics.ts`, `services/api/app/topic_norm.py`, `services/worker/topic_norm.py` — keep all three in sync (the two Python copies must be byte-identical); topic filter URLs use the normalized key (`/library?topic=<key>&topic_label=<label>`); coverage-gap asset counts are computed at read time in the insights endpoint, not stored
 
+## Archive ingestion target requirements (not yet implemented)
+
+- Use Curator `IngestCompleteDate` for the inclusive January 1, 2023 cutoff and subsequent arrivals, not production date, original/last air date, file modification time, or OBTV creation time.
+- Do not retain local playback proxies or a persistent playback-proxy cache. Playback media must come from SMB, delivered through the server to the browser; handle separate Curator video/audio tracks without retaining a local combined playback file.
+- These requirements supersede the permanent-local-proxy design as a target, but the current implementation still performs the local remux documented above. Do not mistake these requirements for an implemented or deployed change.
+- Missing or invalid cutoff dates must be reported for review rather than silently substituted with another date. Bulk ingestion and deletion of existing proxies have not been started or authorized by the capacity assessment.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
