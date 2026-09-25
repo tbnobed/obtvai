@@ -5,9 +5,14 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListMediaMediaType } from './listMediaMediaType';
 import type { ListMediaSort } from './listMediaSort';
 
 export type ListMediaParams = {
+/**
+ * Filter by image type before counting and pagination; unknown types remain visible with hide_images.
+ */
+media_type?: ListMediaMediaType;
 status?: string;
 /**
  * Case-insensitive match on filename, title, or source path

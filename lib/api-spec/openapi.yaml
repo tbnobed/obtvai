@@ -196,6 +196,12 @@ paths:
       tags: [media]
       summary: List all media assets
       parameters:
+        - name: media_type
+          in: query
+          description: Filter by image type before counting and pagination; unknown types remain visible with hide_images.
+          schema:
+            type: string
+            enum: [all, hide_images, images]
         - name: status
           in: query
           schema:

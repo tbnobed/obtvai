@@ -130,6 +130,7 @@ export const DownloadMediaReportResponse = zod.unknown()
  * @summary List all media assets
  */
 export const ListMediaQueryParams = zod.object({
+  "media_type": zod.enum(['all', 'hide_images', 'images']).optional().describe('Filter by image type before counting and pagination; unknown types remain visible with hide_images.'),
   "status": zod.coerce.string().optional(),
   "search": zod.coerce.string().optional().describe('Case-insensitive match on filename, title, or source path'),
   "person": zod.coerce.string().optional().describe('Only assets a given person (by id) appears in'),

@@ -115,6 +115,7 @@ export * from './listClipListsParams';
 export * from './listEmotionMomentsParams';
 export * from './listGraphicsGenerationsParams';
 export * from './listJobsParams';
+export * from './listMediaMediaType';
 export * from './listMediaParams';
 export * from './listMediaSort';
 export * from './listPeopleParams';

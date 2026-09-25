@@ -4,7 +4,7 @@ import os
 import secrets
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, delete, text
@@ -606,6 +606,7 @@ async def delete_marker(id: str, marker_id: str, db: AsyncSession = Depends(get_
 
 @router.get("", response_model=MediaListResponse)
 async def list_media(
+    media_type: Optional[Literal["all", "hide_images", "images"]] = Query(None),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     sort: Optional[str] = Query(None),
@@ -632,6 +633,11 @@ async def list_media(
         "status_desc": desc(MediaAsset.status),
     }
     q = select(MediaAsset).order_by(sort_map.get(sort or "", desc(MediaAsset.created_at)))
+    if media_type in ("hide_images", "images"):
+        from ..media_filter import image_asset_condition
+        from ..catalog_models import CatalogAsset
+        image_condition = image_asset_condition(MediaAsset, CatalogAsset)
+        q = q.where(image_condition if media_type == "images" else ~image_condition)
     if status:
         q = q.where(MediaAsset.status == status)
     if ids and ids.strip():

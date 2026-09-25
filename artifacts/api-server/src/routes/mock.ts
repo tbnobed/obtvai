@@ -592,6 +592,19 @@ router.post("/media/move", (req, res) => {
 
 router.get("/media", (req, res) => {
   let items = [...assets];
+  const mediaType = String(req.query.media_type ?? "all");
+  if (!["all", "hide_images", "images"].includes(mediaType)) {
+    res.status(422).json({ detail: "Invalid media_type" });
+    return;
+  }
+  if (mediaType !== "all") {
+    const imageExtension = /\.(jpg|jpeg|png|gif|webp|bmp|tif|tiff|heic|heif|avif|svg|exr|dpx)$/i;
+    items = items.filter(a => {
+      const isImage = [a.filename, a.original_path, a.source_path]
+        .some(path => !!path && imageExtension.test(path));
+      return mediaType === "images" ? isImage : !isImage;
+    });
+  }
   const status = String(req.query.status ?? "");
   if (status) items = items.filter((a) => a.status === status);
   const folder = String(req.query.folder ?? "");

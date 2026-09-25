@@ -133,7 +133,27 @@ function uploadFileWithProgress(
 
 const PAGE_SIZE = 60;
 
+function readLibraryPreference<T extends string>(key: string, values: readonly T[], fallback: T): T {
+  try {
+    const value = localStorage.getItem(key);
+    return values.includes(value as T) ? value as T : fallback;
+  } catch { return fallback; }
+}
+
+function saveLibraryPreference(key: string, value: string) {
+  try { localStorage.setItem(key, value); } catch { /* Storage may be unavailable. */ }
+}
+
 export default function Library() {
+  const [mediaType, setMediaType] = useState<"all" | "hide_images" | "images">(
+    () => readLibraryPreference("library-media-type", ["all", "hide_images", "images"], "all"));
+  const [cardSize, setCardSize] = useState<"small" | "medium" | "large">(
+    () => readLibraryPreference("library-card-size", ["small", "medium", "large"], "medium"));
+  const gridClass = cardSize === "small"
+    ? "grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
+    : cardSize === "large"
+      ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      : "grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5";
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -173,6 +193,7 @@ export default function Library() {
   useEffect(() => { setPage(0); }, [personFilter, topicFilter, folderFilter]);
 
   const listParams = {
+    media_type: mediaType,
     status: statusFilter || undefined,
     search: search || undefined,
     sort: (sort as any) || undefined,
@@ -288,7 +309,7 @@ export default function Library() {
     queryClient.invalidateQueries({ queryKey: getListFoldersQueryKey() });
   };
 
-  useEffect(() => { setSelected(new Set()); }, [folderFilter, page, statusFilter, search]);
+  useEffect(() => { setSelected(new Set()); }, [folderFilter, page, statusFilter, search, mediaType]);
 
   const toggleSelected = (id: string) => {
     setSelected(prev => {
@@ -997,6 +1018,35 @@ export default function Library() {
             <option value="pending">Pending</option>
             <option value="error">Error</option>
           </select>
+          <select
+            aria-label="Media type"
+            value={mediaType}
+            onChange={e => {
+              const value = e.target.value as typeof mediaType;
+              setMediaType(value); setPage(0); setSelected(new Set());
+              saveLibraryPreference("library-media-type", value);
+            }}
+            className="h-9 px-3 py-1 rounded-md border border-input bg-background text-sm"
+          >
+            <option value="all">All media</option>
+            <option value="hide_images">Hide images</option>
+            <option value="images">Images only</option>
+          </select>
+          {view === "grid" && (
+            <select
+              aria-label="Card size"
+              value={cardSize}
+              onChange={e => {
+                const value = e.target.value as typeof cardSize;
+                setCardSize(value); saveLibraryPreference("library-card-size", value);
+              }}
+              className="h-9 px-3 py-1 rounded-md border border-input bg-background text-sm"
+            >
+              <option value="small">Small cards</option>
+              <option value="medium">Medium cards</option>
+              <option value="large">Large cards</option>
+            </select>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -1337,14 +1387,14 @@ export default function Library() {
       )}
 
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className={gridClass}>
           {[...Array(10)].map((_, i) => (
             <div key={i} className="animate-pulse bg-muted aspect-video rounded-md" />
           ))}
         </div>
       ) : data?.items.length ? (
         view === "grid" ? (
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className={gridClass}>
             {data.items.map(asset => (
               <ContextMenu key={asset.id}>
                 <ContextMenuTrigger asChild>
@@ -1459,7 +1509,7 @@ export default function Library() {
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
           <Upload className="h-12 w-12 mb-4 opacity-50" />
-          <p>{search || statusFilter || personFilter || topicFilter ? "No media matches your filters." : "No media assets found."}</p>
+          <p>{search || statusFilter || personFilter || topicFilter || mediaType !== "all" ? "No media matches your filters." : "No media assets found."}</p>
         </div>
       )}
 

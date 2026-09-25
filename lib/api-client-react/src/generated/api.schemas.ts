@@ -3180,6 +3180,10 @@ partial?: boolean;
 };
 
 export type ListMediaParams = {
+/**
+ * Filter by image type before counting and pagination; unknown types remain visible with hide_images.
+ */
+media_type?: ListMediaMediaType;
 status?: string;
 /**
  * Case-insensitive match on filename, title, or source path
@@ -3205,6 +3209,15 @@ sort?: ListMediaSort;
 limit?: number;
 offset?: number;
 };
+
+export type ListMediaMediaType = typeof ListMediaMediaType[keyof typeof ListMediaMediaType];
+
+
+export const ListMediaMediaType = {
+  all: 'all',
+  hide_images: 'hide_images',
+  images: 'images',
+} as const;
 
 export type ListMediaSort = typeof ListMediaSort[keyof typeof ListMediaSort];
 
