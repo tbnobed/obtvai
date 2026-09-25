@@ -44,6 +44,7 @@ async def recurring_tick(args):
     from ..database import AsyncSessionLocal, engine
     from ..catalog import cutoff
     from .import_curator_workbook import _safe_error
+    from ..catalog_recovery import failure_kind, pause
     try:
         async with AsyncSessionLocal() as db:
             row = await db.get(CatalogCheckpoint, "runner")
@@ -67,19 +68,21 @@ async def recurring_tick(args):
             row = await db.get(CatalogCheckpoint, "runner")
             state = dict(row.cursor)
             stats = result.get("stats", {})
-            if stats.get("errors"):
+            if result.get("error") and failure_kind(result["error"]) == "infrastructure":
+                await pause(db, "Shared infrastructure failure: " + result["error"])
+                state = dict(row.cursor)
+            if result.get("error") or stats.get("errors", 0) > stats.get("asset_errors", 0):
                 state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
-            elif stats.get("admitted"):
+            else:
                 state["consecutive_errors"] = 0
-            paused = bool(state.get("paused") or stats.get("worker_failures") or state.get("consecutive_errors", 0) >= 3)
+            paused = bool(state.get("paused") or state.get("consecutive_errors", 0) >= 3)
             state.update(paused=paused, state="paused" if paused else "waiting",
                          last_run_id=result.get("run_id"))
             row.cursor, row.stats, row.updated_at = state, stats, datetime.utcnow()
-            row.last_error = result.get("error")
+            row.last_error = result.get("error") or (row.last_error if paused else None)
             if paused:
                 row.last_error = row.last_error or (
-                    "Worker processing failed; inspect catalog/jobs before resuming"
-                    if stats.get("worker_failures") else "Three admission/discovery failures; inspect latest runs")
+                    "Three consecutive admission/discovery failures; inspect latest runs")
             await db.commit()
         return result
     finally:

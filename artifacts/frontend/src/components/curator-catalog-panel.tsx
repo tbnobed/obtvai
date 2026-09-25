@@ -72,6 +72,7 @@ export function CuratorCatalogPanel() {
   const client = useQueryClient();
   const submitting = useRef(false);
   const [after, setAfter] = useState("");
+  const [reviewStatus, setReviewStatus] = useState("review");
   const [pages, setPages] = useState(1);
   const [assets, setAssets] = useState(1);
   const [inflight, setInflight] = useState(1);
@@ -89,8 +90,8 @@ export function CuratorCatalogPanel() {
     refetchInterval: 15000,
   });
   const review = useQuery({
-    queryKey: [...KEY, "review", after],
-    queryFn: () => catalogRequest<ReviewPage>(`/assets?status=review&after=${encodeURIComponent(after)}&limit=100`),
+    queryKey: [...KEY, "review", reviewStatus, after],
+    queryFn: () => catalogRequest<ReviewPage>(`/assets?status=${reviewStatus}&after=${encodeURIComponent(after)}&limit=100`),
     enabled: isAdmin && status.isSuccess,
     retry: false,
   });
@@ -205,6 +206,11 @@ export function CuratorCatalogPanel() {
           </div>
           <div className="border-t pt-4 space-y-2">
             <h3 className="text-sm font-medium">Review items</h3>
+            <div className="flex flex-wrap gap-2" aria-label="Catalog review status">
+              {[["review", "Metadata review"], ["retry", "Awaiting retry"], ["failed", "Quarantined / cancelled"]].map(([value, label]) =>
+                <Button key={value} size="sm" variant={reviewStatus === value ? "secondary" : "outline"}
+                  onClick={() => { setReviewStatus(value); setAfter(""); }}>{label}</Button>)}
+            </div>
             {review.isLoading && <p className="text-xs text-muted-foreground">Loading review items...</p>}
             {review.isError && <p className="text-sm text-destructive">{message(review.error)}</p>}
             {review.data?.items.length === 0 && <p className="text-sm text-muted-foreground">No review items in this page.</p>}

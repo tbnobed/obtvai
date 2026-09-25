@@ -35,11 +35,25 @@ docker compose -f docker-compose.yml -f archive-artifacts.compose.yml stop catal
 ```
 
 The admin Curator page shows the effective cutoff, runner heartbeat/state, errors
-and recent runs. A worker failure or three admission/discovery errors without an
-intervening successful admission latches a **persistent pause**, including across
-container restarts. Review jobs and correct the cause, then use **Resume managed
+and recent runs. Isolated asset failures do **not** stop the queue: they receive
+at most three pipeline attempts (initial attempt plus two retries), then remain
+`failed`/quarantined for review while other assets proceed. Reconciliation checks
+actual job results before the budget: an already-recovered asset becomes complete
+without replaying its pipeline, even at the attempt limit. Any cancelled stage is
+terminal until an explicit reset.
+
+Shared infrastructure errors (broker/network/database/storage), exhausted storage
+watermarks, **three distinct GPU failures within 30 minutes**, or three consecutive
+run-level discovery/admission failures latch a **persistent pause**, including across
+container restarts. Asset-specific admission errors do not consume the global
+run-error budget. GPU events are deduplicated by asset/current pipeline attempt,
+even if individual failed children are retried or the failed-job set changes;
+dry runs and manual runs persist the same circuit state.
+Review jobs and correct the cause, then use **Resume managed
 runner**; this clears the pause but does not start a stopped container. Logs are
 available with `docker compose -f docker-compose.yml -f archive-artifacts.compose.yml logs catalog-runner`.
+Resume also acknowledges the GPU failure window. It does not reset quarantined
+asset budgets; use the separate per-asset reset only after reviewing that asset.
 
 On the current shared host, physical GPU0 has insufficient free VRAM from
 other services. `GPU_SECONDARY_QUEUES=gpu-secondary` keeps worker-gpu-2 running
@@ -173,6 +187,20 @@ cancel is terminal until an admin reset. `queued` means admitted, **not processe
 successfully**; `complete` requires a ready media asset with no active/current
 failed jobs. Existing stale-job watchdog/manual job recovery still governs a
 worker job that remains indefinitely `running` after a hard worker loss.
+
+Automatic retries use the existing per-media-locked, durable **pipeline** outbox.
+The general per-stage retry endpoint has a commit/publish gap and does not offer
+the same stable task identity, so it is not used for unattended catalog retries.
+No successful stages are falsely marked failed; their history remains retained.
+Existing downstream jobs have no explicit root-attempt ownership field.
+Reconciliation therefore restricts errors/cancellations to known ingest job
+types created since the current root; unrelated reports/renders are excluded.
+A concurrent manual rerun of the same ingest stage remains attribution-ambiguous.
+Admission waits for **all** active jobs on that asset (except republishing its
+sole pending outbox root), so it cannot start a new pipeline over active children.
+Broker publication failures preserve the pending outbox/task ID and reserved slot
+and do not consume a processing attempt. The Curator review panel has separate
+Metadata review, Awaiting retry, and Quarantined/cancelled views.
 
 ## Audio/Image scope
 

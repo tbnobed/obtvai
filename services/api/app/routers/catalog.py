@@ -37,6 +37,9 @@ async def resume(request: Request, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "No managed catalog runner has registered")
     row.cursor = {**row.cursor, "paused": False, "consecutive_errors": 0, "state": "resumed"}
     row.last_error = None
+    circuit = await db.get(CatalogCheckpoint, "gpu_failures")
+    if circuit:
+        circuit.cursor = {"times": []}
     await db.commit()
     return {"note": "Pause cleared. A running managed runner may admit the next bounded asset; a stopped service is not started."}
 

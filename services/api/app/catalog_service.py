@@ -16,6 +16,16 @@ from .catalog_models import CatalogAsset, CatalogCheckpoint, CatalogRun
 from .commands.import_curator_workbook import ImportFailure, _field_values
 from .database import AsyncSessionLocal, engine
 from .models import MediaAsset, ProcessingJob
+from .catalog_recovery import failure_kind, pause, record_failure
+
+# Current schema does not carry root IDs on downstream jobs. Restrict temporal
+# attribution to actual ingest stages, never reports/renders or other workflows.
+# A manual rerun of one of these same stages still shares that ambiguity.
+PIPELINE_JOB_TYPES = (
+    "ingest", "catalog_ingest", "proxy", "audio_extract", "qc", "qc_editorial",
+    "scene_detect", "visual_embed", "face_detect", "florence_caption", "sprite",
+    "transcribe", "diarize", "index", "analyze", "identify", "creative", "sentiment",
+)
 
 
 class CatalogOptions(BaseModel):
@@ -229,10 +239,9 @@ async def reconcile(db, options):
     failures = 0
     for candidate in rows:
         candidate.updated_at = datetime.utcnow()
-        if candidate.attempts >= options.max_attempts and candidate.status == "retry":
-            candidate.status = "failed"
-            continue
         if not candidate.media_id:
+            if candidate.attempts >= options.max_attempts and candidate.status == "retry":
+                candidate.status = "failed"
             continue
         media = await db.get(MediaAsset, candidate.media_id)
         if not media:
@@ -245,22 +254,37 @@ async def reconcile(db, options):
         if active:
             continue
         root_job = await db.get(ProcessingJob, candidate.job_id) if candidate.job_id else None
-        if root_job and root_job.status == "cancelled":
+        cancelled = (await db.execute(select(func.count()).select_from(ProcessingJob).where(
+            ProcessingJob.media_id == candidate.media_id,
+            ProcessingJob.status == "cancelled",
+            ProcessingJob.job_type.in_(PIPELINE_JOB_TYPES),
+            ProcessingJob.created_at >= root_job.created_at,
+        ))).scalar() if root_job else 0
+        if cancelled:
             candidate.status, candidate.dispatch_state = "failed", "failed"
             candidate.error = "Catalog ingest was cancelled; explicit retry reset required"
             continue
-        errors = 0
+        errors = []
         if root_job:
-            errors = (await db.execute(select(func.count()).select_from(ProcessingJob).where(
+            errors = (await db.execute(select(ProcessingJob).where(
                 ProcessingJob.media_id == candidate.media_id, ProcessingJob.status == "error",
+                ProcessingJob.job_type.in_(PIPELINE_JOB_TYPES),
                 ProcessingJob.created_at >= root_job.created_at,
-            ))).scalar()
+            ))).scalars().all()
         if media.status == "error" or errors:
-            if candidate.dispatch_state != "failed":
+            details = "; ".join(_safe_error(Exception(job.error_message or "Worker failed"))
+                                for job in errors) or "Media processing failed"
+            kinds = [failure_kind(job.error_message) for job in errors]
+            kind = "infrastructure" if "infrastructure" in kinds else "gpu" if "gpu" in kinds else "asset"
+            # The set of failed children can shrink as an operator retries
+            # individual stages. It must not manufacture additional GPU events.
+            token = str(candidate.job_id or f"no-root:{candidate.attempts}")
+            if await record_failure(db, candidate, token, kind, details):
                 failures += 1
             candidate.status = "retry" if candidate.attempts < options.max_attempts else "failed"
             candidate.dispatch_state = "failed"
-            candidate.error = "Worker processing failed; bounded retry required"
+            candidate.error = ("Quarantined after attempt budget: " if candidate.status == "failed"
+                               else "Worker failure; bounded retry: ") + details
         elif media.status == "ready":
             candidate.status, candidate.error = "complete", None
     await db.commit()
@@ -274,14 +298,6 @@ async def run_catalog(options: CatalogOptions) -> dict:
     options.max_assets = min(options.max_assets, int(os.getenv("CURATOR_CATALOG_MAX_ASSETS", "100")))
     if not options.dry_run and options.confirm != "QUEUE_BOUNDED_CATALOG":
         raise ImportFailure("Apply requires confirm=QUEUE_BOUNDED_CATALOG")
-    if not options.dry_run:
-        from .catalog_storage import require_archive_storage
-        try:
-            verified_paths = await run_in_threadpool(require_archive_storage)
-        except (RuntimeError, OSError) as exc:
-            raise ImportFailure(_safe_error(exc)) from exc
-        options.storage_paths = list(dict.fromkeys(verified_paths + options.storage_paths))
-        storage_available(options, 0)
     # Dedicated connection: import helpers commit their sessions; a transaction
     # lock on that session would silently cease protecting the admission budget.
     async with engine.connect() as lock:
@@ -293,6 +309,18 @@ async def run_catalog(options: CatalogOptions) -> dict:
             raise ImportFailure("A catalog run is already active")
         try:
             async with AsyncSessionLocal() as db:
+                if not options.dry_run:
+                    from .catalog_storage import require_archive_storage
+                    try:
+                        verified_paths = await run_in_threadpool(require_archive_storage)
+                        options.storage_paths = list(dict.fromkeys(verified_paths + options.storage_paths))
+                        if not storage_available(options, 0):
+                            raise ImportFailure("Storage watermark reached")
+                    except (RuntimeError, OSError) as exc:
+                        reason = "Archive storage preflight failed: " + _safe_error(exc)
+                        await pause(db, reason)
+                        await db.commit()
+                        raise ImportFailure(reason) from exc
                 runner = await db.get(CatalogCheckpoint, "runner")
                 if not options.dry_run and runner and runner.cursor.get("paused"):
                     raise ImportFailure("Catalog runner is paused: " + (runner.last_error or "operator review required"))
@@ -354,19 +382,11 @@ async def _run(db, options):
             run.stats = dict(stats)
             await db.commit()  # page rows + cursor atomically committed
         stats["worker_failures"] = await reconcile(db, options)
-        if stats["worker_failures"]:
-            stats["stop"] = "worker_failure"
-            runner = await db.get(CatalogCheckpoint, "runner")
-            if runner is None:
-                runner = CatalogCheckpoint(id="runner", cursor={}, stats={})
-                db.add(runner)
-            # Any observer (including a manual dry-run) must latch this;
-            # otherwise reconciliation could consume the failure signal
-            # before the recurring process sees it.
-            runner.cursor = {**runner.cursor, "paused": True, "state": "paused"}
-            runner.last_error = "Worker processing failed; inspect catalog/jobs before resuming"
-            await db.commit()
-        if not options.dry_run and not stats["worker_failures"]:
+        runner = await db.get(CatalogCheckpoint, "runner")
+        paused = bool(runner and runner.cursor.get("paused"))
+        if paused:
+            stats["stop"] = "systemic_failure"
+        if not options.dry_run and not paused:
             first_type = checkpoint.cursor.get("admission_type", 0)
             priority = {ASSET_TYPES[(first_type + n) % len(ASSET_TYPES)]: n for n in range(len(ASSET_TYPES))}
             candidates = (await db.execute(select(CatalogAsset).where(
@@ -395,6 +415,20 @@ async def _run(db, options):
                             candidate.job_id = candidate.task_id = root.id
                             candidate.dispatch_state = "pending"
                             await db.commit()
+                if candidate.media_id:
+                    active_jobs = (await db.execute(select(ProcessingJob).where(
+                        ProcessingJob.media_id == candidate.media_id,
+                        ProcessingJob.status.in_(("pending", "running")),
+                    ))).scalars().all()
+                    publish_retry = (
+                        candidate.dispatch_state == "pending" and len(active_jobs) == 1
+                        and active_jobs[0].id == candidate.job_id
+                        and active_jobs[0].status == "pending"
+                    )
+                    if active_jobs and not publish_retry:
+                        # Reconciliation deliberately waits for active children;
+                        # admission must not bypass that guard for a retry row.
+                        continue
                 inflight = (await db.execute(select(func.count(func.distinct(MediaAsset.id))).where(
                     (MediaAsset.status.in_(("pending", "processing"))) |
                     (MediaAsset.id.in_(select(ProcessingJob.media_id).where(
@@ -416,6 +450,8 @@ async def _run(db, options):
                     break
                 if not storage_available(options, stats["admitted"]):
                     stats["stop"] = "storage_watermark"
+                    await pause(db, "Storage watermark reached; verify free space before resuming")
+                    await db.commit()
                     break
                 candidate.attempts += 1
                 stats["attempted"] += 1
@@ -450,10 +486,26 @@ async def _run(db, options):
                             if root and root.status == "pending":
                                 candidate.task_id = root.id
                                 candidate.dispatch_state = "pending"
-                    if candidate.attempts >= options.max_attempts:
+                    kind = failure_kind(candidate.error)
+                    # A pending outbox is a publication failure, not a consumed
+                    # processing attempt. Preserve both the slot and task ID.
+                    if candidate.dispatch_state == "pending":
+                        kind = "infrastructure"
+                        candidate.attempts = max(0, candidate.attempts - 1)
+                    if kind == "infrastructure":
+                        await pause(db, "Shared infrastructure failure: " + candidate.error)
+                        stats["stop"] = "systemic_failure"
+                    else:
+                        stats["asset_errors"] = stats.get("asset_errors", 0) + 1
+                        await record_failure(db, candidate, f"admission:{candidate.attempts}", kind, candidate.error)
+                    if candidate.attempts >= options.max_attempts and candidate.dispatch_state != "pending":
                         candidate.status = "failed"
                     stats["errors"] += 1
                 await db.commit()
+                runner = await db.get(CatalogCheckpoint, "runner")
+                if runner and runner.cursor.get("paused"):
+                    stats["stop"] = "systemic_failure"
+                    break
     except Exception as exc:
         await db.rollback()
         run = await db.get(CatalogRun, run_id)
@@ -461,6 +513,8 @@ async def _run(db, options):
         run.error = checkpoint.last_error = _safe_error(exc)
         stats["errors"] += 1
         stats["stop"] = "error"
+        if failure_kind(run.error) == "infrastructure":
+            await pause(db, "Shared infrastructure failure: " + run.error)
     finally:
         if client:
             client.close()
