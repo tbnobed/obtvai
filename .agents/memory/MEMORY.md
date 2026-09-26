@@ -49,3 +49,4 @@
 - [Interactive dictation safety](interactive-dictation-safety.md) — use owned recording sessions and killable inference; request cancellation alone stops neither permission callbacks nor model work.
 - [Catalog failure pauses](catalog-failure-latches.md) — systemic errors latch across observers; isolated failures retry within budget, and recovered jobs reconcile before retry.
 - [Archive memory safety](archive-memory-safety.md) — invalidation must observe raw SQL workers; optional cache errors must not abort valid answers or conversation writes.
+- [Remote ingestion workers](remote-ingest-workers.md) — preserve real CIFS mounts through encrypted relays; worker-image GPU checks require python3, not python.
