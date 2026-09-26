@@ -84,3 +84,30 @@ use `--remove-orphans` to remove separately managed services.
 
 The worker image's Celery uses `python3`; its separate `python` interpreter does
 not have the GPU packages. Use `python3` for diagnostics and startup probes.
+
+## Host stability and recovery
+
+The standalone API can reserve substantial GPU memory even when its standalone
+GPU workers are stopped. Check `nvidia-smi` process ownership, not just Celery
+queues, before dedicating this host to ingestion. Its API is intentionally
+stopped with Docker restart disabled; its data remains intact.
+
+On this NetworkManager-managed host, networkd has no managed interfaces.
+Its redundant wait-online service is disabled. NetworkManager's wait checks
+connectivity rather than waiting indefinitely for every unused connection
+profile to finish activation. Neither change modifies the active IP or routes.
+The unrelated CaptionForge NFS mount is on-demand, `nofail`, with a bounded
+mount timeout, so its unavailable server cannot hold up login during boot.
+
+For GPU diagnosis, drain remote consumers and confirm no active tasks before
+stopping workers. Run `gpu-check.py` inside the exact worker image, exposing one
+GPU at a time. It checks storage, CUDA allocation/computation, and two cached
+Whisper load/inference/release cycles against a short existing audio excerpt;
+it does not change application records. A passing probe is not a soak test.
+Keep failed GPUs behind an opt-in Compose profile until retested.
+
+NVIDIA kernel Oops/soft-lockup or PTX compiler crashes require host-driver
+investigation, not blind Torch upgrades in the worker image. Preserve the CUDA
+and FFmpeg compatible driver branch when applying a host-driver patch. Drain
+workers before installation and reboot before comparing results: mixing the
+old loaded kernel module with new userspace libraries is not a valid test.

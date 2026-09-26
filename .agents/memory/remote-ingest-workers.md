@@ -26,3 +26,18 @@ that the image lacks GPU dependencies.
 
 **How to apply:** Inspect the Celery shebang before diagnosing dependency
 failures; do not reinstall Torch over the working image to fix this mismatch.
+
+Test the actual inference engine as well as CUDA computation when diagnosing
+GPU stability, and distinguish kernel faults from user-space model failures.
+
+**Why:** On the added Blackwell host, a CUDA matrix/allocation test passed but
+Whisper crashed in NVIDIA's PTX JIT compiler. Earlier logs showed a kernel NULL
+pointer fault in the NVIDIA module followed by CPU soft lockups. R580's patch
+update resolved the reproducible short test, but that is not proof of prolonged
+stability. A cache-disabled pass alone also did not establish a root cause.
+
+**How to apply:** Drain consumers before driver maintenance; preserve the
+CUDA/FFmpeg-compatible branch, reboot to load matching kernel/userspace driver
+versions, test GPUs separately with repeated Whisper load/inference/release
+cycles, then confirm real work. Never claim a short test proves a long-duration
+intermittent failure is permanently fixed.
