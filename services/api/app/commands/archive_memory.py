@@ -16,6 +16,7 @@ log = logging.getLogger("obtv.archive_memory")
 # Trigrams retain substring/name/phrase semantics used by QA and search. A LIMIT
 # by itself does not prevent a full transcript scan.
 INDEXES = {
+    "ix_catalog_media_type": "ON curator_catalog_assets (media_id, asset_type)",
     "ix_archive_transcript_trgm": "ON transcript_segments USING gin (text gin_trgm_ops)",
     "ix_archive_person_trgm": "ON people USING gin (display_name gin_trgm_ops)",
 }

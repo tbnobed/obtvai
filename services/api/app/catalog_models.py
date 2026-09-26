@@ -1,6 +1,6 @@
 """New tables only; no ALTERs on busy media/worker tables."""
 from datetime import datetime
-from sqlalchemy import String, Text, DateTime, Integer
+from sqlalchemy import String, Text, DateTime, Integer, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from .database import Base
@@ -17,6 +17,7 @@ class CatalogCheckpoint(Base):
 
 class CatalogAsset(Base):
     __tablename__ = "curator_catalog_assets"
+    __table_args__ = (Index("ix_catalog_media_type", "media_id", "asset_type"),)
     asset_id: Mapped[str] = mapped_column(String, primary_key=True)
     asset_type: Mapped[str] = mapped_column(String, nullable=False)
     metadata_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)

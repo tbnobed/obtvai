@@ -203,7 +203,9 @@ export default function Library() {
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   };
-  const { data, isLoading } = useListMedia(listParams, { query: { queryKey: getListMediaQueryKey(listParams) } });
+  const { data, isLoading, isFetching, isError, refetch } = useListMedia(listParams, {
+    query: { queryKey: getListMediaQueryKey(listParams), retry: false },
+  });
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -1386,13 +1388,24 @@ export default function Library() {
         </div>
       )}
 
+      {isFetching && (
+        <p role="status" className="text-sm text-muted-foreground mb-3">
+          {isLoading ? "Loading media…" : "Updating media…"}
+        </p>
+      )}
+      {isError && (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 p-4 mb-4">
+          <p className="text-sm">Could not load media. Your filters are unchanged. Please try again.</p>
+          <Button variant="outline" disabled={isFetching} onClick={() => void refetch()}>Retry</Button>
+        </div>
+      )}
       {isLoading ? (
         <div className={gridClass}>
           {[...Array(10)].map((_, i) => (
             <div key={i} className="animate-pulse bg-muted aspect-video rounded-md" />
           ))}
         </div>
-      ) : data?.items.length ? (
+      ) : isError && !data ? null : data?.items.length ? (
         view === "grid" ? (
           <div className={gridClass}>
             {data.items.map(asset => (
