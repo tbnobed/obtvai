@@ -1,0 +1,149 @@
+openapi: 3.1.0
+info: { title: Training administration, version: 1.0.0 }
+paths:
+  /training:
+    get:
+      operationId: getTrainingAdminState
+      tags: [training]
+      summary: Admin-only curated examples, immutable datasets and paired evaluations
+      responses:
+        "200":
+          description: External training control state, never a simulated running job
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+  /training/examples:
+    post:
+      operationId: createTrainingExample
+      tags: [training]
+      requestBody: { $ref: "#/components/requestBodies/Example" }
+      responses:
+        "201": { description: "Draft created, not approved" }
+  /training/examples/{key}:
+    parameters: [{ $ref: "#/components/parameters/Key" }]
+    put:
+      operationId: updateTrainingExample
+      tags: [training]
+      requestBody: { $ref: "#/components/requestBodies/Example" }
+      responses:
+        "200": { description: Updated and reset to draft }
+    delete:
+      operationId: deleteTrainingExample
+      tags: [training]
+      responses:
+        "200": { description: Deleted from curation; immutable exports retained }
+  /training/examples/{key}/review:
+    parameters: [{ $ref: "#/components/parameters/Key" }]
+    post:
+      operationId: reviewTrainingExample
+      tags: [training]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingExampleReviewInput" }
+      responses:
+        "200": { description: Human review recorded }
+  /training/datasets:
+    post:
+      operationId: freezeTrainingDataset
+      tags: [training]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingDatasetInput" }
+      responses:
+        "201": { description: "Immutable grouped dataset prepared, not trained" }
+  /training/datasets/{key}/download:
+    parameters: [{ $ref: "#/components/parameters/Key" }]
+    get:
+      operationId: downloadTrainingDataset
+      tags: [training]
+      responses:
+        "200":
+          description: Private immutable JSON manifest and example splits
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+  /training/datasets/{key}/evaluations:
+    parameters: [{ $ref: "#/components/parameters/Key" }]
+    post:
+      operationId: importTrainingEvaluation
+      tags: [training]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingEvaluationImportInput" }
+      responses:
+        "201": { description: Complete paired evaluation imported as needs_review }
+  /training/evaluations/{key}/review:
+    parameters: [{ $ref: "#/components/parameters/Key" }]
+    post:
+      operationId: reviewTrainingEvaluation
+      tags: [training]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingEvaluationReviewInput" }
+      responses:
+        "200": { description: Review recorded only; no production configuration change }
+components:
+  parameters:
+    Key: { name: key, in: path, required: true, schema: { type: string } }
+  requestBodies:
+    Example:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/TrainingExampleInput" }
+  schemas:
+    TrainingExampleInput:
+      type: object
+      required: [instruction, context, answer, source_ref, group]
+      properties:
+        instruction: { type: string, minLength: 3, maxLength: 4000 }
+        context: { type: string, maxLength: 16000 }
+        answer: { type: string, minLength: 3, maxLength: 16000 }
+        source_ref: { type: string, minLength: 3, maxLength: 500 }
+        group: { type: string, minLength: 3, maxLength: 200 }
+        rights_approved: { type: boolean, default: false }
+        required_terms: { type: array, maxItems: 20, items: { type: string, minLength: 1, maxLength: 100 } }
+        expected_format: { type: string, enum: [text, json], default: text }
+    TrainingExampleReviewInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [draft, approved, rejected] }
+    TrainingDatasetInput:
+      type: object
+      required: [base_model, base_revision, license_note]
+      properties:
+        base_model: { type: string, minLength: 3, maxLength: 250 }
+        base_revision: { type: string, pattern: "^[0-9a-f]{40}$" }
+        license_note: { type: string, minLength: 10, maxLength: 2000 }
+    TrainingEvaluationImportInput:
+      type: object
+      required: [report]
+      properties:
+        report:
+          type: object
+          additionalProperties: true
+          description: Actual paired outputs with immutable dataset and adapter checksums; human review required
+    TrainingEvaluationReviewInput:
+      type: object
+      required: [decision, note, checked_grounding_and_style, scores]
+      properties:
+        decision: { type: string, enum: [approved_for_manual_trial, rejected] }
+        note: { type: string, minLength: 20, maxLength: 4000 }
+        checked_grounding_and_style: { type: boolean }
+        scores:
+          type: object
+          required: [baseline_grounding, candidate_grounding, baseline_style, candidate_style]
+          properties:
+            baseline_grounding: { type: integer, minimum: 1, maximum: 5 }
+            candidate_grounding: { type: integer, minimum: 1, maximum: 5 }
+            baseline_style: { type: integer, minimum: 1, maximum: 5 }
+            candidate_style: { type: integer, minimum: 1, maximum: 5 }

@@ -1,0 +1,20 @@
+# Optional CPU-only archive routing indexer. Run migration before enabling.
+# Uses the API image; never starts a second API or changes the ingest runner.
+services:
+  archive-memory:
+    image: ${COMPOSE_PROJECT_NAME:-obtv-ai}-api:latest
+    profiles: ["archive-memory"]
+    restart: unless-stopped
+    command: ["python", "-m", "app.commands.archive_memory", "drain", "--watch", "--limit", "10", "--interval", "60"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://obtv:obtv@postgres:5432/obtv}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      EMBEDDINGS_MODEL: ${EMBEDDINGS_MODEL:-BAAI/bge-m3}
+      CUDA_VISIBLE_DEVICES: ""
+    volumes:
+      - models_cache:/root/.cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy

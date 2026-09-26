@@ -42,6 +42,22 @@ tags:
   - name: campaigns
     description: Production campaign briefs and deliverable generation
 paths:
+  /training:
+    $ref: "./training.yaml#/paths/~1training"
+  /training/examples:
+    $ref: "./training.yaml#/paths/~1training~1examples"
+  /training/examples/{key}:
+    $ref: "./training.yaml#/paths/~1training~1examples~1{key}"
+  /training/examples/{key}/review:
+    $ref: "./training.yaml#/paths/~1training~1examples~1{key}~1review"
+  /training/datasets:
+    $ref: "./training.yaml#/paths/~1training~1datasets"
+  /training/datasets/{key}/download:
+    $ref: "./training.yaml#/paths/~1training~1datasets~1{key}~1download"
+  /training/datasets/{key}/evaluations:
+    $ref: "./training.yaml#/paths/~1training~1datasets~1{key}~1evaluations"
+  /training/evaluations/{key}/review:
+    $ref: "./training.yaml#/paths/~1training~1evaluations~1{key}~1review"
   /healthz:
     get:
       operationId: healthCheck

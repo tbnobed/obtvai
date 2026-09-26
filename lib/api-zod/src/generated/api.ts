@@ -9,6 +9,172 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Admin-only curated examples, immutable datasets and paired evaluations
+ */
+export const GetTrainingAdminStateResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const createTrainingExampleBodyInstructionMin = 3;
+export const createTrainingExampleBodyInstructionMax = 4000;
+
+export const createTrainingExampleBodyContextMax = 16000;
+
+export const createTrainingExampleBodyAnswerMin = 3;
+export const createTrainingExampleBodyAnswerMax = 16000;
+
+export const createTrainingExampleBodySourceRefMin = 3;
+export const createTrainingExampleBodySourceRefMax = 500;
+
+export const createTrainingExampleBodyGroupMin = 3;
+export const createTrainingExampleBodyGroupMax = 200;
+
+export const createTrainingExampleBodyRightsApprovedDefault = false;
+export const createTrainingExampleBodyRequiredTermsItemMax = 100;
+
+export const createTrainingExampleBodyRequiredTermsMax = 20;
+
+export const createTrainingExampleBodyExpectedFormatDefault = `text`;
+
+export const CreateTrainingExampleBody = zod.object({
+  "instruction": zod.string().min(createTrainingExampleBodyInstructionMin).max(createTrainingExampleBodyInstructionMax),
+  "context": zod.string().max(createTrainingExampleBodyContextMax),
+  "answer": zod.string().min(createTrainingExampleBodyAnswerMin).max(createTrainingExampleBodyAnswerMax),
+  "source_ref": zod.string().min(createTrainingExampleBodySourceRefMin).max(createTrainingExampleBodySourceRefMax),
+  "group": zod.string().min(createTrainingExampleBodyGroupMin).max(createTrainingExampleBodyGroupMax),
+  "rights_approved": zod.boolean().default(createTrainingExampleBodyRightsApprovedDefault),
+  "required_terms": zod.array(zod.string().min(1).max(createTrainingExampleBodyRequiredTermsItemMax)).max(createTrainingExampleBodyRequiredTermsMax).optional(),
+  "expected_format": zod.enum(['text', 'json']).default(createTrainingExampleBodyExpectedFormatDefault)
+})
+
+export const CreateTrainingExampleResponse = zod.void()
+
+
+export const UpdateTrainingExampleParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const updateTrainingExampleBodyInstructionMin = 3;
+export const updateTrainingExampleBodyInstructionMax = 4000;
+
+export const updateTrainingExampleBodyContextMax = 16000;
+
+export const updateTrainingExampleBodyAnswerMin = 3;
+export const updateTrainingExampleBodyAnswerMax = 16000;
+
+export const updateTrainingExampleBodySourceRefMin = 3;
+export const updateTrainingExampleBodySourceRefMax = 500;
+
+export const updateTrainingExampleBodyGroupMin = 3;
+export const updateTrainingExampleBodyGroupMax = 200;
+
+export const updateTrainingExampleBodyRightsApprovedDefault = false;
+export const updateTrainingExampleBodyRequiredTermsItemMax = 100;
+
+export const updateTrainingExampleBodyRequiredTermsMax = 20;
+
+export const updateTrainingExampleBodyExpectedFormatDefault = `text`;
+
+export const UpdateTrainingExampleBody = zod.object({
+  "instruction": zod.string().min(updateTrainingExampleBodyInstructionMin).max(updateTrainingExampleBodyInstructionMax),
+  "context": zod.string().max(updateTrainingExampleBodyContextMax),
+  "answer": zod.string().min(updateTrainingExampleBodyAnswerMin).max(updateTrainingExampleBodyAnswerMax),
+  "source_ref": zod.string().min(updateTrainingExampleBodySourceRefMin).max(updateTrainingExampleBodySourceRefMax),
+  "group": zod.string().min(updateTrainingExampleBodyGroupMin).max(updateTrainingExampleBodyGroupMax),
+  "rights_approved": zod.boolean().default(updateTrainingExampleBodyRightsApprovedDefault),
+  "required_terms": zod.array(zod.string().min(1).max(updateTrainingExampleBodyRequiredTermsItemMax)).max(updateTrainingExampleBodyRequiredTermsMax).optional(),
+  "expected_format": zod.enum(['text', 'json']).default(updateTrainingExampleBodyExpectedFormatDefault)
+})
+
+export const UpdateTrainingExampleResponse = zod.unknown()
+
+
+export const DeleteTrainingExampleParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const DeleteTrainingExampleResponse = zod.unknown()
+
+
+export const ReviewTrainingExampleParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const ReviewTrainingExampleBody = zod.object({
+  "status": zod.enum(['draft', 'approved', 'rejected'])
+})
+
+export const ReviewTrainingExampleResponse = zod.unknown()
+
+
+export const freezeTrainingDatasetBodyBaseModelMin = 3;
+export const freezeTrainingDatasetBodyBaseModelMax = 250;
+
+export const freezeTrainingDatasetBodyBaseRevisionRegExp = new RegExp('^[0-9a-f]{40}$');
+export const freezeTrainingDatasetBodyLicenseNoteMin = 10;
+export const freezeTrainingDatasetBodyLicenseNoteMax = 2000;
+
+
+
+export const FreezeTrainingDatasetBody = zod.object({
+  "base_model": zod.string().min(freezeTrainingDatasetBodyBaseModelMin).max(freezeTrainingDatasetBodyBaseModelMax),
+  "base_revision": zod.string().regex(freezeTrainingDatasetBodyBaseRevisionRegExp),
+  "license_note": zod.string().min(freezeTrainingDatasetBodyLicenseNoteMin).max(freezeTrainingDatasetBodyLicenseNoteMax)
+})
+
+export const FreezeTrainingDatasetResponse = zod.void()
+
+
+export const DownloadTrainingDatasetParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const DownloadTrainingDatasetResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const ImportTrainingEvaluationParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const ImportTrainingEvaluationBody = zod.object({
+  "report": zod.record(zod.string(), zod.unknown()).describe('Actual paired outputs with immutable dataset and adapter checksums; human review required')
+})
+
+export const ImportTrainingEvaluationResponse = zod.void()
+
+
+export const ReviewTrainingEvaluationParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const reviewTrainingEvaluationBodyNoteMin = 20;
+export const reviewTrainingEvaluationBodyNoteMax = 4000;
+
+export const reviewTrainingEvaluationBodyScoresBaselineGroundingMax = 5;
+
+export const reviewTrainingEvaluationBodyScoresCandidateGroundingMax = 5;
+
+export const reviewTrainingEvaluationBodyScoresBaselineStyleMax = 5;
+
+export const reviewTrainingEvaluationBodyScoresCandidateStyleMax = 5;
+
+
+
+export const ReviewTrainingEvaluationBody = zod.object({
+  "decision": zod.enum(['approved_for_manual_trial', 'rejected']),
+  "note": zod.string().min(reviewTrainingEvaluationBodyNoteMin).max(reviewTrainingEvaluationBodyNoteMax),
+  "checked_grounding_and_style": zod.boolean(),
+  "scores": zod.object({
+  "baseline_grounding": zod.number().min(1).max(reviewTrainingEvaluationBodyScoresBaselineGroundingMax),
+  "candidate_grounding": zod.number().min(1).max(reviewTrainingEvaluationBodyScoresCandidateGroundingMax),
+  "baseline_style": zod.number().min(1).max(reviewTrainingEvaluationBodyScoresBaselineStyleMax),
+  "candidate_style": zod.number().min(1).max(reviewTrainingEvaluationBodyScoresCandidateStyleMax)
+})
+})
+
+export const ReviewTrainingEvaluationResponse = zod.unknown()
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({

@@ -145,6 +145,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ...(isAdmin ? [
       { href: "/curator", label: "Curator", icon: HardDrive },
       { href: "/users", label: "Users", icon: UserCog },
+      { href: "/training", label: "Model Training", icon: Sparkles },
       { href: "/audit", label: "Audit Log", icon: ScrollText },
     ] : []),
   ];

@@ -32,6 +32,7 @@ from .routers import media, search, jobs, ai, clips, people, insights, renders, 
 from .auth import auth_middleware
 from .routers.campaigns import CampaignAPIError
 from .routers import catalog
+from .routers import training
 
 
 # Columns created as `json` by earlier versions must become `jsonb` so workers
@@ -654,6 +655,7 @@ app.include_router(socials.router, prefix="/api")
 app.include_router(ratings.router, prefix="/api")
 app.include_router(campaigns.router, prefix="/api")
 app.include_router(speech.router, prefix="/api")
+app.include_router(training.router, prefix="/api")
 
 
 @app.get("/api/healthz")

@@ -49,6 +49,7 @@ import type {
   CuratorLinkInput,
   CuratorLinkResult,
   DeleteSavedSearch200,
+  DownloadTrainingDataset200,
   DubRequest,
   EmotionFacet,
   EmotionMomentsPage,
@@ -64,6 +65,7 @@ import type {
   GetProjectCutParams,
   GetRatingsOverviewParams,
   GetSocialChannelHistoryParams,
+  GetTrainingAdminState200,
   GraphicsGenerateInput,
   GraphicsGeneration,
   GraphicsGenerationListResponse,
@@ -176,6 +178,11 @@ import type {
   StreamDubParams,
   TightenInput,
   TightenResult,
+  TrainingDatasetInput,
+  TrainingEvaluationImportInput,
+  TrainingEvaluationReviewInput,
+  TrainingExampleInput,
+  TrainingExampleReviewInput,
   TranscribeSpeechParams,
   TranscriptSegment,
   TranscriptSegmentUpdate,
@@ -221,6 +228,613 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetTrainingAdminStateUrl = () => {
+
+
+
+
+  return `/api/training`
+}
+
+/**
+ * @summary Admin-only curated examples, immutable datasets and paired evaluations
+ */
+export const getTrainingAdminState = async ( options?: RequestInit): Promise<GetTrainingAdminState200> => {
+
+  return customFetch<GetTrainingAdminState200>(getGetTrainingAdminStateUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTrainingAdminStateQueryKey = () => {
+    return [
+    `/api/training`
+    ] as const;
+    }
+
+
+export const getGetTrainingAdminStateQueryOptions = <TData = Awaited<ReturnType<typeof getTrainingAdminState>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrainingAdminState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTrainingAdminStateQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTrainingAdminState>>> = ({ signal }) => getTrainingAdminState({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTrainingAdminState>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTrainingAdminStateQueryResult = NonNullable<Awaited<ReturnType<typeof getTrainingAdminState>>>
+export type GetTrainingAdminStateQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-only curated examples, immutable datasets and paired evaluations
+ */
+
+export function useGetTrainingAdminState<TData = Awaited<ReturnType<typeof getTrainingAdminState>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrainingAdminState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTrainingAdminStateQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTrainingExampleUrl = () => {
+
+
+
+
+  return `/api/training/examples`
+}
+
+export const createTrainingExample = async (trainingExampleInput: TrainingExampleInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getCreateTrainingExampleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trainingExampleInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTrainingExampleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTrainingExample>>, TError,{data: BodyType<TrainingExampleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTrainingExample>>, TError,{data: BodyType<TrainingExampleInput>}, TContext> => {
+
+const mutationKey = ['createTrainingExample'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTrainingExample>>, {data: BodyType<TrainingExampleInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTrainingExample(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTrainingExampleMutationResult = NonNullable<Awaited<ReturnType<typeof createTrainingExample>>>
+    export type CreateTrainingExampleMutationBody = BodyType<TrainingExampleInput>
+    export type CreateTrainingExampleMutationError = ErrorType<unknown>
+
+    export const useCreateTrainingExample = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTrainingExample>>, TError,{data: BodyType<TrainingExampleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTrainingExample>>,
+        TError,
+        {data: BodyType<TrainingExampleInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTrainingExampleMutationOptions(options));
+    }
+
+export const getUpdateTrainingExampleUrl = (key: string,) => {
+
+
+
+
+  return `/api/training/examples/${key}`
+}
+
+export const updateTrainingExample = async (key: string,
+    trainingExampleInput: TrainingExampleInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getUpdateTrainingExampleUrl(key),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trainingExampleInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateTrainingExampleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTrainingExample>>, TError,{key: string;data: BodyType<TrainingExampleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTrainingExample>>, TError,{key: string;data: BodyType<TrainingExampleInput>}, TContext> => {
+
+const mutationKey = ['updateTrainingExample'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTrainingExample>>, {key: string;data: BodyType<TrainingExampleInput>}> = (props) => {
+          const {key,data} = props ?? {};
+
+          return  updateTrainingExample(key,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTrainingExampleMutationResult = NonNullable<Awaited<ReturnType<typeof updateTrainingExample>>>
+    export type UpdateTrainingExampleMutationBody = BodyType<TrainingExampleInput>
+    export type UpdateTrainingExampleMutationError = ErrorType<unknown>
+
+    export const useUpdateTrainingExample = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTrainingExample>>, TError,{key: string;data: BodyType<TrainingExampleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTrainingExample>>,
+        TError,
+        {key: string;data: BodyType<TrainingExampleInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateTrainingExampleMutationOptions(options));
+    }
+
+export const getDeleteTrainingExampleUrl = (key: string,) => {
+
+
+
+
+  return `/api/training/examples/${key}`
+}
+
+export const deleteTrainingExample = async (key: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteTrainingExampleUrl(key),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteTrainingExampleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTrainingExample>>, TError,{key: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteTrainingExample>>, TError,{key: string}, TContext> => {
+
+const mutationKey = ['deleteTrainingExample'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTrainingExample>>, {key: string}> = (props) => {
+          const {key} = props ?? {};
+
+          return  deleteTrainingExample(key,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteTrainingExampleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTrainingExample>>>
+
+    export type DeleteTrainingExampleMutationError = ErrorType<unknown>
+
+    export const useDeleteTrainingExample = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTrainingExample>>, TError,{key: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteTrainingExample>>,
+        TError,
+        {key: string},
+        TContext
+      > => {
+      return useMutation(getDeleteTrainingExampleMutationOptions(options));
+    }
+
+export const getReviewTrainingExampleUrl = (key: string,) => {
+
+
+
+
+  return `/api/training/examples/${key}/review`
+}
+
+export const reviewTrainingExample = async (key: string,
+    trainingExampleReviewInput: TrainingExampleReviewInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getReviewTrainingExampleUrl(key),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trainingExampleReviewInput)
+  }
+);}
+
+
+
+
+
+export const getReviewTrainingExampleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewTrainingExample>>, TError,{key: string;data: BodyType<TrainingExampleReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewTrainingExample>>, TError,{key: string;data: BodyType<TrainingExampleReviewInput>}, TContext> => {
+
+const mutationKey = ['reviewTrainingExample'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewTrainingExample>>, {key: string;data: BodyType<TrainingExampleReviewInput>}> = (props) => {
+          const {key,data} = props ?? {};
+
+          return  reviewTrainingExample(key,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewTrainingExampleMutationResult = NonNullable<Awaited<ReturnType<typeof reviewTrainingExample>>>
+    export type ReviewTrainingExampleMutationBody = BodyType<TrainingExampleReviewInput>
+    export type ReviewTrainingExampleMutationError = ErrorType<unknown>
+
+    export const useReviewTrainingExample = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewTrainingExample>>, TError,{key: string;data: BodyType<TrainingExampleReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewTrainingExample>>,
+        TError,
+        {key: string;data: BodyType<TrainingExampleReviewInput>},
+        TContext
+      > => {
+      return useMutation(getReviewTrainingExampleMutationOptions(options));
+    }
+
+export const getFreezeTrainingDatasetUrl = () => {
+
+
+
+
+  return `/api/training/datasets`
+}
+
+export const freezeTrainingDataset = async (trainingDatasetInput: TrainingDatasetInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getFreezeTrainingDatasetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trainingDatasetInput)
+  }
+);}
+
+
+
+
+
+export const getFreezeTrainingDatasetMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof freezeTrainingDataset>>, TError,{data: BodyType<TrainingDatasetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof freezeTrainingDataset>>, TError,{data: BodyType<TrainingDatasetInput>}, TContext> => {
+
+const mutationKey = ['freezeTrainingDataset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof freezeTrainingDataset>>, {data: BodyType<TrainingDatasetInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  freezeTrainingDataset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FreezeTrainingDatasetMutationResult = NonNullable<Awaited<ReturnType<typeof freezeTrainingDataset>>>
+    export type FreezeTrainingDatasetMutationBody = BodyType<TrainingDatasetInput>
+    export type FreezeTrainingDatasetMutationError = ErrorType<unknown>
+
+    export const useFreezeTrainingDataset = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof freezeTrainingDataset>>, TError,{data: BodyType<TrainingDatasetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof freezeTrainingDataset>>,
+        TError,
+        {data: BodyType<TrainingDatasetInput>},
+        TContext
+      > => {
+      return useMutation(getFreezeTrainingDatasetMutationOptions(options));
+    }
+
+export const getDownloadTrainingDatasetUrl = (key: string,) => {
+
+
+
+
+  return `/api/training/datasets/${key}/download`
+}
+
+export const downloadTrainingDataset = async (key: string, options?: RequestInit): Promise<DownloadTrainingDataset200> => {
+
+  return customFetch<DownloadTrainingDataset200>(getDownloadTrainingDatasetUrl(key),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadTrainingDatasetQueryKey = (key: string,) => {
+    return [
+    `/api/training/datasets/${key}/download`
+    ] as const;
+    }
+
+
+export const getDownloadTrainingDatasetQueryOptions = <TData = Awaited<ReturnType<typeof downloadTrainingDataset>>, TError = ErrorType<unknown>>(key: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadTrainingDataset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadTrainingDatasetQueryKey(key);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadTrainingDataset>>> = ({ signal }) => downloadTrainingDataset(key, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: key !== null && key !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadTrainingDataset>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadTrainingDatasetQueryResult = NonNullable<Awaited<ReturnType<typeof downloadTrainingDataset>>>
+export type DownloadTrainingDatasetQueryError = ErrorType<unknown>
+
+
+
+export function useDownloadTrainingDataset<TData = Awaited<ReturnType<typeof downloadTrainingDataset>>, TError = ErrorType<unknown>>(
+ key: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadTrainingDataset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadTrainingDatasetQueryOptions(key,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getImportTrainingEvaluationUrl = (key: string,) => {
+
+
+
+
+  return `/api/training/datasets/${key}/evaluations`
+}
+
+export const importTrainingEvaluation = async (key: string,
+    trainingEvaluationImportInput: TrainingEvaluationImportInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getImportTrainingEvaluationUrl(key),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trainingEvaluationImportInput)
+  }
+);}
+
+
+
+
+
+export const getImportTrainingEvaluationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importTrainingEvaluation>>, TError,{key: string;data: BodyType<TrainingEvaluationImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importTrainingEvaluation>>, TError,{key: string;data: BodyType<TrainingEvaluationImportInput>}, TContext> => {
+
+const mutationKey = ['importTrainingEvaluation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importTrainingEvaluation>>, {key: string;data: BodyType<TrainingEvaluationImportInput>}> = (props) => {
+          const {key,data} = props ?? {};
+
+          return  importTrainingEvaluation(key,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportTrainingEvaluationMutationResult = NonNullable<Awaited<ReturnType<typeof importTrainingEvaluation>>>
+    export type ImportTrainingEvaluationMutationBody = BodyType<TrainingEvaluationImportInput>
+    export type ImportTrainingEvaluationMutationError = ErrorType<unknown>
+
+    export const useImportTrainingEvaluation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importTrainingEvaluation>>, TError,{key: string;data: BodyType<TrainingEvaluationImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importTrainingEvaluation>>,
+        TError,
+        {key: string;data: BodyType<TrainingEvaluationImportInput>},
+        TContext
+      > => {
+      return useMutation(getImportTrainingEvaluationMutationOptions(options));
+    }
+
+export const getReviewTrainingEvaluationUrl = (key: string,) => {
+
+
+
+
+  return `/api/training/evaluations/${key}/review`
+}
+
+export const reviewTrainingEvaluation = async (key: string,
+    trainingEvaluationReviewInput: TrainingEvaluationReviewInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getReviewTrainingEvaluationUrl(key),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trainingEvaluationReviewInput)
+  }
+);}
+
+
+
+
+
+export const getReviewTrainingEvaluationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewTrainingEvaluation>>, TError,{key: string;data: BodyType<TrainingEvaluationReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewTrainingEvaluation>>, TError,{key: string;data: BodyType<TrainingEvaluationReviewInput>}, TContext> => {
+
+const mutationKey = ['reviewTrainingEvaluation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewTrainingEvaluation>>, {key: string;data: BodyType<TrainingEvaluationReviewInput>}> = (props) => {
+          const {key,data} = props ?? {};
+
+          return  reviewTrainingEvaluation(key,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewTrainingEvaluationMutationResult = NonNullable<Awaited<ReturnType<typeof reviewTrainingEvaluation>>>
+    export type ReviewTrainingEvaluationMutationBody = BodyType<TrainingEvaluationReviewInput>
+    export type ReviewTrainingEvaluationMutationError = ErrorType<unknown>
+
+    export const useReviewTrainingEvaluation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewTrainingEvaluation>>, TError,{key: string;data: BodyType<TrainingEvaluationReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewTrainingEvaluation>>,
+        TError,
+        {key: string;data: BodyType<TrainingEvaluationReviewInput>},
+        TContext
+      > => {
+      return useMutation(getReviewTrainingEvaluationMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 

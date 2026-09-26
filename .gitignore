@@ -48,6 +48,7 @@ Thumbs.db
 .cache/
 .local/
 uploads/
+artifacts/api-server/.data/
 
 # Uploaded workflow contains embedded credentials; distribute the sanitized export instead.
 attached_assets/MCN_Channel_Viability_+_Growth_Strategy_(OpenAI_+_PDF)_1789571764452.json

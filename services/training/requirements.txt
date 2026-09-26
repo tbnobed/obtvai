@@ -1,0 +1,6 @@
+# Dedicated Linux CUDA training environment only. Do not install into API/workers.
+torch==2.8.0
+transformers==4.53.3
+peft==0.17.1
+accelerate==1.10.1
+safetensors==0.6.2

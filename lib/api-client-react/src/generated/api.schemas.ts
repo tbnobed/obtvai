@@ -3172,6 +3172,131 @@ export interface CampaignDeliverableResponse {
   data: CampaignDeliverable;
 }
 
+export type TrainingExampleInputExpectedFormat = typeof TrainingExampleInputExpectedFormat[keyof typeof TrainingExampleInputExpectedFormat];
+
+
+export const TrainingExampleInputExpectedFormat = {
+  text: 'text',
+  json: 'json',
+} as const;
+
+export interface TrainingExampleInput {
+  /**
+     * @minLength 3
+     * @maxLength 4000
+     */
+  instruction: string;
+  /** @maxLength 16000 */
+  context: string;
+  /**
+     * @minLength 3
+     * @maxLength 16000
+     */
+  answer: string;
+  /**
+     * @minLength 3
+     * @maxLength 500
+     */
+  source_ref: string;
+  /**
+     * @minLength 3
+     * @maxLength 200
+     */
+  group: string;
+  rights_approved?: boolean;
+  /**
+     * @maxItems 20
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  required_terms?: string[];
+  expected_format?: TrainingExampleInputExpectedFormat;
+}
+
+export type TrainingExampleReviewInputStatus = typeof TrainingExampleReviewInputStatus[keyof typeof TrainingExampleReviewInputStatus];
+
+
+export const TrainingExampleReviewInputStatus = {
+  draft: 'draft',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface TrainingExampleReviewInput {
+  status: TrainingExampleReviewInputStatus;
+}
+
+export interface TrainingDatasetInput {
+  /**
+     * @minLength 3
+     * @maxLength 250
+     */
+  base_model: string;
+  /** @pattern ^[0-9a-f]{40}$ */
+  base_revision: string;
+  /**
+     * @minLength 10
+     * @maxLength 2000
+     */
+  license_note: string;
+}
+
+/**
+ * Actual paired outputs with immutable dataset and adapter checksums; human review required
+ */
+export type TrainingEvaluationImportInputReport = { [key: string]: unknown };
+
+export interface TrainingEvaluationImportInput {
+  /** Actual paired outputs with immutable dataset and adapter checksums; human review required */
+  report: TrainingEvaluationImportInputReport;
+}
+
+export type TrainingEvaluationReviewInputDecision = typeof TrainingEvaluationReviewInputDecision[keyof typeof TrainingEvaluationReviewInputDecision];
+
+
+export const TrainingEvaluationReviewInputDecision = {
+  approved_for_manual_trial: 'approved_for_manual_trial',
+  rejected: 'rejected',
+} as const;
+
+export type TrainingEvaluationReviewInputScores = {
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  baseline_grounding: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  candidate_grounding: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  baseline_style: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  candidate_style: number;
+};
+
+export interface TrainingEvaluationReviewInput {
+  decision: TrainingEvaluationReviewInputDecision;
+  /**
+     * @minLength 20
+     * @maxLength 4000
+     */
+  note: string;
+  checked_grounding_and_style: boolean;
+  scores: TrainingEvaluationReviewInputScores;
+}
+
+export type GetTrainingAdminState200 = { [key: string]: unknown };
+
+export type DownloadTrainingDataset200 = { [key: string]: unknown };
+
 export type TranscribeSpeechParams = {
 /**
  * Use fast live-dictation inference; valid silent/no-speech snapshots return an empty transcription.

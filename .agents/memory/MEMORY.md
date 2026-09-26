@@ -48,3 +48,4 @@
 - [n8n export verification](n8n-export-verification.md) — execute exported node code in tests; helper-only tests miss escaping and unexecuted-branch failures.
 - [Interactive dictation safety](interactive-dictation-safety.md) — use owned recording sessions and killable inference; request cancellation alone stops neither permission callbacks nor model work.
 - [Catalog failure pauses](catalog-failure-latches.md) — systemic errors latch across observers; isolated failures retry within budget, and recovered jobs reconcile before retry.
+- [Archive memory safety](archive-memory-safety.md) — invalidation must observe raw SQL workers; optional cache errors must not abort valid answers or conversation writes.

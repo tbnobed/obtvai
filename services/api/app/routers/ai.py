@@ -49,9 +49,10 @@ async def _keyword_segments(db: AsyncSession, question: str, media_id: str | Non
     keywords = _question_keywords(question)
     if not keywords:
         return []
+    from ..services.archive_memory import literal_pattern
     q = select(TranscriptSegment, MediaAsset).join(
         MediaAsset, TranscriptSegment.media_id == MediaAsset.id
-    ).where(or_(*[TranscriptSegment.text.ilike(f"%{kw}%") for kw in keywords]))
+    ).where(or_(*[TranscriptSegment.text.ilike(literal_pattern(kw), escape="\\") for kw in keywords]))
     if media_id:
         q = q.where(TranscriptSegment.media_id == media_id)
     return list((await db.execute(q.limit(limit))).all())
@@ -125,6 +126,11 @@ async def _standalone_question(question: str, history: list[dict]) -> str:
 
 
 async def _library_overview(db: AsyncSession) -> str:
+    from ..services.archive_memory import overview
+    return await overview(db, lambda: _build_library_overview(db))
+
+
+async def _build_library_overview(db: AsyncSession) -> str:
     """Compact aggregate snapshot of the whole library (topics, people,
     stored insights) so big-picture questions are answered from real
     library-wide data instead of whatever transcript lines happen to
@@ -132,6 +138,7 @@ async def _library_overview(db: AsyncSession) -> str:
     from sqlalchemy import text as sql_text
     from ..topic_norm import group_topics
     from ..models import LibraryInsight
+    from ..services.archive_memory import TOPIC_COUNTS_SQL
 
     import logging
     log = logging.getLogger("obtv.ai")
@@ -149,16 +156,12 @@ async def _library_overview(db: AsyncSession) -> str:
         )
     except Exception:
         log.exception("library overview: totals failed")
+        raise
 
     try:
         raw_topic_rows = (
             await db.execute(
-                sql_text("""
-                    SELECT topic, COUNT(DISTINCT id) AS n
-                    FROM media_assets, jsonb_array_elements_text(topics) AS topic
-                    WHERE topics IS NOT NULL
-                    GROUP BY topic
-                """)
+                sql_text(TOPIC_COUNTS_SQL)
             )
         ).all()
         grouped = group_topics((t, int(n)) for t, n in raw_topic_rows)
@@ -168,6 +171,7 @@ async def _library_overview(db: AsyncSession) -> str:
             ))
     except Exception:
         log.exception("library overview: topics failed")
+        raise
 
     try:
         top_people = (
@@ -189,6 +193,7 @@ async def _library_overview(db: AsyncSession) -> str:
             ))
     except Exception:
         log.exception("library overview: people failed")
+        raise
 
     try:
         stored = (
@@ -203,6 +208,7 @@ async def _library_overview(db: AsyncSession) -> str:
                     lines.append(f"Insight: {i['title']} — {detail}")
     except Exception:
         log.exception("library overview: stored insights failed")
+        raise
     return "\n".join(lines)
 
 
@@ -533,6 +539,29 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
     # Follow-ups like "dive deeper" or "what about her?" are useless as
     # retrieval queries — rewrite them into standalone questions first.
     retrieval_question = await _standalone_question(body.question, history)
+    from ..services.archive_memory import mention_term, exact_mentions
+    # A conversational rewrite must never discard a qualifier and accidentally
+    # turn a qualified question into an unqualified exact-count request.
+    count_term = mention_term(body.question)
+    exact_answer = None
+    if count_term is not None:
+        count = await exact_mentions(db, count_term, body.media_id)
+        scope = "this asset" if body.media_id else "the library"
+        exact_answer = (
+            f'{count} distinct asset(s) in {scope} have an indexed transcript containing '
+            f'"{count_term}" (case-insensitive literal text match). '
+            "This counts matching transcript text, not every recording semantically "
+            "about the topic; assets without transcripts are not included."
+        )
+    elif re.search(r"\bhow many\b|\bcount\b", body.question + "\n" + retrieval_question, re.I):
+        exact_answer = (
+            "I can't reliably calculate a count from that wording, and retrieved "
+            "excerpts are not a complete census. The exact-count shortcut currently "
+            'supports a single quoted transcript phrase, for example: How many assets mention "faith"? '
+            "It does not support unquoted terms or additional date, person, Boolean, "
+            "or semantic-topic conditions. Please specify one quoted literal without "
+            "extra qualifiers, or use a separately scoped database report."
+        )
 
     # Hybrid retrieval: vector search finds semantically similar segments, but
     # misses first-person answers (the question names a person, the answer says
@@ -540,35 +569,41 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
     # Run both and merge, deduping by segment id.
     context_segments: list = []
     seen_ids: set[str] = set()
+    q_vec = None
 
     try:
         from ..services.embedding import get_text_embedding
         from ..services.qdrant_client import search_vectors
 
-        q_vec = await get_text_embedding(retrieval_question)
+        q_vec = await get_text_embedding(retrieval_question) if exact_answer is None else None
         hits = await search_vectors(
             collection="transcripts",
             vector=q_vec,
             limit=8,
             media_id=body.media_id,
-        )
+        ) if q_vec is not None else []
         for hit in hits:
             seg_id = hit.payload.get("segment_id")
             if not seg_id or seg_id in seen_ids:
                 continue
-            row = (await db.execute(
+            query = (
                 select(TranscriptSegment, MediaAsset)
                 .join(MediaAsset, TranscriptSegment.media_id == MediaAsset.id)
                 .where(TranscriptSegment.id == seg_id)
-            )).first()
+            )
+            if body.media_id:
+                query = query.where(MediaAsset.id == body.media_id)
+            row = (await db.execute(query)).first()
             if row:
                 context_segments.append(row)
                 seen_ids.add(seg_id)
     except Exception:
         pass  # vector search unavailable — keyword results below still apply
 
+    keyword_start = len(context_segments)
     try:
-        for row in await _keyword_segments(db, retrieval_question, body.media_id):
+        keyword_rows = await _keyword_segments(db, retrieval_question, body.media_id) if exact_answer is None else []
+        for row in keyword_rows:
             seg = row[0]
             if seg.id not in seen_ids:
                 context_segments.append(row)
@@ -576,7 +611,27 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
     except Exception:
         pass
 
-    context_segments = context_segments[:12]
+    routed = []
+    if q_vec is not None:
+        try:
+            from ..services.archive_memory import hierarchical_segments
+            routed = await hierarchical_segments(db, q_vec, body.media_id)
+        except Exception:
+            import logging
+            logging.getLogger("obtv.ai").warning(
+                "Asset summary retrieval unavailable; using transcript/keyword evidence",
+                exc_info=True,
+            )
+    # Diversify sources without allowing routing to displace all direct matches.
+    from itertools import zip_longest
+    merged, merged_ids = [], set()
+    for group in zip_longest(context_segments[:keyword_start],
+                             context_segments[keyword_start:], routed):
+        for row in group:
+            if row is not None and row[0].id not in merged_ids:
+                merged.append(row)
+                merged_ids.add(row[0].id)
+    context_segments = merged[:12]
 
     visual_lines: list[str] = []
     try:
@@ -585,52 +640,18 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
             [retrieval_question],
             [body.media_id] if body.media_id else None,
             db,
-        )
+        ) if exact_answer is None else []
     except Exception:
         pass  # visual retrieval unavailable — transcript answer still works
 
-    overview = None if body.media_id else await _library_overview(db)
-
-    # "How many assets mention/talk about X?" cannot be answered from a
-    # dozen retrieved snippets — count over the whole database instead and
-    # hand the model exact figures.
-    if overview is not None:
-        try:
-            kw_lines = []
-            for kw in _question_keywords(retrieval_question)[:4]:
-                n = (
-                    await db.execute(
-                        select(func.count(func.distinct(TranscriptSegment.media_id)))
-                        .where(TranscriptSegment.text.ilike(f"%{kw}%"))
-                    )
-                ).scalar_one()
-                if n:
-                    kw_lines.append(f'Assets whose transcripts mention "{kw}": {n}')
-                n_appear = (
-                    await db.execute(
-                        select(func.count(func.distinct(PersonAppearance.media_id)))
-                        .join(Person, Person.id == PersonAppearance.person_id)
-                        .where(Person.display_name.ilike(f"%{kw}%"))
-                    )
-                ).scalar_one()
-                if n_appear:
-                    kw_lines.append(f'Assets where an identified person named like "{kw}" appears on screen or speaks: {n_appear}')
-            if kw_lines:
-                overview += (
-                    "\nExact database counts (distinct assets, whole library — "
-                    "use THESE for any \"how many assets mention/talk about X\" "
-                    "question, not the number of excerpts below):\n"
-                    + "\n".join(kw_lines)
-                )
-        except Exception:
-            pass
+    overview = None if body.media_id or exact_answer is not None else await _library_overview(db)
 
     # Action turn: "combine these into a project / make a story" creates the
     # project + draft cut instead of just describing one.
     project_id = project_name = None
-    answer_text = None
+    answer_text = exact_answer
     citations: list = []
-    if _PROJECT_INTENT_RE.search(body.question):
+    if exact_answer is None and _PROJECT_INTENT_RE.search(body.question):
         # Savepoint: a failure mid-creation must not leave a half-created
         # project/revision that the message commit below would persist.
         try:
