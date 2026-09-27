@@ -3,7 +3,11 @@
 **GPU safety:** the RTX PRO 4500 failed a production face-detection task in
 NVIDIA's PTX compiler despite passing post-update Whisper probes. Its service
 is behind the `quarantined-gpu` profile on the second host; the RTX 5090 remains
-active. Do not re-enable it merely because a transcription or matrix test
+active with CPUs 10–11 excluded. Subsequent tests reproduced the face crash
+on CPU 11 but not CPUs 0, 10, or 12; the 5090 also suffered a face-stage crash.
+Both worker definitions now exclude CPUs 10–11 as containment, not a proven
+hardware repair. See `docs/4500-diagnostics.md`. Do not re-enable the 4500 merely
+because a transcription or matrix test
 passes. Diagnose and exercise the face/embedding backend too. The affected
 Celery failure was explicitly reconciled with its job record; normal bounded
 catalog recovery remains responsible for retries once other stages finish.

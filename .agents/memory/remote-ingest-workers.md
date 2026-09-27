@@ -43,6 +43,19 @@ versions, test GPUs separately across transcription AND face/embedding
 engines with repeated load/inference/release cycles, then confirm real work.
 Never claim a short test proves an intermittent failure is permanently fixed.
 
+Compare CPU affinity before attributing an NVIDIA JIT crash to a GPU card.
+
+**Why:** The same isolated 4500 face/JIT workload repeatedly crashed on logical
+CPU 11 and passed on CPUs 0, 10, and 12; the 5090 also suffered a face crash.
+CPU-only compression/hash checks passed, so this does not establish defective
+CPU silicon. Excluding CPU 11 and its sibling allowed repeated face and Whisper
+probes to pass, but is containment rather than proof of a repaired host.
+
+**How to apply:** Keep identical GPU/model/runtime inputs, fresh caches, and
+bounded CPU-affinity A/B tests. Preserve host-specific worker CPU restrictions
+until the underlying fault is diagnosed; do not declare the card defective or
+clear it based on generic CUDA/CPU tests. See `docs/4500-diagnostics.md`.
+
 Do not move bulk traffic to a DAC solely because its negotiated link is faster.
 
 **Why:** The second host's 40-Gbps ports were constrained by a PCIe ×1 path;
