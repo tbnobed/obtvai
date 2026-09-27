@@ -30,7 +30,10 @@ def _clamp(v) -> float | None:
         return None
 
 
-@celery_app.task(bind=True, name="tasks.sentiment.sentiment_pass", queue="gpu")
+from tasks.inference_queue import RemoteInferenceTask, inference_queue
+
+
+@celery_app.task(bind=True, base=RemoteInferenceTask, name="tasks.sentiment.sentiment_pass", queue=inference_queue())
 def sentiment_pass(self, media_id: str, job_id: str):
     db = get_session()
     try:

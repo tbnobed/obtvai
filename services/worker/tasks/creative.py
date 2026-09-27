@@ -35,7 +35,10 @@ def _clamp(value, lo: float, hi: float) -> float:
     return max(lo, min(v, hi))
 
 
-@celery_app.task(bind=True, name="tasks.creative.creative_pass", queue="gpu")
+from tasks.inference_queue import RemoteInferenceTask, inference_queue
+
+
+@celery_app.task(bind=True, base=RemoteInferenceTask, name="tasks.creative.creative_pass", queue=inference_queue())
 def creative_pass(self, media_id: str, job_id: str):
     db = get_session()
     try:

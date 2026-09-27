@@ -18,6 +18,7 @@ from sqlalchemy.exc import OperationalError
 from app import celery_app
 from db import get_session
 from tasks.base import update_job, append_log
+from tasks.inference_queue import RemoteInferenceTask, inference_queue
 
 VOICE_SIM_THRESHOLD = 0.75
 FACE_SIM_THRESHOLD = 0.55   # ArcFace (InsightFace buffalo_l) similarities run
@@ -253,7 +254,7 @@ def _profile_person(db, person_id: str, tokenizer, model, job_id: str, use_web: 
     db.commit()
 
 
-@celery_app.task(bind=True, name="tasks.identify.identify_people", queue="gpu")
+@celery_app.task(bind=True, base=RemoteInferenceTask, name="tasks.identify.identify_people", queue=inference_queue())
 def identify_people(self, media_id: str, job_id: str):
     db = get_session()
     locked = False
@@ -813,7 +814,7 @@ def face_search(person_id: str, job_id: str = ""):
         db.close()
 
 
-@celery_app.task(name="tasks.identify.regenerate_profile", queue="gpu")
+@celery_app.task(base=RemoteInferenceTask, name="tasks.identify.regenerate_profile", queue=inference_queue())
 def regenerate_profile(person_id: str, job_id: str = "", use_web: bool = False):
     """Rebuild one person's LLM profile (summary/speech style/topics).
 

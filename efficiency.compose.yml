@@ -1,0 +1,60 @@
+# Opt-in: append AFTER archive-artifacts, archive-memory and remote-ingest.
+# No admission ceiling/date/media-type changes. Upgrade/drain every GPU worker,
+# including external hosts, before enabling producers; see docs/ingest-efficiency.md.
+services:
+  worker-gpu:
+    image: ${EFFICIENCY_WORKER_IMAGE:-obtv-efficiency-worker:verified}
+    environment:
+      REMOTE_LLM_QUEUE_ENABLED: "1"
+  worker-gpu-2:
+    image: ${EFFICIENCY_WORKER_IMAGE:-obtv-efficiency-worker:verified}
+    environment:
+      REMOTE_LLM_QUEUE_ENABLED: "1"
+  worker-cpu:
+    image: ${EFFICIENCY_WORKER_IMAGE:-obtv-efficiency-worker:verified}
+    environment:
+      REMOTE_LLM_QUEUE_ENABLED: "1"
+  worker-llm:
+    extends:
+      file: docker-compose.yml
+      service: worker-graphics
+    image: ${EFFICIENCY_WORKER_IMAGE:-obtv-efficiency-worker:verified}
+    profiles: ["efficiency"]
+    environment:
+      REMOTE_LLM_QUEUE_ENABLED: "1"
+      REMOTE_LLM_CONCURRENCY: "${REMOTE_LLM_CONCURRENCY:-2}"
+      CUDA_VISIBLE_DEVICES: ""
+      NVIDIA_VISIBLE_DEVICES: void
+    command: ["python3", "-m", "tasks.remote_inference_worker"]
+    stop_grace_period: 30m
+    # Text-only stages currently read DB state, not these files. Preserve the
+    # identical artifact tree for identity/profile helpers and future readers.
+    volumes:
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/audio
+        target: /artifacts/audio
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/thumbnails
+        target: /artifacts/thumbnails
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/reels
+        target: /artifacts/reels
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/renders
+        target: /artifacts/renders
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/dubs
+        target: /artifacts/dubs
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/voices
+        target: /artifacts/voices
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ARCHIVE_ARTIFACTS_PATH:-/mnt/curator-ipv/OBTV-AI}/graphics
+        target: /artifacts/graphics
+        bind: { create_host_path: false }

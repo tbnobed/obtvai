@@ -6,6 +6,7 @@ from app import celery_app
 from db import get_session
 from tasks.base import update_job, append_log
 from config import LLM_MODEL
+from tasks.inference_queue import RemoteInferenceTask, inference_queue
 
 _CHUNK_CHARS = 20000  # ~6K tokens per chunk, well within the model's context
 
@@ -225,7 +226,7 @@ def _timecode_to_seconds(value) -> float:
     return seconds
 
 
-@celery_app.task(bind=True, name="tasks.analyze.analyze_media", queue="gpu")
+@celery_app.task(bind=True, base=RemoteInferenceTask, name="tasks.analyze.analyze_media", queue=inference_queue())
 def analyze_media(self, media_id: str, job_id: str):
     db = get_session()
     try:
@@ -413,7 +414,8 @@ def analyze_media(self, media_id: str, job_id: str):
         append_log(db, job_id, f"Analysis complete: {len(key_moments)} key moments, {len(topics)} topics")
 
         # Chain the creative editor pass: story beats, clip suggestions,
-        # editorial notes. Runs on the gpu queue so it can land on either card.
+        # editorial notes. Remote mode uses the bounded llm lane; local mode
+        # stays on gpu. Do not execute these child stages synchronously.
         # Guarded separately: analysis has already succeeded and been committed,
         # so a chaining failure must not flip this job back to error.
         try:

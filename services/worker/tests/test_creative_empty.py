@@ -20,6 +20,8 @@ class CreativeEmptyTests(unittest.TestCase):
             "db": types.SimpleNamespace(get_session=Mock()),
             "tasks.base": types.SimpleNamespace(update_job=Mock(), append_log=Mock()),
             "config": types.SimpleNamespace(LLM_MODEL="test"),
+            "tasks.inference_queue": types.SimpleNamespace(
+                RemoteInferenceTask=object, inference_queue=lambda: "gpu"),
         }):
             spec.loader.exec_module(cls.module)
 
