@@ -12,6 +12,7 @@ from sqlalchemy import select, func, text, case
 from starlette.requests import Request
 
 from .catalog import ASSET_TYPES, INITIAL_CURSOR, CatalogClient, eligibility, exact_id, next_cursor, cutoff
+from .catalog import enabled_asset_types, discovery_cursor
 from .catalog_models import CatalogAsset, CatalogCheckpoint, CatalogRun
 from .commands.import_curator_workbook import ImportFailure, _field_values
 from .database import AsyncSessionLocal, engine
@@ -331,6 +332,7 @@ async def run_catalog(options: CatalogOptions) -> dict:
 
 
 async def _run(db, options):
+    allowed_types = enabled_asset_types()
     run_id = str(uuid.uuid4())
     stats = {"pages": 0, "seen": 0, "new": 0, "duplicates": 0, "review": 0,
              "admitted": 0, "attempted": 0, "errors": 0, "stop": "bounded"}
@@ -345,7 +347,7 @@ async def _run(db, options):
     try:
         client = CatalogClient()
         for _ in range(options.max_pages):
-            cursor = dict(checkpoint.cursor)
+            cursor = discovery_cursor(checkpoint.cursor)
             asset_type = ASSET_TYPES[cursor["type_index"]]
             # Every tenth turn refreshes a type's first dated page (types rotate,
             # so each receives this lookback ~every 30 minutes at a 60s cadence).
@@ -390,6 +392,7 @@ async def _run(db, options):
             first_type = checkpoint.cursor.get("admission_type", 0)
             priority = {ASSET_TYPES[(first_type + n) % len(ASSET_TYPES)]: n for n in range(len(ASSET_TYPES))}
             candidates = (await db.execute(select(CatalogAsset).where(
+                CatalogAsset.asset_type.in_(allowed_types),
                 CatalogAsset.status.in_(("eligible", "retry")),
                 CatalogAsset.attempts < options.max_attempts,
             ).order_by(case(priority, value=CatalogAsset.asset_type),

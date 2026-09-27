@@ -1,3 +1,13 @@
+# Temporary video-only admission
+
+Deployment defaults to `CURATOR_CATALOG_ASSET_TYPES=Media` (Curator's video
+type). Both discovery and admission skip Audio/Image, including previously
+discovered eligible/retry rows. Existing media, review rows, and per-type
+discovery checkpoints remain intact. Already-running work is allowed to finish.
+To resume all types, set `CURATOR_CATALOG_ASSET_TYPES=Media,Audio,Image` and
+recreate the API and catalog runner. Keep the archive and remote-ingest Compose
+overrides when recreating services so concurrency and storage remain unchanged.
+
 # Bounded Curator catalog ingest
 
 ## Managed 2025 test bed

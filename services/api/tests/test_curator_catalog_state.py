@@ -31,6 +31,27 @@ def jsonb_for_test(type_, compiler, **kw):
 
 
 class StateTests(unittest.IsolatedAsyncioTestCase):
+    async def test_video_only_skips_existing_nonvideo_candidates(self):
+        client = Mock()
+        client.page.return_value = []
+        async with self.session() as db:
+            for kind in ("Media", "Audio", "Image"):
+                db.add(CatalogAsset(asset_id=kind, asset_type=kind, status="eligible",
+                    metadata_snapshot={"Id": kind, "IngestCompleteDate": "2023-01-01"}))
+            await db.commit()
+            with patch.dict(os.environ, {"CURATOR_CATALOG_ASSET_TYPES": "Media"}), \
+                    patch("app.catalog_service.CatalogClient", return_value=client), \
+                    patch("app.catalog_service.storage_available", return_value=True), \
+                    patch("app.catalog_service.import_asset",
+                          new=AsyncMock(return_value=(None, "queued"))) as importer:
+                result = await _run(db, CatalogOptions(dry_run=False, max_assets=10))
+                self.assertEqual(result["stats"]["admitted"], 1)
+                self.assertEqual(importer.await_args.args[1].asset_type, "Media")
+                self.assertEqual(client.page.call_args.args[0], "Media")
+            for kind in ("Audio", "Image"):
+                row = await db.get(CatalogAsset, kind)
+                self.assertEqual((row.status, row.attempts), ("eligible", 0))
+
     async def asyncSetUp(self):
         self.engine = create_async_engine("sqlite+aiosqlite:///:memory:")
         tables = [CatalogAsset.__table__, CatalogRun.__table__, CatalogCheckpoint.__table__,

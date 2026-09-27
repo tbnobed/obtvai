@@ -16,6 +16,23 @@ def asset(identifier="id-1", day="2023-01-01"):
 
 
 class CatalogTests(unittest.TestCase):
+    def test_video_only_preserves_disabled_lane_checkpoints(self):
+        from app.catalog import discovery_cursor, enabled_asset_types
+        lanes = {"0": {"offset": 398, "dated": True, "generation": 2},
+                 "2": {"offset": 999, "dated": False, "generation": 4}}
+        current = {**INITIAL_CURSOR, **lanes["2"], "type_index": 2, "lanes": lanes}
+        with patch.dict(os.environ, {"CURATOR_CATALOG_ASSET_TYPES": "Media"}):
+            self.assertEqual(enabled_asset_types(), ("Media",))
+            selected = discovery_cursor(current)
+            self.assertEqual((selected["type_index"], selected["offset"]), (0, 398))
+            advanced = next_cursor(selected, 199)
+            self.assertEqual((advanced["type_index"], advanced["offset"]), (0, 597))
+            self.assertEqual(advanced["lanes"]["2"], lanes["2"])
+            self.assertEqual(current["offset"], 999)
+        with patch.dict(os.environ, {"CURATOR_CATALOG_ASSET_TYPES": "Graphic"}):
+            with self.assertRaises(ImportFailure):
+                enabled_asset_types()
+
     def test_testbed_cutoff_is_strict_and_inclusive(self):
         with patch.dict(os.environ, {"CURATOR_CATALOG_CUTOFF": "2025-01-01"}):
             self.assertEqual(cutoff().isoformat(), "2025-01-01")

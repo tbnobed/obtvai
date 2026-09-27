@@ -13,6 +13,30 @@ CUTOFF = date(2023, 1, 1)
 PAGE_SIZE = 199
 
 
+def enabled_asset_types() -> tuple[str, ...]:
+    values = tuple(x.strip() for x in os.getenv(
+        "CURATOR_CATALOG_ASSET_TYPES", ",".join(ASSET_TYPES)).split(","))
+    if not values or any(x not in ASSET_TYPES for x in values):
+        raise ImportFailure("CURATOR_CATALOG_ASSET_TYPES must contain Media, Audio, or Image")
+    return tuple(t for t in ASSET_TYPES if t in values)
+
+
+def discovery_cursor(cursor: dict) -> dict:
+    """Skip disabled lanes without renumbering or destroying their checkpoints."""
+    result = dict(cursor)
+    allowed = enabled_asset_types()
+    index = cursor["type_index"]
+    for _ in ASSET_TYPES:
+        if ASSET_TYPES[index] in allowed:
+            if index != cursor["type_index"]:
+                lane = cursor.get("lanes", {}).get(str(index),
+                    {"offset": 0, "dated": True, "generation": 0})
+                result.update(lane, type_index=index)
+            return result
+        index = (index + 1) % len(ASSET_TYPES)
+    raise ImportFailure("No catalog asset types enabled")
+
+
 def cutoff() -> date:
     value = os.getenv("CURATOR_CATALOG_CUTOFF", CUTOFF.isoformat())
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
@@ -115,7 +139,7 @@ def next_cursor(cursor: dict, count: int, *, head_refresh: bool = False) -> dict
     next_lane = lanes.get(str(index), {"offset": 0, "dated": True, "generation": 0})
     result.update(next_lane, type_index=index, lanes=lanes,
                   discovery_turn=cursor.get("discovery_turn", 0) + 1)
-    return result
+    return discovery_cursor(result)
 
 
 INITIAL_CURSOR = {"offset": 0, "type_index": 0, "dated": True, "generation": 0}
