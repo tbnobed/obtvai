@@ -50,11 +50,16 @@ CPU 11 and passed on CPUs 0, 10, and 12; the 5090 also suffered a face crash.
 CPU-only compression/hash checks passed, so this does not establish defective
 CPU silicon. Excluding CPU 11 and its sibling allowed repeated face and Whisper
 probes to pass, but is containment rather than proof of a repaired host.
+A subsequent actual-frame mixed-workload soak crashed on CPU 9 despite that
+restriction, while a CPU-0-only actual-frame control passed. Excluding 10–11
+is therefore explicitly insufficient to clear the host or restore the 4500.
 
 **How to apply:** Keep identical GPU/model/runtime inputs, fresh caches, and
 bounded CPU-affinity A/B tests. Preserve host-specific worker CPU restrictions
 until the underlying fault is diagnosed; do not declare the card defective or
 clear it based on generic CUDA/CPU tests. See `docs/4500-diagnostics.md`.
+Exercise actual detected faces: blank synthetic frames do not execute
+landmark and demographic submodels even when the models load successfully.
 
 Do not move bulk traffic to a DAC solely because its negotiated link is faster.
 

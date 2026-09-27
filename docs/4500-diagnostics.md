@@ -72,6 +72,31 @@ The affinity restriction protects these containers, not every process on the hos
 
 ## Remaining diagnosis
 
+### Follow-up mixed-workload test — 2026-09-27 04:46 UTC
+
+The planned 15-minute soak **failed in its first cycle**. CUDA computation
+passed, but full face inference on an actual completed-media frame crashed
+with SIGSEGV. CPU affinity excluded 10–11 as intended; the kernel reported
+the fault on CPU 9. Whisper and diarization were not reached in this run.
+This invalidates any claim that excluding only 10–11 is sufficient.
+
+A single targeted control run using only CPU 0 passed ten actual-frame face
+iterations, including detection, both landmark models, gender/age, and
+recognition. This strengthens the CPU-affinity association but does not prove
+CPU hardware is defective or establish a safe production configuration.
+Do not progressively exclude cores until a short test passes and call it fixed.
+
+The read-only reproducer is `deploy/remote-ingest/gpu-soak.py`; it selects a
+completed audio/proxy pair, extracts ephemeral samples, and exercises fresh
+processes for CUDA computation, face inference, Whisper, and diarization.
+Native stack reporting and per-model markers support subsequent diagnosis.
+It never calls production Celery tasks. Use `--diagnose-face` for the short
+actual-frame control and preserve a strict external container timeout.
+
+The 4500 remains quarantined. The 5090 remains on its existing restriction;
+its earlier stable period must not be interpreted as clearing the wider host
+issue, especially across future cold model loads.
+
 Review CPU/BIOS power and voltage settings against the board vendor's supported
 Intel defaults; do not assume the current settings are incorrect. Run appropriate
 CPU/RAM diagnostics in a maintenance window. If these remain clean, compare
