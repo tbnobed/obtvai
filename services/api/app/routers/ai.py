@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, delete
+from sqlalchemy import select, func, desc, delete, or_, cast, String
 from ..database import get_db
 from ..models import (
     AIConversation, AIMessage, MediaAsset, TranscriptSegment,
@@ -130,6 +130,66 @@ async def _library_overview(db: AsyncSession) -> str:
     return await overview(db, lambda: _build_library_overview(db))
 
 
+_ASSET_LOOKUP_RE = re.compile(
+    r"^\s*(?:find|show(?: me)?|list|which|what)\s+"
+    r"(?:the |some |all )?(?:videos?|assets?|clips?|files?|recordings?)"
+    r"\s+(?:about|on|of|with|featuring|related to)\s+(.+?)\s*[?.!]?\s*$",
+    re.I,
+)
+
+
+async def _structured_assets(db: AsyncSession, question: str) -> list[MediaAsset]:
+    """Find real assets from library metadata for explicit asset-list requests.
+
+    An asset need not have a transcript to be discoverable. Do not mistake a
+    question about totals or a compound filter for an exhaustive catalog query.
+    """
+    match = _ASSET_LOOKUP_RE.fullmatch(question)
+    if not match:
+        return []
+    term = match.group(1).strip().rstrip("?.!").strip().strip("\"'")
+    if not 3 <= len(term) <= 120 or re.search(r"\b(?:and|or|before|after|between)\b", term, re.I):
+        return []
+    from ..services.archive_memory import literal_pattern
+    pattern = literal_pattern(term)
+    rows = await db.execute(
+        select(MediaAsset).where(or_(
+            MediaAsset.filename.ilike(pattern, escape="\\"),
+            MediaAsset.synopsis.ilike(pattern, escape="\\"),
+            cast(MediaAsset.topics, String).ilike(pattern, escape="\\"),
+        )).order_by(MediaAsset.filename, MediaAsset.id).limit(12)
+    )
+    return list(rows.scalars().all())
+
+
+def _asset_citation(asset: MediaAsset) -> AICitationOut:
+    # Metadata identifies the asset, not a spoken passage or particular scene.
+    return AICitationOut(
+        media_id=asset.id, filename=asset.filename, start_time=0, end_time=0,
+        snippet=(asset.synopsis or ", ".join(
+            t for t in (asset.topics or []) if isinstance(t, str)
+        ) or asset.filename)[:200],
+    )
+
+
+def _referenced_citations(answer: str, candidates: list[AICitationOut]) -> list[AICitationOut]:
+    """Only attach evidence actually named in the answer, deduplicated by asset."""
+    seen: set[str] = set()
+    result = []
+    for citation in candidates:
+        # Substring matching can attribute "Clip.mp4" when the answer only
+        # names "LongClip.mp4". Treat punctuation used in filenames as part of
+        # a filename, while allowing quotes, parentheses and prose boundaries.
+        reference = re.search(
+            r"(?<![\w.\-])" + re.escape(citation.filename) + r"(?![\w.\-])",
+            answer,
+        )
+        if reference and citation.media_id not in seen:
+            result.append(citation)
+            seen.add(citation.media_id)
+    return result[:5]
+
+
 async def _build_library_overview(db: AsyncSession) -> str:
     """Compact aggregate snapshot of the whole library (topics, people,
     stored insights) so big-picture questions are answered from real
@@ -220,6 +280,8 @@ async def _run_qa(
     history: list[dict] | None = None,
     visual_lines: list[str] | None = None,
     overview: str | None = None,
+    asset_matches: list[MediaAsset] | None = None,
+    visual_citations: list[AICitationOut] | None = None,
 ) -> tuple[str, list[AICitationOut]]:
     """Run local LLM QA over retrieved context segments.
 
@@ -249,6 +311,16 @@ async def _run_qa(
             end_time=seg.end_time,
             snippet=seg.text[:200],
         ))
+
+    if asset_matches:
+        context_parts = [
+            f"[{asset.filename}] Library metadata: "
+            f"{(asset.synopsis or '')[:300]} Topics: "
+            f"{', '.join(t for t in (asset.topics or []) if isinstance(t, str))[:150]}"
+            for asset in asset_matches
+        ] + context_parts
+        citations = [_asset_citation(asset) for asset in asset_matches] + citations
+    citations.extend(visual_citations or [])
 
     if not context_parts and not visual_lines and not overview:
         if history:
@@ -306,13 +378,15 @@ async def _run_qa(
         ) if overview else ""
         prompt = (
             f"{overview_text}"
-            f"Transcript excerpts (format: [filename @ timecode] speaker: text):\n{context_text}"
+            f"Library evidence (transcripts use [filename @ timecode]; "
+            f"metadata uses [filename] without a timecode):\n{context_text}"
             f"{visual_text}\n\n"
             f"Question: {question}\n\n"
             f"Answer the question using these excerpts as evidence. Statements are "
             f"first-person: when a line is labeled with a speaker's name, facts they "
             f"state about themselves are facts about that speaker. Quote or paraphrase "
             f"the relevant lines and mention their filenames and timecodes. "
+            f"For metadata-only matches mention the filename, but do not invent a timecode. "
             f"Synthesize and interpret: look for themes and patterns across excerpts "
             f"and different videos, and if the excerpts only imply an answer, give "
             f"your best analytical reading and label it as interpretation. Only say "
@@ -368,8 +442,7 @@ async def _run_qa(
     # from the overview — attaching unrelated clips as "sources" is noise.
     # Keep only citations whose file the answer actually references.
     if not single_asset:
-        referenced = [c for c in citations if c.filename in answer]
-        citations = referenced
+        citations = _referenced_citations(answer, citations)
 
     return answer, citations[:5]
 
@@ -410,9 +483,9 @@ _CREATE_SYSTEM = (
 async def _maybe_create_project(
     db: AsyncSession, question: str, retrieval_question: str,
     context_segments: list, history: list,
-) -> tuple[str, str, str] | None:
+) -> tuple[str, str, str, list[AICitationOut]] | None:
     """If the question asks to build a project, create it (pool + draft cut v1)
-    and return (answer, project_id, project_name). None = not an action turn."""
+    and return (answer, project_id, project_name, selected assets). None = not an action turn."""
     from .project_chat import _visual_segments, _extract_json, _save_revision, _sanitize_clips
     from ..services.llm import generate_response
 
@@ -502,7 +575,16 @@ async def _maybe_create_project(
         f"\n\nProject '{name}' is ready: {len(clips)} clips from "
         f"{len(media_ids)} assets in the media pool, saved as draft cut v1."
     )
-    return answer, project.id, name
+    selected = [
+        AICitationOut(
+            media_id=c["media_id"], filename=c["filename"],
+            start_time=c["start_time"], end_time=c["end_time"],
+            snippet=c["snippet"],
+        ) for c in clips
+    ]
+    # The created project's own selected clips are the evidence, not other
+    # candidates the planner considered.
+    return answer, project.id, name, selected[:5]
 
 
 @router.post("/ask", response_model=AIAnswerOut)
@@ -634,16 +716,31 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
     context_segments = merged[:12]
 
     visual_lines: list[str] = []
+    visual_citations: list[AICitationOut] = []
     try:
-        from .project_chat import _visual_research
-        visual_lines = await _visual_research(
-            [retrieval_question],
-            [body.media_id] if body.media_id else None,
-            db,
-        ) if exact_answer is None else []
+        from .project_chat import _visual_segments, _fmt_ts
+        if exact_answer is None:
+            visual_matches = await _visual_segments(
+                [retrieval_question], [body.media_id] if body.media_id else None, db,
+            )
+            for query, mid, filename, spans in visual_matches:
+                if len(visual_lines) >= 12:
+                    break
+                visual_lines.append(
+                    f'- [{filename}] looks like "{query[:80]}": '
+                    f'{len(spans)} distinct segment(s) at '
+                    + ", ".join(f"{_fmt_ts(a)}-{_fmt_ts(b)}" for a, b in spans[:12])
+                )
+                for start, end in spans[:5]:
+                    visual_citations.append(AICitationOut(
+                        media_id=mid, filename=filename,
+                        start_time=start, end_time=end,
+                        snippet=f'Visual scene match: {query[:160]}',
+                    ))
     except Exception:
         pass  # visual retrieval unavailable — transcript answer still works
 
+    asset_matches = await _structured_assets(db, retrieval_question) if exact_answer is None and not body.media_id else []
     overview = None if body.media_id or exact_answer is not None else await _library_overview(db)
 
     # Action turn: "combine these into a project / make a story" creates the
@@ -660,7 +757,7 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
                     db, body.question, retrieval_question, context_segments, history,
                 )
             if created:
-                answer_text, project_id, project_name = created
+                answer_text, project_id, project_name, citations = created
         except Exception as e:
             import logging
             logging.getLogger("ai").warning("project creation from chat failed: %s", e, exc_info=True)
@@ -671,6 +768,7 @@ async def ask_ai(body: AIQuestion, db: AsyncSession = Depends(get_db)):
             body.question, context_segments, db,
             single_asset=bool(body.media_id), history=history,
             visual_lines=visual_lines, overview=overview,
+            asset_matches=asset_matches, visual_citations=visual_citations,
         )
 
     assistant_msg = AIMessage(

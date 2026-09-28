@@ -6663,11 +6663,26 @@ components:
           description: Restrict search to a set of assets (e.g. a project's media pool)
         search_type:
           type: string
-          description: "transcript | visual | combined"
+          enum: [combined, transcript, visual, filename, person]
+          description: "transcript | visual | filename | person | combined"
           default: combined
         limit:
           type: integer
           default: 20
+        media_type:
+          type: ["string", "null"]
+          enum: [all, hide_images, images, null]
+        status:
+          type: ["string", "null"]
+        folder:
+          type: ["string", "null"]
+          description: "Folder ID, or root for unfiled assets (folder_id IS NULL)"
+        person:
+          type: ["string", "null"]
+          description: Person ID whose appearances are associated with the asset
+        topic:
+          type: ["string", "null"]
+          description: Topic normalized using the same rules as GET /media
 
     SearchResult:
       type: object
@@ -6687,7 +6702,7 @@ components:
           type: number
         match_type:
           type: string
-          description: "transcript | visual"
+          description: "transcript | visual | person | filename"
         snippet:
           type: ["string", "null"]
           description: Matching transcript text

@@ -254,8 +254,13 @@ class SearchQuery(BaseModel):
     query: str
     media_id: Optional[str] = None
     media_ids: Optional[List[str]] = None
-    search_type: str = "combined"
+    search_type: Literal["combined", "transcript", "visual", "filename", "person"] = "combined"
     limit: int = 20
+    media_type: Optional[Literal["all", "hide_images", "images"]] = None
+    status: Optional[str] = None
+    folder: Optional[str] = None
+    person: Optional[str] = None
+    topic: Optional[str] = None
 
 
 class SearchResultOut(BaseModel):

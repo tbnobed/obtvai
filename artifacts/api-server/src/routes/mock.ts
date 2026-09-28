@@ -1139,21 +1139,62 @@ router.get("/media/:id/people", (req, res) => {
 
 // ── Search ────────────────────────────────────────────────────────────────────
 router.post("/search", (req, res) => {
-  const query = (req.body.query || "").toLowerCase();
+  const query = String(req.body.query || "").trim().replace(/^["“']|["”']$/g, "").toLowerCase();
   const searchType: string = req.body.search_type || "combined";
-  const mediaIds: string[] | null = Array.isArray(req.body.media_ids) && req.body.media_ids.length ? req.body.media_ids : null;
-  const inPool = (id: string) =>
-    (!mediaIds || mediaIds.includes(id)) && (!req.body.media_id || req.body.media_id === id);
+  const mediaIds: string[] | null = Array.isArray(req.body.media_ids) ? req.body.media_ids : null;
+  const limit = Math.max(1, Math.min(Number(req.body.limit) || 20, 500));
+  const mediaType = req.body.media_type || "all";
+  if (!["all", "hide_images", "images"].includes(mediaType)) {
+    res.status(422).json({ detail: "Invalid media_type" });
+    return;
+  }
+  const imageExtension = /\.(jpg|jpeg|png|gif|webp|bmp|tif|tiff|heic|heif|avif|svg|exr|dpx)$/i;
+  const allowed = new Set(assets.filter(a => {
+    if (mediaIds && !mediaIds.includes(a.id)) return false;
+    if (req.body.media_id && req.body.media_id !== a.id) return false;
+    if (req.body.status && req.body.status !== a.status) return false;
+    if (req.body.folder === "root" && assetFolder[a.id]) return false;
+    if (req.body.folder && req.body.folder !== "root" && assetFolder[a.id] !== req.body.folder) return false;
+    if (req.body.person && !(personAppearances[req.body.person] ?? []).some((x) => x.media_id === a.id)) return false;
+    if (req.body.topic && !assetTopics(a).some(t => normalizeTopicKey(t) === normalizeTopicKey(req.body.topic))) return false;
+    const isImage = [a.filename, a.original_path, a.source_path].some(p => !!p && imageExtension.test(p));
+    return mediaType === "all" || (mediaType === "images" ? isImage : !isImage);
+  }).map(a => a.id));
+  const inPool = (id: string) => allowed.has(id);
   const results: {
     media_id: string; filename: string; thumbnail_url: string | null;
     start_time: number; end_time: number; score: number;
     match_type: string; snippet: string | null;
   }[] = [];
 
+  if (searchType === "person" || searchType === "combined") {
+    for (const p of people.filter(p => p.display_name && query.includes(p.display_name.toLowerCase()))) {
+      for (const app of personAppearances[p.id] ?? []) {
+        if (!inPool(app.media_id) || results.some(r => r.media_id === app.media_id && r.match_type === "person")) continue;
+        const asset = assets.find(a => a.id === app.media_id);
+        if (!asset) continue;
+        const start = app.first_spoken_at || 0;
+        results.push({ media_id: asset.id, filename: asset.filename, thumbnail_url: asset.thumbnail_url,
+          start_time: start, end_time: start + (app.speaking_seconds || 0), score: 1,
+          match_type: "person", snippet: `${p.display_name} identified in this asset` });
+      }
+    }
+  }
+  if (query && (searchType === "filename" || searchType === "combined")) {
+    for (const a of assets) {
+      if (!inPool(a.id) || !(a.filename.toLowerCase().includes(query) ||
+          a.original_path?.toLowerCase().includes(query))) continue;
+      results.push({ media_id: a.id, filename: a.filename, thumbnail_url: a.thumbnail_url,
+        start_time: 0, end_time: 0, score: 0.95, match_type: "filename",
+        snippet: a.original_path?.toLowerCase().includes(query) && !a.filename.toLowerCase().includes(query)
+          ? a.original_path : a.filename });
+    }
+  }
   if (searchType === "transcript" || searchType === "combined") {
     for (const s of transcript) {
       if (!inPool(s.media_id)) continue;
-      if (!s.text.toLowerCase().includes(query.split(" ")[0] || query)) continue;
+      if (!s.text.toLowerCase().includes(/^["“']/.test(String(req.body.query || "").trim())
+        ? query : (query.split(" ")[0] || query))) continue;
       const asset = assets.find((a) => a.id === s.media_id);
       results.push({
         media_id: s.media_id,
@@ -1190,6 +1231,7 @@ router.post("/search", (req, res) => {
   }
 
   results.sort((a, b) => b.score - a.score);
+  results.splice(limit);
   if (req.body.query && String(req.body.query).trim()) {
     searchHistory.unshift({
       id: `sh-${Date.now()}`,

@@ -138,8 +138,8 @@ export default function Dashboard() {
   const submitQuickSearch = () => {
     const q = quickQuery.trim();
     if (q.length < 2) return;
-    if (looksLikeQuestion(q)) navigate(`/ai?q=${encodeURIComponent(q)}`);
-    else navigate(`/search?q=${encodeURIComponent(q)}`);
+    if (looksLikeQuestion(q)) navigate(`/library?ask=1&q=${encodeURIComponent(q)}`);
+    else navigate(`/library?search_q=${encodeURIComponent(q)}`);
   };
 
   const errorCount = stats?.status_counts.error || 0;
@@ -470,7 +470,7 @@ export default function Dashboard() {
                 <HeartPulse className="h-5 w-5 text-primary/70" />
                 Emotional tone of your library
               </h2>
-              <Link href="/search" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <Link href="/library" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
                 Explore moments <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>

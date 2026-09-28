@@ -4,13 +4,11 @@ import {
   LayoutGrid,
   Film,
   Activity,
-  MessageSquare,
   Users,
   Sparkles,
   FolderKanban,
   Megaphone,
   // Wand2, // Graphics nav hidden
-  Search,
   BarChart3,
   Share2,
   UserCog,
@@ -20,7 +18,10 @@ import {
   HardDrive,
   ChevronUp,
   Eye,
-  Menu
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X
 } from "lucide-react";
 import { useChangePassword } from "@workspace/api-client-react";
 import logoUrl from "@assets/obtv.ai_1783921425806.png";
@@ -41,6 +42,13 @@ const ROLE_LABELS: Record<string, string> = {
   user: "User",
   viewer: "View only",
 };
+
+const NAV_PREFERENCE_KEY = "app-navigation-visible";
+
+function readNavigationVisible() {
+  try { return localStorage.getItem(NAV_PREFERENCE_KEY) !== "false"; }
+  catch { return true; }
+}
 
 function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { toast } = useToast();
@@ -117,6 +125,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const logout = useLogoutAndReset();
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [navigationVisible, setNavigationVisible] = useState(readNavigationVisible);
+  const toggleNavigation = () => {
+    setNavigationVisible(value => {
+      const next = !value;
+      try { localStorage.setItem(NAV_PREFERENCE_KEY, String(next)); }
+      catch { /* Storage may be unavailable. */ }
+      return next;
+    });
+  };
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -131,9 +148,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/library", label: "Media Library", icon: Film },
     { href: "/studio", label: "Studio", icon: FolderKanban },
     { href: "/insights", label: "Insights", icon: Sparkles },
-    { href: "/search", label: "Search", icon: Search },
     { href: "/people", label: "People", icon: Users },
-    { href: "/ai", label: "AI Q&A", icon: MessageSquare },
     // Graphics is intentionally hidden — ComfyUI generation competes with the
     // media workers for GPU. Restore this entry (and the route in App.tsx) to
     // re-enable.
@@ -160,9 +175,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-border bg-card flex flex-col transform transition-transform md:relative md:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside id="app-navigation" className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-border bg-card flex flex-col transform transition-transform md:relative md:translate-x-0 ${navigationVisible ? 'md:visible' : 'md:hidden'} ${mobileMenuOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'}`}>
         <div className="h-14 flex items-center justify-between px-4 border-b border-border shrink-0">
           <img src={logoUrl} alt="OBTV.AI" className="h-10 w-auto rounded" />
+          <Button variant="ghost" size="sm" className="hidden md:inline-flex gap-1 px-2 text-xs text-muted-foreground" onClick={toggleNavigation}
+            aria-label="Hide navigation" title="Hide navigation" aria-controls="app-navigation" aria-expanded={navigationVisible}
+            data-testid="button-hide-navigation">
+            <PanelLeftClose className="h-4 w-4" /> Hide navigation
+          </Button>
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close navigation" title="Close navigation">
+            <X className="h-4 w-4" />
+          </Button>
         </div>
         <nav className="flex-1 overflow-y-auto p-2 space-y-1">
           {navItems.map((item) => {
@@ -221,9 +245,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </aside>
       <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden relative app-ambient">
+        {!navigationVisible && (
+          <div className="hidden md:flex h-12 shrink-0 items-center px-4 border-b border-border bg-card">
+            <Button variant="ghost" size="sm" className="gap-2" onClick={toggleNavigation}
+              aria-label="Show navigation" aria-controls="app-navigation" aria-expanded={navigationVisible}
+              data-testid="button-show-navigation">
+              <PanelLeftOpen className="h-4 w-4" /> Show navigation
+            </Button>
+          </div>
+        )}
         {/* Mobile header */}
         <div className="md:hidden h-14 flex items-center px-4 border-b border-border shrink-0 bg-card">
-          <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(true)} className="mr-2 -ml-2">
+          <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(true)} className="mr-2 -ml-2"
+            aria-label="Open navigation" aria-controls="app-navigation" aria-expanded={mobileMenuOpen} data-testid="button-mobile-navigation">
             <Menu className="h-5 w-5" />
           </Button>
           <img src={logoUrl} alt="OBTV.AI" className="h-7 w-auto rounded" />

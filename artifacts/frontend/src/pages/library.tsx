@@ -10,6 +10,15 @@ import {
 } from "@workspace/api-client-react";
 import type { MediaAsset, MediaFolder, CuratorFolderOut } from "@workspace/api-client-react";
 import { useIsAdmin } from "@/lib/auth";
+import { ArchiveChatPanel } from "@/components/ai/archive-chat-panel";
+import { ArchiveChatDock } from "@/components/ai/archive-chat-dock";
+import type { SearchResult } from "@workspace/api-client-react";
+import { useLibrarySearch } from "@/hooks/use-library-search";
+import { readLibrarySearch, withLibrarySearch, momentKey, SEARCH_SCOPES, MIN_QUERY, parseScope, type SearchScope } from "@/lib/library-search";
+import { LibrarySearchResults } from "@/components/library-search/search-results";
+import { SearchSelectionBar } from "@/components/library-search/search-selection-bar";
+import { SearchShelf, SaveSearchButton } from "@/components/library-search/search-shelf";
+import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
 
 type LibSpriteMeta = {
   interval: number;
@@ -87,13 +96,15 @@ import { Link, useLocation, useSearch } from "wouter";
 import { Input } from "@/components/ui/input";
 import { VoiceInput } from "@/components/voice-input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
   ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent,
 } from "@/components/ui/context-menu";
-import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox, Download, HardDrive, Loader2, RefreshCw, Maximize2 } from "lucide-react";
+import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox, Download, HardDrive, Loader2, RefreshCw, Maximize2, Sparkles, SlidersHorizontal, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -149,14 +160,18 @@ export default function Library() {
     () => readLibraryPreference("library-media-type", ["all", "hide_images", "images"], "all"));
   const [cardSize, setCardSize] = useState<"small" | "medium" | "large">(
     () => readLibraryPreference("library-card-size", ["small", "medium", "large"], "medium"));
+  const [foldersVisible, setFoldersVisible] = useState(
+    () => readLibraryPreference("library-folders-visible", ["true", "false"], "true") === "true");
+  const toggleFolders = () => setFoldersVisible(visible => {
+    saveLibraryPreference("library-folders-visible", String(!visible));
+    return !visible;
+  });
   const gridClass = cardSize === "small"
-    ? "grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
+    ? "grid gap-2 grid-cols-[repeat(auto-fill,minmax(min(100%,140px),1fr))]"
     : cardSize === "large"
-      ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-      : "grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5";
+      ? "grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))]"
+      : "grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,200px),1fr))]";
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
   const [sort, setSort] = useState<string>("created_desc");
   const [view, setView] = useState<"grid" | "list">(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("view");
@@ -165,12 +180,6 @@ export default function Library() {
   });
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  // Debounce typing so we don't refetch on every keystroke.
-  useEffect(() => {
-    const t = setTimeout(() => { setSearch(searchInput); setPage(0); }, 300);
-    return () => clearTimeout(t);
-  }, [searchInput]);
 
   // Person/topic filters arrive via URL from the Insights page ("find view").
   const searchString = useSearch();
@@ -192,10 +201,35 @@ export default function Library() {
 
   useEffect(() => { setPage(0); }, [personFilter, topicFilter, folderFilter]);
 
+  // ── Unified search ─────────────────────────────────────────────────────
+  // The committed query lives in the URL (search_q/scope; `q` belongs to the
+  // assistant). Typing only edits a draft; Enter/Search commits, so the GPU
+  // embeds one query per submission. Clearing returns to browsing at once.
+  const { query: searchQuery, scope: searchScope } = readLibrarySearch(searchString);
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  useEffect(() => { setSearchInput(searchQuery); }, [searchQuery]);
+  const commitSearch = (query: string, scope: SearchScope = searchScope, replace = false) => {
+    const qs = withLibrarySearch(window.location.search, query, scope);
+    const url = `/library${qs ? `?${qs}` : ""}`;
+    if (url !== window.location.pathname + window.location.search) navigate(url, { replace });
+  };
+  const librarySearch = useLibrarySearch(searchQuery, searchScope, {
+    media_type: mediaType, status: statusFilter, folder: folderFilter, person: personFilter, topic: topicFilter,
+  });
+  const searching = librarySearch.active;
+  const draftDiffers = searchInput.trim() !== searchQuery;
+  const [selectedMoments, setSelectedMoments] = useState<Record<string, SearchResult>>({});
+  const [playerClip, setPlayerClip] = useState<PlayerClip | null>(null);
+  const toggleMoment = (r: SearchResult) => setSelectedMoments(cur => {
+    const next = { ...cur }; const k = momentKey(r);
+    if (next[k]) delete next[k]; else next[k] = r;
+    return next;
+  });
+  const searchAssetIds = Array.from(new Set((librarySearch.data?.results ?? []).map(r => r.media_id)));
+
   const listParams = {
     media_type: mediaType,
     status: statusFilter || undefined,
-    search: search || undefined,
     sort: (sort as any) || undefined,
     person: personFilter || undefined,
     topic: topicFilter || undefined,
@@ -204,10 +238,11 @@ export default function Library() {
     offset: page * PAGE_SIZE,
   };
   const { data, isLoading, isFetching, isError, refetch } = useListMedia(listParams, {
-    query: { queryKey: getListMediaQueryKey(listParams), retry: false },
+    query: { queryKey: getListMediaQueryKey(listParams), retry: false, enabled: !searching },
   });
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const activeFilterCount = (sort !== "created_desc" ? 1 : 0) + (statusFilter ? 1 : 0) + (mediaType !== "all" ? 1 : 0);
 
   const setViewPersist = (v: "grid" | "list") => {
     setView(v);
@@ -215,6 +250,21 @@ export default function Library() {
   };
 
   const [, navigate] = useLocation();
+
+  // ── Archive assistant (docked beside browsing) ─────────────────────────
+  // Open state + conversation live in the URL so reloads, back/forward and
+  // returning from the asset player restore the same thread.
+  const askOpen = urlParams.get("ask") === "1";
+  const askConversation = urlParams.get("conv") || null;
+  const askHandoff = urlParams.get("q") || null;
+  const updateAskParams = (mutate: (p: URLSearchParams) => void) => {
+    const next = new URLSearchParams(window.location.search);
+    mutate(next);
+    const qs = next.toString();
+    navigate(`/library${qs ? `?${qs}` : ""}`, { replace: true });
+  };
+  const setAskOpen = (open: boolean) => updateAskParams(p => { if (open) p.set("ask", "1"); else p.delete("ask"); });
+  const setAskConversation = (id: string | null) => updateAskParams(p => { p.set("ask", "1"); if (id) p.set("conv", id); else p.delete("conv"); });
 
   const formatDuration = (s?: number | null) =>
     s == null ? "—" : `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`;
@@ -311,7 +361,7 @@ export default function Library() {
     queryClient.invalidateQueries({ queryKey: getListFoldersQueryKey() });
   };
 
-  useEffect(() => { setSelected(new Set()); }, [folderFilter, page, statusFilter, search, mediaType]);
+  useEffect(() => { setSelected(new Set()); setSelectedMoments({}); }, [folderFilter, page, statusFilter, searchQuery, searchScope, mediaType, personFilter, topicFilter]);
 
   const toggleSelected = (id: string) => {
     setSelected(prev => {
@@ -932,11 +982,18 @@ export default function Library() {
   };
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
       {/* ── Folder browser sidebar ── */}
-      <aside className="w-60 shrink-0 border-r border-border flex flex-col overflow-hidden">
+      {foldersVisible && <aside id="library-folders" className="w-full max-h-44 md:max-h-none md:w-60 shrink-0 border-b md:border-b-0 md:border-r border-border flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-3 h-12 border-b border-border shrink-0">
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Folders</span>
+          <div className="flex items-center gap-1">
+          <button type="button" onClick={toggleFolders}
+            className="h-6 px-1.5 flex items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
+            aria-label="Hide folders" title="Hide folders" aria-controls="library-folders" aria-expanded={foldersVisible}
+            data-testid="button-hide-folders">
+            <PanelLeftClose className="h-4 w-4" /> Hide folders
+          </button>
           <button
             type="button"
             onClick={() => { setNewFolderParent(null); setNewFolderOpen(true); }}
@@ -945,8 +1002,9 @@ export default function Library() {
           >
             <FolderPlus className="h-4 w-4" />
           </button>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        <div className="library-scroll flex-1 overflow-y-auto p-2 space-y-0.5">
           <div
             onClick={() => { setFolderFilter(""); setPage(0); }}
             className={`flex items-center gap-1.5 h-7 px-1.5 rounded-md text-sm cursor-pointer select-none transition-colors ${folderFilter === "" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"} ${dropTarget === "all" ? "ring-1 ring-primary bg-primary/10" : ""}`}
@@ -954,7 +1012,7 @@ export default function Library() {
           >
             <LibraryIcon className="h-4 w-4 shrink-0" />
             <span className="flex-1">All Media</span>
-            <span className="text-[11px] text-muted-foreground tabular-nums">{folderFilter === "" ? total : ""}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{folderFilter === "" && !librarySearch.active ? total : ""}</span>
           </div>
           <div
             onClick={() => { setFolderFilter("root"); setPage(0); }}
@@ -979,111 +1037,258 @@ export default function Library() {
             </Button>
           </div>
         )}
-      </aside>
+      </aside>}
 
-      <div ref={gridRef} onMouseDown={onGridMouseDown} className="flex-1 p-8 overflow-y-auto flex flex-col min-w-0">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Media Library</h1>
-        <div className="flex gap-3 items-center flex-wrap justify-end">
-          <div className="relative">
-            <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      <div ref={gridRef} onMouseDown={onGridMouseDown} data-testid="library-scroll" className="library-scroll @container flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7 overflow-y-auto overflow-x-hidden flex flex-col min-w-0">
+      <div className="mb-6 flex flex-col gap-3" data-testid="library-toolbar">
+        <div className="flex items-center justify-between gap-3 min-w-0">
+          <div className="min-w-0 flex items-center gap-2">
+            {!foldersVisible && <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0"
+              onClick={toggleFolders} aria-label="Show folders" aria-controls="library-folders"
+              aria-expanded={foldersVisible} data-testid="button-show-folders">
+              <PanelLeftOpen className="h-4 w-4" /> <span className="hidden sm:inline">Show folders</span>
+            </Button>}
+            <div className="min-w-0">
+            <h1 className="text-2xl @3xl:text-3xl font-bold tracking-tight truncate">Media Library</h1>
+            <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
+              {searching
+                ? <>Searching for <span className="text-foreground" data-testid="text-applied-search">&ldquo;{searchQuery}&rdquo;</span> in {SEARCH_SCOPES.find(s => s.value === searchScope)?.label.toLowerCase()}{folderFilter || personFilter || topicFilter || statusFilter || mediaType !== "all" ? " · filtered" : ""}</>
+                : isLoading ? "Loading..." : `${total.toLocaleString()} item${total === 1 ? "" : "s"}`}
+              {selected.size > 0 && <span className="text-primary"> · {selected.size} selected</span>}
+            </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant={askOpen ? "secondary" : "outline"}
+              size="sm"
+              className={`h-9 gap-2 ${askOpen ? "" : "border-primary/40 text-primary hover:bg-primary/10"}`}
+              onClick={() => setAskOpen(!askOpen)}
+              title="Ask questions across your whole archive"
+              aria-label={askOpen ? "Hide assistant" : "Ask the archive"}
+              data-testid="button-toggle-ask-archive"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden @xl:inline">{askOpen ? "Hide assistant" : "Ask the archive"}</span>
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="h-9 gap-1.5" data-testid="button-add-media" aria-label="Add media">
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden @xl:inline">Add media</span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem data-testid="menu-upload-file" onSelect={() => setUploadOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  <div className="flex flex-col"><span>Upload file</span><span className="text-[11px] text-muted-foreground">From this computer</span></div>
+                </DropdownMenuItem>
+                <DropdownMenuItem data-testid="menu-import-link" onSelect={() => setLinkOpen(true)}>
+                  <Link2 className="h-4 w-4 mr-2" />
+                  <div className="flex flex-col"><span>Import link</span><span className="text-[11px] text-muted-foreground">Dropbox file or folder</span></div>
+                </DropdownMenuItem>
+                <DropdownMenuItem data-testid="menu-ingest-file" onSelect={() => setIngestOpen(true)}>
+                  <HardDrive className="h-4 w-4 mr-2" />
+                  <div className="flex flex-col"><span>Ingest file</span><span className="text-[11px] text-muted-foreground">Server file path</span></div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="relative flex-1 min-w-0">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10 pointer-events-none" />
             <VoiceInput
-              wrapperClassName="w-56"
+              wrapperClassName="w-full"
               value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-              placeholder="Search media..."
-              className="h-9 w-56 pl-8"
+              onChange={e => {
+                setSearchInput(e.target.value);
+                if (!e.target.value.trim() && searchQuery) commitSearch("", searchScope, true);
+              }}
+              onKeyDown={e => {
+                if (e.key === "Enter") { e.preventDefault(); if (searchInput.trim().length >= MIN_QUERY) commitSearch(searchInput); }
+                if (e.key === "Escape" && searchInput) { setSearchInput(""); commitSearch(""); }
+              }}
+              placeholder='Search filenames, what was said, what is on screen, who appears. Enter to search'
+              aria-label="Search the library"
+              className="h-9 w-full pl-9 bg-card/60"
+              data-testid="input-library-search"
             />
           </div>
-          <select
-            value={sort}
-            onChange={e => { setSort(e.target.value); setPage(0); }}
-            className="h-9 px-3 py-1 rounded-md border border-input bg-background text-sm"
-          >
-            <option value="created_desc">Newest First</option>
-            <option value="created_asc">Oldest First</option>
-            <option value="name_asc">Name A–Z</option>
-            <option value="name_desc">Name Z–A</option>
-            <option value="duration_desc">Longest First</option>
-            <option value="duration_asc">Shortest First</option>
-            <option value="size_desc">Largest First</option>
-            <option value="size_asc">Smallest First</option>
-          </select>
-          <select 
-            value={statusFilter}
-            onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-            className="h-9 px-3 py-1 rounded-md border border-input bg-background text-sm"
-          >
-            <option value="">All Statuses</option>
-            <option value="ready">Ready</option>
-            <option value="processing">Processing</option>
-            <option value="pending">Pending</option>
-            <option value="error">Error</option>
-          </select>
-          <select
-            aria-label="Media type"
-            value={mediaType}
-            onChange={e => {
-              const value = e.target.value as typeof mediaType;
-              setMediaType(value); setPage(0); setSelected(new Set());
-              saveLibraryPreference("library-media-type", value);
-            }}
-            className="h-9 px-3 py-1 rounded-md border border-input bg-background text-sm"
-          >
-            <option value="all">All media</option>
-            <option value="hide_images">Hide images</option>
-            <option value="images">Images only</option>
-          </select>
-          {view === "grid" && (
-            <select
-              aria-label="Card size"
-              value={cardSize}
-              onChange={e => {
-                const value = e.target.value as typeof cardSize;
-                setCardSize(value); saveLibraryPreference("library-card-size", value);
-              }}
-              className="h-9 px-3 py-1 rounded-md border border-input bg-background text-sm"
-            >
-              <option value="small">Small cards</option>
-              <option value="medium">Medium cards</option>
-              <option value="large">Large cards</option>
-            </select>
+          {(searchInput || searchQuery) && (
+            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Clear search" title="Clear search and return to browsing"
+              data-testid="button-clear-search" onClick={() => { setSearchInput(""); commitSearch(""); }}>
+              <X className="h-4 w-4" />
+            </Button>
           )}
+          <Button size="sm" className="h-9 shrink-0" data-testid="button-run-search"
+            disabled={searchInput.trim().length < MIN_QUERY || (!draftDiffers && librarySearch.loading)}
+            onClick={() => (draftDiffers ? commitSearch(searchInput) : librarySearch.retry())}
+            title={draftDiffers ? "Run this search" : "Search again"}>
+            {librarySearch.loading && !draftDiffers ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+          </Button>
+          {searching && <SaveSearchButton query={searchQuery} scope={searchScope} />}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 gap-2 shrink-0 bg-card/60 border-border hover:border-muted-foreground/40" data-testid="button-library-filters" aria-label="Sort and filter">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span className="hidden @2xl:inline">Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] leading-4 tabular-nums">{activeFilterCount}</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-3 space-y-3">
+              <label className="block space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Search in</span>
+                <select
+                  aria-label="Search scope"
+                  data-testid="select-search-scope"
+                  value={searchScope}
+                  onChange={e => commitSearch(searchQuery || searchInput, parseScope(e.target.value), true)}
+                  className="h-8 w-full px-2 rounded-md border border-input bg-background text-sm"
+                >
+                  {SEARCH_SCOPES.map(s => <option key={s.value} value={s.value}>{s.label}: {s.hint}</option>)}
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Sort{searching ? " (browsing only; search is ranked)" : ""}</span>
+                <select
+                  aria-label="Sort"
+                  data-testid="select-sort"
+                  value={sort}
+                  onChange={e => { setSort(e.target.value); setPage(0); }}
+                  className="h-8 w-full px-2 rounded-md border border-input bg-background text-sm"
+                >
+                  <option value="created_desc">Newest first</option>
+                  <option value="created_asc">Oldest first</option>
+                  <option value="name_asc">Name A–Z</option>
+                  <option value="name_desc">Name Z–A</option>
+                  <option value="duration_desc">Longest first</option>
+                  <option value="duration_asc">Shortest first</option>
+                  <option value="size_desc">Largest first</option>
+                  <option value="size_asc">Smallest first</option>
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Status</span>
+                <select
+                  aria-label="Status"
+                  data-testid="select-status"
+                  value={statusFilter}
+                  onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
+                  className="h-8 w-full px-2 rounded-md border border-input bg-background text-sm"
+                >
+                  <option value="">All statuses</option>
+                  <option value="ready">Ready</option>
+                  <option value="processing">Processing</option>
+                  <option value="pending">Pending</option>
+                  <option value="error">Error</option>
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Media type</span>
+                <select
+                  aria-label="Media type"
+                  data-testid="select-media-type"
+                  value={mediaType}
+                  onChange={e => {
+                    const value = e.target.value as typeof mediaType;
+                    setMediaType(value); setPage(0); setSelected(new Set());
+                    saveLibraryPreference("library-media-type", value);
+                  }}
+                  className="h-8 w-full px-2 rounded-md border border-input bg-background text-sm"
+                >
+                  <option value="all">All media</option>
+                  <option value="hide_images">Hide images</option>
+                  <option value="images">Images only</option>
+                </select>
+              </label>
+              {activeFilterCount > 0 && (
+                <Button
+                  variant="ghost" size="sm" className="w-full h-8 text-muted-foreground"
+                  data-testid="button-reset-filters"
+                  onClick={() => {
+                    setSort("created_desc"); setStatusFilter(""); setMediaType("all"); setPage(0);
+                    saveLibraryPreference("library-media-type", "all");
+                  }}
+                >
+                  Reset
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 gap-2 shrink-0 bg-card/60 border-border hover:border-muted-foreground/40" data-testid="button-library-view" aria-label="View options">
+                {view === "grid" ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                <span className="hidden @2xl:inline">View</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56 p-3 space-y-3">
+              <div className="space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Layout</span>
+                <div className="grid grid-cols-2 rounded-md border border-input overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setViewPersist("grid")}
+                    data-testid="button-view-grid"
+                    aria-pressed={view === "grid"}
+                    className={`h-8 flex items-center justify-center gap-1.5 text-sm ${view === "grid" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Grid view"
+                  >
+                    <LayoutGrid className="h-4 w-4" /> Grid
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewPersist("list")}
+                    data-testid="button-view-list"
+                    aria-pressed={view === "list"}
+                    className={`h-8 flex items-center justify-center gap-1.5 text-sm border-l border-input ${view === "list" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    title="List view"
+                  >
+                    <List className="h-4 w-4" /> List
+                  </button>
+                </div>
+              </div>
+              {view === "grid" && (
+                <div className="space-y-1">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Card size</span>
+                  <div className="grid grid-cols-3 rounded-md border border-input overflow-hidden" role="group" aria-label="Card size">
+                    {(["small", "medium", "large"] as const).map((sz, i) => (
+                      <button
+                        key={sz}
+                        type="button"
+                        data-testid={`button-card-size-${sz}`}
+                        aria-pressed={cardSize === sz}
+                        onClick={() => { setCardSize(sz); saveLibraryPreference("library-card-size", sz); }}
+                        className={`h-8 text-xs capitalize ${i ? "border-l border-input" : ""} ${cardSize === sz ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {sz === "small" ? "S" : sz === "medium" ? "M" : "L"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
           <Button
             type="button"
             variant="outline"
-            className="gap-2"
-            disabled={!data?.items.length}
-            onClick={() => setSelected(new Set(data?.items.map(asset => asset.id) ?? []))}
+            size="sm"
+            className="h-9 gap-2 shrink-0 bg-card/60 border-border hover:border-muted-foreground/40"
+            disabled={searching ? !searchAssetIds.length : !data?.items.length}
+            data-testid="button-select-page"
+            aria-label={searching ? `Select results (${searchAssetIds.length})` : `Select page (${data?.items.length ?? 0})`}
+            title={searching ? `Select all ${searchAssetIds.length} matching assets` : `Select all ${data?.items.length ?? 0} on this page`}
+            onClick={() => setSelected(new Set(searching ? searchAssetIds : data?.items.map(asset => asset.id) ?? []))}
           >
             <CheckSquare className="h-4 w-4" />
-            Select page ({data?.items.length ?? 0})
+            <span className="hidden @3xl:inline">{searching ? `Select results (${searchAssetIds.length})` : `Select page (${data?.items.length ?? 0})`}</span>
           </Button>
-          <div className="flex rounded-md border border-input overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setViewPersist("grid")}
-              className={`h-9 px-2.5 flex items-center ${view === "grid" ? "bg-secondary text-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}
-              title="Grid view"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewPersist("list")}
-              className={`h-9 px-2.5 flex items-center border-l border-input ${view === "list" ? "bg-secondary text-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}
-              title="List view"
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
           <Dialog open={uploadOpen} onOpenChange={(open) => { setUploadOpen(open); if (!open) resetUpload(); }}>
-            <DialogTrigger asChild>
-              <Button variant="secondary" className="gap-2">
-                <Upload className="h-4 w-4" />
-                Upload File
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Upload Media</DialogTitle>
@@ -1146,12 +1351,6 @@ export default function Library() {
             </DialogContent>
           </Dialog>
           <Dialog open={linkOpen} onOpenChange={(open) => { setLinkOpen(open); if (!open) { setLinkUrl(""); setLinkTitle(""); setLinkError(null); } }}>
-            <DialogTrigger asChild>
-              <Button variant="secondary" className="gap-2">
-                <Link2 className="h-4 w-4" />
-                Import Link
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Import from Link</DialogTitle>
@@ -1185,12 +1384,6 @@ export default function Library() {
             </DialogContent>
           </Dialog>
           <Dialog open={ingestOpen} onOpenChange={setIngestOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Ingest File
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Ingest Media</DialogTitle>
@@ -1388,6 +1581,39 @@ export default function Library() {
         </div>
       )}
 
+      <div className="mb-4">
+        <SearchShelf showHistory={!searching} onRun={(q, sc) => { setSearchInput(q); commitSearch(q, sc); }} onPlay={setPlayerClip} />
+      </div>
+      {searching ? (
+        <>
+          {draftDiffers && searchInput.trim() && (
+            <p className="text-xs text-muted-foreground mb-2" data-testid="text-draft-pending">
+              Showing results for &ldquo;{searchQuery}&rdquo;. Press Enter to search &ldquo;{searchInput.trim()}&rdquo;.
+            </p>
+          )}
+          <LibrarySearchResults
+            data={librarySearch.data}
+            loading={librarySearch.loading}
+            error={librarySearch.error}
+            onRetry={librarySearch.retry}
+            view={view}
+            gridClass={gridClass}
+            selectedAssets={selected}
+            onToggleAsset={toggleSelected}
+            selectedMoments={selectedMoments}
+            onToggleMoment={toggleMoment}
+            onPlay={r => setPlayerClip({ media_id: r.media_id, start_time: r.start_time, end_time: r.end_time, label: r.snippet || undefined, filename: r.filename })}
+            onClearSearch={() => { setSearchInput(""); commitSearch(""); }}
+          />
+          <SearchSelectionBar
+            assetIds={Array.from(selected)}
+            moments={Object.values(selectedMoments)}
+            defaultProjectName={searchQuery}
+            onClear={() => { setSelected(new Set()); setSelectedMoments({}); }}
+          />
+        </>
+      ) : (
+      <>
       {isFetching && (
         <p role="status" className="text-sm text-muted-foreground mb-3">
           {isLoading ? "Loading media…" : "Updating media…"}
@@ -1522,7 +1748,7 @@ export default function Library() {
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
           <Upload className="h-12 w-12 mb-4 opacity-50" />
-          <p>{search || statusFilter || personFilter || topicFilter || mediaType !== "all" ? "No media matches your filters." : "No media assets found."}</p>
+          <p>{statusFilter || personFilter || topicFilter || mediaType !== "all" ? "No media matches your filters." : "No media assets found."}</p>
         </div>
       )}
 
@@ -1542,6 +1768,9 @@ export default function Library() {
           </div>
         </div>
       )}
+      </>
+      )}
+      <ClipPlayerDialog clip={playerClip} onClose={() => setPlayerClip(null)} />
       </div>
 
       {marquee && (
@@ -1574,6 +1803,17 @@ export default function Library() {
           </form>
         </DialogContent>
       </Dialog>
+    {askOpen && (
+        <ArchiveChatDock onClose={() => setAskOpen(false)}>
+          <ArchiveChatPanel
+            conversationId={askConversation}
+            onConversationChange={setAskConversation}
+            onClose={() => setAskOpen(false)}
+            initialQuestion={askHandoff}
+            onInitialQuestionConsumed={() => updateAskParams(p => { p.delete("q"); p.delete("conv"); })}
+          />
+        </ArchiveChatDock>
+      )}
     </div>
   );
 }

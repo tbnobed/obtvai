@@ -1746,6 +1746,32 @@ export interface RatingUpdate {
   asset_id?: string | null;
 }
 
+/**
+ * transcript | visual | filename | person | combined
+ */
+export type SearchQuerySearchType = typeof SearchQuerySearchType[keyof typeof SearchQuerySearchType];
+
+
+export const SearchQuerySearchType = {
+  combined: 'combined',
+  transcript: 'transcript',
+  visual: 'visual',
+  filename: 'filename',
+  person: 'person',
+} as const;
+
+/**
+ * @nullable
+ */
+export type SearchQueryMediaType = typeof SearchQueryMediaType[keyof typeof SearchQueryMediaType] | null;
+
+
+export const SearchQueryMediaType = {
+  all: 'all',
+  hide_images: 'hide_images',
+  images: 'images',
+} as const;
+
 export interface SearchQuery {
   query: string;
   /**
@@ -1758,9 +1784,28 @@ export interface SearchQuery {
      * @nullable
      */
   media_ids?: string[] | null;
-  /** transcript | visual | combined */
-  search_type?: string;
+  /** transcript | visual | filename | person | combined */
+  search_type?: SearchQuerySearchType;
   limit?: number;
+  /** @nullable */
+  media_type?: SearchQueryMediaType;
+  /** @nullable */
+  status?: string | null;
+  /**
+     * Folder ID, or root for unfiled assets (folder_id IS NULL)
+     * @nullable
+     */
+  folder?: string | null;
+  /**
+     * Person ID whose appearances are associated with the asset
+     * @nullable
+     */
+  person?: string | null;
+  /**
+     * Topic normalized using the same rules as GET /media
+     * @nullable
+     */
+  topic?: string | null;
 }
 
 export interface SearchResult {
@@ -1771,7 +1816,7 @@ export interface SearchResult {
   start_time: number;
   end_time: number;
   score: number;
-  /** transcript | visual */
+  /** transcript | visual | person | filename */
   match_type: string;
   /**
      * Matching transcript text

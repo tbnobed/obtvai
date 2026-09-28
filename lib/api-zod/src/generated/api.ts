@@ -3550,8 +3550,13 @@ export const SemanticSearchBody = zod.object({
   "query": zod.string(),
   "media_id": zod.string().nullish().describe('Restrict search to a specific asset'),
   "media_ids": zod.array(zod.string()).nullish().describe('Restrict search to a set of assets (e.g. a project\'s media pool)'),
-  "search_type": zod.string().default(semanticSearchBodySearchTypeDefault).describe('transcript | visual | combined'),
-  "limit": zod.number().default(semanticSearchBodyLimitDefault)
+  "search_type": zod.enum(['combined', 'transcript', 'visual', 'filename', 'person']).default(semanticSearchBodySearchTypeDefault).describe('transcript | visual | filename | person | combined'),
+  "limit": zod.number().default(semanticSearchBodyLimitDefault),
+  "media_type": zod.union([zod.literal('all'),zod.literal('hide_images'),zod.literal('images'),zod.literal(null)]).nullish(),
+  "status": zod.string().nullish(),
+  "folder": zod.string().nullish().describe('Folder ID, or root for unfiled assets (folder_id IS NULL)'),
+  "person": zod.string().nullish().describe('Person ID whose appearances are associated with the asset'),
+  "topic": zod.string().nullish().describe('Topic normalized using the same rules as GET \/media')
 })
 
 export const SemanticSearchResponse = zod.object({
@@ -3562,7 +3567,7 @@ export const SemanticSearchResponse = zod.object({
   "start_time": zod.number(),
   "end_time": zod.number(),
   "score": zod.number(),
-  "match_type": zod.string().describe('transcript | visual'),
+  "match_type": zod.string().describe('transcript | visual | person | filename'),
   "snippet": zod.string().nullish().describe('Matching transcript text')
 })),
   "query": zod.string(),
@@ -3610,7 +3615,7 @@ export const FindSimilarMomentsResponse = zod.object({
   "start_time": zod.number(),
   "end_time": zod.number(),
   "score": zod.number(),
-  "match_type": zod.string().describe('transcript | visual'),
+  "match_type": zod.string().describe('transcript | visual | person | filename'),
   "snippet": zod.string().nullish().describe('Matching transcript text')
 })),
   "query": zod.string(),
@@ -5723,7 +5728,7 @@ export const ScriptMatchResponse = zod.object({
   "start_time": zod.number(),
   "end_time": zod.number(),
   "score": zod.number(),
-  "match_type": zod.string().describe('transcript | visual'),
+  "match_type": zod.string().describe('transcript | visual | person | filename'),
   "snippet": zod.string().nullish().describe('Matching transcript text')
 }))
 })),

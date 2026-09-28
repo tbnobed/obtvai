@@ -5,6 +5,8 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SearchQueryMediaType } from './searchQueryMediaType';
+import type { SearchQuerySearchType } from './searchQuerySearchType';
 
 export interface SearchQuery {
   query: string;
@@ -18,7 +20,26 @@ export interface SearchQuery {
      * @nullable
      */
   media_ids?: string[] | null;
-  /** transcript | visual | combined */
-  search_type?: string;
+  /** transcript | visual | filename | person | combined */
+  search_type?: SearchQuerySearchType;
   limit?: number;
+  /** @nullable */
+  media_type?: SearchQueryMediaType;
+  /** @nullable */
+  status?: string | null;
+  /**
+     * Folder ID, or root for unfiled assets (folder_id IS NULL)
+     * @nullable
+     */
+  folder?: string | null;
+  /**
+     * Person ID whose appearances are associated with the asset
+     * @nullable
+     */
+  person?: string | null;
+  /**
+     * Topic normalized using the same rules as GET /media
+     * @nullable
+     */
+  topic?: string | null;
 }

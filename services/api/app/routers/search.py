@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func as sa_func
+from sqlalchemy import select, desc, func as sa_func, text, literal, or_
 from ..database import get_db
 from ..models import MediaAsset, TranscriptSegment, Scene, SearchHistory, Person, PersonAppearance, SavedSearch
 from ..schemas import (
@@ -75,10 +75,49 @@ def _is_black_thumbnail(thumbnail_url: str | None) -> bool:
         return False
 
 
+def _search_asset_scope(body: SearchQuery):
+    """SQL scope shared by all branches; never pass an empty ID set to Qdrant."""
+    clauses = []
+    if body.media_id is not None:
+        clauses.append(MediaAsset.id == body.media_id)
+    if body.media_ids is not None:
+        clauses.append(MediaAsset.id.in_(body.media_ids))
+    if body.status:
+        clauses.append(MediaAsset.status == body.status)
+    if body.folder == "root":
+        clauses.append(MediaAsset.folder_id.is_(None))
+    elif body.folder:
+        clauses.append(MediaAsset.folder_id == body.folder)
+    if body.person:
+        clauses.append(MediaAsset.id.in_(
+            select(PersonAppearance.media_id).where(PersonAppearance.person_id == body.person)
+        ))
+    if body.topic and body.topic.strip():
+        from ..topic_norm import normalize_topic_key
+        clauses.append(text(
+            "EXISTS (SELECT 1 FROM jsonb_array_elements_text(media_assets.topics) AS t(v) "
+            "WHERE trim(regexp_replace(regexp_replace(lower(t.v), '[_-]+', ' ', 'g'), "
+            "'\\s+', ' ', 'g')) = :topic_key)"
+        ).bindparams(topic_key=normalize_topic_key(body.topic)))
+    if body.media_type in ("images", "hide_images"):
+        from ..media_filter import image_asset_condition
+        from ..catalog_models import CatalogAsset
+        image = image_asset_condition(MediaAsset, CatalogAsset)
+        clauses.append(image if body.media_type == "images" else ~image)
+    return clauses
+
+
+def _literal_needle(value: str) -> str:
+    """Escape LIKE metacharacters: search terms are literal substrings."""
+    return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
 @router.post("", response_model=SearchResponse)
 async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db)):
     t0 = time.time()
     results: list[SearchResultOut] = []
+    scope = _search_asset_scope(body)
+    limit = max(1, min(body.limit, 500))
 
     # Quoted queries ("israeli flag") mean the exact phrase: transcript
     # matching becomes a literal substring search, and the visual query is
@@ -87,6 +126,9 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
     exact_phrase = phrase_m.group(1) if phrase_m else None
     query_text = exact_phrase or body.query
 
+    if body.media_ids == []:
+        return await _finish_search(body, db, results, t0, limit)
+
     # Person-identity search: CLIP/SigLIP embeds the query as generic visual
     # concepts — it has no idea who a specific named person is. Identities live
     # in the People system, so when the query names a known person, surface
@@ -94,8 +136,11 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
     # model to guess from pixels.
     person_media_ids: set[str] = set()
     q_norm = query_text.strip().lower()
-    if q_norm:
-        people_q = await db.execute(select(Person))
+    if q_norm and body.search_type in ("person", "combined"):
+        people_q = await db.execute(select(Person).where(or_(
+            sa_func.lower(Person.display_name) == q_norm,
+            literal(q_norm).contains(sa_func.lower(Person.display_name)),
+        )).limit(limit))
         matched = [
             p for p in people_q.scalars().all()
             if p.display_name and (
@@ -106,13 +151,10 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
             app_q = await db.execute(
                 select(PersonAppearance, MediaAsset)
                 .join(MediaAsset, PersonAppearance.media_id == MediaAsset.id)
-                .where(PersonAppearance.person_id == person.id)
+                .where(PersonAppearance.person_id == person.id, *scope)
+                .limit(limit)
             )
             for appearance, asset in app_q.all():
-                if body.media_id and asset.id != body.media_id:
-                    continue
-                if body.media_ids and asset.id not in body.media_ids:
-                    continue
                 if asset.id in person_media_ids:
                     continue
                 person_media_ids.add(asset.id)
@@ -144,37 +186,56 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                     snippet=snippet,
                 ))
 
+    if body.search_type in ("filename", "combined") and query_text.strip():
+        needle = _literal_needle(query_text.strip())
+        cond = MediaAsset.filename.ilike(needle, escape="\\") | MediaAsset.original_path.ilike(needle, escape="\\")
+        assets = (await db.execute(
+            select(MediaAsset).where(*scope, cond)
+            .order_by(MediaAsset.filename).limit(limit)
+        )).scalars().all()
+        for asset in assets:
+            results.append(SearchResultOut(
+                media_id=asset.id, filename=asset.filename,
+                thumbnail_url=asset.thumbnail_url, start_time=0.0,
+                end_time=0.0, score=0.95, match_type="filename",
+                snippet=(asset.original_path if asset.original_path
+                         and query_text.strip().lower() not in asset.filename.lower()
+                         and query_text.strip().lower() in asset.original_path.lower()
+                         else asset.filename),
+            ))
+
+    if body.search_type in ("filename", "person"):
+        return await _finish_search(body, db, results, t0, limit)
+
+    # Exact transcript matches are SQL-only; embedding outages cannot suppress
+    # them. They retain the same scope as vector hydration and fallback.
+    if exact_phrase and body.search_type in ("transcript", "combined"):
+        q = select(TranscriptSegment, MediaAsset).join(
+            MediaAsset, TranscriptSegment.media_id == MediaAsset.id
+        ).where(TranscriptSegment.text.ilike(_literal_needle(exact_phrase), escape="\\"), *scope)
+        q = q.order_by(MediaAsset.filename, TranscriptSegment.start_time).limit(limit)
+        for seg, asset in (await db.execute(q)).all():
+            results.append(SearchResultOut(
+                media_id=asset.id,
+                filename=asset.filename,
+                thumbnail_url=asset.thumbnail_url,
+                start_time=seg.start_time,
+                end_time=seg.end_time,
+                score=1.0,
+                match_type="transcript",
+                snippet=seg.text,
+            ))
+
     try:
         from ..services.embedding import get_text_embedding, get_clip_text_embedding
         from ..services.qdrant_client import search_vectors
 
-        query_embedding = await get_text_embedding(query_text)
-
-        if exact_phrase and body.search_type in ("transcript", "combined"):
-            q = select(TranscriptSegment, MediaAsset).join(
-                MediaAsset, TranscriptSegment.media_id == MediaAsset.id
-            ).where(TranscriptSegment.text.ilike(f"%{exact_phrase}%"))
-            if body.media_id:
-                q = q.where(TranscriptSegment.media_id == body.media_id)
-            elif body.media_ids:
-                q = q.where(TranscriptSegment.media_id.in_(body.media_ids))
-            q = q.order_by(MediaAsset.filename, TranscriptSegment.start_time).limit(body.limit)
-            for seg, asset in (await db.execute(q)).all():
-                results.append(SearchResultOut(
-                    media_id=asset.id,
-                    filename=asset.filename,
-                    thumbnail_url=asset.thumbnail_url,
-                    start_time=seg.start_time,
-                    end_time=seg.end_time,
-                    score=1.0,
-                    match_type="transcript",
-                    snippet=seg.text,
-                ))
-        elif body.search_type in ("transcript", "combined"):
+        if not exact_phrase and body.search_type in ("transcript", "combined"):
+            query_embedding = await get_text_embedding(query_text)
             transcript_hits = await search_vectors(
                 collection="transcripts",
                 vector=query_embedding,
-                limit=body.limit,
+                limit=limit,
                 media_id=body.media_id,
                 media_ids=body.media_ids,
             )
@@ -183,7 +244,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                 seg_q = await db.execute(
                     select(TranscriptSegment, MediaAsset)
                     .join(MediaAsset, TranscriptSegment.media_id == MediaAsset.id)
-                    .where(TranscriptSegment.id == seg_id)
+                    .where(TranscriptSegment.id == seg_id, *scope)
                 )
                 row = seg_q.first()
                 if row:
@@ -214,7 +275,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                 f"a photo of a person with a {query_text}",
                 f"a scene showing {query_text}",
             ]
-            fetch_limit = min(max(body.limit * 5, 50), 1000)
+            fetch_limit = min(max(limit * 5, 50), 1000)
             # Fetch well past the requested limit: broadcast footage is full of
             # near-duplicate scenes (e.g. 20 shots of the same flags), and a
             # shallow fetch lets one asset crowd every other match out of the
@@ -244,7 +305,7 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                 rows_bulk = (await db.execute(
                     select(Scene, MediaAsset)
                     .join(MediaAsset, Scene.media_id == MediaAsset.id)
-                    .where(Scene.id.in_(scene_ids))
+                    .where(Scene.id.in_(scene_ids), *scope)
                 )).all()
                 scenes_by_id = {sc.id: (sc, ma) for sc, ma in rows_bulk}
             visual_candidates: list[tuple[float, SearchResultOut]] = []
@@ -294,16 +355,16 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
                     overflow.append((s, r))
             confident = [r for s, r in capped if s >= _MIN_VISUAL_SCORE]
             if confident:
-                if len(confident) < body.limit:
+                if len(confident) < limit:
                     confident.extend(
                         r for s, r in overflow if s >= _MIN_VISUAL_SCORE
                     )
-                results.extend(confident[: body.limit])
+                results.extend(confident[: limit])
             elif (body.search_type == "visual" or body.media_id) and visual_candidates:
                 # Explicit visual search: best-effort weak matches beat a
                 # hard "0 results" (small objects score below the main bar).
                 visual_candidates.sort(key=lambda t: t[0], reverse=True)
-                results.extend(r for _, r in visual_candidates[:_RELAXED_VISUAL_LIMIT])
+                results.extend(r for _, r in visual_candidates[:min(limit, _RELAXED_VISUAL_LIMIT)])
 
     except Exception:
         import logging
@@ -311,23 +372,30 @@ async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db))
             "Vector search failed for query %r — falling back to text search", body.query
         )
 
-    if not results:
-        results = await _fallback_text_search(body, db)
+    if not any(r.match_type in ("transcript", "visual") for r in results) and body.search_type in ("transcript", "combined"):
+        results.extend(await _fallback_text_search(body, db))
 
+    return await _finish_search(body, db, results, t0, limit)
+
+
+async def _finish_search(body, db, results, t0, limit):
     results.sort(key=lambda r: r.score, reverse=True)
     if body.search_type == "combined":
         # Guarantee visual representation: even after rescaling, a wall of
         # transcript hits must not push every visual match past the cut.
         visual = [r for r in results if r.match_type == "visual"]
-        transcript_r = [r for r in results if r.match_type != "visual"]
-        reserve = min(len(visual), body.limit, max(3, body.limit // 4))
-        kept = transcript_r[: max(0, body.limit - reserve)] + visual[:reserve]
+        filename = [r for r in results if r.match_type == "filename"]
+        others = [r for r in results if r.match_type not in ("visual", "filename")]
+        reserve = min(len(visual), limit, max(3, limit // 4))
+        filename_reserve = min(len(filename), max(0, limit - reserve), max(1, limit // 4))
+        kept = (others[:max(0, limit - reserve - filename_reserve)]
+                + visual[:reserve] + filename[:filename_reserve])
         # Anything left competes for remaining slots on score alone.
         leftover = [r for r in results if r not in kept]
-        kept += leftover[: body.limit - len(kept)]
+        kept += leftover[: limit - len(kept)]
         results = sorted(kept, key=lambda r: r.score, reverse=True)
     else:
-        results = results[: body.limit]
+        results = results[: limit]
 
     hist = SearchHistory(
         id=str(uuid.uuid4()),
@@ -416,16 +484,14 @@ async def reindex_library(db: AsyncSession = Depends(get_db)):
 
 
 async def _fallback_text_search(body: SearchQuery, db: AsyncSession) -> list[SearchResultOut]:
+    phrase_m = re.match(r'^\s*["“\']\s*(.+?)\s*["”\']\s*$', body.query or "")
+    query_text = phrase_m.group(1) if phrase_m else body.query
     q = select(TranscriptSegment, MediaAsset).join(
         MediaAsset, TranscriptSegment.media_id == MediaAsset.id
     ).where(
-        TranscriptSegment.text.ilike(f"%{body.query}%")
+        TranscriptSegment.text.ilike(_literal_needle(query_text), escape="\\"), *_search_asset_scope(body)
     )
-    if body.media_id:
-        q = q.where(TranscriptSegment.media_id == body.media_id)
-    elif body.media_ids:
-        q = q.where(TranscriptSegment.media_id.in_(body.media_ids))
-    q = q.limit(body.limit)
+    q = q.limit(max(1, min(body.limit, 500)))
     rows = (await db.execute(q)).all()
     return [
         SearchResultOut(

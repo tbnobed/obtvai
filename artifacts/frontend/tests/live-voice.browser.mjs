@@ -8,11 +8,11 @@ const b = await browser();
 const start = "[data-testid=voice-start]";
 const stop = "[data-testid=voice-stop]";
 const cancel = "[data-testid=voice-cancel]";
-const input = "[data-testid=input-search]";
+const input = "[data-testid=input-library-search]";
 const value = () => b.evaluate(`document.querySelector('${input}').value`);
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 try {
-  await b.open("/search");
+  await b.open("/library");
   assert.equal(await b.evaluate(`fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'obtv'})}).then(r=>r.status)`), 200);
   await b.send("Page.addScriptToEvaluateOnNewDocument", { source: `
     window.voiceQA={calls:[],active:0,maxActive:0,stopped:0,mode:'ok',partial:'Hello',final:'Hello world.',sends:0};
@@ -38,7 +38,7 @@ try {
       return destination.stream;
     }}});
   ` });
-  await b.open("/search");
+  await b.open("/library");
   await b.wait(`!!document.querySelector('${start}')`);
   // Existing controlled text is retained; interim and final REPLACE one region.
   await b.evaluate(`(()=>{const i=document.querySelector('${input}');i.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'Find: ');i.dispatchEvent(new Event('input',{bubbles:true}));i.setSelectionRange(6,6)})()`);
@@ -123,8 +123,8 @@ try {
   await b.click(start);
   await b.wait("!!voiceQA.grant");
   const beforeUnmount = await b.evaluate("voiceQA.stopped");
-  await b.evaluate("document.querySelector('a[href=\"/ai\"]').click()");
-  await b.wait("location.pathname==='/ai'");
+  await b.evaluate("document.querySelector('nav a[href=\"/\"]').click()");
+  await b.wait("location.pathname==='/'");
   await b.evaluate("voiceQA.grant()");
   await b.wait(`voiceQA.stopped>${beforeUnmount}`);
   console.log("PASS navigation cleans up late microphone permission");

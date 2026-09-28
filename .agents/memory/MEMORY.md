@@ -50,3 +50,4 @@
 - [Catalog failure pauses](catalog-failure-latches.md) — systemic errors latch across observers; isolated failures retry within budget, and recovered jobs reconcile before retry.
 - [Archive memory safety](archive-memory-safety.md) — invalidation must observe raw SQL workers; optional cache errors must not abort valid answers or conversation writes.
 - [Remote ingestion workers](remote-ingest-workers.md) — preserve real CIFS mounts through encrypted relays; worker-image GPU checks require python3, not python.
+- [Archive search cost](archive-search-cost.md) — explicit search submission avoids GPU embedding work on every draft edit; committed queries may rerun when filters change.

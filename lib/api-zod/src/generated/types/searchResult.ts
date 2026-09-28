@@ -14,7 +14,7 @@ export interface SearchResult {
   start_time: number;
   end_time: number;
   score: number;
-  /** transcript | visual */
+  /** transcript | visual | person | filename */
   match_type: string;
   /**
      * Matching transcript text

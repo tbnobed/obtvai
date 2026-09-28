@@ -228,6 +228,8 @@ export * from './scriptMatchRequest';
 export * from './scriptMatchResponse';
 export * from './searchHistoryItem';
 export * from './searchQuery';
+export * from './searchQueryMediaType';
+export * from './searchQuerySearchType';
 export * from './searchResponse';
 export * from './searchResult';
 export * from './sentimentAsset';

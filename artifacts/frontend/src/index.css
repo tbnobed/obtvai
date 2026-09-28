@@ -183,3 +183,13 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Media Library scroller: keep wheel/touch/keyboard scrolling, hide the bar. */
+.library-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior: contain;
+}
+.library-scroll::-webkit-scrollbar {
+  display: none;
+}
