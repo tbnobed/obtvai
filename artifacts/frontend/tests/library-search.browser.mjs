@@ -59,6 +59,7 @@ try {
 
   // Typing does not search; Enter commits once.
   await b.open("/library");
+  await b.wait(`!!document.querySelector('${input}')`);
   await b.evaluate("searchQA.bodies=[]");
   await type("hou"); await type("housing vote"); await sleep(900);
   assert.equal((await bodies()).length, 0, "no per-keystroke searches");

@@ -14,7 +14,7 @@ import { ArchiveChatPanel } from "@/components/ai/archive-chat-panel";
 import { ArchiveChatDock } from "@/components/ai/archive-chat-dock";
 import type { SearchResult } from "@workspace/api-client-react";
 import { useLibrarySearch } from "@/hooks/use-library-search";
-import { readLibrarySearch, withLibrarySearch, momentKey, SEARCH_SCOPES, MIN_QUERY, parseScope, type SearchScope } from "@/lib/library-search";
+import { readLibrarySearch, withLibrarySearch, momentKey, SEARCH_SCOPES, MIN_QUERY, type SearchScope } from "@/lib/library-search";
 import { LibrarySearchResults } from "@/components/library-search/search-results";
 import { SearchSelectionBar } from "@/components/library-search/search-selection-bar";
 import { SearchShelf, SaveSearchButton } from "@/components/library-search/search-shelf";
@@ -104,7 +104,7 @@ import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
   ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent,
 } from "@/components/ui/context-menu";
-import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Tag, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox, Download, HardDrive, Loader2, RefreshCw, Maximize2, Sparkles, SlidersHorizontal, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Film, Upload, Plus, Search, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Link2, Folder, FolderOpen, FolderPlus, FolderInput, Clapperboard, Pencil, Trash2, CheckSquare, Library as LibraryIcon, Inbox, Download, HardDrive, Loader2, RefreshCw, Maximize2, Sparkles, SlidersHorizontal, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -208,7 +208,20 @@ export default function Library() {
   const { query: searchQuery, scope: searchScope } = readLibrarySearch(searchString);
   const [searchInput, setSearchInput] = useState(searchQuery);
   useEffect(() => { setSearchInput(searchQuery); }, [searchQuery]);
-  const commitSearch = (query: string, scope: SearchScope = searchScope, replace = false) => {
+  const [draftScope, setDraftScope] = useState<SearchScope>(searchScope);
+  useEffect(() => { setDraftScope(searchScope); }, [searchScope]);
+  const pickScope = (scope: SearchScope) => {
+    setDraftScope(scope);
+    const q = searchQuery || (searchInput.trim().length >= MIN_QUERY ? searchInput.trim() : "");
+    if (q) commitSearch(q, scope, !!searchQuery);
+  };
+  const clearUrlParams = (...keys: string[]) => {
+    const next = new URLSearchParams(window.location.search);
+    keys.forEach(k => next.delete(k));
+    const qs = next.toString();
+    navigate(`/library${qs ? `?${qs}` : ""}`);
+  };
+  const commitSearch = (query: string, scope: SearchScope = draftScope, replace = false) => {
     const qs = withLibrarySearch(window.location.search, query, scope);
     const url = `/library${qs ? `?${qs}` : ""}`;
     if (url !== window.location.pathname + window.location.search) navigate(url, { replace });
@@ -242,7 +255,7 @@ export default function Library() {
   });
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const activeFilterCount = (sort !== "created_desc" ? 1 : 0) + (statusFilter ? 1 : 0) + (mediaType !== "all" ? 1 : 0);
+  const activeFilterCount = (sort !== "created_desc" && !searching ? 1 : 0) + (statusFilter ? 1 : 0) + (mediaType !== "all" ? 1 : 0);
 
   const setViewPersist = (v: "grid" | "list") => {
     setView(v);
@@ -967,14 +980,6 @@ export default function Library() {
     });
   };
 
-  const clearFilterParam = (param: "person" | "topic") => {
-    const next = new URLSearchParams(searchString);
-    next.delete(param);
-    next.delete(param === "person" ? "person_name" : "topic_label");
-    const qs = next.toString();
-    navigate(`/library${qs ? `?${qs}` : ""}`);
-  };
-
   const formatSize = (bytes: number) => {
     if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
     if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
@@ -1141,20 +1146,10 @@ export default function Library() {
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-64 p-3 space-y-3">
-              <label className="block space-y-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Search in</span>
-                <select
-                  aria-label="Search scope"
-                  data-testid="select-search-scope"
-                  value={searchScope}
-                  onChange={e => commitSearch(searchQuery || searchInput, parseScope(e.target.value), true)}
-                  className="h-8 w-full px-2 rounded-md border border-input bg-background text-sm"
-                >
-                  {SEARCH_SCOPES.map(s => <option key={s.value} value={s.value}>{s.label}: {s.hint}</option>)}
-                </select>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Sort{searching ? " (browsing only; search is ranked)" : ""}</span>
+              {searching ? (
+                <p className="text-[11px] text-muted-foreground" data-testid="text-search-ranked">Search results are ranked by relevance. Sorting returns when you clear the search.</p>
+              ) : <label className="block space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Sort</span>
                 <select
                   aria-label="Sort"
                   data-testid="select-sort"
@@ -1171,7 +1166,7 @@ export default function Library() {
                   <option value="size_desc">Largest first</option>
                   <option value="size_asc">Smallest first</option>
                 </select>
-              </label>
+              </label>}
               <label className="block space-y-1">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Status</span>
                 <select
@@ -1547,42 +1542,46 @@ export default function Library() {
         </DialogContent>
       </Dialog>
 
-      {(personFilter || topicFilter) && (
-        <div className="flex items-center gap-2 mb-6 -mt-4 flex-wrap">
-          <span className="text-xs text-muted-foreground">Showing footage for:</span>
-          {personFilter && (
-            <Badge variant="secondary" className="gap-1.5 pr-1">
-              <User className="h-3 w-3" />
-              {personName || personFilter}
-              <button
-                type="button"
-                className="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5"
-                onClick={() => clearFilterParam("person")}
-                title="Clear person filter"
-              >
-                <X className="h-3 w-3" />
+      <div className="mb-3 -mt-3 flex flex-col gap-2 min-w-0">
+        <div role="radiogroup" aria-label="Search in" data-testid="search-scope-tabs"
+          className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0 -mx-1 px-1 py-0.5">
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground mr-1 shrink-0">Search in</span>
+          {SEARCH_SCOPES.map(sc => {
+            const on = draftScope === sc.value;
+            return (
+              <button key={sc.value} type="button" role="radio" aria-checked={on} title={sc.hint}
+                data-testid={`scope-tab-${sc.value}`} onClick={() => pickScope(sc.value)}
+                className={`h-7 px-2.5 rounded-full text-xs shrink-0 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50"}`}>
+                {sc.label}
               </button>
-            </Badge>
-          )}
-          {topicFilter && (
-            <Badge variant="secondary" className="gap-1.5 pr-1">
-              <Tag className="h-3 w-3" />
-              {topicLabel}
-              <button
-                type="button"
-                className="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5"
-                onClick={() => clearFilterParam("topic")}
-                title="Clear topic filter"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
+            );
+          })}
         </div>
-      )}
-
+        {(statusFilter || mediaType !== "all" || folderFilter || personFilter || topicFilter) && (
+          <div className="flex items-center gap-1.5 flex-wrap text-xs" data-testid="active-filters">
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground mr-0.5">Filtered by</span>
+            {([
+              folderFilter && { k: "folder", label: `Folder: ${folderFilter === "root" ? "Unfiled" : (folders ?? []).find(f => f.id === folderFilter)?.name ?? "folder"}`, clear: () => setFolderFilter("") },
+              personFilter && { k: "person", label: `Person: ${personName || "selected"}`, clear: () => clearUrlParams("person", "person_name") },
+              topicFilter && { k: "topic", label: `Topic: ${topicLabel}`, clear: () => clearUrlParams("topic", "topic_label") },
+              statusFilter && { k: "status", label: `Status: ${statusFilter}`, clear: () => { setStatusFilter(""); setPage(0); } },
+              mediaType !== "all" && { k: "media", label: mediaType === "images" ? "Images only" : "Hide images", clear: () => { setMediaType("all"); saveLibraryPreference("library-media-type", "all"); setPage(0); } },
+            ].filter(Boolean) as { k: string; label: string; clear: () => void }[]).map(f => (
+              <span key={f.k} className="inline-flex items-center gap-1 h-6 pl-2 pr-1 rounded-full border border-primary/40 bg-primary/5 max-w-[16rem]" data-testid={`chip-filter-${f.k}`}>
+                <span className="truncate">{f.label}</span>
+                <button type="button" onClick={f.clear} aria-label={`Remove filter ${f.label}`} className="rounded-full p-0.5 hover:text-destructive"><X className="h-3 w-3" /></button>
+              </span>
+            ))}
+            <button type="button" data-testid="button-clear-all-filters" className="text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+              onClick={() => {
+                setStatusFilter(""); setMediaType("all"); saveLibraryPreference("library-media-type", "all"); setPage(0);
+                clearUrlParams("folder", "person", "person_name", "topic", "topic_label");
+              }}>Clear all</button>
+          </div>
+        )}
+      </div>
       <div className="mb-4">
-        <SearchShelf showHistory={!searching} onRun={(q, sc) => { setSearchInput(q); commitSearch(q, sc); }} onPlay={setPlayerClip} />
+        <SearchShelf onRun={(q, sc) => { setSearchInput(q); commitSearch(q, sc); }} onPlay={setPlayerClip} />
       </div>
       {searching ? (
         <>
@@ -1597,7 +1596,6 @@ export default function Library() {
             error={librarySearch.error}
             onRetry={librarySearch.retry}
             view={view}
-            gridClass={gridClass}
             selectedAssets={selected}
             onToggleAsset={toggleSelected}
             selectedMoments={selectedMoments}

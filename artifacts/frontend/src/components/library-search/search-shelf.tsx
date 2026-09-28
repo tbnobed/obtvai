@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useGetSearchHistory, getGetSearchHistoryQueryKey, useListSavedSearches, getListSavedSearchesQueryKey,
+  useListSavedSearches, getListSavedSearchesQueryKey,
   useCreateSavedSearch, useDeleteSavedSearch, useListEmotionFacets, getListEmotionFacetsQueryKey,
   useListEmotionMoments, getListEmotionMomentsQueryKey, useBackfillSentiment,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Bookmark, BookmarkPlus, HeartPulse, History, Loader2, Play, X } from "lucide-react";
+import { Bookmark, BookmarkPlus, HeartPulse, Loader2, Play, X } from "lucide-react";
 import type { PlayerClip } from "@/components/project/clip-player-dialog";
 import { formatTC } from "@/lib/timecode";
 import { parseScope, type SearchScope } from "@/lib/library-search";
@@ -40,17 +40,15 @@ export function SaveSearchButton({ query, scope }: { query: string; scope: Searc
 }
 
 /**
- * Saved searches, recent history and emotion browsing, shown under the
- * library search bar. Picking a saved or recent search commits it.
+ * Saved searches and emotion browsing, shown under the library search bar.
+ * Picking a saved search commits it.
  */
-export function SearchShelf({ onRun, showHistory, onPlay }: {
+export function SearchShelf({ onRun, onPlay }: {
   onRun: (query: string, scope: SearchScope) => void;
-  showHistory: boolean;
   onPlay: (clip: PlayerClip) => void;
 }) {
   const qc = useQueryClient();
   const { data: saved } = useListSavedSearches({ query: { queryKey: getListSavedSearchesQueryKey() } });
-  const { data: history } = useGetSearchHistory({ query: { queryKey: getGetSearchHistoryQueryKey() } });
   const del = useDeleteSavedSearch();
   const [emotion, setEmotion] = useState<string | null>(null);
   const [emotionsOpen, setEmotionsOpen] = useState(false);
@@ -76,17 +74,6 @@ export function SearchShelf({ onRun, showHistory, onPlay }: {
                   <X className="h-3 w-3" />
                 </button>
               </span>
-            ))}
-            <span className="w-2" />
-          </>
-        )}
-        {showHistory && !!history?.length && (
-          <>
-            <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            {history.slice(0, 6).map((h) => (
-              <button key={h.id} type="button" className={`${chip} border-border text-muted-foreground hover:text-foreground`} onClick={() => onRun(h.query, "combined")}>
-                {h.query}
-              </button>
             ))}
             <span className="w-2" />
           </>
