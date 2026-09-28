@@ -3,9 +3,20 @@ import { Link } from "wouter";
 import { VoiceInput } from "@/components/voice-input";
 import { Button } from "@/components/ui/button";
 import { ArrowUp, History, Plus, Trash2, X, Sparkles, FolderKanban, RefreshCw, AlertCircle } from "lucide-react";
-import { groupCitations } from "@/lib/ai-citations";
+import { groupCitations, latestSourceAnswer } from "@/lib/ai-citations";
 import { CitationCard } from "./citation-card";
 import { useArchiveChat } from "./use-archive-chat";
+import type { ChatMessage } from "@/lib/ai-citations";
+
+/** The center pane follows the most recent answer, not an independent search. */
+export type ArchiveAnswerState = {
+  conversationId: string | null;
+  key: string | null;
+  message: ChatMessage | null;
+  loading: boolean;
+  error: string | null;
+  retry: () => void;
+};
 
 const EXAMPLES = [
   "Who talks about the building fund, and when?",
@@ -20,10 +31,33 @@ type Props = {
   /** Question handed over via URL; asked once, then cleared by onInitialQuestionConsumed. */
   initialQuestion?: string | null;
   onInitialQuestionConsumed?: () => void;
+  onAnswerChange?: (answer: ArchiveAnswerState) => void;
 };
 
-export function ArchiveChatPanel({ conversationId, onConversationChange, onClose, initialQuestion, onInitialQuestionConsumed }: Props) {
+export function ArchiveChatPanel({ conversationId, onConversationChange, onClose, initialQuestion, onInitialQuestionConsumed, onAnswerChange }: Props) {
   const chat = useArchiveChat(conversationId, onConversationChange);
+  const answerRef = useRef(onAnswerChange);
+  answerRef.current = onAnswerChange;
+  const retryRef = useRef<() => void>(() => {});
+  retryRef.current = () => {
+    if (chat.historyError) void chat.refetchHistory();
+    else if (chat.error) chat.ask(chat.error.question);
+  };
+  const sourceAnswer = latestSourceAnswer(chat.messages);
+  // A conversational turn never changes the center pane. A real search, even
+  // one with zero citations, has its own key and replaces the previous result.
+  const answerKey = sourceAnswer ? `${sourceAnswer.index}:${JSON.stringify({
+    content: sourceAnswer.message.content, citations: sourceAnswer.message.citations,
+    project_id: sourceAnswer.message.project_id ?? null, project_name: sourceAnswer.message.project_name ?? null,
+  })}` : null;
+  useEffect(() => {
+    answerRef.current?.({
+      conversationId, key: answerKey, message: sourceAnswer?.message ?? null,
+      loading: chat.historyLoading || chat.busy,
+      error: chat.historyError ? "This conversation couldn't be loaded. It may have been deleted." : chat.error?.message ?? null,
+      retry: () => retryRef.current(),
+    });
+  }, [conversationId, answerKey, chat.historyLoading, chat.historyError, chat.busy, chat.error?.message]);
   const [question, setQuestion] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -176,7 +210,7 @@ export function ArchiveChatPanel({ conversationId, onConversationChange, onClose
 
         {chat.busy && (
           <div className="pl-3 border-l-2 border-primary/40 space-y-2" data-testid="status-asking">
-            <div className="text-xs text-muted-foreground">Searching transcripts and scenes across the archive…</div>
+            <div className="text-xs text-muted-foreground">Thinking…</div>
             <div className="h-3 w-3/4 rounded bg-muted animate-pulse" />
             <div className="h-3 w-1/2 rounded bg-muted animate-pulse" />
           </div>

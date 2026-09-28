@@ -1,4 +1,5 @@
 // Pure helpers for AI archive answers — no React, no aliases, so node:test can run them.
+import type { SearchResult } from "@workspace/api-client-react";
 
 export type CitationLike = {
   media_id: string;
@@ -15,6 +16,16 @@ export type ChatMessage = {
   project_id?: string | null;
   project_name?: string | null;
 };
+
+/** A conversational reply has null citations and leaves the last search intact.
+ * An empty array is a completed search with zero matches and must replace it. */
+export function latestSourceAnswer<T extends ChatMessage>(messages: T[]): { index: number; message: T } | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role === "assistant" && message.citations != null) return { index: i, message };
+  }
+  return null;
+}
 
 export type CitationGroup = {
   mediaId: string;
@@ -71,6 +82,20 @@ export function groupCitations(citations: CitationLike[] | null | undefined): Ci
   });
   for (const g of groups.values()) g.moments.sort((a, b) => a.start_time - b.start_time);
   return Array.from(groups.values());
+}
+
+/** Adapt cited sources for Library cards without performing another search.
+ * Asset-level citations are metadata sources, not filename or timed matches. */
+export function answerSourceResults(citations: CitationLike[] | null | undefined): SearchResult[] {
+  return groupCitations(citations).flatMap(g => g.moments.map(m => ({
+    media_id: g.mediaId,
+    filename: g.filename,
+    start_time: m.start_time,
+    end_time: m.end_time,
+    score: 1,
+    match_type: isAssetLevelCitation(m) ? "metadata" : "source",
+    snippet: m.snippet ?? null,
+  })));
 }
 
 /**

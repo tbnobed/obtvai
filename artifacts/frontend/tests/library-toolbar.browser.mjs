@@ -25,9 +25,9 @@ try {
   assert.equal(sc.w, 0, "no visible scrollbar gutter"); assert.equal(sc.oy, "auto");
   const scrolled = await b.evaluate(`(()=>{const e=document.querySelector('[data-testid=library-scroll]');if(e.scrollHeight<=e.clientHeight)return 'short';e.scrollTop=200;return e.scrollTop>0})()`);
   assert.ok(scrolled === true || scrolled === "short", "library still scrolls");
-  const oneRow = await b.evaluate(`(()=>{const t=document.querySelector('[data-testid=library-toolbar]');const r=t.getBoundingClientRect();return r.height<130 && t.scrollWidth<=t.clientWidth+1})()`);
-  assert.ok(oneRow, "toolbar fits beside assistant without overflow");
-  console.log("PASS hidden scrollbar, scrolling preserved, compact toolbar with assistant open");
+  const compact = await b.evaluate(`(()=>{const t=document.querySelector('[data-testid=library-toolbar]');const r=t.getBoundingClientRect();const input=t.querySelector('[data-testid=input-library-search]');return r.height<200 && t.scrollWidth<=t.clientWidth+1 && input.getBoundingClientRect().width>=180})()`);
+  assert.ok(compact, "toolbar wraps beside assistant without overflow or crushing search input");
+  console.log("PASS hidden scrollbar, scrolling preserved, usable toolbar with assistant open");
   for (const [item, title] of [["menu-upload-file","Upload Media"],["menu-import-link","Import from Link"],["menu-ingest-file","Ingest Media"]]) {
     await menuOpens("[data-testid=button-add-media]", `[data-testid=${item}]`);
     await b.click(`[data-testid=${item}]`);

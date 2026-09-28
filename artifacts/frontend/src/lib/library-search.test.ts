@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { answerSourceResults } from "./ai-citations.ts";
 import {
   buildSearchBody, groupSearchResults, legacySearchRedirect, readLibrarySearch, withLibrarySearch,
 } from "./library-search.ts";
@@ -16,6 +17,15 @@ assert.deepEqual(groups[0].moments.map((m) => m.start_time), [40, 12]);
 assert.equal(groups[1].filenameMatch, true);
 assert.equal(groups[1].moments.length, 1);
 assert.equal(groups[1].rank, 1);
+
+// Metadata citations stay visible as asset-level sources, never as timed moments or filename hits.
+const metadataGroups = groupSearchResults(answerSourceResults([
+  { media_id: "date", filename: "date.mov", start_time: 0, end_time: 0, snippet: "Original air date: May 3, 1992" },
+]));
+assert.equal(metadataGroups[0].metadataMatches[0].snippet, "Original air date: May 3, 1992");
+assert.equal(metadataGroups[0].moments.length, 0);
+assert.equal(metadataGroups[0].filenameMatch, false);
+assert.deepEqual(metadataGroups[0].matchTypes, ["metadata"]);
 
 // URL: search_q/scope distinct from assistant q; other params preserved.
 assert.equal(withLibrarySearch("ask=1&q=hi&folder=f1", "mayor vote", "transcript"), "ask=1&q=hi&folder=f1&search_q=mayor+vote&scope=transcript");

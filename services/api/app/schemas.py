@@ -517,7 +517,7 @@ class AICitationOut(BaseModel):
 class AIAnswerOut(BaseModel):
     answer: str
     conversation_id: str
-    citations: List[AICitationOut] = []
+    citations: Optional[List[AICitationOut]] = None
     # Set when the assistant CREATED a project from this turn.
     project_id: Optional[str] = None
     project_name: Optional[str] = None

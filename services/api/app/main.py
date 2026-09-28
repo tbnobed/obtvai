@@ -135,6 +135,7 @@ _COLUMN_MIGRATIONS = [
 # Library-wide jobs (e.g. insights) have no media asset.
 _NULLABLE_MIGRATIONS = [
     ("processing_jobs", "media_id"),
+    ("ai_messages", "citations"),
 ]
 
 

@@ -10,7 +10,11 @@ import type { AICitation } from './aICitation';
 export interface AIAnswer {
   answer: string;
   conversation_id: string;
-  citations: AICitation[];
+  /**
+     * null for conversation or clarification with no new search; [] for a search with no matches
+     * @nullable
+     */
+  citations: AICitation[] | null;
   /**
      * Set when the assistant created a project from this turn
      * @nullable

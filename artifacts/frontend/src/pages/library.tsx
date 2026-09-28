@@ -10,10 +10,11 @@ import {
 } from "@workspace/api-client-react";
 import type { MediaAsset, MediaFolder, CuratorFolderOut } from "@workspace/api-client-react";
 import { useIsAdmin } from "@/lib/auth";
-import { ArchiveChatPanel } from "@/components/ai/archive-chat-panel";
+import { ArchiveChatPanel, type ArchiveAnswerState } from "@/components/ai/archive-chat-panel";
 import { ArchiveChatDock } from "@/components/ai/archive-chat-dock";
 import type { SearchResult } from "@workspace/api-client-react";
 import { useLibrarySearch } from "@/hooks/use-library-search";
+import { answerSourceResults } from "@/lib/ai-citations";
 import { readLibrarySearch, withLibrarySearch, momentKey, SEARCH_SCOPES, MIN_QUERY, type SearchScope } from "@/lib/library-search";
 import { LibrarySearchResults } from "@/components/library-search/search-results";
 import { SearchSelectionBar } from "@/components/library-search/search-selection-bar";
@@ -184,6 +185,9 @@ export default function Library() {
   // Person/topic filters arrive via URL from the Insights page ("find view").
   const searchString = useSearch();
   const urlParams = new URLSearchParams(searchString);
+  const askOpen = urlParams.get("ask") === "1";
+  const askConversation = urlParams.get("conv") || null;
+  const askHandoff = urlParams.get("q") || null;
   const personFilter = urlParams.get("person") || "";
   const personName = urlParams.get("person_name") || "";
   const topicFilter = urlParams.get("topic") || "";
@@ -209,6 +213,9 @@ export default function Library() {
   const [searchInput, setSearchInput] = useState(searchQuery);
   useEffect(() => { setSearchInput(searchQuery); }, [searchQuery]);
   const [draftScope, setDraftScope] = useState<SearchScope>(searchScope);
+  const [archiveAnswer, setArchiveAnswer] = useState<ArchiveAnswerState | null>(null);
+  const [dismissedAnswer, setDismissedAnswer] = useState<{ conversationId: string | null; key: string | null } | null>(null);
+  const dismissSources = () => setDismissedAnswer({ conversationId: askConversation, key: archiveAnswer?.key ?? null });
   useEffect(() => { setDraftScope(searchScope); }, [searchScope]);
   const pickScope = (scope: SearchScope) => {
     setDraftScope(scope);
@@ -222,6 +229,7 @@ export default function Library() {
     navigate(`/library${qs ? `?${qs}` : ""}`);
   };
   const commitSearch = (query: string, scope: SearchScope = draftScope, replace = false) => {
+    if (!query.trim()) dismissSources();
     const qs = withLibrarySearch(window.location.search, query, scope);
     const url = `/library${qs ? `?${qs}` : ""}`;
     if (url !== window.location.pathname + window.location.search) navigate(url, { replace });
@@ -230,6 +238,12 @@ export default function Library() {
     media_type: mediaType, status: statusFilter, folder: folderFilter, person: personFilter, topic: topicFilter,
   });
   const searching = librarySearch.active;
+  const currentAnswer = archiveAnswer?.conversationId === askConversation ? archiveAnswer : null;
+  const showSources = askOpen && !searching && !!currentAnswer &&
+    !!(currentAnswer.key || currentAnswer.loading || currentAnswer.error) &&
+    !(dismissedAnswer?.conversationId === askConversation && dismissedAnswer.key === currentAnswer.key);
+  const sourceResults = currentAnswer?.message ? answerSourceResults(currentAnswer.message.citations) : [];
+  const resultAssetIds = searching ? (librarySearch.data?.results ?? []).map(r => r.media_id) : showSources ? sourceResults.map(r => r.media_id) : [];
   const draftDiffers = searchInput.trim() !== searchQuery;
   const [selectedMoments, setSelectedMoments] = useState<Record<string, SearchResult>>({});
   const [playerClip, setPlayerClip] = useState<PlayerClip | null>(null);
@@ -238,7 +252,7 @@ export default function Library() {
     if (next[k]) delete next[k]; else next[k] = r;
     return next;
   });
-  const searchAssetIds = Array.from(new Set((librarySearch.data?.results ?? []).map(r => r.media_id)));
+  const searchAssetIds = Array.from(new Set(resultAssetIds));
 
   const listParams = {
     media_type: mediaType,
@@ -251,7 +265,7 @@ export default function Library() {
     offset: page * PAGE_SIZE,
   };
   const { data, isLoading, isFetching, isError, refetch } = useListMedia(listParams, {
-    query: { queryKey: getListMediaQueryKey(listParams), retry: false, enabled: !searching },
+    query: { queryKey: getListMediaQueryKey(listParams), retry: false, enabled: !searching && !showSources },
   });
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -267,9 +281,6 @@ export default function Library() {
   // ── Archive assistant (docked beside browsing) ─────────────────────────
   // Open state + conversation live in the URL so reloads, back/forward and
   // returning from the asset player restore the same thread.
-  const askOpen = urlParams.get("ask") === "1";
-  const askConversation = urlParams.get("conv") || null;
-  const askHandoff = urlParams.get("q") || null;
   const updateAskParams = (mutate: (p: URLSearchParams) => void) => {
     const next = new URLSearchParams(window.location.search);
     mutate(next);
@@ -277,7 +288,22 @@ export default function Library() {
     navigate(`/library${qs ? `?${qs}` : ""}`, { replace: true });
   };
   const setAskOpen = (open: boolean) => updateAskParams(p => { if (open) p.set("ask", "1"); else p.delete("ask"); });
-  const setAskConversation = (id: string | null) => updateAskParams(p => { p.set("ask", "1"); if (id) p.set("conv", id); else p.delete("conv"); });
+  const setAskConversation = (id: string | null) => {
+    if (id !== askConversation) setDismissedAnswer(null);
+    updateAskParams(p => { p.set("ask", "1"); if (id) p.set("conv", id); else p.delete("conv"); });
+  };
+  const backToArchive = () => {
+    dismissSources();
+    setSearchInput("");
+    setStatusFilter("");
+    setMediaType("all");
+    saveLibraryPreference("library-media-type", "all");
+    setSort("created_desc");
+    setPage(0);
+    setSelected(new Set());
+    setSelectedMoments({});
+    clearUrlParams("search_q", "scope", "folder", "person", "person_name", "topic", "topic_label");
+  };
 
   const formatDuration = (s?: number | null) =>
     s == null ? "—" : `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`;
@@ -374,7 +400,7 @@ export default function Library() {
     queryClient.invalidateQueries({ queryKey: getListFoldersQueryKey() });
   };
 
-  useEffect(() => { setSelected(new Set()); setSelectedMoments({}); }, [folderFilter, page, statusFilter, searchQuery, searchScope, mediaType, personFilter, topicFilter]);
+  useEffect(() => { setSelected(new Set()); setSelectedMoments({}); }, [folderFilter, page, statusFilter, searchQuery, searchScope, mediaType, personFilter, topicFilter, askConversation, currentAnswer?.key]);
 
   const toggleSelected = (id: string) => {
     setSelected(prev => {
@@ -397,6 +423,11 @@ export default function Library() {
     document.body.appendChild(link);
     link.click();
     link.remove();
+  };
+
+  const dismissMediaReport = () => {
+    localStorage.removeItem(ACTIVE_MEDIA_REPORT_KEY);
+    setMediaReportId(null);
   };
 
   const runMediaReport = (assetId: string) => {
@@ -1058,6 +1089,7 @@ export default function Library() {
             <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
               {searching
                 ? <>Searching for <span className="text-foreground" data-testid="text-applied-search">&ldquo;{searchQuery}&rdquo;</span> in {SEARCH_SCOPES.find(s => s.value === searchScope)?.label.toLowerCase()}{folderFilter || personFilter || topicFilter || statusFilter || mediaType !== "all" ? " · filtered" : ""}</>
+                : showSources ? "Latest assistant answer · sources from the entire archive"
                 : isLoading ? "Loading..." : `${total.toLocaleString()} item${total === 1 ? "" : "s"}`}
               {selected.size > 0 && <span className="text-primary"> · {selected.size} selected</span>}
             </p>
@@ -1102,8 +1134,8 @@ export default function Library() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="relative flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <div className="relative w-full min-w-0 @3xl:w-auto @3xl:flex-1">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10 pointer-events-none" />
             <VoiceInput
               wrapperClassName="w-full"
@@ -1274,14 +1306,14 @@ export default function Library() {
             variant="outline"
             size="sm"
             className="h-9 gap-2 shrink-0 bg-card/60 border-border hover:border-muted-foreground/40"
-            disabled={searching ? !searchAssetIds.length : !data?.items.length}
+            disabled={searching || showSources ? !searchAssetIds.length : !data?.items.length}
             data-testid="button-select-page"
-            aria-label={searching ? `Select results (${searchAssetIds.length})` : `Select page (${data?.items.length ?? 0})`}
-            title={searching ? `Select all ${searchAssetIds.length} matching assets` : `Select all ${data?.items.length ?? 0} on this page`}
-            onClick={() => setSelected(new Set(searching ? searchAssetIds : data?.items.map(asset => asset.id) ?? []))}
+            aria-label={searching || showSources ? `Select results (${searchAssetIds.length})` : `Select page (${data?.items.length ?? 0})`}
+            title={searching || showSources ? `Select all ${searchAssetIds.length} matching assets` : `Select all ${data?.items.length ?? 0} on this page`}
+            onClick={() => setSelected(new Set(searching || showSources ? searchAssetIds : data?.items.map(asset => asset.id) ?? []))}
           >
             <CheckSquare className="h-4 w-4" />
-            <span className="hidden @3xl:inline">{searching ? `Select results (${searchAssetIds.length})` : `Select page (${data?.items.length ?? 0})`}</span>
+            <span className="hidden @3xl:inline">{searching || showSources ? `Select results (${searchAssetIds.length})` : `Select page (${data?.items.length ?? 0})`}</span>
           </Button>
           <Dialog open={uploadOpen} onOpenChange={(open) => { setUploadOpen(open); if (!open) resetUpload(); }}>
             <DialogContent>
@@ -1410,8 +1442,9 @@ export default function Library() {
         </div>
       </div>
 
-      {mediaReport && (
+      {mediaReportId && mediaReport && (
         <div
+          data-testid="media-report-banner"
           className={`mb-5 rounded-md border p-4 ${
             mediaReport.status === "error" || mediaReport.status === "cancelled"
               ? "border-destructive/50 bg-destructive/5"
@@ -1463,12 +1496,20 @@ export default function Library() {
                 </p>
               )}
             </div>
+            <div className="flex items-center gap-2">
             {mediaReport.status === "success" && mediaReport.download_url && (
               <Button size="sm" onClick={() => downloadMediaReport(mediaReport.id)} className="gap-2">
                 <Download className="h-4 w-4" />
                 Download CSV
               </Button>
             )}
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                onClick={dismissMediaReport} aria-label="Dismiss report notification"
+                title="Dismiss notification (does not cancel or delete the report)"
+                data-testid="button-dismiss-media-report">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           {(mediaReport.status === "pending" || mediaReport.status === "running") && (
             <div className="mt-3 space-y-1.5">
@@ -1481,8 +1522,14 @@ export default function Library() {
           )}
         </div>
       )}
-      {mediaReportLoadError && !mediaReport && (
-        <p className="mb-5 text-sm text-destructive">The report status could not be loaded.</p>
+      {mediaReportId && mediaReportLoadError && !mediaReport && (
+        <div className="mb-5 flex items-center justify-between gap-3 text-sm text-destructive">
+          <p>The report status could not be loaded.</p>
+          <Button variant="ghost" size="icon" onClick={dismissMediaReport}
+            aria-label="Dismiss report notification" data-testid="button-dismiss-media-report">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       )}
 
       <Dialog open={newFolderOpen} onOpenChange={(open) => { setNewFolderOpen(open); if (!open) { setNewFolderName(""); setNewFolderParent(null); } }}>
@@ -1610,6 +1657,49 @@ export default function Library() {
             onClear={() => { setSelected(new Set()); setSelectedMoments({}); }}
           />
         </>
+      ) : showSources ? (
+        <section data-testid="assistant-library-results" aria-label="Assistant sources">
+          <div className="flex items-center justify-between gap-3 mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+            <div className="min-w-0">
+              <h2 className="font-semibold text-sm flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Sources from the latest answer</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Cited moments in the archive, independent of library filters.</p>
+            </div>
+            <Button variant="outline" size="sm" className="shrink-0" onClick={backToArchive} data-testid="button-back-to-archive">
+              <ChevronLeft className="h-4 w-4 mr-1" /> Back to entire archive
+            </Button>
+          </div>
+          {currentAnswer.error && (
+            <div role="alert" data-testid="assistant-sources-error" className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 p-4">
+              <p className="text-sm">{currentAnswer.error}</p>
+              <Button variant="outline" onClick={currentAnswer.retry}>Retry</Button>
+            </div>
+          )}
+          {currentAnswer.loading && (
+            <p role="status" data-testid="assistant-sources-loading" className="text-sm text-muted-foreground mb-3">
+              Thinking…
+            </p>
+          )}
+          {currentAnswer.message ? (
+            <>
+              <LibrarySearchResults data={{ query: "", took_ms: 0, results: sourceResults }} loading={false} error={false}
+                onRetry={currentAnswer.retry} view={view} selectedAssets={selected} onToggleAsset={toggleSelected}
+                selectedMoments={selectedMoments} onToggleMoment={toggleMoment}
+                onPlay={r => setPlayerClip({ media_id: r.media_id, start_time: r.start_time, end_time: r.end_time, label: r.snippet || undefined, filename: r.filename })}
+                onClearSearch={backToArchive} sourceMode />
+              <SearchSelectionBar assetIds={Array.from(selected)} moments={Object.values(selectedMoments)}
+                defaultProjectName="Archive sources" onClear={() => { setSelected(new Set()); setSelectedMoments({}); }} />
+            </>
+          ) : currentAnswer.loading ? (
+            <>
+              <LibrarySearchResults data={null} loading error={false} onRetry={currentAnswer.retry}
+                view={view} selectedAssets={selected} onToggleAsset={toggleSelected}
+                selectedMoments={selectedMoments} onToggleMoment={toggleMoment}
+                onPlay={() => {}} onClearSearch={backToArchive} sourceMode />
+            </>
+          ) : !currentAnswer.error ? (
+            <p className="text-sm text-muted-foreground py-12 text-center" data-testid="assistant-sources-empty">Ask the archive a question to see its sources here.</p>
+          ) : null}
+        </section>
       ) : (
       <>
       {isFetching && (
@@ -1807,6 +1897,7 @@ export default function Library() {
             conversationId={askConversation}
             onConversationChange={setAskConversation}
             onClose={() => setAskOpen(false)}
+            onAnswerChange={setArchiveAnswer}
             initialQuestion={askHandoff}
             onInitialQuestionConsumed={() => updateAskParams(p => { p.delete("q"); p.delete("conv"); })}
           />

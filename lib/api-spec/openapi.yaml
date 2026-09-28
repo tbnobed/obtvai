@@ -7102,7 +7102,8 @@ components:
         conversation_id:
           type: string
         citations:
-          type: array
+          type: ["array", "null"]
+          description: "null for conversation or clarification with no new search; [] for a search with no matches"
           items:
             $ref: "#/components/schemas/AICitation"
         project_id:

@@ -66,6 +66,8 @@ export type AssetMatchGroup = {
   bestScore: number;
   /** Timed moments, in backend rank order */
   moments: SearchResult[];
+  /** Asset-level citations without a meaningful timestamp */
+  metadataMatches: SearchResult[];
   /** Matched on the filename (no meaningful timestamp) */
   filenameMatch: boolean;
   matchTypes: string[];
@@ -78,7 +80,7 @@ export function groupSearchResults(results: SearchResult[]): AssetMatchGroup[] {
   results.forEach((r, i) => {
     let g = byId.get(r.media_id);
     if (!g) {
-      g = { media_id: r.media_id, filename: r.filename, thumbnail_url: r.thumbnail_url, rank: i, bestScore: r.score, moments: [], filenameMatch: false, matchTypes: [] };
+      g = { media_id: r.media_id, filename: r.filename, thumbnail_url: r.thumbnail_url, rank: i, bestScore: r.score, moments: [], metadataMatches: [], filenameMatch: false, matchTypes: [] };
       byId.set(r.media_id, g);
       order.push(g);
     }
@@ -86,6 +88,7 @@ export function groupSearchResults(results: SearchResult[]): AssetMatchGroup[] {
     g.bestScore = Math.max(g.bestScore, r.score);
     if (!g.matchTypes.includes(r.match_type)) g.matchTypes.push(r.match_type);
     if (r.match_type === "filename") g.filenameMatch = true;
+    else if (r.match_type === "metadata") g.metadataMatches.push(r);
     else g.moments.push(r);
   });
   return order;
@@ -94,6 +97,8 @@ export function groupSearchResults(results: SearchResult[]): AssetMatchGroup[] {
 export const momentKey = (r: SearchResult) => `${r.media_id}:${r.start_time}:${r.end_time}:${r.match_type}`;
 
 export const MATCH_LABEL: Record<string, string> = {
+  source: "Source",
+  metadata: "Metadata",
   filename: "Filename",
   transcript: "Transcript",
   visual: "Visual",

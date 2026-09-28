@@ -29,6 +29,7 @@ type Props = {
   onToggleMoment: (r: SearchResult) => void;
   onPlay: (r: SearchResult) => void;
   onClearSearch: () => void;
+  sourceMode?: boolean;
 };
 
 function Checkbox({ on, label, onClick, className = "", testId }: { on: boolean; label: string; onClick: () => void; className?: string; testId?: string }) {
@@ -143,7 +144,7 @@ function GroupCard({ g, list, p }: { g: AssetMatchGroup; list: boolean; p: Props
         )}
       </div>
 
-      <div className={`min-w-0 flex-1 flex flex-col gap-1.5 ${list ? "p-3 sm:p-1" : "p-3"}`}>
+      <div className={`min-w-0 flex-1 flex flex-col gap-1.5 ${list ? "p-3 sm:p-1" : "p-2.5"}`}>
         <div className="flex items-center gap-2 min-w-0">
           <Link href={`/library/${g.media_id}`} className="font-medium text-sm truncate flex-1 min-w-0 hover:underline underline-offset-2" title={g.filename} data-testid="link-search-asset">
             {g.filename}
@@ -170,6 +171,12 @@ function GroupCard({ g, list, p }: { g: AssetMatchGroup; list: boolean; p: Props
         ) : (
           g.filenameMatch && <p className="text-xs text-muted-foreground">Filename match</p>
         )}
+        {g.metadataMatches.map((match, i) => (
+          <div key={i} className="min-w-0 text-xs space-y-0.5" data-testid="search-metadata-match">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{MATCH_LABEL.metadata}</span>
+            {match.snippet ? <Snippet text={match.snippet} lines={3} /> : null}
+          </div>
+        ))}
 
         <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground mt-auto pt-1">
           {count > 0 && <span className="tabular-nums font-medium text-foreground/80" data-testid="text-moment-count">{count} matching moment{count === 1 ? "" : "s"}</span>}
@@ -232,18 +239,18 @@ export function LibrarySearchResults(p: Props) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-16 text-muted-foreground" data-testid="search-empty">
         <SearchX className="h-10 w-10 opacity-50" />
-        <p className="text-sm max-w-sm">Nothing in this scope matched &ldquo;{p.data.query}&rdquo;. Try other wording, switch to Everything, or clear active filters.</p>
-        <Button variant="outline" size="sm" onClick={p.onClearSearch}>Back to browsing</Button>
+        <p className="text-sm max-w-sm">{p.sourceMode ? "The latest answer has no source moments to show. Ask another question or browse the entire archive." : <>Nothing in this scope matched &ldquo;{p.data.query}&rdquo;. Try other wording, switch to Everything, or clear active filters.</>}</p>
+        <Button variant="outline" size="sm" onClick={p.onClearSearch}>{p.sourceMode ? "Back to entire archive" : "Back to browsing"}</Button>
       </div>
     );
   }
-  const capped = p.data.results.length >= SEARCH_LIMIT;
+  const capped = !p.sourceMode && p.data.results.length >= SEARCH_LIMIT;
   return (
     <div className={p.loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
       <div className="flex items-baseline gap-x-2 gap-y-0.5 flex-wrap mb-3" data-testid="search-summary">
         <p className="text-sm font-medium tabular-nums">
           {groups.length} asset{groups.length === 1 ? "" : "s"}
-          <span className="text-muted-foreground font-normal"> · {p.data.results.length} matching moment{p.data.results.length === 1 ? "" : "s"}, best first</span>
+          <span className="text-muted-foreground font-normal"> · {p.data.results.length} {p.sourceMode ? "cited source" : "matching moment"}{p.data.results.length === 1 ? "" : "s"}{p.sourceMode ? "" : ", best first"}</span>
         </p>
         {capped && <p className="text-[11px] text-muted-foreground">Showing the top {SEARCH_LIMIT} matches. Refine to narrow.</p>}
       </div>

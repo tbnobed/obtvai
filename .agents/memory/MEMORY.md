@@ -51,3 +51,5 @@
 - [Archive memory safety](archive-memory-safety.md) — invalidation must observe raw SQL workers; optional cache errors must not abort valid answers or conversation writes.
 - [Remote ingestion workers](remote-ingest-workers.md) — preserve real CIFS mounts through encrypted relays; worker-image GPU checks require python3, not python.
 - [Archive search cost](archive-search-cost.md) — explicit search submission avoids GPU embedding work on every draft edit; committed queries may rerun when filters change.
+- [Archive date meaning](archive-date-meaning.md) — “media created in” means original air date, not ingest time or file modification time.
+- [Conversation result ownership](conversation-result-ownership.md) — conversational replies must not replace search results; preserve null versus empty search through persistence.

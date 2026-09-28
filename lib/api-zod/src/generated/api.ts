@@ -3901,7 +3901,7 @@ export const AskAIResponse = zod.object({
   "start_time": zod.number(),
   "end_time": zod.number(),
   "snippet": zod.string().nullish()
-})),
+})).nullable().describe('null for conversation or clarification with no new search; [] for a search with no matches'),
   "project_id": zod.string().nullish().describe('Set when the assistant created a project from this turn'),
   "project_name": zod.string().nullish()
 })
