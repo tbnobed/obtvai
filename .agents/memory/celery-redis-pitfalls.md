@@ -50,3 +50,11 @@ Re-analyze/backfill endpoints that re-queue mid-pipeline tasks (e.g. face_detect
 Commit/close the DB transaction BEFORE long LLM/GPU work in a task.
 **Why:** an open read transaction holds AccessShareLock for minutes and deadlocks against API-startup `ALTER TABLE` (queued AccessExclusiveLock).
 **How to apply:** finish reads, commit/close, then run inference; retry once on OperationalError deadlocks.
+
+## Parallel scene writers
+
+Commit independent scene results one row at a time; never retain row locks while processing further frames or running inference. Any deadlock retry must repeat only the write, after rollback, with a bounded SQLSTATE 40P01 retry.
+
+**Why:** Concurrent embedding and caption stages acquired scene rows in different orders, producing repeated deadlocks and durable catalog pauses even after the affected asset later succeeded.
+
+**How to apply:** Apply this transaction boundary to every scene-result writer, including alternate caption engines. Reconcile successful processing before retrying stale catalog entries. Verify all connected worker hosts have the fix before resuming admission.

@@ -5,6 +5,7 @@ from datetime import datetime
 from app import celery_app
 from db import get_session
 from tasks.base import update_job, append_log, update_asset
+from tasks.scene_writes import write_scene_result
 from config import THUMBNAILS_DIR, QDRANT_URL, EMBEDDINGS_MODEL, VISION_MODEL
 
 
@@ -17,7 +18,7 @@ def embed_scenes(self, media_id: str, job_id: str):
 
         from sqlalchemy import text
         scenes = db.execute(
-            text("SELECT id, thumbnail_url, start_time, end_time FROM scenes WHERE media_id = :mid"),
+            text("SELECT id, thumbnail_url, start_time, end_time FROM scenes WHERE media_id = :mid ORDER BY start_time, id"),
             {"mid": media_id},
         ).fetchall()
         vrow = db.execute(
@@ -38,6 +39,8 @@ def embed_scenes(self, media_id: str, job_id: str):
                     sprite_meta = vrow[3]
                 except Exception:
                     sprite_img = None
+        # Do not retain a read transaction over model loading/Qdrant calls.
+        db.commit()
 
         if not scenes:
             update_job(db, job_id, status="success", finished_at=datetime.utcnow(), progress=100.0)
@@ -183,15 +186,14 @@ def embed_scenes(self, media_id: str, job_id: str):
                             scene_ok = True
                         t += step
 
-                if scene_ok:
-                    db.execute(
-                        text("UPDATE scenes SET embedding_id = :eid WHERE id = :sid"),
-                        {"eid": scene_id, "sid": scene_id},
-                    )
             except Exception as e:
                 append_log(db, job_id, f"Scene {scene_id} embed failed: {e}")
+                continue
+            if scene_ok:
+                # DB failures are not per-frame inference failures: do not
+                # swallow exhausted deadlocks and mark the stage successful.
+                write_scene_result(db, scene_id, "embedding_id", scene_id)
 
-        db.commit()
         if attempted > 0 and embedded == 0 and frame_points == 0:
             raise RuntimeError(
                 f"All {attempted} scene embeddings failed — check logs above (likely a "

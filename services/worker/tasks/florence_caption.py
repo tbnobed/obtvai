@@ -13,6 +13,7 @@ from app import celery_app
 from config import THUMBNAILS_DIR
 from db import get_session
 from tasks.base import append_log, update_job
+from tasks.scene_writes import write_scene_result
 
 logger = logging.getLogger("tasks.florence_caption")
 
@@ -193,6 +194,7 @@ def caption_scenes(self, media_id: str, job_id: str):
             """),
             {"mid": media_id},
         ).fetchall()
+        db.commit()
 
         if not scenes:
             append_log(db, job_id, "All scenes already captioned — nothing to do")
@@ -224,6 +226,7 @@ def caption_scenes(self, media_id: str, job_id: str):
                 text("SELECT status FROM processing_jobs WHERE id = :jid"),
                 {"jid": job_id},
             ).scalar()
+            db.commit()
             if current_status in ("cancelled", "error"):
                 append_log(db, job_id, f"Captioning stopped with status {current_status}")
                 return
@@ -254,22 +257,11 @@ def caption_scenes(self, media_id: str, job_id: str):
                         empty += 1
                         continue
                     generated += 1
-                    result = db.execute(
-                        text("""
-                            UPDATE scenes
-                            SET description = :desc
-                            WHERE id = :sid
-                              AND (description IS NULL OR description = '')
-                        """),
-                        {"desc": caption, "sid": scene_id},
-                    )
-                    if (result.rowcount or 0) > 0:
+                    if write_scene_result(db, scene_id, "description", caption, only_empty=True):
                         captioned += 1
                     else:
                         preserved += 1
-                # Preserve completed batches if a later batch is cancelled or
-                # fails. Reruns skip these descriptions.
-                db.commit()
+                # Each result is already durable even if a later batch fails.
 
             attempted += len(batch_rows)
             progress = min(99.0, 100.0 * attempted / total)

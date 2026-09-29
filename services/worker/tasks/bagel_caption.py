@@ -20,6 +20,7 @@ from app import celery_app
 from config import BAGEL_SERVICE_URL, THUMBNAILS_DIR
 from db import get_session
 from tasks.base import append_log, create_job, update_job
+from tasks.scene_writes import write_scene_result
 
 logger = logging.getLogger("tasks.bagel_caption")
 
@@ -91,6 +92,7 @@ def caption_scenes(self, media_id: str, job_id: str):
             """),
             {"mid": media_id},
         ).fetchall()
+        db.commit()
 
         if not scenes:
             append_log(db, job_id, "All scenes already captioned — nothing to do")
@@ -109,6 +111,7 @@ def caption_scenes(self, media_id: str, job_id: str):
                     text("SELECT status FROM processing_jobs WHERE id = :jid"),
                     {"jid": job_id},
                 ).scalar()
+                db.commit()
                 if current_status in ("cancelled", "error"):
                     append_log(db, job_id, f"Captioning stopped with status {current_status}")
                     return
@@ -122,11 +125,8 @@ def caption_scenes(self, media_id: str, job_id: str):
                 )
                 if caption:
                     consecutive_failures = 0
-                    db.execute(
-                        text("UPDATE scenes SET description = :desc WHERE id = :sid"),
-                        {"desc": caption, "sid": scene_id},
-                    )
-                    captioned += 1
+                    if write_scene_result(db, scene_id, "description", caption, only_empty=True):
+                        captioned += 1
                 elif failure != "missing thumbnail":
                     consecutive_failures += 1
 
