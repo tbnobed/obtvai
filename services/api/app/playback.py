@@ -21,6 +21,7 @@ from starlette.responses import StreamingResponse
 
 SEGMENT_SECONDS = 6
 MAX_OUTPUT = 12 * 1024 * 1024
+REAP_TIMEOUT = 2
 MAX_DURATION = 7 * 24 * 3600
 FORMATS = "mov,matroska,webm,avi,mxf,wav,mp3,aac,flac,ogg,mpegts,mpegvideo"
 _slots = asyncio.Semaphore(2)  # per API process, including probes
@@ -95,6 +96,55 @@ def audio_sidecars(video):
     return [p for _, p in sorted(found)]
 
 
+async def _cleanup_process(proc, tasks):
+    """Kill first, then discard stdout in fixed chunks before waiting for exit.
+
+    asyncio's process waiters can remain pending after exit while an unread
+    PIPE is paused. A killed process alone is therefore not sufficient cleanup.
+    """
+    try:
+        if proc is not None and proc.returncode is None:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass  # The child exited between checking and signalling it.
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            done, pending = await asyncio.wait(tasks, timeout=REAP_TIMEOUT)
+            await asyncio.gather(*done, return_exceptions=True)
+            if pending:
+                # Never wait indefinitely on a request's disconnect callback.
+                for task in pending:
+                    task.cancel()
+                    task.add_done_callback(
+                        lambda t: None if t.cancelled() else t.exception(),
+                    )
+                raise HTTPException(503, "Archive playback task cleanup timed out")
+        if proc is None:
+            return
+
+        async def drain_and_wait():
+            while await proc.stdout.read(65536):
+                pass  # Do not retain failed/cancelled jobs' output in memory.
+            await proc.wait()
+
+        try:
+            await asyncio.wait_for(drain_and_wait(), REAP_TIMEOUT)
+        except asyncio.TimeoutError:
+            # A retained pipe (e.g. inherited by another process) may never EOF.
+            # Process has no public pipe-close API; close its asyncio transport
+            # as a bounded fallback, rather than leave descriptors/waiters open.
+            proc._transport.close()
+            try:
+                await asyncio.wait_for(proc.wait(), REAP_TIMEOUT)
+            except asyncio.TimeoutError:
+                raise HTTPException(503, "Archive playback process cleanup timed out")
+    finally:
+        if proc is not None:
+            proc._transport.close()
+
+
 async def run_bounded(cmd, request=None, limit=MAX_OUTPUT, timeout=45):
     """Bound concurrency, bytes, wall time; reap children even on disconnect."""
     try:
@@ -102,10 +152,12 @@ async def run_bounded(cmd, request=None, limit=MAX_OUTPUT, timeout=45):
     except asyncio.TimeoutError:
         raise HTTPException(503, "Playback capacity reached", headers={"Retry-After": "2"})
     proc = None
+    reader = watcher = None
     try:
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+                limit=65536,
             )
         except OSError:
             raise HTTPException(503, "Archive playback codec service unavailable")
@@ -116,9 +168,9 @@ async def run_bounded(cmd, request=None, limit=MAX_OUTPUT, timeout=45):
                 chunk = await proc.stdout.read(65536)
                 if not chunk:
                     break
-                data.extend(chunk)
-                if len(data) > limit:
+                if len(data) + len(chunk) > limit:
                     raise HTTPException(502, "Playback output exceeded memory limit")
+                data.extend(chunk)
             if await proc.wait():
                 raise HTTPException(502, "Archive media could not be decoded")
             return bytes(data)
@@ -131,22 +183,31 @@ async def run_bounded(cmd, request=None, limit=MAX_OUTPUT, timeout=45):
 
         reader = asyncio.create_task(read())
         watcher = asyncio.create_task(disconnected())
-        try:
-            done, _ = await asyncio.wait(
-                [reader, watcher], timeout=timeout, return_when=asyncio.FIRST_COMPLETED,
-            )
-            if not done:
-                raise HTTPException(504, "Archive playback timed out")
-            return await next(iter(done))
-        finally:
-            reader.cancel()
-            watcher.cancel()
-            await asyncio.gather(reader, watcher, return_exceptions=True)
+        done, _ = await asyncio.wait(
+            [reader, watcher], timeout=timeout, return_when=asyncio.FIRST_COMPLETED,
+        )
+        if not done:
+            raise HTTPException(504, "Archive playback timed out")
+        return await next(iter(done))
     finally:
-        if proc is not None and proc.returncode is None:
-            proc.kill()
-            await proc.wait()
-        _slots.release()
+        # Keep ownership of the child and the slot through cleanup. Shielding
+        # once is not enough: another cancellation can interrupt that await.
+        cleanup = asyncio.create_task(_cleanup_process(
+            proc, [task for task in (reader, watcher) if task is not None],
+        ))
+        cancelled = False
+        try:
+            while not cleanup.done():
+                try:
+                    await asyncio.shield(cleanup)
+                except asyncio.CancelledError:
+                    cancelled = True
+            cleanup.result()
+        finally:
+            # No await between releasing the reservation and leaving finally.
+            _slots.release()
+            if cancelled:
+                raise asyncio.CancelledError
 
 
 async def describe(asset, request=None):

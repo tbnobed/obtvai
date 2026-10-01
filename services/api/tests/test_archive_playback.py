@@ -310,5 +310,202 @@ class PlaybackTests(unittest.TestCase):
         self.assertLess(mean_error, 8)
 
 
+class BoundedProcessTests(unittest.IsolatedAsyncioTestCase):
+    """Real children with paused stdout, not small-output subprocess mocks."""
+
+    WRITER = [sys.executable, "-c",
+              "import os; chunk=b'x'*65536\nwhile True: os.write(1, chunk)"]
+
+    def setUp(self):
+        playback._slots = asyncio.Semaphore(2)
+        self.create_process = asyncio.create_subprocess_exec
+        self.processes = []
+        self.jobs = []
+        self.gates = []
+        self.read_sizes = []
+
+    async def asyncTearDown(self):
+        # Also clean up a failing regression against the old implementation,
+        # whose proc.wait() would otherwise hang the test runner at shutdown.
+        for gate in self.gates:
+            gate.set()
+        for job in self.jobs:
+            job.cancel()
+        for proc in self.processes:
+            if proc.returncode is None:
+                try:
+                    proc.kill()
+                except ProcessLookupError:
+                    pass
+            proc._transport.close()
+        if self.jobs:
+            done, pending = await asyncio.wait(self.jobs, timeout=1)
+            for job in pending:
+                job.cancel()
+            await asyncio.gather(*done, return_exceptions=True)
+        for proc in self.processes:
+            await asyncio.wait_for(proc.wait(), 1)
+
+    def paused_children(self, block_first=False, block_cleanup=False):
+        first_started = asyncio.Event()
+        cleanup_started = asyncio.Event()
+        first_gate = asyncio.Event()
+        cleanup_gate = asyncio.Event()
+        self.gates.extend([first_gate, cleanup_gate])
+
+        async def spawn(*args, **kwargs):
+            proc = await self.create_process(*args, **kwargs)
+            self.processes.append(proc)
+            if list(args) != self.WRITER:
+                return proc
+            # Fill the real asyncio StreamReader past its high-water mark
+            # before run_bounded can consume any bytes. The writer is blocked
+            # in os.write, and killing it does not unblock proc.wait by itself.
+            async def paused():
+                while not proc.stdout._paused:
+                    await asyncio.sleep(.001)
+            await asyncio.wait_for(paused(), 1)
+            self.assertGreater(len(proc.stdout._buffer), 2 * 65536)
+            original_read = proc.stdout.read
+            calls = 0
+
+            async def read(size):
+                nonlocal calls
+                calls += 1
+                self.read_sizes.append(size)
+                if calls == 1 and block_first:
+                    first_started.set()
+                    await first_gate.wait()
+                if calls == 2 and block_cleanup:
+                    cleanup_started.set()
+                    await cleanup_gate.wait()
+                return await original_read(size)
+
+            proc.stdout.read = read
+            return proc
+
+        return (patch.object(playback.asyncio, "create_subprocess_exec", new=spawn),
+                first_started, cleanup_started, cleanup_gate)
+
+    def job(self, **kwargs):
+        task = asyncio.create_task(playback.run_bounded(self.WRITER, **kwargs))
+        self.jobs.append(task)
+        return task
+
+    async def finishes(self, task):
+        done, _ = await asyncio.wait([task], timeout=1)
+        self.assertIn(task, done, "run_bounded hung while cleaning up a paused PIPE")
+
+    async def recovered(self):
+        self.assertEqual(playback._slots._value, 2)
+        for proc in self.processes:
+            self.assertIsNotNone(proc.returncode)
+            self.assertTrue(proc._transport.is_closing())
+            with self.assertRaises(ProcessLookupError):
+                os.kill(proc.pid, 0)
+        self.assertTrue(self.read_sizes)
+        self.assertTrue(all(0 < size <= 65536 for size in self.read_sizes))
+        # Both slots must really be usable again, not just a cosmetic counter.
+        outputs = await asyncio.gather(*[
+            playback.run_bounded([sys.executable, "-c", "print('recovered')"])
+            for _ in range(2)
+        ])
+        self.assertEqual(outputs, [b"recovered\n", b"recovered\n"])
+        self.assertEqual(playback._slots._value, 2)
+
+    async def test_large_output_limit_reaps_and_recovers_both_slots(self):
+        patcher, _, _, _ = self.paused_children()
+        with patcher:
+            jobs = [self.job(limit=10) for _ in range(2)]
+            for job in jobs:
+                await self.finishes(job)
+                with self.assertRaises(playback.HTTPException) as error:
+                    await job
+                self.assertEqual(error.exception.status_code, 502)
+                self.assertIn("memory limit", error.exception.detail)
+        await self.recovered()
+
+    async def test_timeout_and_disconnect_with_full_stdout_recover(self):
+        class Gone:
+            async def is_disconnected(self):
+                return True
+
+        for kwargs, status in [({"timeout": .05}, 504), ({"request": Gone()}, 499)]:
+            with self.subTest(status=status):
+                patcher, _, _, _ = self.paused_children(block_first=True)
+                with patcher:
+                    job = self.job(**kwargs)
+                    await self.finishes(job)
+                    with self.assertRaises(playback.HTTPException) as error:
+                        await job
+                    self.assertEqual(error.exception.status_code, status)
+                await self.recovered()
+
+    async def test_repeated_cancellation_during_drain_preserves_cleanup(self):
+        patcher, started, draining, drain_gate = self.paused_children(
+            block_first=True, block_cleanup=True,
+        )
+        with patcher:
+            job = self.job()
+            await asyncio.wait_for(started.wait(), 1)
+            self.assertEqual(playback._slots._value, 1)
+            job.cancel()
+            await asyncio.wait_for(draining.wait(), 1)
+            for _ in range(2):
+                job.cancel()
+                await asyncio.sleep(0)
+            self.assertFalse(job.done())
+            self.assertEqual(playback._slots._value, 1)
+            drain_gate.set()
+            await self.finishes(job)
+            with self.assertRaises(asyncio.CancelledError):
+                await job
+        await self.recovered()
+
+    async def test_stalled_drain_has_bounded_transport_close_fallback(self):
+        patcher, _, draining, drain_gate = self.paused_children(
+            block_first=True, block_cleanup=True,
+        )
+        with patcher, patch.object(playback, "REAP_TIMEOUT", .05):
+            job = self.job(timeout=.01)
+            await asyncio.wait_for(draining.wait(), 1)
+            await self.finishes(job)
+            self.assertFalse(drain_gate.is_set())
+            with self.assertRaises(playback.HTTPException) as error:
+                await job
+            self.assertEqual(error.exception.status_code, 504)
+        await self.recovered()
+
+    async def test_concurrency_limit_and_cancelled_slot_waiter(self):
+        patcher, _, _, _ = self.paused_children(block_first=True)
+        with patcher:
+            jobs = [self.job() for _ in range(2)]
+            async def both_started():
+                while len(self.processes) < 2 or any(
+                    not proc.stdout._paused for proc in self.processes
+                ):
+                    await asyncio.sleep(.001)
+            await asyncio.wait_for(both_started(), 1)
+            self.assertEqual(playback._slots._value, 0)
+            waiting = self.job()
+            await asyncio.sleep(.02)
+            waiting.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await waiting
+            self.assertEqual(playback._slots._value, 0)
+            with self.assertRaises(playback.HTTPException) as error:
+                await playback.run_bounded([sys.executable, "-c", "print('no slot')"])
+            self.assertEqual(error.exception.status_code, 503)
+            self.assertEqual(error.exception.headers, {"Retry-After": "2"})
+            self.assertEqual(len(self.processes), 2)
+            for job in jobs:
+                job.cancel()
+            for job in jobs:
+                await self.finishes(job)
+                with self.assertRaises(asyncio.CancelledError):
+                    await job
+        await self.recovered()
+
+
 if __name__ == "__main__":
     unittest.main()
