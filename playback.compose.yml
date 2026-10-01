@@ -1,0 +1,67 @@
+# OPT-IN: append LAST to the deployment's existing compose file list.
+# Set PLAYBACK_API_IMAGE to the existing api image tag after building api.
+# No changes to API/workers, no GPU reservation, no published playback port.
+services:
+  playback:
+    image: "${PLAYBACK_API_IMAGE:?Set PLAYBACK_API_IMAGE to the existing api image tag}"
+    restart: unless-stopped
+    command: ["uvicorn", "app.playback_main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid
+    environment:
+      # Match the base api's DB and shared session authentication, not a new DB.
+      DATABASE_URL: "postgresql+asyncpg://obtv:obtv@postgres:5432/obtv"
+      INTERNAL_API_TOKEN: "${INTERNAL_API_TOKEN:-}"
+      CURATOR_ARCHIVE_MODE: "${CURATOR_ARCHIVE_MODE:-0}"
+      CURATOR_ARCHIVE_ROOTS: "${CURATOR_ARCHIVE_ROOTS:-/curator}"
+      PLAYBACK_ENCODE_JOBS: "${PLAYBACK_ENCODE_JOBS:-2}"
+      PLAYBACK_DELIVERIES: "${PLAYBACK_DELIVERIES:-32}"
+      PLAYBACK_METADATA_CACHE_ENTRIES: "${PLAYBACK_METADATA_CACHE_ENTRIES:-256}"
+      PLAYBACK_METADATA_CACHE_BYTES: "${PLAYBACK_METADATA_CACHE_BYTES:-524288}"
+      PLAYBACK_METADATA_CACHE_TTL: "${PLAYBACK_METADATA_CACHE_TTL:-60}"
+      PLAYBACK_SEGMENT_CACHE_ENTRIES: "${PLAYBACK_SEGMENT_CACHE_ENTRIES:-64}"
+      PLAYBACK_SEGMENT_CACHE_BYTES: "${PLAYBACK_SEGMENT_CACHE_BYTES:-67108864}"
+      PLAYBACK_SEGMENT_CACHE_TTL: "${PLAYBACK_SEGMENT_CACHE_TTL:-60}"
+      PLAYBACK_MAX_FLIGHTS: "${PLAYBACK_MAX_FLIGHTS:-16}"
+      PLAYBACK_MAX_WAITERS: "${PLAYBACK_MAX_WAITERS:-64}"
+      PLAYBACK_COMPUTE_PENDING: "${PLAYBACK_COMPUTE_PENDING:-16}"
+      PLAYBACK_DELIVERY_PENDING: "${PLAYBACK_DELIVERY_PENDING:-16}"
+      CUDA_VISIBLE_DEVICES: ""
+      NVIDIA_VISIBLE_DEVICES: "void"
+      PYTHONDONTWRITEBYTECODE: "1"
+      OMP_NUM_THREADS: "1"
+    volumes:
+      - type: bind
+        source: "${CURATOR_PROXY_PATH:?Set CURATOR_PROXY_PATH to the existing mounted SMB WebProxy tree}"
+        target: /curator
+        read_only: true
+        bind:
+          create_host_path: false
+    cpus: "${PLAYBACK_CPUS:-4}"
+    mem_limit: "${PLAYBACK_MEMORY_LIMIT:-1g}"
+    pids_limit: 256
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    deploy:
+      replicas: ${PLAYBACK_REPLICAS:-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    stop_grace_period: 15s
+
+  frontend:
+    # Existing nginx/frontend service and ports stay in place. Runtime bind
+    # replaces its baked config only while this overlay is explicitly selected.
+    volumes:
+      - ./nginx/playback.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      playback:
+        condition: service_healthy

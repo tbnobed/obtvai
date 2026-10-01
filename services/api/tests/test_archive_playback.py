@@ -12,6 +12,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
+# The production module imports its process-local reuse helper from app.
+sys.path.insert(0, str(Path(__file__).parents[1]))
 spec = importlib.util.spec_from_file_location(
     "archive_playback", Path(__file__).parents[1] / "app" / "playback.py",
 )

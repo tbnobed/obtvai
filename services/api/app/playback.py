@@ -4,9 +4,11 @@ All URLs identify database assets, never user-supplied filesystem paths. Router
 authentication is provided by the application's /api session middleware.
 
 CPU tradeoff: independent exact seeks require re-encoding, not GOP stream-copy.
-Each six-second request uses libx264 veryfast, 30fps, at most 1280px width and
+Each six-second segment uses libx264 veryfast, 30fps, at most 1280px width and
 two codec threads. Two jobs and two in-flight segment deliveries per API
-process are allowed; additional requests fail quickly with retryable 503.
+process are allowed; bounded pending work fails quickly with retryable 503.
+Metadata and segments use bounded, short-lived RAM-only LRU reuse. Identical
+source-version/profile work is shared, independent of any one viewer.
 This is deliberately not a disk cache or a production capacity benchmark.
 """
 import asyncio
@@ -18,6 +20,10 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 from starlette.responses import StreamingResponse
+from app.playback_cache import (
+    CapacityReached, PendingQueue, SingleFlight, TTLCache, ViewerDisconnected,
+    env_int, env_seconds,
+)
 
 SEGMENT_SECONDS = 6
 MAX_OUTPUT = 12 * 1024 * 1024
@@ -27,6 +33,26 @@ FORMATS = "mov,matroska,webm,avi,mxf,wav,mp3,aac,flac,ogg,mpegts,mpegvideo"
 _slots = asyncio.Semaphore(2)  # per API process, including probes
 _deliveries = asyncio.Semaphore(2)  # hold until slow clients finish/disconnect
 NO_STORE = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"}
+# Environment is read once at process startup; zero disables a cache/queue.
+_metadata = TTLCache(
+    env_int("PLAYBACK_METADATA_CACHE_ENTRIES", 256, 8192),
+    env_int("PLAYBACK_METADATA_CACHE_BYTES", 512 * 1024, 16 * 1024 * 1024),
+    env_seconds("PLAYBACK_METADATA_CACHE_TTL", 60),
+)
+_segments = TTLCache(
+    env_int("PLAYBACK_SEGMENT_CACHE_ENTRIES", 64, 512),
+    env_int("PLAYBACK_SEGMENT_CACHE_BYTES", 64 * 1024 * 1024, 256 * 1024 * 1024),
+    env_seconds("PLAYBACK_SEGMENT_CACHE_TTL", 60),
+)
+_shared = SingleFlight(
+    env_int("PLAYBACK_MAX_FLIGHTS", 16, 64, minimum=1),
+    env_int("PLAYBACK_MAX_WAITERS", 64, 1024, minimum=1),
+)
+_compute_queue = PendingQueue(env_int("PLAYBACK_COMPUTE_PENDING", 16, 128))
+_delivery_queue = PendingQueue(env_int("PLAYBACK_DELIVERY_PENDING", 16, 128))
+# Bump these when probe interpretation or segment_command's encoding changes.
+PROBE_PROFILE = "duration-streams-v1"
+SEGMENT_PROFILE = ("h264-veryfast-1280-30-aac192-stereo-ts-v1", SEGMENT_SECONDS)
 
 
 def enabled():
@@ -38,8 +64,11 @@ def roots():
 
 
 def contained(path):
-    p = Path(path).resolve()
-    return any(p.is_relative_to(root) and p != root for root in roots())
+    try:
+        p = Path(path).resolve()
+        return any(p.is_relative_to(root) and p != root for root in roots())
+    except (OSError, RuntimeError):
+        return False
 
 
 def mount_points():
@@ -91,9 +120,62 @@ def audio_sidecars(video):
         m = pattern.fullmatch(p.name)
         if m and contained(p) and p.is_file():
             found.append((int(m[1] or 0), p.resolve()))
-    if len(found) > 16:
-        raise HTTPException(422, "Archive render has more than 16 audio sidecars")
+            if len(found) > 16:
+                raise HTTPException(422, "Archive render has more than 16 audio sidecars")
     return [p for _, p in sorted(found)]
+
+
+def _snapshot(asset):
+    """Revalidate mounts/containment on EVERY access, including RAM hits."""
+    path = source(asset)
+    try:
+        sidecars = audio_sidecars(path)
+
+        def stamp(p):
+            if not contained(p) or not p.is_file() or not os.access(p, os.R_OK):
+                raise HTTPException(404, "Archive source unavailable or unreadable")
+            stat = p.stat()
+            return (str(p), stat.st_dev, stat.st_ino, stat.st_size,
+                    stat.st_mtime_ns, stat.st_ctime_ns)
+
+        version = (stamp(path), tuple(stamp(p) for p in sidecars))
+    except OSError:
+        raise HTTPException(503, "Archive source or sidecars unavailable") from None
+    return path, sidecars, version
+
+
+def _discard_stale(version):
+    # Versioned keys prevent reuse; eagerly reclaim older bytes for this source.
+    for cache in (_metadata, _segments):
+        cache.discard_where(lambda key: key[0][0][0] == version[0][0] and key[0] != version)
+
+
+def _assert_version(asset, version):
+    current = _snapshot(asset)[2]
+    if current != version:
+        _discard_stale(current)
+        raise HTTPException(503, "Archive source changed during playback; retry",
+                            headers={"Retry-After": "2"})
+
+
+async def _reuse(cache, key, factory, request):
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    async def generate():
+        result = await factory()
+        cache.put(key, result)
+        return result
+
+    try:
+        return await _shared.run(
+            key, generate, request.is_disconnected if request is not None else None,
+        )
+    except CapacityReached:
+        raise HTTPException(503, "Playback capacity reached", headers={"Retry-After": "2"}) from None
+    except ViewerDisconnected:
+        raise HTTPException(499, "Playback client disconnected") from None
 
 
 async def _cleanup_process(proc, tasks):
@@ -148,8 +230,8 @@ async def _cleanup_process(proc, tasks):
 async def run_bounded(cmd, request=None, limit=MAX_OUTPUT, timeout=45):
     """Bound concurrency, bytes, wall time; reap children even on disconnect."""
     try:
-        await asyncio.wait_for(_slots.acquire(), 2)
-    except asyncio.TimeoutError:
+        await _compute_queue.acquire(_slots)
+    except CapacityReached:
         raise HTTPException(503, "Playback capacity reached", headers={"Retry-After": "2"})
     proc = None
     reader = watcher = None
@@ -210,25 +292,40 @@ async def run_bounded(cmd, request=None, limit=MAX_OUTPUT, timeout=45):
                 raise asyncio.CancelledError
 
 
+async def _describe(asset, request=None):
+    path, sidecars, version = _snapshot(asset)
+    _discard_stale(version)
+    fallback = getattr(asset, "duration_seconds", None) or 0
+    key = (version, PROBE_PROFILE, fallback)
+
+    async def probe():
+        # Shared generation must never watch the first viewer's request.
+        raw = await run_bounded([
+            "ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe", "-format_whitelist", FORMATS,
+            "-show_entries", "format=duration:stream=codec_type,duration",
+            "-of", "json", str(path),
+        ], limit=256 * 1024, timeout=15)
+        try:
+            data = json.loads(raw)
+            kinds = {s["codec_type"] for s in data["streams"]}
+            duration = float(data.get("format", {}).get("duration") or fallback)
+            if not math.isfinite(duration) or not 0 < duration <= MAX_DURATION:
+                raise ValueError()
+        except (ValueError, KeyError, TypeError):
+            raise HTTPException(422, "Archive has no valid playback duration")
+        if not kinds.intersection({"audio", "video"}):
+            raise HTTPException(415, "Archive source has no playable audio or video")
+        _assert_version(asset, version)
+        return duration, "video" in kinds, "audio" in kinds
+
+    duration, video, audio = await _reuse(_metadata, key, probe, request)
+    _assert_version(asset, version)
+    return version, (path, duration, video, audio, sidecars if video and not audio else [])
+
+
 async def describe(asset, request=None):
-    path = source(asset)
-    raw = await run_bounded([
-        "ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe", "-format_whitelist", FORMATS,
-        "-show_entries", "format=duration:stream=codec_type,duration",
-        "-of", "json", str(path),
-    ], request, limit=256 * 1024, timeout=15)
-    try:
-        data = json.loads(raw)
-        kinds = {s["codec_type"] for s in data["streams"]}
-        duration = float(data.get("format", {}).get("duration") or asset.duration_seconds or 0)
-        if not math.isfinite(duration) or not 0 < duration <= MAX_DURATION:
-            raise ValueError()
-    except (ValueError, KeyError, TypeError):
-        raise HTTPException(422, "Archive has no valid playback duration")
-    if not kinds.intersection({"audio", "video"}):
-        raise HTTPException(415, "Archive source has no playable audio or video")
-    sidecars = audio_sidecars(path) if "video" in kinds and "audio" not in kinds else []
-    return path, duration, "video" in kinds, "audio" in kinds, sidecars
+    # Preserve the public tuple used by media routes.
+    return (await _describe(asset, request))[1]
 
 
 def playlist(duration):
@@ -273,13 +370,22 @@ def segment_command(path, sidecars, video, audio, start, duration):
 
 
 async def segment(asset, number, request):
-    path, duration, video, audio, sidecars = await describe(asset, request)
+    version, (path, duration, video, audio, sidecars) = await _describe(asset, request)
     start = number * SEGMENT_SECONDS
     if number < 0 or start >= duration:
         raise HTTPException(416, "Segment outside asset duration")
-    return await run_bounded(segment_command(
-        path, sidecars, video, audio, start, min(SEGMENT_SECONDS, duration - start),
-    ), request)
+    key = (version, SEGMENT_PROFILE, duration, video, audio, number)
+
+    async def render():
+        data = await run_bounded(segment_command(
+            path, sidecars, video, audio, start, min(SEGMENT_SECONDS, duration - start),
+        ))
+        _assert_version(asset, version)
+        return data
+
+    data = await _reuse(_segments, key, render, request)
+    _assert_version(asset, version)
+    return data
 
 
 class _SegmentResponse(StreamingResponse):
@@ -292,8 +398,8 @@ class _SegmentResponse(StreamingResponse):
 
 async def segment_response(asset, number, request):
     try:
-        await asyncio.wait_for(_deliveries.acquire(), 2)
-    except asyncio.TimeoutError:
+        await _delivery_queue.acquire(_deliveries)
+    except CapacityReached:
         raise HTTPException(503, "Playback delivery capacity reached", headers={"Retry-After": "2"})
     try:
         data = await segment(asset, number, request)

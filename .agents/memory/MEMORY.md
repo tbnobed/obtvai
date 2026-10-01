@@ -4,6 +4,7 @@
 - [Worker task DB/SQL binding rules](celery-redis-pitfalls.md) — cast numpy floats to Python float before SQL binds; long tasks must report throttled progress; make retries idempotent (delete prior rows first).
 - [ffmpeg progress parsing](ffmpeg-progress.md) — use -progress pipe:1 -nostats, merge stderr into stdout (single stream avoids pipe deadlock), out_time_ms is microseconds.
 - [Async subprocess cleanup](async-subprocess-cleanup.md) — killed children with unread stdout can retain waiters and leak playback slots; bound drainage and protect cleanup from cancellation.
+- [Playback capacity gates](playback-capacity-gates.md) — shared-clip cache success does not certify distinct-content viewers; test both with normal app traffic.
 - [ffmpeg concat -c copy](ffmpeg-progress.md) — pin one encoder for all segments in a job; mixed NVENC/libx264 fallback outputs break lossless concat.
 - [Blackwell NVENC](blackwell-nvenc.md) — ffmpeg NVENC headers must match the driver branch (R580/CUDA 13 needs ffmpeg 8.x; 7.1 also fails "unsupported device"); CPU fallback hides it.
 - [HF loads in Celery prefork](celery-redis-pitfalls.md) — from_pretrained on .bin-only repos spawns a subprocess (daemonic crash); snapshot_download first, load from local path; solo pool breaks job cancel.
