@@ -30,7 +30,7 @@
 - [Curator integration quirks](curator-proxy-reuse.md) — WebProxy video/audio are split; never serve SMB symlinks; Gateway token/search can 500 on scope or unknown metadata names.
 - [Phantom running jobs](phantom-running-jobs.md) — worker rebuilds kill in-flight tasks leaving jobs stuck "running"; reaper needs inspect-miss x2 + stale heartbeat, never single-signal.
 - [Remote LLM offload](remote-llm-offload.md) — gate every local load site (incl. startup warm-up threads), loaders return (None,None); no silent local fallback.
-- [DGX Spark vLLM serving](dgx-spark-vllm.md) — no :latest tag, match container tag to driver branch (R580→25.12), unified memory needs gpu-memory-utilization ~0.65.
+- [DGX Spark vLLM serving](dgx-spark-vllm.md) — verify actual image/driver compatibility; weight loading is not readiness; distinguish host crashes from container restarts.
 - [BAGEL caption timeouts](bagel-caption-timeouts.md) — health can be ready while a locked image inference stalls; smoke-test one frame after restart before batch captioning.
 - [Whisper silence hallucination](whisper-hallucination.md) — 30s-boundary "You"/"Thank you." cues on silent audio; always transcribe with vad_filter=True + condition_on_previous_text=False.
 - [No-op guards need copied baselines](noop-guard-aliasing.md) — building "new" state from the same dicts as the baseline makes every change compare as unchanged; snapshot copies first.

@@ -13,3 +13,9 @@ Historically tested setup: `nvcr.io/nvidia/vllm:25.12.post1-py3` serving Qwen3-3
 **Why:** The later GPT-OSS-120B deployment loaded checkpoint shards despite a driver compatibility error. Docker “running,” GPU allocations, and weight-loading progress do not establish inference readiness.
 
 **How to apply:** Allow progressing checkpoint loading to finish without repeated restarts, then require a real completion request before clearing the catalog pause. Match image/driver support if initialization or generation fails; do not dismiss explicit compatibility errors based on an older successful setup.
+
+For unexpected outages, distinguish host boot history from container restart counts, and verify crash capture is actually armed before interpreting missing dumps.
+
+**Why:** A Spark host reboot left Docker reporting zero container restarts. The installed crash-dump service was enabled but USE_KDUMP was disabled and no crash kernel was loaded. Missing crash records therefore could not distinguish power loss from a hard kernel failure.
+
+**How to apply:** Correlate previous-boot journals with the AI server's physical-link history and historical memory samples. Do not use current memory or temperature to claim a past OOM or thermal shutdown, or treat a startup compatibility warning as a proven shutdown cause.
