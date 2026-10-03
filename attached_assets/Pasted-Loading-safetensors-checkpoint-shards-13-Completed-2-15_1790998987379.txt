@@ -1,0 +1,91 @@
+Loading safetensors checkpoint shards:  13% Completed | 2/15 [00:55<05:57, 27.47s/it]
+Loading safetensors checkpoint shards:  20% Completed | 3/15 [01:21<05:20, 26.71s/it]
+Loading safetensors checkpoint shards:  27% Completed | 4/15 [01:47<04:50, 26.39s/it]
+Loading safetensors checkpoint shards:  33% Completed | 5/15 [02:20<04:48, 28.83s/it]
+Loading safetensors checkpoint shards:  40% Completed | 6/15 [02:52<04:29, 29.91s/it]
+Loading safetensors checkpoint shards:  47% Completed | 7/15 [03:21<03:56, 29.54s/it]
+Loading safetensors checkpoint shards:  53% Completed | 8/15 [03:44<03:12, 27.54s/it]
+Loading safetensors checkpoint shards:  60% Completed | 9/15 [04:10<02:43, 27.19s/it]
+Loading safetensors checkpoint shards:  67% Completed | 10/15 [04:38<02:15, 27.20s/it]
+Loading safetensors checkpoint shards:  73% Completed | 11/15 [05:01<01:44, 26.04s/it]
+Loading safetensors checkpoint shards:  80% Completed | 12/15 [05:29<01:20, 26.69s/it]
+Loading safetensors checkpoint shards:  87% Completed | 13/15 [05:58<00:54, 27.33s/it]
+Loading safetensors checkpoint shards:  93% Completed | 14/15 [06:17<00:24, 24.92s/it]
+Loading safetensors checkpoint shards: 100% Completed | 15/15 [06:46<00:00, 26.14s/it]
+Loading safetensors checkpoint shards: 100% Completed | 15/15 [06:46<00:00, 27.12s/it]
+2026-10-03T03:41:50.584615317Z (EngineCore_DP0 pid=180)
+2026-10-03T03:41:50.861568197Z (EngineCore_DP0 pid=180) INFO 10-03 03:41:50 [default_loader.py:308] Loading weights took 406.95 seconds
+2026-10-03T03:41:50.905155423Z (EngineCore_DP0 pid=180) WARNING 10-03 03:41:50 [marlin_utils_fp4.py:226] Your GPU does not have native support for FP4 computation but FP4 quantization is being used. Weight-only FP4 compression will be used leveraging the Marlin kernel. This may degrade performance for compute-heavy workloads.^C
+obtv-admin@spark-174a:~$ ^C
+obtv-admin@spark-174a:~$ ^C
+obtv-admin@spark-174a:~$ docker inspect vllm --format 'Started={{.State.StartedAt}} Status={{.State.Status}} Restarts={{.RestartCount}} OOMKilled={{.State.OOMKilled}}'
+docker top vllm -eo pid,ppid,stat,etime,comm
+docker logs --tail 40 --timestamps vllm 2>&1
+timeout 15s nvidia-smi
+Started=2026-10-03T03:34:40.867094041Z Status=running Restarts=0 OOMKilled=false
+PID                 PPID                STAT                ELAPSED             COMMAND
+3110                3060                Ssl                 08:12               vllm
+4084                3110                S                   07:57               python
+4085                3110                Sl                  07:57               VLLM::EngineCor
+2026-10-03T03:42:26.195950900Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /redoc, Methods: HEAD, GET
+2026-10-03T03:42:26.195952340Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /health, Methods: GET
+2026-10-03T03:42:26.195953716Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /load, Methods: GET
+2026-10-03T03:42:26.195955092Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /pause, Methods: POST
+2026-10-03T03:42:26.195956500Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /resume, Methods: POST
+2026-10-03T03:42:26.195977236Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /is_paused, Methods: GET
+2026-10-03T03:42:26.195991620Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /tokenize, Methods: POST
+2026-10-03T03:42:26.195992804Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /detokenize, Methods: POST
+2026-10-03T03:42:26.195993860Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/models, Methods: GET
+2026-10-03T03:42:26.195994948Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /version, Methods: GET
+2026-10-03T03:42:26.195995988Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/responses, Methods: POST
+2026-10-03T03:42:26.195997044Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/responses/{response_id}, Methods: GET
+2026-10-03T03:42:26.195998116Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/responses/{response_id}/cancel, Methods: POST
+2026-10-03T03:42:26.196001124Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/messages, Methods: POST
+2026-10-03T03:42:26.196473394Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/chat/completions, Methods: POST
+2026-10-03T03:42:26.196486642Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/completions, Methods: POST
+2026-10-03T03:42:26.196490626Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/audio/transcriptions, Methods: POST
+2026-10-03T03:42:26.196491922Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/audio/translations, Methods: POST
+2026-10-03T03:42:26.196493298Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /scale_elastic_ep, Methods: POST
+2026-10-03T03:42:26.196494434Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /is_scaling_elastic_ep, Methods: POST
+2026-10-03T03:42:26.196495442Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /inference/v1/generate, Methods: POST
+2026-10-03T03:42:26.196496546Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /ping, Methods: GET
+2026-10-03T03:42:26.196497618Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /ping, Methods: POST
+2026-10-03T03:42:26.196498722Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /invocations, Methods: POST
+2026-10-03T03:42:26.196500098Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /metrics, Methods: GET
+2026-10-03T03:42:26.196501218Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /classify, Methods: POST
+2026-10-03T03:42:26.196502386Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/embeddings, Methods: POST
+2026-10-03T03:42:26.196503490Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /score, Methods: POST
+2026-10-03T03:42:26.196515362Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/score, Methods: POST
+2026-10-03T03:42:26.196516482Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /rerank, Methods: POST
+2026-10-03T03:42:26.196517570Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v1/rerank, Methods: POST
+2026-10-03T03:42:26.196518626Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /v2/rerank, Methods: POST
+2026-10-03T03:42:26.196519762Z (APIServer pid=1) INFO 10-03 03:42:26 [launcher.py:46] Route: /pooling, Methods: POST
+2026-10-03T03:42:26.809748836Z (APIServer pid=1) INFO:     Started server process [1]
+2026-10-03T03:42:26.809766900Z (APIServer pid=1) INFO:     Waiting for application startup.
+2026-10-03T03:42:31.732038192Z (APIServer pid=1) INFO:     Application startup complete.
+2026-10-03T03:42:35.221213801Z (APIServer pid=1) INFO:     192.168.101.2:35410 - "GET /v1/models HTTP/1.1" 200 OK
+2026-10-03T03:42:44.286666049Z (APIServer pid=1) INFO:     192.168.101.2:57330 - "GET /v1/models HTTP/1.1" 200 OK
+2026-10-03T03:42:45.655167141Z (APIServer pid=1) INFO:     192.168.101.2:57330 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-10-03T03:42:51.734150218Z (APIServer pid=1) INFO 10-03 03:42:51 [loggers.py:236] Engine 000: Avg prompt throughput: 7.5 tokens/s, Avg generation throughput: 4.1 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%
+Fri Oct  2 20:42:53 2026
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.126.09             Driver Version: 580.126.09     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GB10                    On  |   0000000F:01:00.0 Off |                  N/A |
+| N/A   57C    P0             13W /  N/A  | Not Supported          |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            2618      G   /usr/lib/xorg/Xorg                       18MiB |
+|    0   N/A  N/A            2972      G   /usr/bin/gnome-shell                      6MiB |
+|    0   N/A  N/A            3113      C   python                                11250MiB |
+|    0   N/A  N/A            4085      C   VLLM::EngineCore                      73579MiB |
