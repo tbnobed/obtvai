@@ -1,0 +1,119 @@
+obtv-admin@spark-174a:~$ date -u; uptime; free -h
+last -x | head -15
+sudo journalctl -b -1 -n 60 --no-pager
+sudo journalctl -k -b --no-pager | grep -Ei 'oom|out of memory|killed process|NVRM|Xid|panic|thermal|watchdog' | tail -50
+timeout 15s docker ps -a --format 'table {{.Names}}\t{{.Status}}'
+Sat Oct  3 04:38:20 AM UTC 2026
+ 21:38:20 up 6 min,  2 users,  load average: 1.85, 1.47, 0.69
+               total        used        free      shared  buff/cache   available
+Mem:           119Gi        88Gi       922Mi       110Mi        31Gi        31Gi
+Swap:           15Gi       3.3Gi        12Gi
+obtv-adm pts/0        192.168.203.219  Fri Oct  2 21:38   still logged in
+reboot   system boot  6.17.0-1008-nvid Fri Oct  2 21:31   still running
+obtv-adm pts/0        192.168.203.219  Fri Oct  2 20:35 - crash  (00:56)
+reboot   system boot  6.17.0-1008-nvid Fri Oct  2 20:32   still running
+obtv-adm pts/0        192.168.0.32     Sat Sep 26 11:13 - crash (6+09:18)
+obtv-adm pts/0        192.168.101.2    Fri Sep 25 15:41 - 15:44  (00:02)
+obtv-adm pts/0        192.168.200.100  Sun Sep 13 14:24 - 15:57  (01:32)
+reboot   system boot  6.17.0-1008-nvid Wed Sep  2 19:47   still running
+reboot   system boot  6.17.0-1008-nvid Tue Sep  1 17:18   still running
+shutdown system down  6.17.0-1008-nvid Tue Sep  1 17:16 - 17:18  (00:01)
+reboot   system boot  6.17.0-1008-nvid Tue Sep  1 17:15 - 17:16  (00:00)
+obtv-adm pts/2        192.168.0.32     Sun Aug 30 22:22 - crash (1+18:53)
+obtv-adm pts/2        192.168.0.140    Mon Aug 24 20:14 - 20:47 (2+00:33)
+obtv-adm pts/2        192.168.203.219  Mon Aug 24 13:25 - 14:15  (00:49)
+runlevel (to lvl 5)   6.17.0-1008-nvid Sun Aug 23 13:37 - 17:16 (9+03:38)
+[sudo] password for obtv-admin:
+Oct 02 21:05:26 spark-174a avahi-daemon[1588]: New relevant interface enp1s0f1np1.IPv6 for mDNS.
+Oct 02 21:05:26 spark-174a avahi-daemon[1588]: Registering new address record for fe80::c71d:2469:547e:dc30 on enp1s0f1np1.*.
+Oct 02 21:05:28 spark-174a systemd-networkd[1381]: enp1s0f1np1: Gained IPv6LL
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9669] device (enP2p1s0f0np0): state change: ip-config -> failed (reason 'ip-config-unavailable', sys-iface-state: 'managed')
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <warn>  [1791000331.9671] device (enP2p1s0f0np0): Activation: failed for connection 'Wired connection 1'
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9672] device (enP2p1s0f0np0): state change: failed -> disconnected (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:05:31 spark-174a avahi-daemon[1588]: Withdrawing address record for fe80::afb:e346:a29d:375e on enP2p1s0f0np0.
+Oct 02 21:05:31 spark-174a avahi-daemon[1588]: Leaving mDNS multicast group on interface enP2p1s0f0np0.IPv6 with address fe80::afb:e346:a29d:375e.
+Oct 02 21:05:31 spark-174a avahi-daemon[1588]: Interface enP2p1s0f0np0.IPv6 no longer relevant for mDNS.
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9726] dhcp4 (enP2p1s0f0np0): canceled DHCP transaction
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9726] dhcp4 (enP2p1s0f0np0): activation: beginning transaction (timeout in 45 seconds)
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9726] dhcp4 (enP2p1s0f0np0): state changed no lease
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9730] policy: auto-activating connection 'Wired connection 1' (aa519eb6-1d10-3bd4-a6e1-f9e6180acd81)
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9732] device (enP2p1s0f0np0): Activation: starting connection 'Wired connection 1' (aa519eb6-1d10-3bd4-a6e1-f9e6180acd81)
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9732] device (enP2p1s0f0np0): state change: disconnected -> prepare (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9733] device (enP2p1s0f0np0): state change: prepare -> config (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9735] device (enP2p1s0f0np0): state change: config -> ip-config (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:05:31 spark-174a NetworkManager[1730]: <info>  [1791000331.9736] dhcp4 (enP2p1s0f0np0): activation: beginning transaction (timeout in 45 seconds)
+Oct 02 21:05:31 spark-174a avahi-daemon[1588]: Joining mDNS multicast group on interface enP2p1s0f0np0.IPv6 with address fe80::afb:e346:a29d:375e.
+Oct 02 21:05:31 spark-174a avahi-daemon[1588]: New relevant interface enP2p1s0f0np0.IPv6 for mDNS.
+Oct 02 21:05:31 spark-174a avahi-daemon[1588]: Registering new address record for fe80::afb:e346:a29d:375e on enP2p1s0f0np0.*.
+Oct 02 21:05:33 spark-174a systemd-networkd[1381]: enP2p1s0f0np0: Gained IPv6LL
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9670] device (enp1s0f1np1): state change: ip-config -> failed (reason 'ip-config-unavailable', sys-iface-state: 'managed')
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <warn>  [1791000371.9674] device (enp1s0f1np1): Activation: failed for connection 'Wired connection 3'
+Oct 02 21:06:11 spark-174a avahi-daemon[1588]: Withdrawing address record for fe80::c71d:2469:547e:dc30 on enp1s0f1np1.
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9676] device (enp1s0f1np1): state change: failed -> disconnected (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:06:11 spark-174a avahi-daemon[1588]: Leaving mDNS multicast group on interface enp1s0f1np1.IPv6 with address fe80::c71d:2469:547e:dc30.
+Oct 02 21:06:11 spark-174a avahi-daemon[1588]: Interface enp1s0f1np1.IPv6 no longer relevant for mDNS.
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9777] dhcp4 (enp1s0f1np1): canceled DHCP transaction
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9777] dhcp4 (enp1s0f1np1): activation: beginning transaction (timeout in 45 seconds)
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9777] dhcp4 (enp1s0f1np1): state changed no lease
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9782] policy: auto-activating connection 'Wired connection 3' (f579e1d0-d09a-31ea-a2e8-6037cf896115)
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9785] device (enp1s0f1np1): Activation: starting connection 'Wired connection 3' (f579e1d0-d09a-31ea-a2e8-6037cf896115)
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9786] device (enp1s0f1np1): state change: disconnected -> prepare (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9787] device (enp1s0f1np1): state change: prepare -> config (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9790] device (enp1s0f1np1): state change: config -> ip-config (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:06:11 spark-174a NetworkManager[1730]: <info>  [1791000371.9791] dhcp4 (enp1s0f1np1): activation: beginning transaction (timeout in 45 seconds)
+Oct 02 21:06:11 spark-174a avahi-daemon[1588]: Joining mDNS multicast group on interface enp1s0f1np1.IPv6 with address fe80::c71d:2469:547e:dc30.
+Oct 02 21:06:11 spark-174a avahi-daemon[1588]: New relevant interface enp1s0f1np1.IPv6 for mDNS.
+Oct 02 21:06:11 spark-174a avahi-daemon[1588]: Registering new address record for fe80::c71d:2469:547e:dc30 on enp1s0f1np1.*.
+Oct 02 21:06:13 spark-174a systemd-networkd[1381]: enp1s0f1np1: Gained IPv6LL
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9674] device (enP2p1s0f0np0): state change: ip-config -> failed (reason 'ip-config-unavailable', sys-iface-state: 'managed')
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <warn>  [1791000376.9679] device (enP2p1s0f0np0): Activation: failed for connection 'Wired connection 1'
+Oct 02 21:06:16 spark-174a avahi-daemon[1588]: Withdrawing address record for fe80::afb:e346:a29d:375e on enP2p1s0f0np0.
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9680] device (enP2p1s0f0np0): state change: failed -> disconnected (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:06:16 spark-174a avahi-daemon[1588]: Leaving mDNS multicast group on interface enP2p1s0f0np0.IPv6 with address fe80::afb:e346:a29d:375e.
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9736] dhcp4 (enP2p1s0f0np0): canceled DHCP transaction
+Oct 02 21:06:16 spark-174a avahi-daemon[1588]: Interface enP2p1s0f0np0.IPv6 no longer relevant for mDNS.
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9737] dhcp4 (enP2p1s0f0np0): activation: beginning transaction (timeout in 45 seconds)
+Oct 02 21:06:16 spark-174a avahi-daemon[1588]: Joining mDNS multicast group on interface enP2p1s0f0np0.IPv6 with address fe80::afb:e346:a29d:375e.
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9737] dhcp4 (enP2p1s0f0np0): state changed no lease
+Oct 02 21:06:16 spark-174a avahi-daemon[1588]: New relevant interface enP2p1s0f0np0.IPv6 for mDNS.
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9744] policy: auto-activating connection 'Wired connection 1' (aa519eb6-1d10-3bd4-a6e1-f9e6180acd81)
+Oct 02 21:06:16 spark-174a avahi-daemon[1588]: Registering new address record for fe80::afb:e346:a29d:375e on enP2p1s0f0np0.*.
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9747] device (enP2p1s0f0np0): Activation: starting connection 'Wired connection 1' (aa519eb6-1d10-3bd4-a6e1-f9e6180acd81)
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9747] device (enP2p1s0f0np0): state change: disconnected -> prepare (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9748] device (enP2p1s0f0np0): state change: prepare -> config (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9751] device (enP2p1s0f0np0): state change: config -> ip-config (reason 'none', sys-iface-state: 'managed')
+Oct 02 21:06:16 spark-174a NetworkManager[1730]: <info>  [1791000376.9753] dhcp4 (enP2p1s0f0np0): activation: beginning transaction (timeout in 45 seconds)
+Oct 02 21:06:18 spark-174a systemd-networkd[1381]: enP2p1s0f0np0: Gained IPv6LL
+Oct 02 21:31:52 spark-174a kernel: thermal_sys: Registered thermal governor 'fair_share'
+Oct 02 21:31:52 spark-174a kernel: thermal_sys: Registered thermal governor 'bang_bang'
+Oct 02 21:31:52 spark-174a kernel: thermal_sys: Registered thermal governor 'step_wise'
+Oct 02 21:31:52 spark-174a kernel: thermal_sys: Registered thermal governor 'user_space'
+Oct 02 21:31:52 spark-174a kernel: thermal_sys: Registered thermal governor 'power_allocator'
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: [Firmware Bug]: No valid trip points!
+Oct 02 21:31:52 spark-174a kernel: thermal LNXTHERM:00: registered as thermal_zone0
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: Thermal Zone [TSOC] (45 C)
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: [Firmware Bug]: No valid trip points!
+Oct 02 21:31:52 spark-174a kernel: thermal LNXTHERM:01: registered as thermal_zone1
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: Thermal Zone [TS0E] (43 C)
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: [Firmware Bug]: No valid trip points!
+Oct 02 21:31:52 spark-174a kernel: thermal LNXTHERM:02: registered as thermal_zone2
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: Thermal Zone [TS0P] (43 C)
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: [Firmware Bug]: No valid trip points!
+Oct 02 21:31:52 spark-174a kernel: thermal LNXTHERM:03: registered as thermal_zone3
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: Thermal Zone [TS1E] (43 C)
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: [Firmware Bug]: No valid trip points!
+Oct 02 21:31:52 spark-174a kernel: thermal LNXTHERM:04: registered as thermal_zone4
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: Thermal Zone [TS1P] (43 C)
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: [Firmware Bug]: No valid trip points!
+Oct 02 21:31:52 spark-174a kernel: thermal LNXTHERM:05: registered as thermal_zone5
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: Thermal Zone [TGPU] (45 C)
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: [Firmware Bug]: No valid trip points!
+Oct 02 21:31:52 spark-174a kernel: thermal LNXTHERM:06: registered as thermal_zone6
+Oct 02 21:31:52 spark-174a kernel: ACPI: thermal: Thermal Zone [TUNC] (44 C)
+Oct 02 21:31:52 spark-174a kernel: ACPI GTDT: found 1 SBSA generic Watchdog(s).
+Oct 02 21:31:52 spark-174a kernel: watchdog: NMI not fully supported
+Oct 02 21:31:52 spark-174a kernel: watchdog: Hard watchdog permanently disabled
+Oct 02 21:31:56 spark-174a kernel: NVRM: loading NVIDIA UNIX Open Kernel Module for aarch64  580.126.09  Release Build  (dvs-builder@U22-I3-AF04-07-5)  Wed Jan  7 22:35:57 UTC 2026
+NAMES                   STATUS
+obtvai-worker-bagel-1   Up 5 minutes (healthy)
+vllm                    Up 5 minutes
