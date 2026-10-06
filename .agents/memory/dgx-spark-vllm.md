@@ -28,6 +28,16 @@ For unexplained GB10 hard power-offs, investigate power/SoC thermal behavior as 
 
 Clock caps do not persist through reboot; verify actual clock steps after applying. Field diagnostics are disruptive, not a routine live-server health check: the official guide requires GPU availability and Secure Boot disabled, with re-enabling afterward. Obtain approval before interrupting inference or changing boot security. https://docs.nvidia.com/dgx/dgx-spark/support.html#field-diagnostic-software
 
+After a clock-cap command succeeds, allow the clock to settle before deciding it failed. An immediate query can still show the old frequency; 2100 MHz settled to the supported 2093 MHz step.
+
+**Why:** The immediate readback exceeded the requested cap, while the subsequent readback confirmed it without reapplying or changing settings.
+
+Docker log absence is not proof that a container produced no error after a hard outage.
+
+**Why:** A malformed json-file log record caused Docker to report a decoding error and hide earlier vLLM startup failures. A bounded read of the raw log, parsing valid JSON records independently, recovered the actual CUDA initialization exception.
+
+**How to apply:** When container restart events conflict with apparently empty error logs, check the Docker daemon journal for log-decoding errors. Read only a bounded tail of the inspected container LogPath, skipping invalid records; do not truncate or delete the evidence.
+
 The user says the DGX has no visible lights or fans for them to check.
 
 **Why:** Physical indicator checks are not available to distinguish off versus hung on this installation.
