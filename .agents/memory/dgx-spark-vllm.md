@@ -40,6 +40,12 @@ Docker log absence is not proof that a container produced no error after a hard 
 
 The user says the DGX has no visible lights or fans for them to check.
 
+On October 6, 2026, the user reported the DGX was extremely hot to the touch and moved it to an area with better airflow, requesting removal of the temporary cap to test stability.
+
+**Why:** This is user-observed evidence relevant to cooling, not confirmation that thermal protection caused earlier shutdowns.
+
+**How to apply:** Account for the changed physical placement when comparing stability; do not present the airflow change as a proven fix.
+
 **Why:** Physical indicator checks are not available to distinguish off versus hung on this installation.
 
 **How to apply:** Use boot history, both network paths, and whether someone manually powered it on. Do not repeatedly request light/fan observations.
