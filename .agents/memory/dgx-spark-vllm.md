@@ -19,3 +19,9 @@ For unexpected outages, distinguish host boot history from container restart cou
 **Why:** A Spark host reboot left Docker reporting zero container restarts. The installed crash-dump service was enabled but USE_KDUMP was disabled and no crash kernel was loaded. Missing crash records therefore could not distinguish power loss from a hard kernel failure.
 
 **How to apply:** Correlate previous-boot journals with the AI server's physical-link history and historical memory samples. Do not use current memory or temperature to claim a past OOM or thermal shutdown, or treat a startup compatibility warning as a proven shutdown cause.
+
+For unexplained GB10 hard power-offs, investigate power/SoC thermal behavior as well as driver failures; GPU temperature alone is insufficient. A temporary GPU clock cap is a diagnostic comparison, not a confirmed fix or proof of a defective adapter.
+
+**Why:** Community reports describe abrupt power-offs without shutdown/crash records, including CPU/SoC temperatures substantially above GPU temperatures. Some report stability at a 2200 MHz clock cap. These are analogous reports, not a diagnosis of this unit: https://forums.developer.nvidia.com/t/hard-power-off-under-sustained-gpu-load-at-90w-persists-after-full-platform-firmware-update/378315 and https://forums.developer.nvidia.com/t/gb10-abruptly-powers-off-under-heavy-gpu-load-nvidia-smi-lgc-300-2200-prevents-it/384492 .
+
+**How to apply:** Confirm physical power state when the DAC reports no partner; a lost link alone can also be a NIC/cable failure. After access returns, inspect firmware and capture all thermal zones, GPU clocks/power, and errors externally before a controlled workload comparison. Do not blindly apply forum firmware or power-limit commands.
