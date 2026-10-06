@@ -22,9 +22,11 @@ For unexpected outages, distinguish host boot history from container restart cou
 
 For unexplained GB10 hard power-offs, investigate power/SoC thermal behavior as well as driver failures; GPU temperature alone is insufficient. A temporary GPU clock cap is a diagnostic comparison, not a confirmed fix or proof of a defective adapter.
 
-**Why:** Community reports describe abrupt power-offs without shutdown/crash records, including CPU/SoC temperatures substantially above GPU temperatures. Some report stability at a 2200 MHz clock cap. These are analogous reports, not a diagnosis of this unit: https://forums.developer.nvidia.com/t/hard-power-off-under-sustained-gpu-load-at-90w-persists-after-full-platform-firmware-update/378315 and https://forums.developer.nvidia.com/t/gb10-abruptly-powers-off-under-heavy-gpu-load-nvidia-smi-lgc-300-2200-prevents-it/384492 .
+**Why:** NVIDIA moderator Neill acknowledges multiple thermal/current shutdown patterns and recommends a temporary 300–2100 MHz clock range as mitigation, not a root-cause fix: https://forums.developer.nvidia.com/t/spark-abruptly-shuts-down/377478/30 . Other posts report diagnostic failures and replacements, while some intermittently failing units pass diagnostics. This is analogous evidence, not a diagnosis of this unit.
 
 **How to apply:** Confirm physical power state when the DAC reports no partner; a lost link alone can also be a NIC/cable failure. After access returns, inspect firmware and capture all thermal zones, GPU clocks/power, and errors externally before a controlled workload comparison. Do not blindly apply forum firmware or power-limit commands.
+
+Clock caps do not persist through reboot; verify actual clock steps after applying. Field diagnostics are disruptive, not a routine live-server health check: the official guide requires GPU availability and Secure Boot disabled, with re-enabling afterward. Obtain approval before interrupting inference or changing boot security. https://docs.nvidia.com/dgx/dgx-spark/support.html#field-diagnostic-software
 
 The user says the DGX has no visible lights or fans for them to check.
 
