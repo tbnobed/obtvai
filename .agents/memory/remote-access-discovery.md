@@ -14,3 +14,9 @@ Treat remote working-tree edits as intentional until compared. Do not force a de
 **Why:** Earlier production fixes can be applied without advancing the checkout's commit. A dirty checkout is not proof of conflicting code: deployed files may exactly match the newer workspace baseline.
 
 **How to apply:** Compare only the deployment's touched files against their pre-change workspace versions. Back up matching files and current images before a targeted update; investigate mismatches before replacing them. Discover active Compose override files from running container labels rather than assuming the base compose file describes production.
+
+Nested SSH probes in a shell script supplied through stdin must use `ssh -n` (or an explicit null stdin).
+
+**Why:** A successful probe consumed the remaining provisioning commands as its stdin, so the outer script exited successfully without starting the recorder.
+
+**How to apply:** Detach probe stdin and verify the final service state and actual output records, not merely the provisioning command's exit status.
