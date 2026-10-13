@@ -3,6 +3,12 @@ name: Remote GPU ingestion
 description: Cross-host storage/network constraints and worker-image interpreter pitfall.
 ---
 
+The user requested shutdown of the second ingestion server (not the Spark) for a rebuild on October 13, 2026.
+
+**Why:** The user is rebuilding that machine; historical provisioning details may no longer match it.
+
+**How to apply:** Do not automatically restore its ingestion workers during unrelated pipeline recovery. Verify the rebuilt host and storage before reconnecting it to production queues.
+
 Remote ingestion must retain the main server's identical paths, backing shares,
 models, and authoritative broker/database. Do not make a second independent
 ingestion database or expose broker/database ports publicly.
