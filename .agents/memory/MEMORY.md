@@ -23,6 +23,7 @@
 - [Driving ComfyUI over REST](comfyui-driving.md) — history entry = done signal; SaveImage+ffmpeg beats video-save nodes; gate on /object_info; cancel-race + poll-tolerance guards.
 - [LLM prompt-budget conservation](llm-prompt-budget-conservation.md) — capped prompt assembly must chunk or carry unseen items through raw; never break-and-drop the tail.
 - [GPU VRAM co-residency](gpu-vram-coresidency.md) — idle model caches starve ComfyUI; every singleton model needs idle-release; OOM-retry outside except block or the traceback pins the tensors.
+- [NVIDIA container device access](nvidia-container-device-access.md) — reloads can revoke GPU access while old processes partly work; check fresh CUDA/NVML before treating Whisper OOM as VRAM exhaustion.
 - [External API error hygiene](external-api-error-hygiene.md) — httpx HTTPStatusError text embeds the full URL incl. api_key; sanitize before persisting errors; pending statuses need queued_at for stuck-state retry.
 - [queryClient.clear() orphans observers](react-query-clear-orphan.md) — never clear() with mounted observers; works in dev, silently freezes prod builds; removeQueries+setQueryData instead.
 - [Replit preview cookies](replit-preview-cookies.md) — preview iframe drops SameSite=Lax cookies (login 200 then me 401); dev/mock cookies need SameSite=None; Secure.

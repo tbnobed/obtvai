@@ -124,6 +124,21 @@ not have the GPU packages. Use `python3` for diagnostics and startup probes.
 
 ## Host stability and recovery
 
+GPU reservations must also have explicit Docker `devices` mappings for the
+selected card's `/dev/nvidiaN`, `/dev/nvidiactl`, `/dev/nvidia-uvm`, and
+`/dev/nvidia-uvm-tools`. A systemd daemon reload revoked device access from
+the legacy NVIDIA-runtime containers while already-initialized processes
+kept doing some work; fresh processes failed NVML/CUDA initialization and
+Whisper model loads reported OOM despite ample host-visible VRAM.
+
+After provisioning, run `pin-gpu-devices.py` against the root-only remote
+Compose configuration, then recreate gracefully drained GPU workers.
+It resolves device minors from the configured UUIDs. Do not expose both
+cards to each worker or grant privileged mode. Check `nvidia-smi -L` inside
+each container both before and after a controlled `systemctl daemon-reload`,
+then verify real speech decoding, not just model load or a silent VAD sample.
+The CPU service remains independent and needs no NVIDIA devices.
+
 The standalone API can reserve substantial GPU memory even when its standalone
 GPU workers are stopped. Check `nvidia-smi` process ownership, not just Celery
 queues, before dedicating this host to ingestion. Its API is intentionally
