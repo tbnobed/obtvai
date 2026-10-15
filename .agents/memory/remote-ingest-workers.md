@@ -3,17 +3,11 @@ name: Remote GPU ingestion
 description: Cross-host storage/network constraints and worker-image interpreter pitfall.
 ---
 
-The user requested shutdown of the second ingestion server (not the Spark) for a rebuild on October 13, 2026.
+The rebuilt second server is ingestion-only for now and has been moved back into the server room.
 
-**Why:** The user is rebuilding that machine; historical provisioning details may no longer match it.
+**Why:** The user explicitly requested an ingestion-only role, then authorized completion after the move.
 
-**How to apply:** Do not automatically restore its ingestion workers during unrelated pipeline recovery. Verify the rebuilt host and storage before reconnecting it to production queues.
-
-The rebuilt second server is ingestion-only for now. The user is staging it with some network adapters disconnected and will move it to the server room after staging readiness is confirmed.
-
-**Why:** The user explicitly separated staging preparation from installation in the server room.
-
-**How to apply:** Prepare drivers and local GPU/container checks first; leave ingestion disabled until final network/storage connectivity and actual inference workloads are verified. Do not treat disconnected staging adapters as hardware faults.
+**How to apply:** Keep the main server authoritative for scheduling and data; do not install a second standalone app/database. Verify storage and actual inference before enabling rebuilt workers.
 
 Select worker GPUs by UUID or verified PCI identity, not inherited numeric indices.
 
@@ -73,7 +67,10 @@ is therefore explicitly insufficient to clear the host or restore the 4500.
 **How to apply:** Keep identical GPU/model/runtime inputs, fresh caches, and
 bounded CPU-affinity A/B tests. Preserve host-specific worker CPU restrictions
 until the underlying fault is diagnosed; do not declare the card defective or
-clear it based on generic CUDA/CPU tests. See `docs/4500-diagnostics.md`.
+clear the host based on generic CUDA/CPU tests. A rebuilt host may resume
+bounded production after repeated mixed inference and real-job verification,
+but that does not justify removing containment or declaring the old fault fixed.
+See `docs/4500-diagnostics.md` for the latest qualification status.
 Exercise actual detected faces: blank synthetic frames do not execute
 landmark and demographic submodels even when the models load successfully.
 

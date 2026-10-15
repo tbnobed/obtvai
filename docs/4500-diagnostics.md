@@ -1,5 +1,28 @@
 # Second-host GPU crash investigation — 2026-09-27 UTC
 
+## Rebuilt-host qualification — 2026-10-15 UTC
+
+The rebuilt ingestion-only host is now on Ubuntu 24.04, kernel
+6.8.0-147-generic, driver 580.178.04, and microcode 0x133. GPU enumeration
+reversed; the operator Compose configuration now binds each card by UUID.
+
+Both GPUs passed a concurrent 15-minute read-only mixed-workload validation
+using the current production worker image and real completed-media samples:
+58 cycles on the RTX PRO 4500 and 51 on the RTX 5090. Each cycle launches
+fresh processes for CUDA computation, full face inference, visual embeddings,
+Whisper, and diarization. The sample must contain detected faces, not merely
+pass model loading. There were no recorded kernel/GPU faults during validation.
+
+Both cards have subsequently completed production transcription and visual
+embedding jobs. The 4500's quarantine profile was removed only after this
+qualification. Both workers retain CPU affinity `0-9,12-31`, one concurrent
+job per card, shared main-server storage, and the main production broker.
+
+This qualifies the rebuilt configuration for bounded production use; it does
+not establish the cause of the historical crashes or prove long-term stability.
+Do not remove CPU containment based only on these passing tests. The historical
+quarantine and failure statements below describe the pre-rebuild installation.
+
 ## Finding
 
 The failure is reproducibly CPU-affinity-dependent, not isolated to the RTX PRO

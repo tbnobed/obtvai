@@ -19,12 +19,14 @@ def prepare():
     db = get_session()
     try:
         rows = db.execute(text(
-            "SELECT id,proxy_path FROM media_assets WHERE status='ready' "
-            "AND duration_seconds BETWEEN 30 AND 600 ORDER BY created_at DESC LIMIT 100"
+            "SELECT m.id,m.proxy_path,(f.appearances->0->>'start_time')::float "
+            "FROM media_assets m JOIN face_clusters f ON f.media_id=m.id "
+            "WHERE m.status='ready' AND jsonb_array_length(f.appearances)>0 "
+            "AND m.duration_seconds BETWEEN 30 AND 600 ORDER BY m.created_at DESC LIMIT 100"
         )).all()
     finally:
         db.close()
-    for media_id, proxy in rows:
+    for media_id, proxy, face_time in rows:
         audio = Path("/artifacts/audio") / (str(media_id) + ".wav")
         if audio.is_file() and proxy and Path(proxy).is_file():
             for source, args in (
@@ -32,7 +34,8 @@ def prepare():
                 (proxy, ["-frames:v", "1", "/tmp/soak.jpg"]),
             ):
                 subprocess.run(
-                    ["ffmpeg", "-v", "error", "-y", "-ss", "5", "-i", source, *args],
+                    ["ffmpeg", "-v", "error", "-y", "-ss",
+                     str(float(face_time) + 0.25) if source == proxy else "5", "-i", source, *args],
                     check=True, timeout=60, stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
@@ -44,7 +47,7 @@ def stage(name):
     import torch
     import numpy as np
     assert torch.cuda.device_count() == 1, "Expose exactly one GPU"
-    assert "4500" in torch.cuda.get_device_name(), "Wrong GPU"
+    assert os.getenv("SOAK_EXPECT_GPU", "4500") in torch.cuda.get_device_name(), "Wrong GPU"
     assert not ({10, 11} & os.sched_getaffinity(0)), "CPU containment missing"
     if name == "compute":
         for _ in range(100):
@@ -76,9 +79,21 @@ def stage(name):
         image = cv2.imread("/tmp/soak.jpg")
         assert image is not None
         for _ in range(10):
-            app.get(image)
+            faces = app.get(image)
+            assert len(faces) > 0, "Sample has no faces; full face-model coverage not established"
             feat = app.models["recognition"].get_feat(cv2.resize(image, (112, 112)))
             assert np.isfinite(feat).all()
+    elif name == "embed":
+        from transformers import AutoModel, AutoProcessor
+        from config import VISION_MODEL
+        from PIL import Image
+        model = AutoModel.from_pretrained(VISION_MODEL, local_files_only=True).to("cuda").eval()
+        processor = AutoProcessor.from_pretrained(VISION_MODEL, local_files_only=True)
+        inputs = processor(images=Image.open("/tmp/soak.jpg").convert("RGB"), return_tensors="pt").to("cuda")
+        with torch.inference_mode():
+            for _ in range(3):
+                features = model.get_image_features(**inputs)
+                assert torch.isfinite(features).all().item()
     elif name == "whisper":
         from faster_whisper import WhisperModel
         model = WhisperModel(os.getenv("WHISPER_MODEL", "large-v3"),
@@ -123,7 +138,7 @@ def main():
     faulthandler.enable()
     parser = argparse.ArgumentParser()
     parser.add_argument("--minutes", type=int, default=15)
-    parser.add_argument("--stage", choices=["compute", "face", "whisper", "diarize"])
+    parser.add_argument("--stage", choices=["compute", "face", "embed", "whisper", "diarize"])
     parser.add_argument("--diagnose-face", action="store_true")
     args = parser.parse_args()
     if args.stage:
@@ -138,7 +153,7 @@ def main():
     start = time.monotonic()
     cycles = 0
     while time.monotonic() - start < args.minutes * 60:
-        for name in ("compute", "face", "whisper", "diarize"):
+        for name in ("compute", "face", "embed", "whisper", "diarize"):
             # Fresh processes repeatedly exercise model initialization/JIT paths.
             subprocess.run([sys.executable, "-u", __file__, "--stage", name],
                            check=True, timeout=180)
