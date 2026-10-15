@@ -27,7 +27,7 @@ ingestion database or expose broker/database ports publicly.
 archive SMB networks. This is not a permanent network constraint: the intended storage VLAN must be checked after installation. Archive admission validates actual CIFS backing and
 read-only source mounts, so an SSHFS-only copy of the archive would fail closed.
 
-**How to apply:** Preserve the encrypted loopback relays until direct storage connectivity is verified; retain actual CIFS backing and bounded SFTP mounts where needed.
+**How to apply:** Use verified direct storage-VLAN CIFS and bounded SFTP mounts for bulk data; keep encrypted loopback relays for broker/database/model traffic. Fail closed if storage would silently revert to management. Preserve the old relays only for deliberate rollback.
 See `deploy/remote-ingest/README.md` for the operational configuration locations.
 Preserve the remote host's old standalone data; its GPU workers must not compete
 with the main-ingestion workers.

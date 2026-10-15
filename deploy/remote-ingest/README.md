@@ -33,10 +33,22 @@ names rather than loading a different encoder or a local LLM.
 
 Source `/curator` is a read-only bind of an actual CIFS mount. Derived archive
 directories are writable CIFS binds from the same share as the main server.
-SMB reaches the archive through SSH; it is not exposed publicly. Separate SMB
-connections use `nosharesock` to keep the two forwarded servers distinct.
-Other `/artifacts`, `/media`, and `/uploads` paths use a bounded SFTP filesystem
-with identical container paths. Do not substitute empty local directories.
+On the rebuilt host, storage uses the first X550 port (`enp8s0f0`), configured
+by `/etc/netplan/60-obtv-storage.yaml` with DHCP and no DHCP routes or DNS.
+Specific persistent routes reach `10.81.100.220/32` and `10.63.13.101/32`
+through storage gateway `10.10.0.1`. Both shares are mounted directly over
+private SMB, retaining `nosharesock`, the existing credential file, and the
+read-only media2 mount. SMB is not exposed publicly.
+Other `/artifacts`, `/media`, and `/uploads` paths use the same bounded SFTP
+filesystem through main-server storage address `10.10.1.94`, with
+`HostKeyAlias=192.168.200.165` to verify the existing pinned host identity.
+Do not substitute empty local directories.
+
+The management default route remains on `enp5s0` for SSH/internet and the
+database/broker/model tunnels. The storage startup script requires all three
+storage destinations to route through `enp8s0f0`, failing closed rather than
+silently reverting to management. The former SMB tunnels remain available
+for deliberate rollback but are no longer used by the mounts.
 
 Worker startup verifies actual mounts and performs the existing archive
 write/read/remove probe before starting Celery. Docker restart policies are
@@ -92,7 +104,9 @@ GPU workers are stopped. Check `nvidia-smi` process ownership, not just Celery
 queues, before dedicating this host to ingestion. Its API is intentionally
 stopped with Docker restart disabled; its data remains intact.
 
-On this NetworkManager-managed host, networkd has no managed interfaces.
+The rebuilt host uses Netplan/systemd-networkd. The following describes the
+older, pre-rebuild installation only: on that NetworkManager-managed host,
+networkd had no managed interfaces.
 Its redundant wait-online service is disabled. NetworkManager's wait checks
 connectivity rather than waiting indefinitely for every unused connection
 profile to finish activation. Neither change modifies the active IP or routes.
