@@ -9,6 +9,12 @@ The rebuilt second server is ingestion-only for now and has been moved back into
 
 **How to apply:** Keep the main server authoritative for scheduling and data; do not install a second standalone app/database. Verify storage and actual inference before enabling rebuilt workers.
 
+The intended network layout is a 10-Gb NIC on the storage VLAN; the 1-Gb NIC is only for SSH and internet access.
+
+**Why:** The user explicitly corrected the assumption that the management connection was the intended storage path.
+
+**How to apply:** Verify storage interface configuration and actual routes after rebuilds. Preserve the management default route. A working storage relay over management is temporary connectivity, not completion of the intended storage setup.
+
 Select worker GPUs by UUID or verified PCI identity, not inherited numeric indices.
 
 **Why:** After the rebuild the RTX PRO 4500 and RTX 5090 enumerated in the opposite order. Reusing old index-based assignments would assign the previous containment policy to the wrong card.
@@ -17,12 +23,11 @@ Remote ingestion must retain the main server's identical paths, backing shares,
 models, and authoritative broker/database. Do not make a second independent
 ingestion database or expose broker/database ports publicly.
 
-**Why:** The added GPU host reaches the main LAN but cannot directly reach the
-archive SMB networks. Archive admission validates actual CIFS backing and
+**Why:** During initial provisioning the added GPU host reached the main LAN but could not directly reach the
+archive SMB networks. This is not a permanent network constraint: the intended storage VLAN must be checked after installation. Archive admission validates actual CIFS backing and
 read-only source mounts, so an SSHFS-only copy of the archive would fail closed.
 
-**How to apply:** Preserve the encrypted loopback relays, actual CIFS mounts
-through forwarded SMB ports, and bounded SFTP mounts for other shared paths.
+**How to apply:** Preserve the encrypted loopback relays until direct storage connectivity is verified; retain actual CIFS backing and bounded SFTP mounts where needed.
 See `deploy/remote-ingest/README.md` for the operational configuration locations.
 Preserve the remote host's old standalone data; its GPU workers must not compete
 with the main-ingestion workers.
