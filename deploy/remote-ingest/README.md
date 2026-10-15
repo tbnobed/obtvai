@@ -62,6 +62,31 @@ cache. Do not rebuild against floating CUDA/PyTorch packages independently.
 
 ## Operations
 
+### CPU ingestion on the rebuilt host
+
+`obtv-remote-cpu.service` independently supervises
+`/etc/obtv-remote/cpu-compose.json` (project `obtv-main-ingest-cpu`).
+It runs two prefork slots consuming only `cpu-ingest`, without beat or GPU
+devices, with an eight-CPU quota, 16-GiB memory limit, and the same existing
+CPU affinity restrictions as the GPU workers. It uses the verified image and
+the same 10-Gb shared mounts. It does not consume the general `cpu` or `ingest`
+queues: general rendering/publishing and writable-upload imports stay on main.
+
+Stage `ingest_cpu_app.py` from this directory at
+`/opt/obtv-ingest-checks/ingest_cpu_app.py` on both hosts before deployment.
+The main CPU entrypoint in `efficiency.compose.yml` annotates ingestion
+preparation tasks to publish their children to `cpu-ingest`, which both main
+and remote CPU workers consume. Main retains the only embedded beat scheduler
+and also consumes `cpu,ingest`. GPU/API producers retain their existing routes;
+this is incremental offload, not a global reroute of every CPU job.
+`check_cpu_routing.py` validates final publish options without broker writes
+when run inside the verified worker image with that entrypoint available.
+
+Before storage remounts, drain and stop **both** `obtv-remote-workers` and
+`obtv-remote-cpu`; both services hold bindings to the shared mounts.
+For CPU maintenance, drain only `remote-cpu@obtvai-ingest2` and use its separate
+service. Do not restart both GPU workers just to change CPU capacity.
+
 On the remote host:
 
 ```sh

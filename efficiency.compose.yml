@@ -14,6 +14,15 @@ services:
     image: ${EFFICIENCY_WORKER_IMAGE:-obtv-efficiency-worker:verified}
     environment:
       REMOTE_LLM_QUEUE_ENABLED: "1"
+    # Stage deploy/remote-ingest/ingest_cpu_app.py at this operator-managed path
+    # before enabling this override. Main CPU remains the fallback consumer.
+    command: ["celery", "-A", "ingest_cpu_app:celery_app", "worker", "-B", "--queues=cpu,ingest,cpu-ingest", "--concurrency=4", "--loglevel=info"]
+    volumes:
+      - type: bind
+        source: /opt/obtv-ingest-checks/ingest_cpu_app.py
+        target: /worker/ingest_cpu_app.py
+        read_only: true
+        bind: { create_host_path: false }
   worker-llm:
     extends:
       file: docker-compose.yml

@@ -9,6 +9,12 @@ The rebuilt second server is ingestion-only for now and has been moved back into
 
 **How to apply:** Keep the main server authoritative for scheduling and data; do not install a second standalone app/database. Verify storage and actual inference before enabling rebuilt workers.
 
+CPU offload must be ingestion-only, with main-server fallback and no second scheduler.
+
+**Why:** The shared CPU queue also carries rendering/publishing work, while remote uploads are read-only. Consuming the existing general queues would violate the second server's ingestion-only role or fail upload imports.
+
+**How to apply:** Isolate preparation work, retain main consumers, and preserve GPU queues and CPU-affinity containment. Drain both remote CPU and GPU consumers before changing shared mounts.
+
 The intended network layout is a 10-Gb NIC on the storage VLAN; the 1-Gb NIC is only for SSH and internet access.
 
 **Why:** The user explicitly corrected the assumption that the management connection was the intended storage path.
