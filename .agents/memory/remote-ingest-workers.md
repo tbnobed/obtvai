@@ -9,6 +9,16 @@ The user requested shutdown of the second ingestion server (not the Spark) for a
 
 **How to apply:** Do not automatically restore its ingestion workers during unrelated pipeline recovery. Verify the rebuilt host and storage before reconnecting it to production queues.
 
+The rebuilt second server is ingestion-only for now. The user is staging it with some network adapters disconnected and will move it to the server room after staging readiness is confirmed.
+
+**Why:** The user explicitly separated staging preparation from installation in the server room.
+
+**How to apply:** Prepare drivers and local GPU/container checks first; leave ingestion disabled until final network/storage connectivity and actual inference workloads are verified. Do not treat disconnected staging adapters as hardware faults.
+
+Select worker GPUs by UUID or verified PCI identity, not inherited numeric indices.
+
+**Why:** After the rebuild the RTX PRO 4500 and RTX 5090 enumerated in the opposite order. Reusing old index-based assignments would assign the previous containment policy to the wrong card.
+
 Remote ingestion must retain the main server's identical paths, backing shares,
 models, and authoritative broker/database. Do not make a second independent
 ingestion database or expose broker/database ports publicly.
