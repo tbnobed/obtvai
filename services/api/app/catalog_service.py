@@ -389,10 +389,20 @@ async def _run(db, options):
         if paused:
             stats["stop"] = "systemic_failure"
         if not options.dry_run and not paused:
+            from .catalog_autorecovery import canary_waiting
+            if await canary_waiting(db, runner):
+                stats["stop"] = "recovery_canary"
+                run.stats = dict(stats)
+                run.finished_at = datetime.utcnow()
+                await db.commit()
+                return {"run_id": run_id, "stats": stats, "cursor": checkpoint.cursor, "error": None}
+            canary = runner.cursor.get("recovery_canary") if runner else None
+            if canary:
+                options.max_assets = 1
             first_type = checkpoint.cursor.get("admission_type", 0)
             priority = {ASSET_TYPES[(first_type + n) % len(ASSET_TYPES)]: n for n in range(len(ASSET_TYPES))}
             candidates = (await db.execute(select(CatalogAsset).where(
-                CatalogAsset.asset_type.in_(allowed_types),
+                CatalogAsset.asset_type.in_([kind for kind in allowed_types if kind == "Media"] if canary else allowed_types),
                 CatalogAsset.status.in_(("eligible", "retry")),
                 CatalogAsset.attempts < options.max_attempts,
             ).order_by(case(
@@ -464,6 +474,11 @@ async def _run(db, options):
                 checkpoint = await db.get(CatalogCheckpoint, "catalog")
                 checkpoint.cursor = {**checkpoint.cursor, "admission_type": (ASSET_TYPES.index(candidate.asset_type) + 1) % len(ASSET_TYPES)}
                 candidate.updated_at = datetime.utcnow()
+                if canary:
+                    # Reserve before import_asset can commit/publish. A runner
+                    # restart in that gap must not admit a second canary.
+                    runner.cursor = {**runner.cursor, "recovery_canary": {
+                        **canary, "asset_id": candidate.asset_id}}
                 await db.commit()
                 candidate_id = candidate.asset_id
                 try:

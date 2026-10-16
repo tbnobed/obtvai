@@ -10,3 +10,9 @@ A systemic processing failure must persist an unacknowledged pause independently
 **How to apply:** Check the persistent pause before admission and require explicit acknowledgment to clear it. Test a manual/dry reconciliation followed by a recurring run. Resuming alone is not evidence that a runner is alive; report active discovery only after a real runner heartbeat.
 
 **Recovery lesson:** Reconcile actual job states before enforcing an attempt budget. A failed stage may already have succeeded on a manual retry; do not replay the entire pipeline solely because its catalog row still says retry. Deduplicate systemic failure events by root-attempt identity, not by the changing set of errored children, observer transitions, or a bounded global list that eventually forgets still-polled failures.
+
+Automatic recovery is authorized only for explicitly recognized transient remote-model outages, not arbitrary infrastructure failures or legacy/manual pauses. Require real generation probes and one validation asset before restoring normal admission.
+
+**Why:** The user approved bounded recovery after repeated model connection timeouts left healthy ingestion workers idle. Successful health/model-list endpoints alone do not establish working inference.
+
+**How to apply:** Preserve unsafe-cause precedence, durable restart-safe counters and the original-air-year priority. A successful analysis job can mean “skipped: no transcript”; require evidence that model analysis actually ran. Reserve the validation asset before publication so a runner crash cannot admit a second one.

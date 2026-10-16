@@ -30,11 +30,14 @@ def failure_kind(message):
 
 
 async def pause(db, reason):
+    import time
+    from .catalog_autorecovery import begin_pause
     runner = await db.get(CatalogCheckpoint, "runner")
     if runner is None:
         runner = CatalogCheckpoint(id="runner", cursor={}, stats={})
         db.add(runner)
-    runner.cursor = {**runner.cursor, "paused": True, "state": "paused"}
+    state = begin_pause(runner.cursor, reason, time.time())
+    runner.cursor = {**state, "paused": True, "state": "paused"}
     runner.last_error = reason
     return runner
 

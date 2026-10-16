@@ -22,18 +22,20 @@ def parser():
     return p
 
 
-async def execute(args):
-    from ..catalog_service import CatalogOptions, run_catalog
-    from ..database import engine
-    options = CatalogOptions(
+def options_for(args):
+    from ..catalog_service import CatalogOptions
+    return CatalogOptions(
         dry_run=not args.apply, confirm=args.confirm, max_pages=args.max_pages,
         max_assets=args.max_assets, max_inflight=args.max_inflight,
         max_attempts=args.max_attempts,
         storage_paths=args.storage_path, min_free_bytes=args.min_free_gib * 1024**3,
         reserve_per_asset_bytes=args.reserve_per_asset_mib * 1024**2,
     )
+async def execute(args):
+    from ..catalog_service import run_catalog
+    from ..database import engine
     try:
-        return await run_catalog(options)
+        return await run_catalog(options_for(args))
     finally:
         await engine.dispose()
 
@@ -58,6 +60,11 @@ async def recurring_tick(args):
             state["state"] = "paused" if state.get("paused") else "running"
             row.cursor, row.updated_at = state, datetime.utcnow()
             await db.commit()
+            if args.apply and state.get("paused") and state.get("llm_recovery"):
+                from ..catalog_autorecovery import recovery_tick
+                await recovery_tick(options_for(args))
+                await db.refresh(row)
+                state = dict(row.cursor)
             if state.get("paused"):
                 return {"paused": True, "error": row.last_error}
         try:

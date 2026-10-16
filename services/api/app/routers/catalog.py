@@ -1,6 +1,6 @@
 """Admin-only catalog controls. Discovery is never enabled by API startup."""
 from fastapi import APIRouter, Depends, Request, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth import require_admin
 from ..database import get_db
@@ -32,10 +32,13 @@ async def status(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post("/runner/resume")
 async def resume(request: Request, db: AsyncSession = Depends(get_db)):
     require_admin(request)
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('obtv_catalog_run'))"))
     row = await db.get(CatalogCheckpoint, "runner")
     if not row:
         raise HTTPException(404, "No managed catalog runner has registered")
-    row.cursor = {**row.cursor, "paused": False, "consecutive_errors": 0, "state": "resumed"}
+    row.cursor = {**row.cursor, "paused": False, "consecutive_errors": 0, "state": "resumed",
+                  "llm_recovery": None, "llm_pause_times": [],
+                  "recovery_alert": None, "recovery_canary": None}
     row.last_error = None
     circuit = await db.get(CatalogCheckpoint, "gpu_failures")
     if circuit:
