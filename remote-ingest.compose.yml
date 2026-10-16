@@ -4,4 +4,5 @@ services:
   catalog-runner:
     environment:
       CURATOR_CATALOG_MAX_INFLIGHT: "${CURATOR_CATALOG_ACTIVE_LIMIT:-3}"
+      CURATOR_CATALOG_PRIORITY_AIR_YEAR: "2026"
     command: ["python", "-m", "app.commands.curator_catalog", "--apply", "--confirm", "QUEUE_BOUNDED_CATALOG", "--enable-recurring", "--interval-seconds", "60", "--max-pages", "1", "--max-assets", "1", "--max-inflight", "${CURATOR_CATALOG_ACTIVE_LIMIT:-3}", "--max-attempts", "3", "--storage-path", "/tmp"]

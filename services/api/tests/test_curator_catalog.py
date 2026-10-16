@@ -124,7 +124,7 @@ class CatalogTests(unittest.TestCase):
         self.assertIn(("offset", "199"), params)
         self.assertEqual(
             [v for k, v in params if k == "names"],
-            ["Id", "Name", "IngestCompleteDate", "WebProxyPath"],
+            ["Id", "Name", "IngestCompleteDate", "WebProxyPath", "TBN_OriginalAirDate"],
         )
         self.assertEqual([v for k, v in params if k == "queries"], ["IngestCompleteDate:*"])
         client.page("Image", 0, dated=False)

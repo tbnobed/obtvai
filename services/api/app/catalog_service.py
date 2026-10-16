@@ -12,7 +12,7 @@ from sqlalchemy import select, func, text, case
 from starlette.requests import Request
 
 from .catalog import ASSET_TYPES, INITIAL_CURSOR, CatalogClient, eligibility, exact_id, next_cursor, cutoff
-from .catalog import enabled_asset_types, discovery_cursor
+from .catalog import enabled_asset_types, discovery_cursor, priority_air_year
 from .catalog_models import CatalogAsset, CatalogCheckpoint, CatalogRun
 from .commands.import_curator_workbook import ImportFailure, _field_values
 from .database import AsyncSessionLocal, engine
@@ -395,7 +395,10 @@ async def _run(db, options):
                 CatalogAsset.asset_type.in_(allowed_types),
                 CatalogAsset.status.in_(("eligible", "retry")),
                 CatalogAsset.attempts < options.max_attempts,
-            ).order_by(case(priority, value=CatalogAsset.asset_type),
+            ).order_by(case(
+                       (CatalogAsset.metadata_snapshot["_obtv_original_air_year"].astext
+                        == str(priority_air_year()), 0), else_=1),
+                       case(priority, value=CatalogAsset.asset_type),
                        CatalogAsset.updated_at, CatalogAsset.asset_id).limit(199))).scalars().all()
             for candidate in candidates:
                 if stats["attempted"] >= options.max_assets:

@@ -13,6 +13,31 @@ CUTOFF = date(2023, 1, 1)
 PAGE_SIZE = 199
 
 
+def priority_air_year() -> int:
+    value = os.getenv("CURATOR_CATALOG_PRIORITY_AIR_YEAR", "")
+    if not value:
+        return 0
+    if not re.fullmatch(r"[12]\d{3}", value):
+        raise ImportFailure("CURATOR_CATALOG_PRIORITY_AIR_YEAR must be a four-digit year")
+    return int(value)
+
+
+def with_air_year(asset: dict) -> dict:
+    """Only authoritative, unambiguous ISO original-air dates earn priority."""
+    result = dict(asset)
+    result.pop("_obtv_original_air_year", None)
+    values = list(dict.fromkeys(_field_values(asset, ("TBN_OriginalAirDate",))))
+    if len(values) == 1:
+        value = values[0]
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?", value):
+            try:
+                result["_obtv_original_air_year"] = datetime.fromisoformat(
+                    value.replace("Z", "+00:00")).year
+            except ValueError:
+                pass
+    return result
+
+
 def enabled_asset_types() -> tuple[str, ...]:
     values = tuple(x.strip() for x in os.getenv(
         "CURATOR_CATALOG_ASSET_TYPES", ",".join(ASSET_TYPES)).split(","))
@@ -72,7 +97,7 @@ def eligibility(asset: dict) -> tuple[str, str | None]:
 
 
 class CatalogClient(CuratorClient):
-    def page(self, asset_type: str, offset: int, *, dated: bool) -> list[dict]:
+    def page(self, asset_type: str, offset: int, *, dated: bool, air_dated: bool = False) -> list[dict]:
         if asset_type not in ASSET_TYPES or offset < 0:
             raise ImportFailure("Invalid catalog cursor")
         if not self._access_token:
@@ -83,11 +108,13 @@ class CatalogClient(CuratorClient):
         ]
         # First sweep uses the verified existence query. The unfiltered second
         # sweep is essential: existence queries cannot report missing dates.
-        if dated:
+        if air_dated:
+            params.append(("queries", "TBN_OriginalAirDate:*"))
+        elif dated:
             params.append(("queries", "IngestCompleteDate:*"))
         # FolderPath is optional import metadata, not a defined Gateway field:
         # requesting it makes the live server reject the entire page with 500.
-        for name in ("Id", "Name", "IngestCompleteDate", "WebProxyPath"):
+        for name in ("Id", "Name", "IngestCompleteDate", "WebProxyPath", "TBN_OriginalAirDate"):
             params.append(("names", name))
         for attempt in range(2):
             response = self.http.get(
@@ -111,7 +138,7 @@ class CatalogClient(CuratorClient):
             raise ImportFailure("Curator catalog response has no valid size")
         if not page and offset < total:
             raise ImportFailure("Curator returned an empty page before reported total")
-        return page
+        return [with_air_year(asset) for asset in page]
 
 
 def next_cursor(cursor: dict, count: int, *, head_refresh: bool = False) -> dict:
