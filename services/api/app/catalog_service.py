@@ -332,6 +332,11 @@ async def run_catalog(options: CatalogOptions) -> dict:
 
 
 async def _run(db, options):
+    from .catalog_limit import library_limit
+    if not options.dry_run:
+        stop = await library_limit(db)
+        if stop:
+            return {"stats": {"admitted": 0, "attempted": 0, "errors": 0, "stop": stop}, "error": None}
     allowed_types = enabled_asset_types()
     run_id = str(uuid.uuid4())
     stats = {"pages": 0, "seen": 0, "new": 0, "duplicates": 0, "review": 0,
@@ -431,6 +436,10 @@ async def _run(db, options):
                             candidate.job_id = candidate.task_id = root.id
                             candidate.dispatch_state = "pending"
                             await db.commit()
+                stop = await library_limit(db, candidate)
+                if stop:
+                    stats["stop"] = stop
+                    break
                 if candidate.media_id:
                     active_jobs = (await db.execute(select(ProcessingJob).where(
                         ProcessingJob.media_id == candidate.media_id,

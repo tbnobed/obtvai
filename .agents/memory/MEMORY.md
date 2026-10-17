@@ -56,3 +56,4 @@
 - [Archive search cost](archive-search-cost.md) — explicit search submission avoids GPU embedding work on every draft edit; committed queries may rerun when filters change.
 - [Archive date meaning](archive-date-meaning.md) — “media created in” means original air date, not ingest time or file modification time.
 - [Conversation result ownership](conversation-result-ownership.md) — conversational replies must not replace search results; preserve null versus empty search through persistence.
+- [Benchmark library target](benchmark-library-target.md) — stop at 10,000 total ready assets; preserve the cap across model recovery and let in-flight jobs finish.

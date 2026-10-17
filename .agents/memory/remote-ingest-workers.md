@@ -87,9 +87,14 @@ landmark and demographic submodels even when the models load successfully.
 
 Do not move bulk traffic to a DAC solely because its negotiated link is faster.
 
-**Why:** The second host's 40-Gbps ports were constrained by a PCIe ×1 path;
-measured TCP throughput was below the existing 10-Gbps LAN. Using the direct
-link for all storage would have introduced a new shared bottleneck.
+**Why:** Before the rebuild, the second host's 40-Gbps ports were constrained
+by a PCIe ×1 path and measured below the 10-Gbps LAN. That old bottleneck is
+not a current hardware constraint: post-rebuild verification found a wider
+PCIe path and substantially faster direct-link throughput.
 
 **How to apply:** Check PCIe width/speed and measure throughput before migrating
-storage. Direct, low-volume inference traffic can still avoid relay hops.
+storage; revalidate after hardware rebuilds rather than carrying forward old
+slot limitations. Direct, low-volume inference traffic can still avoid relay
+hops. A passing throughput test is not sufficient qualification: compare NIC
+error counters before/after load, and verify application routes separately
+from IPv6 link-local cable tests.
