@@ -98,3 +98,15 @@ slot limitations. Direct, low-volume inference traffic can still avoid relay
 hops. A passing throughput test is not sufficient qualification: compare NIC
 error counters before/after load, and verify application routes separately
 from IPv6 link-local cable tests.
+
+Do not promote the secondary–DGX direct link to production inference merely
+because it responds or benchmarks quickly.
+
+**Why:** Qualification after restoring direct addressing found increasing
+physical CRC/PCS errors. Jumbo frames caused a severe one-direction throughput
+collapse; matching 1500-byte MTUs restored speed but did not cure the errors.
+
+**How to apply:** Keep that pair at the conservative matching MTU until cable/port
+replacement and a clean error-delta load test. Check `docs/direct-link-qualification.md`
+before migrating inference. The server-to-server link also needs receive-drop
+qualification; increased rings alone did not make it loss-free.
