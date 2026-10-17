@@ -3,11 +3,11 @@ name: Remote GPU ingestion
 description: Cross-host storage/network constraints and worker-image interpreter pitfall.
 ---
 
-The rebuilt second server is ingestion-only for now and has been moved back into the server room.
+The user wants the rebuilt second server to transition from ingestion-only to user-facing translation and other GPU-heavy processing.
 
-**Why:** The user explicitly requested an ingestion-only role, then authorized completion after the move.
+**Why:** The user wants better interactive performance and benchmark evidence before deciding whether a larger CPU server is necessary.
 
-**How to apply:** Keep the main server authoritative for scheduling and data; do not install a second standalone app/database. Verify storage and actual inference before enabling rebuilt workers.
+**How to apply:** Keep the main server authoritative for scheduling and data; do not install a second standalone app/database. The broader role requires explicit queue routing and verification of writable outputs and source access, not merely subscribing existing ingestion containers to more queues.
 
 CPU offload must be ingestion-only, with main-server fallback and no second scheduler.
 
