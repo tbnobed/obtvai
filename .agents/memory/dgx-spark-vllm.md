@@ -44,6 +44,13 @@ Treat GPU clock mitigation as temporary unless it has been verified after a
 host reboot. A prior successful nvidia-smi lock does not establish boot-time
 protection.
 
+The user requested that the Spark's 2100-MHz GPU cap persist across reboots.
+Keep the cap in place unless they authorize removing it.
+
+**Why:** The user selected persistent containment after repeated host outages;
+this remains a diagnostic mitigation, not evidence of a repaired power or
+thermal fault.
+
 **Why:** During a later repeated-host-outage investigation, live GPU clocks
 exceeded the previously requested cap and there was no persistent cap service.
 That proves mitigation was absent, not that its absence caused every outage.

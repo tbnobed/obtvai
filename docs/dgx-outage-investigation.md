@@ -44,11 +44,25 @@ and absent clock mitigation. Driver/kernel failure remains an alternative.
 The known secondary-DAC CRC issue does not by itself explain a new OS boot.
 
 Next steps:
-1. Restore a reboot-persistent 300–2100 MHz diagnostic cap if authorized, before
-   model startup, and compare externally recorded stability under the same load.
+1. Compare externally recorded stability under the same load with the
+   user-authorized persistent 300–2100 MHz diagnostic cap now installed.
 2. Configure supported crash-kernel reservation and enable kdump in a scheduled
    reboot, then verify an actual loaded crash kernel. Do not claim that the
    currently active kdump service provides capture.
 3. Verify power adapter/connection and cooling physically. If abrupt failures
    continue with bounded clocks, use collected evidence to isolate adapter,
    board, firmware and kernel causes rather than repeatedly resetting ingestion.
+
+## Clock containment applied
+
+The user authorized a reboot-persistent 2100-MHz upper limit. Deployment sources
+are in `deploy/dgx-clock-cap/`. The cap was applied live, with a settled readback
+of 2093 MHz on the host and both model containers. A real generation request
+returned HTTP 200 and READY. Container start timestamps were unchanged.
+
+The enabled boot service is a required predecessor of Docker, so failed clock
+locking prevents Docker startup rather than silently allowing uncapped models.
+No daemon-reload, model restart, or host reboot was performed: boot configuration
+was enabled with --no-reload to avoid NVIDIA container device-access disruption.
+Persistence is configured and unit syntax verified, but has not yet been
+tested through an actual reboot. Crash-capture configuration remains unchanged.

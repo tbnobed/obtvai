@@ -1,0 +1,14 @@
+[Unit]
+Description=Apply DGX diagnostic GPU clock cap before model containers
+Wants=nvidia-persistenced.service
+After=systemd-modules-load.service nvidia-persistenced.service
+Before=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/obtv-gpu-clock-cap
+RemainAfterExit=yes
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target
