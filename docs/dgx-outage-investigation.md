@@ -127,3 +127,38 @@ diagnostics (approximately 30 minutes plus reboot/setup), restore Secure Boot
 afterward, and establish working crash capture. Check the physical power supply
 and cooling as part of that window. Do not declare a thermal/power root cause
 from the successful capped test.
+
+## Authorized maintenance preparation, October 19 afternoon
+
+The user approved taking the Spark offline with a firmware-console operator.
+Installed official dgx-spark-fieldiag 1.0.9-1 plus fio, memtester and stress-ng.
+Inspected this package's actual default spec: GPU, C2C, CPU, power, thermal,
+SSD and memory tests; no CX7 action. Do not install/replace the network-driver
+stack merely because newer online documentation describes a CX7 prerequisite.
+
+Before firmware reboot:
+- Confirmed library still 10,000 ready, catalog paused and limit latched.
+- Stopped vllm and obtvai-worker-bagel-1; temporarily set restart=no on both.
+  Original policies saved on Spark in
+  /opt/obtv-fielddiag-maintenance/original-container-policies.txt:
+  vllm unless-stopped; BAGEL on-failure, maximum retry count zero.
+- Disabled the previously enabled, currently inactive spark.service and
+  obviu-spark-ai.service for maintenance, without daemon-reload.
+  Original enabled states saved in original-service-enabled.txt beside policies.
+- Preserved boot-time GPU cap and Docker dependency. Unit validation passed.
+- Main server can reach management SSH at 192.168.200.248, an alternative to
+  DAC SSH if the diagnostic disrupts GPU/NIC drivers.
+
+The diagnostic unloads NVIDIA drivers and loads MODS: the normal nvidia-smi
+clock lock cannot be promised during testing. The user has been informed;
+confirm consent for diagnostic-managed clocks before launching stress tests.
+Do not automatically start tests or model containers after the firmware reboot.
+Confirm Secure Boot disabled, then enter multi-user mode and run the diagnostic
+with persistent logs. Extra thermal/power/clock logging is supported by the
+installed wrapper. If interrupted, NVIDIA requires a power cycle before retry.
+
+After tests: restore Secure Boot through firmware, reboot, verify cap service
+and actual clock behavior before restoring original container restart policies
+and starting models. Restore original enabled states for the two legacy Spark
+services, preserving their pre-maintenance inactive state until normal reboot.
+Verify inference and external recording; catalog must remain paused at 10,000.

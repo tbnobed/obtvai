@@ -28,6 +28,19 @@ For unexplained GB10 hard power-offs, investigate power/SoC thermal behavior as 
 
 Clock caps do not persist through reboot; verify actual clock steps after applying. Field diagnostics are disruptive, not a routine live-server health check: the official guide requires GPU availability and Secure Boot disabled, with re-enabling afterward. Obtain approval before interrupting inference or changing boot security. https://docs.nvidia.com/dgx/dgx-spark/support.html#field-diagnostic-software
 
+NVIDIA field diagnostics replace the normal GPU driver with MODS; do not promise
+that a normal nvidia-smi clock cap remains enforced during those tests.
+
+**Why:** The installed diagnostic wrapper unloads the production driver.
+Maintenance approval based on capped testing does not establish consent for
+diagnostic-managed power/thermal stress.
+
+**How to apply:** Disclose this distinction before starting tests, preserve the
+normal boot-time cap, and verify it again before restoring model workloads.
+Match prerequisites to the installed diagnostic spec: newer online guides can
+include CX7 tests absent from an older repository package. Do not replace
+working network drivers for tests that the installed suite does not run.
+
 After a clock-cap command succeeds, allow the clock to settle before deciding it failed. An immediate query can still show the old frequency; 2100 MHz settled to the supported 2093 MHz step.
 
 **Why:** The immediate readback exceeded the requested cap, while the subsequent readback confirmed it without reapplying or changing settings.
