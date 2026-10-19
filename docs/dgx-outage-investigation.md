@@ -66,3 +66,64 @@ No daemon-reload, model restart, or host reboot was performed: boot configuratio
 was enabled with --no-reload to avoid NVIDIA container device-access disruption.
 Persistence is configured and unit syntax verified, but has not yet been
 tested through an actual reboot. Crash-capture configuration remains unchanged.
+
+## October 19, 12:10–12:15 Pacific verification
+
+The production database contains exactly 10,000 assets, all with status ready:
+9,660 videos (H.264/HEVC), 271 images and 69 audio assets. The library-limit
+checkpoint is reached with zero reserved slots; the catalog runner is paused.
+There are no pending/running processing jobs. No ingestion was resumed.
+
+Readiness caveats:
+- Checking the preferred proxy/original paths from the API container found
+  9,993 nonempty files and seven missing video paths under /curator. Their
+  original paths are also absent. This is a filesystem check, not a full decode
+  or playback test.
+- Fourteen assets have historical failed jobs without a later success of that
+  same job type. Ten involve analysis; all ten nevertheless have transcript
+  and scene rows. These errors do not alone prove all fourteen are unusable.
+- Processing-stage/progress fields are inconsistent with the ready flag:
+  8,967 say diarized/75%, 531 complete/100%, 382 visual_embed_complete/90%,
+  116 face_detect_complete/92%, four face_detect/85%. Independent stage tasks
+  write these fields; do not equate these values with live jobs or silently
+  relabel them to make the benchmark look complete.
+
+Missing-file asset IDs:
+575998ba-5843-4c22-905e-93c29798469b,
+027fc651-8663-49cb-aa40-004b09842a28,
+319f50e4-d975-4229-834b-55ebe0ba99ed,
+6f2062fb-3e4a-4033-ad18-84c558ac1b30,
+985aeb47-c3ea-4714-bb03-2562c6bf304a,
+f89012ca-f2fa-49f8-8dcb-e06496421261,
+7dc1002f-8fdc-42fc-81f6-204893d66f68.
+
+Spark testing:
+- Two concurrent inference requests repeated for 181.65 seconds:
+  44/44 succeeded, generating 11,264 tokens.
+- An additional long-context request (6,379 input tokens) returned HTTP 200
+  in 6.7 seconds, generating 113 tokens.
+- External ten-second samples during the test: peak GPU 61 C, maximum exposed
+  thermal zone 75.8 C, peak sampled GPU power 29.51 W, clocks at most 2093 MHz.
+  No SSH/model health failures or boot-ID change. No new matching kernel
+  GPU/OOM/panic/hardware-error messages found.
+- This is a bounded inference test, not a maximum-power hardware burn-in.
+  It did not reproduce or establish the cause of shutdowns.
+- Today's earlier recording had 3,037 successful samples across one boot
+  through 12:11 Pacific, peak GPU 74 C and exposed thermal zone 85.6 C.
+  Seven above-cap samples were confined to 03:45–03:46 Pacific, before the
+  settled cap; they do not demonstrate subsequent cap failure.
+- NVMe reports 56 lifetime unsafe shutdowns, zero media/errors-log entries,
+  zero critical warning, 100% available spare. Unsafe shutdowns support abrupt
+  interruptions but cannot distinguish deliberate power cuts from failures.
+- Crash kernel remains unloaded. Secure Boot is enabled. Official NVIDIA
+  field diagnostics are not installed and require temporarily disabling Secure
+  Boot, rebooting and releasing GPU workloads. No security change, reboot,
+  driver update, container restart or uncapping was performed.
+- Some DAC ports continue to flap while the host and main inference path stay
+  online. That is a separate connectivity problem, not proof of host shutdown.
+
+Next diagnostic step: obtain a maintenance window for official NVIDIA field
+diagnostics (approximately 30 minutes plus reboot/setup), restore Secure Boot
+afterward, and establish working crash capture. Check the physical power supply
+and cooling as part of that window. Do not declare a thermal/power root cause
+from the successful capped test.
