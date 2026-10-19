@@ -40,6 +40,30 @@ Docker log absence is not proof that a container produced no error after a hard 
 
 The user says the DGX has no visible lights or fans for them to check.
 
+Treat GPU clock mitigation as temporary unless it has been verified after a
+host reboot. A prior successful nvidia-smi lock does not establish boot-time
+protection.
+
+**Why:** During a later repeated-host-outage investigation, live GPU clocks
+exceeded the previously requested cap and there was no persistent cap service.
+That proves mitigation was absent, not that its absence caused every outage.
+
+**How to apply:** If restoring the mitigation is authorized, persist it before
+model startup and verify delayed readback. Keep thermal/power versus kernel
+failure hypotheses separate until externally recorded evidence distinguishes them.
+
+Renew a bounded health recorder's restricted SSH-key expiration together with
+its recording deadline; verify a successful telemetry sample, not just a live
+recorder process.
+
+**Why:** The original recording window and forced-command key both expired.
+Restarting the recorder alone captured ping but SSH telemetry was refused by
+key options.
+
+**How to apply:** Extend only the existing health key's expiration, preserve
+source/forced-command restrictions, and verify telemetry exit status and sample
+timestamp before calling recording active.
+
 On October 6, 2026, the user reported the DGX was extremely hot to the touch and moved it to an area with better airflow, requesting removal of the temporary cap to test stability.
 
 **Why:** This is user-observed evidence relevant to cooling, not confirmation that thermal protection caused earlier shutdowns.
