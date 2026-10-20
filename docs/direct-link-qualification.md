@@ -1,5 +1,41 @@
 # Direct-link configuration and remaining qualification
 
+## October 20 retest
+
+All three pairs passed 20 full-MTU, do-not-fragment pings with zero loss.
+Explicit source bindings and route lookups on both ends confirmed direct DAC
+routing, not the management or storage networks.
+
+Four parallel TCP streams, 15 measured seconds plus two-second warmup:
+
+| Direction | Receiver Gbps | Sender retransmissions |
+| --- | ---: | ---: |
+| Main → Spark | 26.94 | 2 |
+| Spark → main | 28.38 | 0 |
+| Secondary → Spark | 37.65 | 1,686 |
+| Spark → secondary | 37.70 | 4,344 |
+| Secondary → main | 27.09 | 44,708 |
+| Main → secondary | 27.01 | 104 |
+
+Before/after hardware-counter deltas:
+- No new CRC or symbol errors on the tested ports. The prior secondary–Spark
+  physical-error condition was not reproduced in this short test.
+- Main dac1 RX physical discards increased 50,187; the matching priority-zero
+  discard counter increased by the same amount (not an additional 50,187).
+- Secondary's Spark-facing NIC RX missed errors increased 2,331.
+- Spark error/drop counters showed no increase.
+
+Conclusion: connectivity and throughput pass; saturation-loss qualification
+does not. Resolve receive-side drops or qualify a paced operating limit before
+calling the secondary fully ready for the new worker role.
+
+Secondary storage NIC remains linked at 10 Gb/s and both checked CIFS-server
+routes use that interface. Both worker GPU containers can query their intended
+GPU. Existing three ingestion containers remain running; no queue/role changes
+were made. Spark model containers remain stopped for previously authorized
+maintenance, so model-serving readiness was not established by these tests.
+Temporary port-5209 listeners were stopped; no network configuration changed.
+
 2026-10-17: persistent direct addresses were restored on the secondary server.
 Default management route and 10-Gb storage paths were not changed. Production
 inference relays were deliberately not redirected onto an erroring cable.
