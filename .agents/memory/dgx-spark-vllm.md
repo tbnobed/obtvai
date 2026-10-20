@@ -16,6 +16,18 @@ Historically tested setup: `nvcr.io/nvidia/vllm:25.12.post1-py3` serving Qwen3-3
 
 For unexpected outages, distinguish host boot history from container restart counts, and verify crash capture is actually armed before interpreting missing dumps.
 
+Treat a remote-console startup logo as ambiguous until SSH and the rendered
+desktop have been checked.
+
+**Why:** A TinyPilot view remained on the NVIDIA splash while both Spark network
+paths accepted SSH, GDM was running, and an X11 root-window capture showed the
+normal login screen. A frozen console view is not proof of an unbootable host.
+
+**How to apply:** Check uptime, display session and an OS-side screenshot before
+requesting another power cycle. Distinguish the rendered desktop from the HDMI
+scanout/capture path; an OS-side screenshot alone does not prove which component
+in that path is faulty.
+
 **Why:** A Spark host reboot left Docker reporting zero container restarts. The installed crash-dump service was enabled but USE_KDUMP was disabled and no crash kernel was loaded. Missing crash records therefore could not distinguish power loss from a hard kernel failure.
 
 **How to apply:** Correlate previous-boot journals with the AI server's physical-link history and historical memory samples. Do not use current memory or temperature to claim a past OOM or thermal shutdown, or treat a startup compatibility warning as a proven shutdown cause.
