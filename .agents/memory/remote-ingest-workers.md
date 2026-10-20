@@ -9,6 +9,18 @@ The user wants the rebuilt second server to transition from ingestion-only to us
 
 **How to apply:** Keep the main server authoritative for scheduling and data; do not install a second standalone app/database. The broader role requires explicit queue routing and verification of writable outputs and source access, not merely subscribing existing ingestion containers to more queues.
 
+For the secondary's interactive role, use local MADLAD transcript translation
+rather than sending translation back to Spark by default.
+
+**Why:** The chosen implementation reserves secondary GPU capacity for user
+work and removes Spark as a dependency for transcript translation. This is an
+engine/quality tradeoff, not merely a queue change; short Spanish smoke tests
+do not certify every language or long-form translation quality.
+
+**How to apply:** Preserve this deliberate separation unless requirements
+change. Keep other Spark-backed analysis routes intact and benchmark translation
+quality before promising parity with the former LLM translation path.
+
 CPU offload must be ingestion-only, with main-server fallback and no second scheduler.
 
 **Why:** The shared CPU queue also carries rendering/publishing work, while remote uploads are read-only. Consuming the existing general queues would violate the second server's ingestion-only role or fail upload imports.

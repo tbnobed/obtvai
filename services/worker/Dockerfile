@@ -49,6 +49,7 @@ RUN pip install --no-cache-dir requests
 # (torch already pinned in requirements) plus its light deps. 0.1.7 adds
 # Chatterbox-Turbo (chatterbox.tts_turbo.ChatterboxTurboTTS).
 RUN pip install --no-cache-dir --no-deps chatterbox-tts==0.1.7 \
+    && pip install --no-cache-dir --no-deps pyloudnorm==0.1.1 \
     && pip install --no-cache-dir librosa==0.11.0 s3tokenizer resemble-perth conformer==0.3.2 diffusers==0.29.0 pykakasi omegaconf==2.3.0 \
     # s3tokenizer drags in the plain CPU `onnxruntime` wheel, which shadows
     # onnxruntime-gpu and silently drops InsightFace face detection (face
@@ -71,7 +72,7 @@ RUN pip install --no-cache-dir --force-reinstall --no-deps onnxruntime-gpu==1.22
 
 # Import only: catch missing runtime dependencies before shipping the image.
 # This does not download checkpoints or require a GPU.
-RUN python3 -c "from chatterbox.mtl_tts import ChatterboxMultilingualTTS"
+RUN python3 -c "from chatterbox.mtl_tts import ChatterboxMultilingualTTS; from chatterbox.tts_turbo import ChatterboxTurboTTS"
 
 # --- LatentSync (local lipsync engine) ---------------------------------------
 # Isolated in its own venv: LatentSync pins torch 2.5.1 (no Blackwell/sm_120

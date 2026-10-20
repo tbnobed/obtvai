@@ -1,5 +1,58 @@
 # Remote ingestion workers
 
+## Current role: secondary interactive GPU workers
+
+Both secondary GPU workers now consume only `gpu-interactive`, one prefork
+slot per card. They no longer consume the archive `gpu` queue. Main GPU
+workers retain that queue; the secondary CPU worker remains ingestion-only.
+The catalog's 10,000-ready limit remains latched.
+
+API publications for translation, dubbing, speech and lip-sync are isolated by
+`app/gpu_routing.py` with `INTERACTIVE_GPU_QUEUE=gpu-interactive`.
+Other GPU jobs and graphics routing are unchanged. Graphics still uses its
+existing dedicated rendering service; do not move its queue without provisioning
+that service. The new queue deliberately has no automatic main-GPU fallback:
+if the secondary is unavailable, these jobs wait rather than unexpectedly
+contending for main GPU capacity.
+
+`configure-interactive-workers.py` updates the private remote Compose file,
+after both GPU consumers are drained/stopped. It preserves all GPU UUID/device
+bindings, CPU-affinity constraints, source mounts and credentials. The worker
+image `obtv-interactive-worker:verified` adds the pinned Turbo speech dependency
+without upgrading Torch/CUDA. Build source: `interactive.Dockerfile`.
+
+Secondary transcript translation uses local MADLAD (`TRANSLATE_USE_LLM=0`),
+not Spark's LLM translation path. Model caches were populated and inference
+verified on both cards. This changes the translation engine; it is not a claim
+of equal translation quality across all languages or long transcripts.
+Dub/speech output directories are writable while source media/uploads remain
+read-only. Both GPUs produced finite, nonempty WAV files using Chatterbox Turbo;
+temporary smoke-test WAVs were removed. Full-length dubbing and lip-sync were
+not verified end-to-end in this change.
+
+Two existing short assets were translated to Spanish through real API
+publication/Celery/worker/database paths, one on each GPU, with success/100%
+and saved translations. No assets were added to the 10,000-asset library.
+Routing unit tests and mocked full publisher tests passed. API health is green.
+
+Main production API image: `obtv-api-interactive-workers:verified`, derived from
+the existing library-limit image, with only publisher/routing files changed.
+The existing private remote-ingest Compose override points to this image;
+its previous version is backed up beside it. The normal source override now
+sets the queue environment too, for future builds.
+
+Spark vLLM and BAGEL were restarted with their original restart policies.
+Secure Boot remains enabled and the persistent GPU cap read back at 2093 MHz.
+Real completion returned READY/HTTP 200; a real BAGEL caption returned HTTP 200
+after approximately 70 seconds. This verifies service, not low caption latency
+or resolution of the historical Spark shutdowns. Hardware field diagnostics
+were not run. The two legacy Spark services' enabled states were restored
+without starting those previously inactive services.
+
+Rollback: drain interactive GPU jobs first, restore the saved remote Compose,
+and restore the prior API image/queue routing together. Do not strand queued
+interactive jobs or purge them. Do not resume catalog ingestion.
+
 The main server remains authoritative for catalog admission, PostgreSQL, Redis,
 Qdrant, original media, and derived outputs. Remote GPU workers do not run a
 second catalog runner, watcher, or application database.
@@ -95,7 +148,9 @@ sudo docker logs --tail 50 obtv-main-ingest-gpu0
 sudo docker logs --tail 50 obtv-main-ingest-gpu1
 ```
 
-The queue is controlled by `REMOTE_GPU_QUEUES` in the root-only Compose `.env`.
+For the earlier ingestion role, the queue was controlled by `REMOTE_GPU_QUEUES`
+in the root-only Compose `.env`. The current interactive-role installer uses
+an explicit queue instead.
 Use an isolated queue for initial readiness checks, then `gpu` for normal
 processing. Confirm both workers are online through Celery inspection and
 verify a real main-database job completed on each node.

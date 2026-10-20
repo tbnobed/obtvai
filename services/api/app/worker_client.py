@@ -8,6 +8,7 @@ import uuid
 from celery import Celery
 from fastapi.concurrency import run_in_threadpool
 from .config import settings
+from .gpu_routing import publication_queue
 
 _celery = Celery("obtv_api", broker=settings.redis_url, backend=settings.redis_url)
 _celery.conf.task_serializer = "json"
@@ -15,6 +16,7 @@ _celery.conf.broker_connection_retry_on_startup = True
 
 
 async def _publish(queue: str, task_name: str, kwargs: dict, task_id: str):
+    queue = publication_queue(queue, task_name)
     # send_task is blocking (sync Redis connection), so run it off the event loop.
     await run_in_threadpool(
         _celery.send_task,

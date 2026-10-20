@@ -4,6 +4,7 @@ services:
   api:
     environment:
       CURATOR_CATALOG_READY_LIMIT: "10000"
+      INTERACTIVE_GPU_QUEUE: "gpu-interactive"
   catalog-runner:
     environment:
       CURATOR_CATALOG_READY_LIMIT: "10000"
