@@ -90,15 +90,20 @@ Do not move bulk traffic to a DAC solely because its negotiated link is faster.
 Qualify both secondary DAC ports concurrently, and distinguish hardware
 receive drops from TCP retransmissions and intentional pacing.
 
-**Why:** Receiver tuning eliminated new physical/missed-packet counters in
-tests, yet simultaneous incoming traffic still produced substantial TCP
-retransmissions. Single-link throughput and zero CRC errors did not establish
-concurrent worker readiness.
+**Why:** Queue-level RX missed/drop counters stayed flat while the Intel
+`port.rx_discards` counter increased substantially. Enabling RX/TX Ethernet
+flow control eliminated the measured port drops in concurrent tests and
+allowed removal of the temporary 20-Gbit software cap. Some TCP
+retransmissions remained, so zero port drops is not a loss-free guarantee.
 
-**How to apply:** Preserve the qualified secondary-to-main 20-Gbit outgoing
-pacing unless a replacement passes the same concurrent tests. TBF overlimits
-count pacing, not loss. Inspect both NIC counter deltas and TCP retransmissions;
-do not promise two independent 40-Gbit streams through a shared PCIe path.
+**How to apply:** Include Intel port-level counters, not only queue counters,
+and baseline them after configuration changes that may reset statistics.
+Preserve verified RX/TX pause support on both secondary DACs. Change link
+autonegotiation with ethtool -s, not -A; wait for carrier and settled pause
+readback before declaring success or failure. A transient readback showed
+off before the driver reported RX/TX enabled. Do not retain a firmware-LLDP
+change merely because it was tried: default LLDP was restored for qualification.
+Do not promise two independent 40-Gbit streams through a shared PCIe path.
 
 **Why:** Before the rebuild, the second host's 40-Gbps ports were constrained
 by a PCIe ×1 path and measured below the 10-Gbps LAN. That old bottleneck is

@@ -1,5 +1,69 @@
 # Direct-link configuration and remaining qualification
 
+## October 20 follow-up: port drops identified and flow control qualified
+
+This section supersedes the incomplete mitigation and qualification statements
+below, which are retained as investigation history.
+
+The earlier "hardware drop counters flat" conclusion was too broad: the Intel
+driver's `port.rx_discards` counter was not included in that check. It increased
+by 287,201 on the Spark-facing port in a new concurrent-receive test while
+queue-level `rx_missed_errors` and softnet drop counters stayed flat.
+Sender qdisc drop counts also stayed zero. This establishes real port-level
+loss, not only spurious TCP retransmission.
+
+Both Intel ports initially had RX/TX pause off. Fixed-speed link configuration
+with `ethtool -s ... speed 40000 duplex full autoneg off`, followed by
+`ethtool -A ... rx on tx on`, enabled pause on both. The main-facing port
+previously retained autoneg on: -A does not change link autonegotiation.
+Immediate pause readback can be stale until renegotiation completes; verify
+carrier and settled readback. A firmware-LLDP disable trial was reverted;
+default firmware LLDP remains enabled and no NIC firmware was changed.
+
+Final retained settings:
+- Both secondary DACs: fixed 40-Gbit/full-duplex, autoneg off, RX/TX pause on.
+- Spark-facing RX ring 8160, TX ring 4096.
+- Spark-facing adaptive RX on, rx-usecs 50. Link/DCB reset restored these
+  defaults before the successful tests; the previous 8-us trial is not retained.
+- Main-facing RX/TX rings 4096.
+- Removed temporary secondary-to-main TBF cap. Original mq/pfifo_fast is back.
+- Main and Spark qdiscs remain their original mq/fq_codel.
+
+Successful 45-second concurrent tests (four streams per connection):
+
+| Workload | Direction | Receiver Gbps | TCP retransmissions |
+| --- | --- | ---: | ---: |
+| Both peers sending to secondary | Main → secondary | 23.93 | 729 |
+| Both peers sending to secondary | Spark → secondary | 22.76 | 632 |
+| Secondary sending to both peers | Secondary → main | 24.08 | 0 |
+| Secondary sending to both peers | Secondary → Spark | 23.25 | 20,953 |
+| Both pairs fully bidirectional | Secondary → main | 24.35 | 0 |
+| Both pairs fully bidirectional | Main → secondary | 20.52 | 565 |
+| Both pairs fully bidirectional | Secondary → Spark | 22.83 | 452 |
+| Both pairs fully bidirectional | Spark → secondary | 25.94 | 1,090 |
+
+All measured port discard, missed-packet and CRC counters stayed flat across
+the final tests. Pause counters increased on matching endpoints, establishing
+that receiver backpressure was working. Existing historical counter values
+are not new losses. TCP retransmissions were reduced, not eliminated.
+
+Updated installer `deploy/remote-ingest/tune-dac-receive.sh` persists only this
+qualified configuration and waits for effective pause state. It migrates the
+old owned 20-Gbit TBF but refuses to replace unrelated qdisc policies.
+Installed with --install-only because current live settings already matched;
+boot unit enabled and syntax verified, not tested through reboot.
+
+All temporary listeners removed. Both GPU containers still see their intended
+GPUs, and storage routes remain on the 10-Gbit interface. No ingestion resume,
+worker-role switch, model restart or further Spark reboot was performed.
+These tests support a controlled worker pilot, not a long-duration stability
+guarantee. Spark inference remains stopped for maintenance and must be restored
+and tested before application-level worker readiness.
+
+Rollback, if needed: restore the previous qualified installer/settings from
+version history, including secondary-to-main TBF containment. Do not disable
+pause at saturation without restoring containment and retesting port counters.
+
 ## October 20 receive-drop mitigation
 
 Applied and retained only the changes that passed their targeted tests:
