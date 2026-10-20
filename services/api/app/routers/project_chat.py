@@ -616,7 +616,9 @@ def _trim_to_target(clips: list[dict], target: float) -> None:
     def total() -> float:
         return sum(_clip_duration(c) for c in clips)
 
-    tol = max(5.0, target * 0.05)
+    # An explicit runtime is not a +/-5% estimate (55 minutes allowed 2:45
+    # excess). Keep only a floating-point tolerance; report locked conflicts.
+    tol = 0.01
     excess = total() - target
     if excess <= tol:
         return
@@ -721,6 +723,8 @@ _SELECT_SYSTEM = (
     "(clips C1, C2, ...) and CANDIDATE moments (S1, S2, ...) found for the "
     "user's request. Compose the new cut as an ordered list of those IDs. "
     "Clips marked [locked] MUST be kept. Aim for the target runtime. Prefer "
+    "using the supplied segment durations to sum the runtime. If enough relevant "
+    "material exists, select slightly over the target; the application trims excess. "
     "variety across source files and a sensible story order.\n"
     "BE STRICT ABOUT RELEVANCE. The candidates come from a similarity search "
     "and many are only loosely related — a snippet mentioning a keyword is "
@@ -728,8 +732,8 @@ _SELECT_SYSTEM = (
     "express the requested theme (for 'God's love', the snippet must actually "
     "speak about God loving, grace, mercy — not merely mention God). A cut "
     "that comes in under the target with strong clips is better than one "
-    "padded to length with off-topic material; the tool will widen strong "
-    "clips to reach the runtime.\n"
+    "padded to length with off-topic material. The tool will NOT widen "
+    "clips into unreviewed footage to reach the runtime.\n"
     "VISUAL CANDIDATES: some candidates are marked [visual match — ...]. They "
     "come from keyframe analysis, not the transcript — footage that LOOKS like "
     "the request (a performance, a location) with no indexed dialog. For "
@@ -748,16 +752,15 @@ _SELECT_SYSTEM = (
     "idea leads into the next like a story — setup, development, payoff — "
     "not a random pile of soundbites. Respond ONLY "
     "with a JSON object, no other text:\n"
-    '{"cut": ["C1", "S3", ...], "reply": "2-4 conversational sentences telling '
-    'the user what you changed and why, in a warm collaborative tone — mention '
-    'the rough runtime and invite follow-up tweaks"}'
+    '{"cut": ["C1", "S3", ...]}. Do not write a conversational reply or claim '
+    "a runtime; the application measures and reports the saved cut."
 )
 
 
 def _cut_lines(clips: list[dict]) -> str:
     lines = []
     for i, c in enumerate(clips[:_MAX_CUT_LINES], 1):
-        snip = (c.get("snippet") or "")[:_SNIPPET_CHARS]
+        snip = c.get("_review_text") or (c.get("snippet") or "")[:_SNIPPET_CHARS]
         lock = " [locked]" if c.get("locked") else ""
         lines.append(
             f"C{i}{lock} {c['filename']} {_fmt_tc(c['start_time'])}-{_fmt_tc(c['end_time'])} "
@@ -769,7 +772,7 @@ def _cut_lines(clips: list[dict]) -> str:
 def _cand_lines(cands: list[dict]) -> str:
     lines = []
     for i, c in enumerate(cands, 1):
-        snip = (c.get("snippet") or "")[:_SNIPPET_CHARS]
+        snip = c.get("_review_text") or (c.get("snippet") or "")[:_SNIPPET_CHARS]
         lines.append(
             f"S{i} {c['filename']} {_fmt_tc(c['start_time'])}-{_fmt_tc(c['end_time'])} "
             f"({_clip_duration(c):.0f}s) \"{snip}\""
@@ -850,6 +853,60 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         latest = await _latest_revision(db, project_id)
         cut = _sanitize_clips(latest.clips) if latest is not None else []
 
+        from ..services.editorial_brief import resolve_brief
+        user_rows = (await db.execute(
+            select(ProjectChatMessage.content)
+            .where(ProjectChatMessage.project_id == project_id,
+                   ProjectChatMessage.role == "user")
+            .order_by(ProjectChatMessage.created_at)
+        )).scalars().all()
+        brief = await resolve_brief(list(user_rows) + [user_text], generate_response)
+        constrained = bool(brief.get("air_year") or brief.get("excluded_people") or brief.get("excluded_sources"))
+        if brief.get("target_seconds") is not None:
+            target = float(brief["target_seconds"])
+        if constrained:
+            eligible = select(MediaAsset.id).where(MediaAsset.status == "ready")
+            if media_ids:
+                eligible = eligible.where(MediaAsset.id.in_(media_ids))
+            year = brief.get("air_year")
+            if year:
+                eligible = eligible.where(
+                    MediaAsset.curator_original_air_date >= datetime(year, 1, 1),
+                    MediaAsset.curator_original_air_date < datetime(year + 1, 1, 1),
+                )
+            # Conservative exclusion: reject the whole source when its metadata,
+            # transcript, or identified appearances match an excluded person.
+            for idx, term in enumerate(brief.get("excluded_people", []) + brief.get("excluded_sources", [])):
+                pattern = "%" + "%".join(re.findall(r"\w+", term)) + "%"
+                eligible = eligible.where(sql_text(f"""
+                    NOT (
+                        coalesce(media_assets.filename,'') ILIKE :excluded_{idx}
+                        OR coalesce(media_assets.synopsis,'') ILIKE :excluded_{idx}
+                        OR EXISTS (SELECT 1 FROM transcript_segments ts
+                            WHERE ts.media_id=media_assets.id AND ts.text ILIKE :excluded_{idx})
+                        OR EXISTS (SELECT 1 FROM person_appearances pa JOIN people p ON p.id=pa.person_id
+                            WHERE pa.media_id=media_assets.id AND p.display_name ILIKE :excluded_{idx})
+                    )
+                """).bindparams(**{f"excluded_{idx}": pattern}))
+            media_ids = list((await db.execute(eligible)).scalars().all())
+            if not media_ids:
+                await _finish(db, assistant_id, "No ready sources match the original-air-date and exclusion requirements. I have not changed the cut or substituted unverified footage.", None)
+                return
+            allowed = set(media_ids)
+            invalid_count = sum(c["media_id"] not in allowed for c in cut)
+            if invalid_count and brief.get("edit_requested") is not True:
+                await _finish(db, assistant_id,
+                    f"The current cut has {invalid_count} clips outside the verified date/exclusion scope. "
+                    "It is not verified against your brief. I have not changed it; request a rebuild to replace those clips.",
+                    None)
+                return
+            if any(c.get("locked") and c["media_id"] not in allowed for c in cut):
+                await _finish(db, assistant_id, "Some locked clips conflict with your date or exclusion requirements. Unlock those clips before I can replace them; I have not changed the cut.", None)
+                return
+            cut = [c for c in cut if c["media_id"] in allowed]
+        if brief.get("rebuild") is True:
+            cut = [c for c in cut if c.get("locked")]
+
         # ---- PLAN
         total = sum(_clip_duration(c) for c in cut)
         target_line = (
@@ -876,6 +933,9 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                         line = f"- {fname}: {syn[:280]}"
                     else:
                         line = f"- {fname}" + ("" if syn else ": (not yet analyzed)")
+                    if used + len(line) > _POOL_CHAR_BUDGET:
+                        ep_lines.append(f"- (Metadata sample ends here; all {len(pool_rows)} eligible sources remain searchable.)")
+                        break
                     used += len(line)
                     ep_lines.append(line)
                 pool_line = (
@@ -887,13 +947,28 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             f"{target_line}\n"
             f"Current cut: {len(cut)} clips, {_fmt_tc(total)} total.\n"
             f"{_cut_lines(cut)}\n\n"
-            f"User request: {user_text}"
+            f"Resolved user brief (authoritative): {json.dumps(brief)}\n"
+            f"Latest follow-up, not a search query: {user_text}"
         )
         plan_raw = await generate_response(
             plan_prompt, history=history, system=_PLAN_SYSTEM, max_new_tokens=500,
         )
         plan = _extract_json(plan_raw) or {}
         mode = plan.get("mode") or "edit"
+        if brief.get("edit_requested") is True:
+            mode = "edit"
+            # The planner has eligible-source synopses; the brief resolver does
+            # not. Prefer its grounded searches, not guessed worldwide news topics.
+            plan["searches"] = [
+                q for q in (plan.get("searches") or []) if isinstance(q, str) and q.strip()
+                and not re.search(r"\b(?:those parameters|cut question|verify.*air)\b", q, re.I)
+            ] or brief["searches"]
+            brief["searches"] = plan["searches"]
+            plan["notes"] = brief["objective"]
+            plan["target_seconds"] = brief.get("target_seconds")
+        elif constrained and mode == "adjust":
+            mode = "edit"
+            plan["searches"] = brief["searches"]
 
         # An explicit "search the web / look it up" request is a question, not
         # an editing instruction — never let the planner turn it into a cut.
@@ -1266,6 +1341,41 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                 if len(candidates) >= _MAX_CANDIDATES:
                     break
 
+        # Long-form cuts need story segments, not a montage of search snippets.
+        # Extend BEFORE selection, providing every included cue to the model.
+        # Never extend beyond text that fits the review budget.
+        long_form = target is not None and target >= 900 and clip_seconds is None
+        explicit_visual_brief = bool(re.search(
+            r"\b(?:performances?|performing|concerts?|singing|instrumental|b[\s-]?roll|visual montage)\b",
+            "\n".join(user_rows) + "\n" + user_text, re.I,
+        ))
+        if long_form:
+            from ..services.editorial_brief import reviewed_window
+            expanded = []
+            buckets = {}
+            for c in candidates:
+                buckets.setdefault(c["media_id"], []).append(c)
+            balanced = []
+            while any(buckets.values()) and len(balanced) < _MAX_CANDIDATES:
+                for bucket in buckets.values():
+                    if bucket and len(balanced) < _MAX_CANDIDATES:
+                        balanced.append(bucket.pop(0))
+            for c in balanced:
+                rows = (await db.execute(sql_text("""
+                    SELECT start_time, end_time, text FROM transcript_segments
+                    WHERE media_id=:mid AND end_time>:start AND start_time<:stop
+                    ORDER BY start_time
+                """), {"mid": c["media_id"], "start": c["start_time"],
+                       "stop": c["start_time"] + 240})).all()
+                window = reviewed_window(rows, c["start_time"])
+                candidate = dict(c)
+                if window and window[1] > c["end_time"]:
+                    candidate.update(start_time=window[0], end_time=window[1],
+                                     _review_text=window[2])
+                if _clamp_to_range(candidate, ranges) and not _overlaps_existing(candidate, kept + expanded):
+                    expanded.append(candidate)
+            candidates = expanded
+
         # Visual candidates: transcript search only finds moments people TALK
         # about — performances, b-roll and locations that are merely SHOWN
         # would never make the cut without this channel. They deliberately
@@ -1290,9 +1400,9 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         if fb_spans:
             candidates = [c for c in candidates if not _in_downvoted_span(c, fb_spans)]
         try:
-            for c in await _visual_candidates(
+            for c in ([] if long_form and not explicit_visual_brief else await _visual_candidates(
                 searches, media_ids, db, avoid=avoid, neg_vectors=fb_vectors or None,
-            ):
+            )):
                 if _in_downvoted_span(c, fb_spans):
                     continue
                 c["locked"] = False
@@ -1329,34 +1439,30 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
         )
         select_prompt = (
             f"{target_line}\n"
-            f"User request: {user_text}\n"
+            f"User brief: {json.dumps(brief)}\n"
             f"Editing intent: {plan.get('notes') or 'follow the user request'}\n\n"
             f"CURRENT CUT ({_fmt_tc(sum(_clip_duration(c) for c in kept))} total):\n"
             f"{_cut_lines(kept)}\n\n"
             f"CANDIDATES:\n{_cand_lines(candidates)}"
         )
         sel_raw = await generate_response(
-            select_prompt, system=_SELECT_SYSTEM, max_new_tokens=1200,
+            select_prompt, system=_SELECT_SYSTEM,
+            max_new_tokens=6000 if target is not None and target >= 900 else 2400,
         )
-        sel = _extract_json(sel_raw) or {}
+        sel = _extract_json(sel_raw)
+        if not isinstance(sel, dict) or not isinstance(sel.get("cut"), list):
+            await _finish(db, assistant_id,
+                "The selection model did not return a usable clip list. I left the current cut unchanged "
+                "rather than substitute unreviewed footage. This is a selection failure, not evidence that no footage matches.",
+                None)
+            return
 
         new_cut = _apply_selection(sel.get("cut"), kept, candidates)
         if not new_cut:
-            # Model gave nothing usable — fall back to kept cut + best candidates.
-            new_cut = list(kept)
-            for c in candidates:
-                # Blind fallback: take only the top-ranked half of the target,
-                # _fill_to_target widens the rest — avoids padding the tail
-                # with weakly related matches.
-                if target is not None and sum(_clip_duration(x) for x in new_cut) >= target * 0.5:
-                    break
-                new_cut.append(c)
-
-        if not new_cut:
             await _finish(
                 db, assistant_id,
-                "I couldn't find any matching moments in this project's footage — "
-                "try describing the content differently.", None,
+                "The selection pass did not approve any matching moments. I left the current draft unchanged; "
+                "this does not establish that the library has no suitable footage.", None,
             )
             return
 
@@ -1422,7 +1528,7 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
                             deficit -= _clip_duration(piece)
                 _trim_to_target(new_cut, target)
             else:
-                _fill_to_target(new_cut, target)
+                # Do not expand approved moments into unreviewed surrounding footage.
                 _trim_to_target(new_cut, target)
         if ranges:
             new_cut = [c for c in new_cut if _clamp_to_range(c, ranges)]
@@ -1437,7 +1543,7 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
 
         # Coverage is enforced HERE, not trusted to the model — it has claimed
         # "all episodes included" while the cut said otherwise.
-        require_all = bool(plan.get("all_sources")) or bool(_ALL_SOURCES_RE.search(user_text))
+        require_all = bool(_ALL_SOURCES_RE.search("\n".join(user_rows) + "\n" + user_text))
         uncovered: list[str] = []
         if require_all and media_ids:
             present = {c["media_id"] for c in new_cut}
@@ -1479,18 +1585,30 @@ async def _run_turn_inner(project_id: str, assistant_id: str, user_text: str, ge
             )
 
         n_files = len({c["media_id"] for c in new_cut})
+        if constrained and any(c["media_id"] not in set(media_ids) for c in new_cut):
+            await _finish(db, assistant_id,
+                "Final source verification rejected this selection. The previous cut is unchanged.", None)
+            return
         pool_n = len(media_ids) if media_ids else None
         stats = (
             f"{len(new_cut)} clips · {_fmt_tc(sum(_clip_duration(c) for c in new_cut))}"
             + (f" · {n_files} of {pool_n} sources" if pool_n else f" · {n_files} sources")
         )
-        reply = (sel.get("reply") or "").strip()
-        reply = f"{reply}\n\n({stats})" if reply else f"Updated the cut — {stats}."
+        actual = sum(_clip_duration(c) for c in new_cut)
+        reply = f"Saved a draft cut — {stats}."
+        if target is not None and actual < target - 1:
+            reply += f" This is short of your {_fmt_tc(target)} target. I did not pad it with unreviewed footage."
+        elif target is not None and actual > target + 1:
+            reply += f" This exceeds your {_fmt_tc(target)} target because protected clips prevent further trimming."
+        if brief.get("air_year"):
+            reply += f" Sources are filtered by verified original air date in {brief['air_year']}; unknown dates are excluded."
+        if brief.get("excluded_people"):
+            reply += " Sources matching your exclusions in metadata, transcripts, or identified appearances were excluded. Unidentified people cannot be independently verified."
         if missing_note:
             reply += missing_note
         await _lock_project_writes(db, project_id)
         rev = await _save_revision(db, project_id, [
-            {k: v for k, v in c.items() if k != "_dur"} for c in new_cut
+            {k: v for k, v in c.items() if k not in ("_dur", "_review_text")} for c in new_cut
         ], reply, "assistant")
         await db.flush()
         await _finish(db, assistant_id, reply, rev.version)

@@ -57,3 +57,4 @@
 - [Archive date meaning](archive-date-meaning.md) — “media created in” means original air date, not ingest time or file modification time.
 - [Conversation result ownership](conversation-result-ownership.md) — conversational replies must not replace search results; preserve null versus empty search through persistence.
 - [Benchmark library target](benchmark-library-target.md) — stop at 10,000 total ready assets; preserve the cap across model recovery and let in-flight jobs finish.
+- [Editorial brief integrity](editorial-brief-integrity.md) — complaints retain user constraints; long story windows need transcript review before selection, not runtime padding afterward.

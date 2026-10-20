@@ -27,8 +27,24 @@ verified on both cards. This changes the translation engine; it is not a claim
 of equal translation quality across all languages or long transcripts.
 Dub/speech output directories are writable while source media/uploads remain
 read-only. Both GPUs produced finite, nonempty WAV files using Chatterbox Turbo;
-temporary smoke-test WAVs were removed. Full-length dubbing and lip-sync were
-not verified end-to-end in this change.
+temporary smoke-test WAVs were removed.
+
+Subsequent short end-to-end checks passed:
+- Spanish stock-voice dub: an 11.011-second existing asset produced a
+  12.011-second AAC output (the dub pipeline includes tail padding). Job
+  succeeded at 100% in approximately 48 seconds; complete FFmpeg decode passed
+  and the file was readable from the main API container.
+- Lip-sync: an existing 6.12-second voice generation produced a 6.2-second
+  1920x1080 H.264/AAC MP4. Complete FFmpeg decode passed. Cold run took about
+  294 seconds, including roughly 55 seconds downloading model checkpoints.
+- The first dub candidate correctly failed its timing guard: its final line
+  started at 20.78 seconds in a 22.022-second asset and needed 4.37x speed,
+  above the 2.5x ceiling. Neither source timestamps nor translations were
+  modified to force success; a different short asset was used.
+
+These checks verify job execution, persistence and media decoding, not
+perceptual speech/lip-sync quality or full-length rendering capacity.
+Library remains 10,000 ready assets with catalog paused.
 
 Two existing short assets were translated to Spanish through real API
 publication/Celery/worker/database paths, one on each GPU, with success/100%
