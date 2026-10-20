@@ -1,5 +1,53 @@
 # Direct-link configuration and remaining qualification
 
+## October 20 receive-drop mitigation
+
+Applied and retained only the changes that passed their targeted tests:
+- Secondary Spark-facing port: RX ring 8160 (from 4096), adaptive RX
+  coalescing off, RX interrupt delay 8 microseconds (from adaptive/50).
+- Secondary main-facing port: outgoing TBF pacing at 20 Gbit/s,
+  128-KB burst, 20-ms queue latency.
+- Installer: `deploy/remote-ingest/tune-dac-receive.sh`. Installs
+  `/usr/local/sbin/obtv-dac-throughput` and enables
+  `obtv-dac-throughput.service`, ordered after existing DAC ring setup.
+  Applied live and enabled with --no-reload; boot persistence is configured
+  and syntax validated, not reboot-tested.
+
+Increasing main RX rings to 8192 did not help and was reverted to 4096.
+The 20-Gbit secondary-to-main pacing passed both individual and concurrent
+transmit tests at 19.84–19.85 Gbps with zero TCP retransmissions, zero new main
+RX physical discards, and zero local TBF drops.
+TBF overlimits are deliberate pacing events, not discarded packets.
+
+After receiver tuning, the secondary's RX missed/drop counters stayed flat
+through subsequent single-link and concurrent tests. No new CRC errors.
+Individual unpaced throughput remained about 26.88 Gbps main→secondary,
+37.65 Gbps secondary→Spark, and 37.71 Gbps Spark→secondary, but these directions
+still had TCP retransmissions.
+
+**Not a full concurrent-load qualification:** when main and Spark simultaneously
+sent unpaced to the secondary, receiver throughput was 23.61 and 22.45 Gbps,
+with 57,918 and 264,152 sender retransmissions respectively. Physical receive
+and CRC counters stayed flat. The secondary's dual-port card has a shared
+PCIe 3.0 x8 path; this is a capacity consideration, not a proven explanation
+of all retransmissions. Secondary softnet dropped count was zero.
+
+A further trial pacing both senders at 20 Gbit/s did not qualify: main achieved
+19.85 Gbps/47 retransmissions and Spark 12.82 Gbps/2,724 retransmissions.
+Both trial sender qdiscs were reverted to their original mq/fq_codel setup.
+No unproven limits were retained on main or Spark.
+
+Final checks: test listeners removed, management/storage routes unchanged,
+both secondary worker GPUs query successfully. No worker-role change, Spark
+model restart, firmware change or host reboot performed. Further simultaneous
+traffic diagnosis and application-level qualification remain necessary before
+claiming readiness for the broader worker role.
+
+Rollback of retained tuning (secondary only):
+disable the new service with --no-reload, restore Spark-facing RX ring 4096 and
+adaptive-rx on/rx-usecs 50, and replace main-facing root qdisc with mq.
+Do not blindly remove other traffic-management settings if later work adds them.
+
 ## October 20 retest
 
 All three pairs passed 20 full-MTU, do-not-fragment pings with zero loss.

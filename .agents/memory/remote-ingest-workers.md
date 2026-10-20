@@ -87,6 +87,19 @@ landmark and demographic submodels even when the models load successfully.
 
 Do not move bulk traffic to a DAC solely because its negotiated link is faster.
 
+Qualify both secondary DAC ports concurrently, and distinguish hardware
+receive drops from TCP retransmissions and intentional pacing.
+
+**Why:** Receiver tuning eliminated new physical/missed-packet counters in
+tests, yet simultaneous incoming traffic still produced substantial TCP
+retransmissions. Single-link throughput and zero CRC errors did not establish
+concurrent worker readiness.
+
+**How to apply:** Preserve the qualified secondary-to-main 20-Gbit outgoing
+pacing unless a replacement passes the same concurrent tests. TBF overlimits
+count pacing, not loss. Inspect both NIC counter deltas and TCP retransmissions;
+do not promise two independent 40-Gbit streams through a shared PCIe path.
+
 **Why:** Before the rebuild, the second host's 40-Gbps ports were constrained
 by a PCIe ×1 path and measured below the 10-Gbps LAN. That old bottleneck is
 not a current hardware constraint: post-rebuild verification found a wider
