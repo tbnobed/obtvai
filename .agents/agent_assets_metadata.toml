@@ -188,3 +188,31 @@ mtime_ms = 1789572825209
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/939e4fd1-6050-4405-9d84-fd016b0692de/44279f33-50f9-4005-ac07-9859dc0ad73f"
 storage_version_token = "1789573066855182"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "to1MrZ3pem7Et1pghDnuw"
+uri = "file://generated-artifacts/spanish-voice-audition/spanish-opening.wav"
+type = "audio"
+title = "Spanish opening — fixed cloned voice"
+description = "29-second audition using the presenter’s own voice reference, one Spanish cloning engine, and no speed-up. Separate from the published dub."
+logical_id = "c5f318e5-db5c-4de2-b476-4e26dbf9672b"
+content_hash = "sha256:543b866e3720971f9ecfda89b35ef2c5e0839a98b5fcca125499ae457fb44c87"
+size = 1383170
+mtime_ms = 1792605018878
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/c5f318e5-db5c-4de2-b476-4e26dbf9672b/7c9c3c98-b0da-433c-a7bb-edc419384ce3"
+storage_version_token = "1792605028293373"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "e5c7SG5IB-9Rk05Wizf0d"
+uri = "file://generated-artifacts/spanish-voice-audition/original-english.wav"
+type = "audio"
+title = "Original English opening — comparison"
+description = "The corresponding source passage for comparing the presenter’s voice with the Spanish audition."
+logical_id = "aa3c2a21-9938-4c6a-9727-2e9bb4d10a69"
+content_hash = "sha256:ccb2960d8320d716ff277656d864051bc9307794039654eae3fc95da4ed74d5a"
+size = 869198
+mtime_ms = 1792605018884
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/aa3c2a21-9938-4c6a-9727-2e9bb4d10a69/e2595e54-e4a0-4852-8d40-765087fedb4d"
+storage_version_token = "1792605029506584"
+content_type = "audio/wav"
