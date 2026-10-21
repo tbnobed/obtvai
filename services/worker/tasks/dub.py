@@ -578,17 +578,65 @@ def _spoken_dub_rows(rows):
     return [row for row in rows if (row[2] or "").strip()]
 
 
+def _group_dub_rows(rows):
+    """Synthesize connected phrases together, never across speaker changes."""
+    grouped = []
+    for row in rows:
+        start, end, wording, speaker = row
+        if (grouped and speaker is not None and grouped[-1][3] == speaker
+                and 0 <= start - grouped[-1][1] <= .65
+                and end - grouped[-1][0] <= 25
+                and len(grouped[-1][2]) + len(wording) < 550):
+            previous = grouped[-1]
+            grouped[-1] = (previous[0], end, previous[2] + " " + wording, speaker)
+        else:
+            grouped.append(tuple(row))
+    return grouped
+
+
+def _trim_dub_silence(audio, rate):
+    """Remove only near-silent synthesis margins, retaining 80ms padding."""
+    import numpy as np
+    active = np.flatnonzero(np.abs(audio) > 0.0001)
+    if not active.size:
+        return audio
+    pad = int(.08 * rate)
+    return audio[max(0, active[0] - pad):min(audio.size, active[-1] + pad + 1)]
+
+
+def _plan_dub_room(placements, latest_end, rate):
+    """Back-propagate required space within each phrase's existing sync budget.
+
+    Return offsets without mutating anything; failure leaves accepted speech
+    untouched. Moving only the current phrase cannot reclaim unused space
+    behind an earlier phrase.
+    """
+    offsets = [p["offset"] for p in placements]
+    deadline = latest_end
+    for i in range(len(placements) - 1, -1, -1):
+        p = placements[i]
+        offset = min(p["offset"], deadline - p["audio"].size)
+        release = int(max(0, p["start"] - _MAX_LATENESS_S) * rate)
+        if offset < release:
+            return None
+        offsets[i] = offset
+        if offset == p["offset"]:
+            break
+        deadline = offset
+    return offsets
+
+
 def _fit_dub_clip(clip, sample_rate, start, next_start, duration, cursor, workdir):
     """Preserve complete speech within the next cue's lateness budget."""
     offset = max(int(start * sample_rate), cursor)
     deadline = min(duration, next_start + max(0.0, _MAX_LATENESS_S))
-    # If a cue cannot fit even at the ceiling, use nearby unoccupied lead-in
-    # before failing. This is bounded by the same sync budget as lateness and
-    # never overlaps previous speech or moves audio before the timeline.
+    # Use free lead-in to finish by the NEXT cue, not only as an emergency
+    # after exhausting its lateness allowance. Otherwise an earlier phrase
+    # consumes the following phrase's time even when silence was available.
     minimum_samples = math.ceil(clip.size / _MAX_ATEMPO_FORCE)
-    if int(deadline * sample_rate) - offset < minimum_samples:
+    if int(next_start * sample_rate) - offset < minimum_samples:
         earliest = max(cursor, int(max(0.0, start - max(0.0, _MAX_LATENESS_S)) * sample_rate))
-        offset = max(earliest, min(offset, int(deadline * sample_rate) - minimum_samples - int(.02 * sample_rate)))
+        offset = max(earliest, min(offset, int(next_start * sample_rate) - minimum_samples - int(.02 * sample_rate)))
     available = int(deadline * sample_rate) - offset
     if available <= 0:
         raise RuntimeError(
@@ -638,13 +686,14 @@ def _fit_or_regenerate(clip, fit, regenerate, reject, save):
     return result
 
 
-def _duration_adapt_text(source, translated, language, seconds):
+def _duration_adapt_text(source, translated, language, seconds, feedback=None):
     """Request a concise, meaning-preserving dub line; never truncate words."""
     from tasks.llm_remote import remote_chat
     from tasks.translate import _parse_llm_json
     request = {
         "source": source, "translation": translated, "language": language,
         "available_seconds": round(seconds, 2),
+        "previous_review_to_correct": feedback,
     }
     raw = remote_chat([
         {"role": "system", "content": (
@@ -652,28 +701,41 @@ def _duration_adapt_text(source, translated, language, seconds):
             '{"text":"...", "meaning_preserved":true}. Use concise idiomatic wording '
             "that can be spoken naturally within the time budget. Preserve every "
             "fact, name, number, negation, qualification and intent of the SOURCE. "
-            "Do not summarize or omit information to fit. If impossible return "
+            "Use spoken-language equivalents, not literal translations. Discourse "
+            "fillers, redundant greetings, and rhetorical padding may be compressed "
+            "without losing their communicative intent. Do not omit factual content. "
+            "Try natural concise wording before declaring it impossible. If impossible return "
             '{"text":null,"meaning_preserved":false}. No commentary.'
         )},
         {"role": "user", "content": json.dumps(request, ensure_ascii=False)},
-    ], max_new_tokens=700)
-    data = _parse_llm_json(raw)
+    ], max_new_tokens=4096)
+    try:
+        data = _parse_llm_json(raw)
+    except (ValueError, TypeError) as error:
+        raise RuntimeError("Duration adaptation returned no valid wording; retrying") from error
     adapted = data.get("text") if isinstance(data, dict) else None
     if (not isinstance(data, dict) or data.get("meaning_preserved") is not True or not isinstance(adapted, str)
             or not adapted.strip() or len(adapted) >= len(translated)):
         raise RuntimeError("Needs timing review: no shorter meaning-preserving dub line available")
-    verdict = _parse_llm_json(remote_chat([
+    verdict_raw = remote_chat([
         {"role": "system", "content": (
             "Check a proposed translation against the source. Return JSON "
             '{"equivalent":true} only if it preserves all facts, names, numbers, '
-            "negations, qualifications and intent without additions or omissions. "
-            'Otherwise return {"equivalent":false}.'
+            "negations, qualifications and intent without factual additions or omissions. "
+            "Accept concise idiomatic equivalents and compressed discourse fillers, "
+            "redundant greetings or rhetorical padding; do not require word-for-word correspondence. "
+            'Otherwise return {"equivalent":false,"issues":"specific factual differences to correct"}.'
         )},
         {"role": "user", "content": json.dumps(
             {"source": source, "proposed": adapted, "language": language}, ensure_ascii=False)},
-    ], max_new_tokens=200))
+    ], max_new_tokens=4096)
+    try:
+        verdict = _parse_llm_json(verdict_raw)
+    except (ValueError, TypeError) as error:
+        raise RuntimeError("Duration adaptation meaning check returned no valid result; retrying") from error
     if not isinstance(verdict, dict) or verdict.get("equivalent") is not True:
-        raise RuntimeError("Needs timing review: concise translation failed meaning check")
+        issues = verdict.get("issues", "preserve all source facts") if isinstance(verdict, dict) else "invalid review"
+        raise RuntimeError(f"Needs timing review: concise translation failed meaning check: {str(issues)[:1500]}")
     return adapted.strip()
 
 
@@ -737,6 +799,9 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
             append_log(db, job_id, f"Skipping {len(dropped)} segment(s) with invalid timecodes")
             rows = [r for r in rows if r not in dropped]
         rows = _spoken_dub_rows(rows)
+        original_count = len(rows)
+        rows = _group_dub_rows(rows)
+        append_log(db, job_id, f"Grouped {original_count} transcript cues into {len(rows)} speaker phrases for natural pacing")
         if not rows:
             raise RuntimeError(
                 f"No '{target}' translation found — run translation first"
@@ -811,6 +876,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
         forced_refits = 0
         cache_hits = 0
         placed_spans: list = []
+        placements: list = []
         # Per-segment synthesis cache so a crashed/re-queued long-form job
         # resumes instead of re-synthesizing hours of finished speech. Keyed
         # by text + engine + speaker, so translation edits invalidate cleanly.
@@ -858,6 +924,17 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 # Only a clip synthesized by the SAME intended engine counts as
                 # a cache hit — a fallback-engine clip cached earlier must not
                 # impersonate the preferred engine on resume.
+                adaptation_path = _seg_cache_path(intended_tag) + ".wording.json"
+                original_wording = seg_text
+                if os.path.exists(adaptation_path):
+                    with open(adaptation_path) as saved:
+                        adapted = json.load(saved)
+                    if (adapted.get("original") == seg_text
+                            and adapted.get("start") == float(start_time)
+                            and adapted.get("end") == float(end_time)
+                            and isinstance(adapted.get("text"), str)
+                            and adapted["text"].strip()):
+                        seg_text = adapted["text"]
                 cache_path = _seg_cache_path(intended_tag)
                 actual_tag = intended_tag
                 clip = None
@@ -970,9 +1047,34 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                     append_log(db, job_id, f"Segment {i + 1}: speech exceeded timing budget; regenerating once with the same voice and text")
 
                 def fit(audio):
-                    return _fit_dub_clip(
-                        audio, sample_rate, start, next_start, duration, place_cursor, workdir
-                    )
+                    nonlocal place_cursor
+                    audio = _trim_dub_silence(audio, sample_rate)
+                    try:
+                        return _fit_dub_clip(
+                            audio, sample_rate, start, next_start, duration, place_cursor, workdir
+                        )
+                    except RuntimeError:
+                        deadline = int(min(duration, next_start + _MAX_LATENESS_S) * sample_rate)
+                        needed_start = deadline - math.ceil(audio.size / _MAX_ATEMPO_FORCE) - int(.03 * sample_rate)
+                        if needed_start < int(max(0, start - _MAX_LATENESS_S) * sample_rate):
+                            raise
+                        offsets = _plan_dub_room(placements, needed_start, sample_rate)
+                        if offsets is None or not placements or offsets[-1] == placements[-1]["offset"]:
+                            raise
+                        moved = [(p, new) for p, new in zip(placements, offsets) if p["offset"] != new]
+                        for p, new in moved:
+                            timeline[p["offset"]:p["offset"] + p["audio"].size] = 0
+                        for p, new in moved:
+                            p["offset"] = new
+                            timeline[new:new + p["audio"].size] = p["audio"]
+                        for j, p in enumerate(placements):
+                            placed_spans[j] = (p["offset"] / sample_rate,
+                                               (p["offset"] + p["audio"].size) / sample_rate)
+                        place_cursor = placements[-1]["offset"] + placements[-1]["audio"].size
+                        append_log(db, job_id, f"Segment {i + 1}: redistributed {len(moved)} preceding phrase(s) within the sync budget; no speech accelerated or removed")
+                        return _fit_dub_clip(
+                            audio, sample_rate, start, next_start, duration, place_cursor, workdir
+                        )
 
                 try:
                     clip, offset, refitted = _fit_or_regenerate(
@@ -983,27 +1085,42 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                     if "speech" not in str(timing_error).lower() and "timing" not in str(timing_error).lower():
                         raise
                     source = db.execute(text(
-                        "SELECT text FROM transcript_segments WHERE media_id=:mid "
-                        "AND start_time=:start ORDER BY end_time LIMIT 1"
-                    ), {"mid": media_id, "start": start_time}).scalar()
+                        "SELECT string_agg(text, ' ' ORDER BY start_time,end_time) "
+                        "FROM transcript_segments WHERE media_id=:mid "
+                        "AND start_time>=:start AND end_time<=:end "
+                        "AND speaker IS NOT DISTINCT FROM :speaker"
+                    ), {"mid": media_id, "start": start_time, "end": end_time, "speaker": speaker}).scalar()
                     if not source:
                         raise
                     budget = min(duration, next_start + _MAX_LATENESS_S) - max(
                         0.0, start - _MAX_LATENESS_S, place_cursor / sample_rate
                     )
-                    try:
-                        seg_text = _duration_adapt_text(source, seg_text, target, max(.1, budget))
-                    except RuntimeError as error:
-                        raise RuntimeError(
-                            f"Segment {i + 1} at {start:.2f}s: {error}. "
-                            "No accelerated replacement was published."
-                        ) from error
+                    original_text = seg_text
+                    adaptation_feedback = None
+                    for adaptation_attempt in range(3):
+                        try:
+                            seg_text = _duration_adapt_text(
+                                source, original_text, target, max(.1, budget), adaptation_feedback
+                            )
+                            fresh = regenerate()
+                            clip, offset, refitted = fit(fresh)
+                            break
+                        except RuntimeError as error:
+                            adaptation_feedback = str(error)
+                            seg_text = original_text
+                            if adaptation_attempt == 2:
+                                raise RuntimeError(
+                                    f"Segment {i + 1} at {start:.2f}s: {error}. "
+                                    "No accelerated replacement was published."
+                                ) from error
                     append_log(db, job_id, f"Segment {i + 1}: duration-aware wording for {budget:.2f}s: {seg_text}")
-                    fresh = regenerate()
-                    clip, offset, refitted = fit(fresh)
                     # Adapted speech has different text: never impersonate the
                     # original translation in the synthesis cache.
                     np.save(_seg_cache_path(actual_tag), fresh.astype(np.float32), allow_pickle=False)
+                    with open(adaptation_path + ".tmp", "w") as saved:
+                        json.dump({"original": original_wording, "text": seg_text,
+                                   "start": float(start_time), "end": float(end_time)}, saved)
+                    os.replace(adaptation_path + ".tmp", adaptation_path)
                 if offset < int(start * sample_rate):
                     append_log(db, job_id, f"Segment {i + 1}: used {start - offset / sample_rate:.2f}s of unoccupied lead-in within the sync budget; complete speech retained")
                 forced_refits += int(refitted)
@@ -1016,6 +1133,7 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                     # what the lip-sync pass must follow, not the source
                     # segment times.
                     placed_spans.append((offset / sample_rate, end / sample_rate))
+                    placements.append({"start": start, "offset": offset, "audio": clip})
                 synthesized += 1
 
                 now = time.monotonic()

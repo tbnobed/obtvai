@@ -23,7 +23,7 @@ def load_timing():
     path = Path(__file__).resolve().parents[1] / "tasks" / "dub.py"
     tree = ast.parse(path.read_text())
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef)
-             and n.name in {"_fit_dub_clip", "_atempo", "_spoken_dub_rows", "_fit_or_regenerate", "_duration_adapt_text"}]
+             and n.name in {"_fit_dub_clip", "_atempo", "_spoken_dub_rows", "_fit_or_regenerate", "_duration_adapt_text", "_group_dub_rows", "_plan_dub_room"}]
     module = types.ModuleType("timing")
     constants = [n for n in tree.body if isinstance(n, ast.Assign)
                  and any(isinstance(t, ast.Name) and t.id in
@@ -45,6 +45,31 @@ class DubTimingTests(unittest.TestCase):
 
     def fit(self, size, start=0, next_start=2, duration=10, cursor=0):
         return self.mod._fit_dub_clip(Clip(size), 1000, start, next_start, duration, cursor, "/tmp")
+
+    def test_connected_phrases_share_a_window_without_losing_words(self):
+        self.assertEqual(self.mod._group_dub_rows([
+            (0, 2, "First", "A"), (2.1, 4, "second", "A"),
+            (4.1, 6, "Another voice", "B"), (8, 9, "After silence", "B"),
+        ]), [(0, 4, "First second", "A"), (4.1, 6, "Another voice", "B"),
+             (8, 9, "After silence", "B")])
+
+    def test_room_is_shared_backwards_without_overlap(self):
+        placements = [
+            {"start": 10, "offset": 10000, "audio": Clip(2000)},
+            {"start": 12, "offset": 12000, "audio": Clip(3000)},
+        ]
+        self.assertEqual(self.mod._plan_dub_room(placements, 14000, 1000), [9000, 11000])
+        self.assertEqual([p["offset"] for p in placements], [10000, 12000])
+
+    def test_room_planner_never_exceeds_sync_budget(self):
+        placements = [{"start": 10, "offset": 10000, "audio": Clip(3000)}]
+        self.assertIsNone(self.mod._plan_dub_room(placements, 11000, 1000))
+        self.assertEqual(placements[0]["offset"], 10000)
+
+    def test_grouping_is_bounded_and_does_not_merge_unknown_speakers(self):
+        rows = [(0, 14, "one", "A"), (14, 28, "two", "A"),
+                (28, 29, "three", None), (29, 30, "four", None)]
+        self.assertEqual(self.mod._group_dub_rows(rows), rows)
 
     def test_short_clip_unchanged(self):
         clip, offset, forced = self.fit(1000)
@@ -136,6 +161,12 @@ class DubTimingTests(unittest.TestCase):
             clip, offset, _ = self.fit(1100, start, start + 1, 21, cursor)
             cursor = offset + clip.size
             self.assertLessEqual(cursor, (start + 1) * 1000)
+
+    def test_uses_free_lead_in_instead_of_spending_next_cues_time(self):
+        clip, offset, _ = self.fit(3400, start=10, next_start=12, duration=20, cursor=8000)
+        self.assertGreaterEqual(offset, 8500)
+        self.assertLess(offset, 10000)
+        self.assertLessEqual(offset + clip.size, 12001)  # one-sample rounding
 
     def test_short_final_cue_borrows_only_unoccupied_lead_in(self):
         clip, offset, _ = self.fit(2200, start=20.78, next_start=22.022, duration=22.022)
