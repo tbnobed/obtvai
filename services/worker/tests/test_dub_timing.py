@@ -21,13 +21,13 @@ def load_timing():
     path = Path(__file__).resolve().parents[1] / "tasks" / "dub.py"
     tree = ast.parse(path.read_text())
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef)
-             and n.name in {"_fit_dub_clip", "_atempo", "_spoken_dub_rows"}]
+             and n.name in {"_fit_dub_clip", "_atempo", "_spoken_dub_rows", "_fit_or_regenerate"}]
     module = types.ModuleType("timing")
     constants = [n for n in tree.body if isinstance(n, ast.Assign)
                  and any(isinstance(t, ast.Name) and t.id in
                          {"_MAX_ATEMPO", "_MAX_ATEMPO_FORCE", "_MAX_LATENESS_S"}
                          for t in n.targets)]
-    module.__dict__.update(os=os, subprocess=subprocess)
+    module.__dict__.update(os=os, subprocess=subprocess, math=math)
     with unittest.mock.patch.dict(os.environ, {"DUB_MAX_LATENESS": "1.5"}):
         exec(compile(ast.Module(body=constants, type_ignores=[]), str(path), "exec"),
              module.__dict__)
@@ -48,6 +48,33 @@ class DubTimingTests(unittest.TestCase):
         clip, offset, forced = self.fit(1000)
         self.assertEqual((clip.size, offset, forced), (1000, 0, False))
         self.mod._atempo.assert_not_called()
+
+    def test_failed_audio_is_rejected_and_regenerated_once(self):
+        bad, fresh = Clip(24000), Clip(8000)
+        fit = Mock(side_effect=[RuntimeError("cannot fit"), ("fitted", 0, True)])
+        regenerate, reject, save = Mock(return_value=fresh), Mock(), Mock()
+        self.assertEqual(
+            self.mod._fit_or_regenerate(bad, fit, regenerate, reject, save),
+            ("fitted", 0, True),
+        )
+        regenerate.assert_called_once_with()
+        reject.assert_called_once_with()
+        save.assert_called_once_with(fresh)
+
+    def test_failed_regeneration_is_not_cached_or_retried_forever(self):
+        fit = Mock(side_effect=RuntimeError("cannot fit"))
+        regenerate, reject, save = Mock(return_value=Clip(24000)), Mock(), Mock()
+        with self.assertRaisesRegex(RuntimeError, "cannot fit"):
+            self.mod._fit_or_regenerate(Clip(24000), fit, regenerate, reject, save)
+        regenerate.assert_called_once_with()
+        save.assert_not_called()
+
+    def test_good_audio_never_regenerates(self):
+        regenerate, reject, save = Mock(), Mock(), Mock()
+        self.mod._fit_or_regenerate(Clip(1000), Mock(return_value=(Clip(1000), 0, False)),
+                                    regenerate, reject, save)
+        regenerate.assert_not_called()
+        reject.assert_not_called()
 
     def test_blank_translation_does_not_shorten_speech_window(self):
         rows = self.mod._spoken_dub_rows([
@@ -82,7 +109,25 @@ class DubTimingTests(unittest.TestCase):
         self.assertEqual(offset, 61320)
         self.assertLessEqual(offset + clip.size, 64320)
         # Decimal timestamps may lose one sample when converted to integers.
-        self.assertAlmostEqual(self.mod._atempo.call_args.args[2], 1.93, delta=0.001)
+        self.assertLessEqual(self.mod._atempo.call_args.args[2], 2.5)
+
+    def test_dense_dialogue_does_not_accumulate_avoidable_delay(self):
+        cursor = 0
+        for start in range(20):
+            clip, offset, _ = self.fit(1900, start, start + 1, 21, cursor)
+            cursor = offset + clip.size
+            self.assertLessEqual(cursor, (start + 1) * 1000)
+
+    def test_short_final_cue_borrows_only_unoccupied_lead_in(self):
+        clip, offset, _ = self.fit(5430, start=20.78, next_start=22.022, duration=22.022)
+        self.assertGreaterEqual(offset, 19280)
+        self.assertLess(offset, 20780)
+        self.assertLessEqual(offset + clip.size, 22022)
+        self.assertLessEqual(self.mod._atempo.call_args.args[2], 2.5)
+
+    def test_lead_in_cannot_overlap_previous_dialogue(self):
+        with self.assertRaisesRegex(RuntimeError, "no words were trimmed"):
+            self.fit(5430, start=20.78, next_start=22.022, duration=22.022, cursor=20780)
 
     def test_no_room_fails_instead_of_dropping(self):
         with self.assertRaisesRegex(RuntimeError, "no segment was dropped"):

@@ -584,14 +584,24 @@ def _fit_dub_clip(clip, sample_rate, start, next_start, duration, cursor, workdi
     """Preserve complete speech within the next cue's lateness budget."""
     offset = max(int(start * sample_rate), cursor)
     deadline = min(duration, next_start + max(0.0, _MAX_LATENESS_S))
+    # If a cue cannot fit even at the ceiling, use nearby unoccupied lead-in
+    # before failing. This is bounded by the same sync budget as lateness and
+    # never overlaps previous speech or moves audio before the timeline.
+    minimum_samples = math.ceil(clip.size / _MAX_ATEMPO_FORCE)
+    if int(deadline * sample_rate) - offset < minimum_samples:
+        earliest = max(cursor, int(max(0.0, start - max(0.0, _MAX_LATENESS_S)) * sample_rate))
+        offset = max(earliest, min(offset, int(deadline * sample_rate) - minimum_samples - int(.02 * sample_rate)))
     available = int(deadline * sample_rate) - offset
     if available <= 0:
         raise RuntimeError(
             f"No speech window at {start:.2f}s. Shorten the translated dialogue "
             "or correct overlapping transcript timestamps, then retry; no segment was dropped."
         )
-    slot = max(0.5, next_start - start)
-    preferred = min(_MAX_ATEMPO, max(1.0, clip.size / sample_rate / slot))
+    # Aim to finish by the next cue, accounting for delay already incurred.
+    # The old 1.35x preference accumulated delay on every dense sentence and
+    # exhausted the budget for later, otherwise fit-able dialogue.
+    slot = max(1 / sample_rate, next_start - offset / sample_rate)
+    preferred = min(_MAX_ATEMPO_FORCE, max(1.0, clip.size / sample_rate / slot))
     required = clip.size / available
     if required > _MAX_ATEMPO_FORCE:
         raise RuntimeError(
@@ -616,6 +626,18 @@ def _fit_dub_clip(clip, sample_rate, start, next_start, duration, cursor, workdi
             "Shorten this translated segment and retry; no words were trimmed."
         )
     return clip, offset, factor > _MAX_ATEMPO
+
+
+def _fit_or_regenerate(clip, fit, regenerate, reject, save):
+    """One fresh synthesis attempt; never reuse audio rejected for timing."""
+    try:
+        return fit(clip)
+    except RuntimeError:
+        reject()
+    fresh = regenerate()
+    result = fit(fresh)  # Still enforce the full timing/word-preservation guard.
+    save(fresh)  # Cache raw audio only after the new attempt fits.
+    return result
 
 
 @celery_app.task(bind=True, name="tasks.dub.generate_dub", queue="gpu")
@@ -875,9 +897,48 @@ def generate_dub(self, media_id: str, job_id: str, target_language: str, use_clo
                 next_start = float(rows[i + 1][0]) if i + 1 < total else duration
                 if not math.isfinite(next_start):
                     next_start = duration
-                clip, offset, refitted = _fit_dub_clip(
-                    clip, sample_rate, start, next_start, duration, place_cursor, workdir
+                def regenerate():
+                    # Same engine, voice and text: no translated words omitted
+                    # and no voice substitution to disguise a synthesis failure.
+                    if cloned:
+                        speaker_wavs, voice_preset, voice_settings = cloned
+                    if cloned and chatterbox is not None:
+                        fresh, rate = _synthesize_chatterbox(
+                            chatterbox, seg_text, chatterbox_lang,
+                            speaker_wavs[0], workdir, voice_settings,
+                        )
+                    elif cloned:
+                        fresh, rate = _synthesize_xtts(
+                            xtts, seg_text, xtts_language, speaker_wavs, workdir,
+                            preset=voice_preset, settings=voice_settings,
+                        )
+                    elif use_xtts_stock:
+                        fresh, rate = _synthesize_stock(
+                            xtts, seg_text, xtts_language,
+                            STOCK_VOICES[speaker_genders.get(speaker, "male")], workdir,
+                        )
+                    else:
+                        fresh = _synthesize(tokenizer, model, seg_text)
+                        rate = int(model.config.sampling_rate)
+                    if fresh is None or fresh.size == 0:
+                        raise RuntimeError(f"Segment {i + 1}: regeneration produced no speech")
+                    return _resample(fresh, rate, sample_rate, workdir)
+
+                def reject():
+                    if os.path.exists(save_path):
+                        os.replace(save_path, save_path + ".timing-rejected")
+                    append_log(db, job_id, f"Segment {i + 1}: speech exceeded timing budget; regenerating once with the same voice and text")
+
+                clip, offset, refitted = _fit_or_regenerate(
+                    clip,
+                    lambda audio: _fit_dub_clip(
+                        audio, sample_rate, start, next_start, duration, place_cursor, workdir
+                    ),
+                    regenerate, reject,
+                    lambda audio: np.save(save_path, audio.astype(np.float32), allow_pickle=False),
                 )
+                if offset < int(start * sample_rate):
+                    append_log(db, job_id, f"Segment {i + 1}: used {start - offset / sample_rate:.2f}s of unoccupied lead-in within the sync budget; complete speech retained")
                 forced_refits += int(refitted)
 
                 end = min(offset + clip.size, timeline.size)
