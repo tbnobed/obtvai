@@ -1,5 +1,6 @@
 """Exercise production timing code without loading GPU models."""
 import ast
+import json
 import math
 import os
 from pathlib import Path
@@ -7,6 +8,7 @@ import struct
 import subprocess
 import tempfile
 import types
+import sys
 import unittest
 import wave
 from unittest.mock import Mock
@@ -21,13 +23,13 @@ def load_timing():
     path = Path(__file__).resolve().parents[1] / "tasks" / "dub.py"
     tree = ast.parse(path.read_text())
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef)
-             and n.name in {"_fit_dub_clip", "_atempo", "_spoken_dub_rows", "_fit_or_regenerate"}]
+             and n.name in {"_fit_dub_clip", "_atempo", "_spoken_dub_rows", "_fit_or_regenerate", "_duration_adapt_text"}]
     module = types.ModuleType("timing")
     constants = [n for n in tree.body if isinstance(n, ast.Assign)
                  and any(isinstance(t, ast.Name) and t.id in
                          {"_MAX_ATEMPO", "_MAX_ATEMPO_FORCE", "_MAX_LATENESS_S"}
                          for t in n.targets)]
-    module.__dict__.update(os=os, subprocess=subprocess, math=math)
+    module.__dict__.update(os=os, subprocess=subprocess, math=math, json=json)
     with unittest.mock.patch.dict(os.environ, {"DUB_MAX_LATENESS": "1.5"}):
         exec(compile(ast.Module(body=constants, type_ignores=[]), str(path), "exec"),
              module.__dict__)
@@ -48,6 +50,28 @@ class DubTimingTests(unittest.TestCase):
         clip, offset, forced = self.fit(1000)
         self.assertEqual((clip.size, offset, forced), (1000, 0, False))
         self.mod._atempo.assert_not_called()
+
+    def adapt(self, responses):
+        remote = types.ModuleType("tasks.llm_remote")
+        remote.remote_chat = Mock(side_effect=responses)
+        translate = types.ModuleType("tasks.translate")
+        translate._parse_llm_json = json.loads
+        with unittest.mock.patch.dict(sys.modules, {
+            "tasks.llm_remote": remote, "tasks.translate": translate,
+        }):
+            return self.mod._duration_adapt_text("Hello everyone", "Hola a todos ustedes", "es", 2)
+
+    def test_adaptation_requires_independent_meaning_check(self):
+        self.assertEqual(self.adapt([
+            '{"text":"Hola a todos","meaning_preserved":true}', '{"equivalent":true}',
+        ]), "Hola a todos")
+        with self.assertRaisesRegex(RuntimeError, "meaning check"):
+            self.adapt(['{"text":"Hola","meaning_preserved":true}', '{"equivalent":false}'])
+
+    def test_impossible_or_malformed_adaptation_is_rejected(self):
+        for reply in ('null', '[]', '{"text":null,"meaning_preserved":false}'):
+            with self.subTest(reply=reply), self.assertRaisesRegex(RuntimeError, "timing review"):
+                self.adapt([reply])
 
     def test_failed_audio_is_rejected_and_regenerated_once(self):
         bad, fresh = Clip(24000), Clip(8000)
@@ -88,13 +112,13 @@ class DubTimingTests(unittest.TestCase):
     def test_dense_dialogue_has_no_drop_or_overlap(self):
         cursor = 0
         for start in range(29):
-            clip, offset, _ = self.fit(1300, start, start + 1, 29, cursor)
+            clip, offset, _ = self.fit(1100, start, start + 1, 29, cursor)
             self.assertGreaterEqual(offset, cursor)
             cursor = offset + clip.size
             self.assertLessEqual(cursor, min(29, start + 2.5) * 1000)
 
     def test_previously_dropped_late_clip_is_fitted(self):
-        clip, offset, forced = self.fit(1800, start=2, next_start=4, cursor=3900)
+        clip, offset, forced = self.fit(1700, start=2, next_start=4, cursor=3900)
         self.assertEqual(offset, 3900)
         self.assertLessEqual(offset + clip.size, 5500)
 
@@ -102,28 +126,23 @@ class DubTimingTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "no words were trimmed"):
             self.fit(12000)
 
-    def test_reported_193x_segment_fits(self):
-        clip, offset, forced = self.fit(
-            5790, start=61.32, next_start=62.82, duration=70)
-        self.assertTrue(forced)
-        self.assertEqual(offset, 61320)
-        self.assertLessEqual(offset + clip.size, 64320)
-        # Decimal timestamps may lose one sample when converted to integers.
-        self.assertLessEqual(self.mod._atempo.call_args.args[2], 2.5)
+    def test_reported_193x_segment_requires_review(self):
+        with self.assertRaisesRegex(RuntimeError, "no words were trimmed"):
+            self.fit(5790, start=61.32, next_start=62.82, duration=70)
 
     def test_dense_dialogue_does_not_accumulate_avoidable_delay(self):
         cursor = 0
         for start in range(20):
-            clip, offset, _ = self.fit(1900, start, start + 1, 21, cursor)
+            clip, offset, _ = self.fit(1100, start, start + 1, 21, cursor)
             cursor = offset + clip.size
             self.assertLessEqual(cursor, (start + 1) * 1000)
 
     def test_short_final_cue_borrows_only_unoccupied_lead_in(self):
-        clip, offset, _ = self.fit(5430, start=20.78, next_start=22.022, duration=22.022)
+        clip, offset, _ = self.fit(2200, start=20.78, next_start=22.022, duration=22.022)
         self.assertGreaterEqual(offset, 19280)
         self.assertLess(offset, 20780)
         self.assertLessEqual(offset + clip.size, 22022)
-        self.assertLessEqual(self.mod._atempo.call_args.args[2], 2.5)
+        self.assertLessEqual(self.mod._atempo.call_args.args[2], 1.15)
 
     def test_lead_in_cannot_overlap_previous_dialogue(self):
         with self.assertRaisesRegex(RuntimeError, "no words were trimmed"):
@@ -135,12 +154,12 @@ class DubTimingTests(unittest.TestCase):
 
     def test_last_segment_does_not_run_past_video(self):
         clip, offset, forced = self.fit(1500, start=9, next_start=10, duration=10)
-        self.assertTrue(forced)
+        self.assertLessEqual(self.mod._atempo.call_args.args[2], 1.15)
         self.assertLessEqual(offset + clip.size, 10000)
 
     def test_ffmpeg_duration_rounding_retries_original(self):
         self.mod._atempo.side_effect = [Clip(1010), Clip(995)]
-        self.fit(1500, start=9, next_start=10, duration=10)
+        self.fit(1100, start=9, next_start=10, duration=10)
         calls = self.mod._atempo.call_args_list
         self.assertIs(calls[0].args[0], calls[1].args[0])
 
@@ -165,11 +184,11 @@ class DubTimingTests(unittest.TestCase):
                 return Clip(count), wf.getframerate()
 
         mod._write_wav, mod._read_wav = write, read
-        for factor in (1.5, 1.93, 2.3):
+        for factor in (1.05, 1.10):
             with self.subTest(factor=factor), tempfile.TemporaryDirectory() as wd:
                 clip, offset, forced = mod._fit_dub_clip(
                     Clip(round(rate * factor)), rate, 9, 10, 10, 0, wd)
-                self.assertTrue(forced)
+                self.assertFalse(forced)
                 self.assertLessEqual(offset + clip.size, 10 * rate)
 
 
