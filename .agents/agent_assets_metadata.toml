@@ -216,3 +216,31 @@ mtime_ms = 1792605018884
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/aa3c2a21-9938-4c6a-9727-2e9bb4d10a69/e2595e54-e4a0-4852-8d40-765087fedb4d"
 storage_version_token = "1792605029506584"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "MshD56D9arUfZ0et-CA3p"
+uri = "file://generated-artifacts/erik-spanish-audition/erik-revised-spanish.wav"
+type = "audio"
+title = "Erik — revised Spanish voice test"
+description = "38-second introduction and following passage. Uses a Spanish reference taken from Erik’s existing dub, one engine, and no speed-up. Not applied to the live dub."
+logical_id = "07975d5c-67e6-4582-9879-5d4bd51be9c6"
+content_hash = "sha256:0dd15413cfc33f8497bd4c2434a2cf7890e3baa99f2cdf76ce6356da38e5778f"
+size = 1835598
+mtime_ms = 1792614958000
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/07975d5c-67e6-4582-9879-5d4bd51be9c6/6a4cf285-5030-45c7-ba11-f0d6ffd8286d"
+storage_version_token = "1792614971283420"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "ttZY8umP6WmGJhsx6nZX-"
+uri = "file://generated-artifacts/erik-spanish-audition/erik-current-spanish.wav"
+type = "audio"
+title = "Erik — current dub for comparison"
+description = "The corresponding passage from the current published dub, with playback loudness matched for comparison."
+logical_id = "8b527c34-5bb4-4857-a9a5-61c0d2461bf7"
+content_hash = "sha256:f03ff4c3340a984232b9fb1d6a325fde5257ee3d32dfa85dc441272ac9bae456"
+size = 2040078
+mtime_ms = 1792614958006
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/8b527c34-5bb4-4857-a9a5-61c0d2461bf7/2c4c63f9-b38e-4f0c-97ad-d84c97ec37fa"
+storage_version_token = "1792614972627220"
+content_type = "audio/wav"
