@@ -258,3 +258,17 @@ mtime_ms = 1792701227977
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/173fc1f4-0ace-47e1-8ec8-8d45e2fa5bd1/9b3d7e11-46cc-4046-ac4e-d6943c51932a"
 storage_version_token = "1792701242568508"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "7vKnVTCe5V7HHo6N4CZIV"
+uri = "file://generated-artifacts/erik-fish-audition/erik-fish-comparison.wav"
+type = "audio"
+title = "Erik — Fish Audio Spanish audition"
+description = "47-second Drama 3 INT4 audition: introduction followed by the Philadelphia passage, separated by a one-second pause. Cloned from Erik’s original English recording; no playback acceleration. Not applied to the live dub."
+logical_id = "e74f0570-d774-4ed1-af4b-751b8d038cbd"
+content_hash = "sha256:392a022b620475f95ea8a3871d059ae0abdefd64e2fb8907044b925eab196cac"
+size = 4155606
+mtime_ms = 1792703481210
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/e74f0570-d774-4ed1-af4b-751b8d038cbd/23f9b091-4210-45ae-b602-67f8700a34ef"
+storage_version_token = "1792703497133854"
+content_type = "audio/wav"
