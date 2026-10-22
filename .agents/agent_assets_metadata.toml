@@ -244,3 +244,17 @@ mtime_ms = 1792614958006
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/8b527c34-5bb4-4857-a9a5-61c0d2461bf7/2c4c63f9-b38e-4f0c-97ad-d84c97ec37fa"
 storage_version_token = "1792614972627220"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "KTTcAdalhHaIjmeQ_p8gG"
+uri = "file://generated-artifacts/erik-alternative-engine/erik-alternative-engine.wav"
+type = "audio"
+title = "Erik — alternative cloning engine"
+description = "43-second introduction and following passage, generated with XTTS-v2 from Erik’s original voice reference. Same Spanish text, natural speed, no stock voice. The live dub is unchanged."
+logical_id = "173fc1f4-0ace-47e1-8ec8-8d45e2fa5bd1"
+content_hash = "sha256:407fed84403ff1c80e8877b58940f75c45765c1929d63a00e8c02298c4a742b7"
+size = 2040564
+mtime_ms = 1792701227977
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e12e5f72-1e7d-4b31-9ae5-d3e9086b0a72/173fc1f4-0ace-47e1-8ec8-8d45e2fa5bd1/9b3d7e11-46cc-4046-ac4e-d6943c51932a"
+storage_version_token = "1792701242568508"
+content_type = "audio/wav"
