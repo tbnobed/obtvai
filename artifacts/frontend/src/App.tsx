@@ -10,6 +10,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Library from "@/pages/library";
 import Desk from "@/pages/desk";
+import { DeskFavorites, DeskProjects, DeskCollections } from "@/pages/desk-lists";
 import AssetDetail from "@/pages/asset-detail";
 import Jobs from "@/pages/jobs";
 import AIQA from "@/pages/ai-qa";
@@ -72,6 +73,9 @@ function Router() {
         <Route path="/projects/:id">{(p) => <Redirect to={`/studio/${p.id}`} />}</Route>
         <Route path="/projects"><Redirect to="/studio" /></Route>
         <Route path="/desk" component={Desk} />
+        <Route path="/desk/favorites" component={DeskFavorites} />
+        <Route path="/desk/projects" component={DeskProjects} />
+        <Route path="/desk/collections" component={DeskCollections} />
         <Route path="/library" component={Library} />
         <Route path="/library/:id" component={AssetDetail} />
         <Route path="/people" component={People} />

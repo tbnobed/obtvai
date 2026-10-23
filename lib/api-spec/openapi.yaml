@@ -4442,8 +4442,11 @@ paths:
 
   # ── Editorial (workspaces, collections, my desk) ─────────────────────────
   /editorial/state:
+    # Existing organization state is also used by collection editors.
     get:
       operationId: getEditorialState
+      parameters:
+        - {name: include_collections, in: query, schema: {type: boolean, default: true}}
       tags: [editorial]
       summary: Workspaces, collections visible to the user, and personal desk state
       responses:
@@ -4453,6 +4456,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EditorialState"
+  /editorial/desk:
+    get:
+      operationId: listDeskItems
+      tags: [editorial]
+      parameters:
+        - {name: section, in: query, required: true, schema: {type: string, enum: [favorites, projects, collections, recent]}}
+        - {name: q, in: query, schema: {type: string}}
+        - {name: workspace_id, in: query, schema: {type: string}}
+        - {name: air_year, in: query, schema: {type: integer, minimum: 1900, maximum: 2200}}
+        - {name: topic, in: query, schema: {type: string}}
+        - {name: visibility, in: query, schema: {type: string, enum: [all, personal, team]}}
+        - {name: sort, in: query, schema: {type: string, enum: [recent, title, air_date]}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50}}
+      responses:
+        "200":
+          description: Paginated desk summaries
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/DeskPage"}
+  /editorial/favorites:
+    post:
+      operationId: updateDeskFavorites
+      tags: [editorial]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/FavoriteChange"}
+      responses:
+        "200":
+          description: Updated preferences
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/EditorialMe"}
+  /editorial/collections/{id}/items:
+    post:
+      operationId: appendCollectionAssets
+      tags: [editorial]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CollectionAssetInput"}
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Collection"}
   /editorial/me:
     patch:
       operationId: updateEditorialMe
@@ -4580,6 +4635,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/Collection"
   /editorial/collections/{id}:
+    get:
+      operationId: getEditorialCollection
+      tags: [editorial]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: A visible collection including selections
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Collection"}
     patch:
       operationId: updateCollection
       tags: [editorial]
@@ -4724,6 +4790,38 @@ components:
       required: [media_id]
       properties:
         media_id: {type: string}
+    FavoriteChange:
+      type: object
+      required: [ids, operation]
+      properties:
+        ids: {type: array, maxItems: 2000, items: {type: string}}
+        operation: {type: string, enum: [add, remove]}
+    CollectionAssetInput:
+      type: object
+      required: [media_ids]
+      properties:
+        media_ids: {type: array, maxItems: 2000, items: {type: string}}
+    DeskItem:
+      type: object
+      required: [id, title]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        thumbnail_url: {type: [string, "null"]}
+        duration_seconds: {type: [number, "null"]}
+        air_date: {type: [string, "null"]}
+        workspace_id: {type: [string, "null"]}
+        visibility: {type: [string, "null"]}
+        kind: {type: [string, "null"]}
+        created_by: {type: [string, "null"]}
+    DeskPage:
+      type: object
+      required: [items, total, offset, limit]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/DeskItem"}}
+        total: {type: integer}
+        offset: {type: integer}
+        limit: {type: integer}
     EditorialState:
       type: object
       required: [workspaces, collections, me]

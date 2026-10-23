@@ -44,6 +44,7 @@ import type {
   CoAppearanceGraph,
   CoMoments,
   Collection,
+  CollectionAssetInput,
   CollectionInput,
   Conversation,
   CuratorFolderListOut,
@@ -51,6 +52,7 @@ import type {
   CuratorLinkInput,
   CuratorLinkResult,
   DeleteSavedSearch200,
+  DeskPage,
   DownloadTrainingDataset200,
   DubRequest,
   EditorialMe,
@@ -62,10 +64,12 @@ import type {
   EmotionMomentsPage,
   ExportProjectCutBody,
   FaceCluster,
+  FavoriteChange,
   GetCaptionsParams,
   GetCoAppearancesParams,
   GetCoMomentsParams,
   GetEditorialScopeParams,
+  GetEditorialStateParams,
   GetHighlightPreviewParams,
   GetKeywordHeatmapParams,
   GetMediaFrameParams,
@@ -91,6 +95,7 @@ import type {
   ListAuditLogParams,
   ListCampaignsParams,
   ListClipListsParams,
+  ListDeskItemsParams,
   ListEmotionMomentsParams,
   ListGraphicsGenerationsParams,
   ListJobsParams,
@@ -15380,20 +15385,27 @@ export function useListAuditLog<TData = Awaited<ReturnType<typeof listAuditLog>>
 
 
 
-export const getGetEditorialStateUrl = () => {
+export const getGetEditorialStateUrl = (params?: GetEditorialStateParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/editorial/state`
+  return stringifiedParams.length > 0 ? `/api/editorial/state?${stringifiedParams}` : `/api/editorial/state`
 }
 
 /**
  * @summary Workspaces, collections visible to the user, and personal desk state
  */
-export const getEditorialState = async ( options?: RequestInit): Promise<EditorialState> => {
+export const getEditorialState = async (params?: GetEditorialStateParams, options?: RequestInit): Promise<EditorialState> => {
 
-  return customFetch<EditorialState>(getGetEditorialStateUrl(),
+  return customFetch<EditorialState>(getGetEditorialStateUrl(params),
   {
     ...options,
     method: 'GET'
@@ -15406,23 +15418,23 @@ export const getEditorialState = async ( options?: RequestInit): Promise<Editori
 
 
 
-export const getGetEditorialStateQueryKey = () => {
+export const getGetEditorialStateQueryKey = (params?: GetEditorialStateParams,) => {
     return [
-    `/api/editorial/state`
+    `/api/editorial/state`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetEditorialStateQueryOptions = <TData = Awaited<ReturnType<typeof getEditorialState>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetEditorialStateQueryOptions = <TData = Awaited<ReturnType<typeof getEditorialState>>, TError = ErrorType<unknown>>(params?: GetEditorialStateParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetEditorialStateQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetEditorialStateQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEditorialState>>> = ({ signal }) => getEditorialState({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEditorialState>>> = ({ signal }) => getEditorialState(params, { signal, ...requestOptions });
 
 
 
@@ -15440,11 +15452,11 @@ export type GetEditorialStateQueryError = ErrorType<unknown>
  */
 
 export function useGetEditorialState<TData = Awaited<ReturnType<typeof getEditorialState>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetEditorialStateParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetEditorialStateQueryOptions(options)
+  const queryOptions = getGetEditorialStateQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -15456,6 +15468,215 @@ export function useGetEditorialState<TData = Awaited<ReturnType<typeof getEditor
 
 
 
+
+export const getListDeskItemsUrl = (params: ListDeskItemsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/editorial/desk?${stringifiedParams}` : `/api/editorial/desk`
+}
+
+export const listDeskItems = async (params: ListDeskItemsParams, options?: RequestInit): Promise<DeskPage> => {
+
+  return customFetch<DeskPage>(getListDeskItemsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDeskItemsQueryKey = (params?: ListDeskItemsParams,) => {
+    return [
+    `/api/editorial/desk`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListDeskItemsQueryOptions = <TData = Awaited<ReturnType<typeof listDeskItems>>, TError = ErrorType<unknown>>(params: ListDeskItemsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeskItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDeskItemsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDeskItems>>> = ({ signal }) => listDeskItems(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDeskItems>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDeskItemsQueryResult = NonNullable<Awaited<ReturnType<typeof listDeskItems>>>
+export type ListDeskItemsQueryError = ErrorType<unknown>
+
+
+
+export function useListDeskItems<TData = Awaited<ReturnType<typeof listDeskItems>>, TError = ErrorType<unknown>>(
+ params: ListDeskItemsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeskItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDeskItemsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateDeskFavoritesUrl = () => {
+
+
+
+
+  return `/api/editorial/favorites`
+}
+
+export const updateDeskFavorites = async (favoriteChange: FavoriteChange, options?: RequestInit): Promise<EditorialMe> => {
+
+  return customFetch<EditorialMe>(getUpdateDeskFavoritesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(favoriteChange)
+  }
+);}
+
+
+
+
+
+export const getUpdateDeskFavoritesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDeskFavorites>>, TError,{data: BodyType<FavoriteChange>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateDeskFavorites>>, TError,{data: BodyType<FavoriteChange>}, TContext> => {
+
+const mutationKey = ['updateDeskFavorites'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDeskFavorites>>, {data: BodyType<FavoriteChange>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateDeskFavorites(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateDeskFavoritesMutationResult = NonNullable<Awaited<ReturnType<typeof updateDeskFavorites>>>
+    export type UpdateDeskFavoritesMutationBody = BodyType<FavoriteChange>
+    export type UpdateDeskFavoritesMutationError = ErrorType<unknown>
+
+    export const useUpdateDeskFavorites = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDeskFavorites>>, TError,{data: BodyType<FavoriteChange>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateDeskFavorites>>,
+        TError,
+        {data: BodyType<FavoriteChange>},
+        TContext
+      > => {
+      return useMutation(getUpdateDeskFavoritesMutationOptions(options));
+    }
+
+export const getAppendCollectionAssetsUrl = (id: string,) => {
+
+
+
+
+  return `/api/editorial/collections/${id}/items`
+}
+
+export const appendCollectionAssets = async (id: string,
+    collectionAssetInput: CollectionAssetInput, options?: RequestInit): Promise<Collection> => {
+
+  return customFetch<Collection>(getAppendCollectionAssetsUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(collectionAssetInput)
+  }
+);}
+
+
+
+
+
+export const getAppendCollectionAssetsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof appendCollectionAssets>>, TError,{id: string;data: BodyType<CollectionAssetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof appendCollectionAssets>>, TError,{id: string;data: BodyType<CollectionAssetInput>}, TContext> => {
+
+const mutationKey = ['appendCollectionAssets'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof appendCollectionAssets>>, {id: string;data: BodyType<CollectionAssetInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  appendCollectionAssets(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AppendCollectionAssetsMutationResult = NonNullable<Awaited<ReturnType<typeof appendCollectionAssets>>>
+    export type AppendCollectionAssetsMutationBody = BodyType<CollectionAssetInput>
+    export type AppendCollectionAssetsMutationError = ErrorType<unknown>
+
+    export const useAppendCollectionAssets = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof appendCollectionAssets>>, TError,{id: string;data: BodyType<CollectionAssetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof appendCollectionAssets>>,
+        TError,
+        {id: string;data: BodyType<CollectionAssetInput>},
+        TContext
+      > => {
+      return useMutation(getAppendCollectionAssetsMutationOptions(options));
+    }
 
 export const getUpdateEditorialMeUrl = () => {
 
@@ -15967,6 +16188,77 @@ export const useCreateCollection = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCreateCollectionMutationOptions(options));
     }
+
+export const getGetEditorialCollectionUrl = (id: string,) => {
+
+
+
+
+  return `/api/editorial/collections/${id}`
+}
+
+export const getEditorialCollection = async (id: string, options?: RequestInit): Promise<Collection> => {
+
+  return customFetch<Collection>(getGetEditorialCollectionUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEditorialCollectionQueryKey = (id: string,) => {
+    return [
+    `/api/editorial/collections/${id}`
+    ] as const;
+    }
+
+
+export const getGetEditorialCollectionQueryOptions = <TData = Awaited<ReturnType<typeof getEditorialCollection>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialCollection>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEditorialCollectionQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEditorialCollection>>> = ({ signal }) => getEditorialCollection(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEditorialCollection>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEditorialCollectionQueryResult = NonNullable<Awaited<ReturnType<typeof getEditorialCollection>>>
+export type GetEditorialCollectionQueryError = ErrorType<unknown>
+
+
+
+export function useGetEditorialCollection<TData = Awaited<ReturnType<typeof getEditorialCollection>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialCollection>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEditorialCollectionQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUpdateCollectionUrl = (id: string,) => {
 

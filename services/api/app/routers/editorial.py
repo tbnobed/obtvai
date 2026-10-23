@@ -3,9 +3,9 @@ from datetime import datetime
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select, or_, and_, extract, false, func
+from sqlalchemy import select, or_, and_, extract, false, func, case
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -125,9 +125,15 @@ async def me_row(db, user):
 
 
 @router.get("/state")
-async def state(db: AsyncSession = Depends(get_db), user: User = Depends(current_user)):
+async def state(db: AsyncSession = Depends(get_db), user: User = Depends(current_user),
+                include_collections: bool = True):
     await seed(db)
-    records = (await db.execute(select(EditorialRecord).where(EditorialRecord.kind.in_(["workspace", "collection"])))).scalars().all()
+    condition = EditorialRecord.kind == "workspace"
+    if include_collections:
+        condition = or_(condition, and_(EditorialRecord.kind == "collection",
+                         or_(EditorialRecord.owner_id == user.id,
+                             EditorialRecord.data["visibility"].astext == "team")))
+    records = (await db.execute(select(EditorialRecord).where(condition))).scalars().all()
     me = await me_row(db, user)
     result = dict(workspaces=[out(r) for r in records if r.kind == "workspace"],
                   collections=[out(r) for r in records if r.kind == "collection" and visible(r, user)],
@@ -156,6 +162,7 @@ async def patch_me(body: Preferences, db: AsyncSession = Depends(get_db), user: 
     await validate_ids(db, data.get("saved_project_ids", []), Project)
     row = await me_row(db, user)
     row.data = {**empty_me(), **row.data, **data}
+    # Preserve append order for older clients; newest saved IDs are at the end.
     await db.commit()
     return row.data
 
@@ -187,6 +194,7 @@ async def save_record(kind, body, db, user, id=None):
     if not (data.get("name") or "").strip():
         raise HTTPException(422, "Name is required")
     data["name"] = data["name"].strip()
+    data["updated_at"] = datetime.utcnow().isoformat()
     for key in allowed - {"workspace_id"}:
         if data.get(key) is None:
             raise HTTPException(422, f"{key} cannot be null")
@@ -236,6 +244,11 @@ async def create_collection(body: Edit, db: AsyncSession = Depends(get_db), user
 @router.patch("/collections/{id}")
 async def edit_collection(id: str, body: Edit, db: AsyncSession = Depends(get_db), user: User = Depends(current_user)):
     return await save_record("collection", body, db, user, id)
+
+
+@router.get("/collections/{id}")
+async def get_collection(id: str, db: AsyncSession = Depends(get_db), user: User = Depends(current_user)):
+    return out(await load(db, id, "collection", user))
 
 
 @router.delete("/collections/{id}", status_code=204)
@@ -320,3 +333,117 @@ async def scope(workspace_id: str | None = None, collection_id: str | None = Non
                 db: AsyncSession = Depends(get_db), user: User = Depends(current_user)):
     ids, items = await resolve_scope(db, user, workspace_id, collection_id)
     return {"media_ids": ids, "items": items}
+
+
+class FavoriteChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ids: list[str] = Field(max_length=2000)
+    operation: Literal["add", "remove"]
+
+
+class CollectionAssets(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    media_ids: list[str] = Field(max_length=2000)
+
+
+@router.post("/favorites")
+async def change_favorites(body: FavoriteChange, db: AsyncSession = Depends(get_db),
+                           user: User = Depends(current_user)):
+    if body.operation == "add":
+        await validate_ids(db, body.ids, MediaAsset)
+    row = await me_row(db, user)
+    previous = row.data.get("favorite_media_ids", [])
+    requested = set(body.ids)
+    ids = [i for i in previous if i not in requested]
+    if body.operation == "add":
+        ids += list(dict.fromkeys(body.ids))
+    if len(ids) > 2000:
+        raise HTTPException(422, "Maximum 2,000 favorites per account")
+    row.data = {**empty_me(), **row.data, "favorite_media_ids": ids}
+    await db.commit()
+    return row.data
+
+
+@router.post("/collections/{id}/items")
+async def append_assets(id: str, body: CollectionAssets, db: AsyncSession = Depends(get_db),
+                        user: User = Depends(current_user)):
+    writable(user)
+    row = await load(db, id, "collection", user, lock=True)
+    if row.data["kind"] != "manual":
+        raise HTTPException(422, "Add selections to a manual collection, not a smart collection")
+    await validate_ids(db, body.media_ids, MediaAsset)
+    items = list(row.data.get("items", []))
+    whole_assets = {i["media_id"] for i in items if i.get("start") is None}
+    items += [Item(id=str(uuid4()), media_id=m).model_dump()
+              for m in dict.fromkeys(body.media_ids) if m not in whole_assets]
+    if len(items) > 2000:
+        raise HTTPException(422, "Maximum 2,000 selections per collection")
+    row.data = {**row.data, "items": items, "updated_at": datetime.utcnow().isoformat()}
+    await db.commit()
+    return out(row)
+
+
+@router.get("/desk")
+async def desk_items(section: Literal["favorites", "projects", "collections", "recent"],
+                     q: str = Query("", max_length=200),
+                     workspace_id: str | None = None,
+                     air_year: int | None = Query(None, ge=1900, le=2200),
+                     topic: str | None = Query(None, max_length=200),
+                     visibility: Literal["all", "personal", "team"] = "all",
+                     sort: Literal["recent", "title", "air_date"] = "recent",
+                     offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=50),
+                     db: AsyncSession = Depends(get_db), user: User = Depends(current_user)):
+    """Filter/count/page in SQL; never materialize entire collections or assets."""
+    needle = "%" + q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    if section == "collections":
+        data = EditorialRecord.data
+        statement = select(
+            EditorialRecord.id, data["name"].astext.label("title"),
+            data["workspace_id"].astext.label("workspace_id"),
+            data["visibility"].astext.label("visibility"),
+            data["kind"].astext.label("kind"),
+            EditorialRecord.owner_id.label("created_by"),
+        ).where(EditorialRecord.kind == "collection",
+                or_(EditorialRecord.owner_id == user.id, data["visibility"].astext == "team"))
+        if visibility == "personal":
+            statement = statement.where(EditorialRecord.owner_id == user.id, data["visibility"].astext == "personal")
+        elif visibility == "team":
+            statement = statement.where(data["visibility"].astext == "team")
+        if workspace_id:
+            await load(db, workspace_id, "workspace", user)
+            statement = statement.where(data["workspace_id"].astext == workspace_id)
+        statement = statement.where(or_(data["name"].astext.ilike(needle, escape="\\"),
+                                        data["description"].astext.ilike(needle, escape="\\")))
+        order = (func.lower(data["name"].astext).asc() if sort == "title"
+                 else data["updated_at"].astext.desc().nulls_last())
+    else:
+        desk = (await db.execute(select(EditorialRecord.data).where(EditorialRecord.id == "desk:" + user.id))).scalar_one_or_none() or {}
+        key = {"favorites": "favorite_media_ids", "projects": "saved_project_ids", "recent": "recent_media_ids"}[section]
+        ids = list(dict.fromkeys(desk.get(key, [])))
+        if section != "recent":
+            ids.reverse()
+        if not ids:
+            return dict(items=[], total=0, offset=offset, limit=limit)
+        model = Project if section == "projects" else MediaAsset
+        title = Project.name if section == "projects" else MediaAsset.filename
+        fields = [model.id, title.label("title")]
+        if section != "projects":
+            fields += [MediaAsset.thumbnail_url, MediaAsset.duration_seconds,
+                       MediaAsset.curator_original_air_date.label("air_date")]
+        statement = select(*fields).where(model.id.in_(ids), title.ilike(needle, escape="\\"))
+        if section != "projects":
+            if workspace_id:
+                workspace = await load(db, workspace_id, "workspace", user)
+                statement = statement.where(or_(MediaAsset.id.in_(workspace.data.get("media_ids", [])),
+                                                 rule_condition(workspace.data.get("rules", {}))))
+            if air_year:
+                statement = statement.where(extract("year", MediaAsset.curator_original_air_date) == air_year)
+            if topic:
+                statement = statement.where(MediaAsset.topics.contains([topic]))
+        order = (func.lower(title).asc() if sort == "title" else
+                 MediaAsset.curator_original_air_date.desc().nulls_last() if sort == "air_date" and section != "projects" else
+                 case({id: i for i, id in enumerate(ids)}, value=model.id))
+    total = (await db.execute(select(func.count()).select_from(statement.subquery()))).scalar_one()
+    rows = (await db.execute(statement.order_by(order, statement.selected_columns.id)
+                             .offset(offset).limit(limit))).mappings().all()
+    return dict(items=[dict(r) for r in rows], total=total, offset=offset, limit=limit)

@@ -5902,6 +5902,12 @@ export const ListAuditLogResponse = zod.object({
 /**
  * @summary Workspaces, collections visible to the user, and personal desk state
  */
+export const getEditorialStateQueryIncludeCollectionsDefault = true;
+
+export const GetEditorialStateQueryParams = zod.object({
+  "include_collections": zod.coerce.boolean().default(getEditorialStateQueryIncludeCollectionsDefault)
+})
+
 export const GetEditorialStateResponse = zod.object({
   "workspaces": zod.array(zod.object({
   "id": zod.string(),
@@ -5947,6 +5953,100 @@ export const GetEditorialStateResponse = zod.object({
   "saved_project_ids": zod.array(zod.string()),
   "recent_media_ids": zod.array(zod.string())
 })
+})
+
+
+export const listDeskItemsQueryAirYearMin = 1900;
+export const listDeskItemsQueryAirYearMax = 2200;
+
+export const listDeskItemsQueryOffsetMin = 0;
+
+export const listDeskItemsQueryLimitMax = 50;
+
+
+
+export const ListDeskItemsQueryParams = zod.object({
+  "section": zod.enum(['favorites', 'projects', 'collections', 'recent']),
+  "q": zod.coerce.string().optional(),
+  "workspace_id": zod.coerce.string().optional(),
+  "air_year": zod.coerce.number().min(listDeskItemsQueryAirYearMin).max(listDeskItemsQueryAirYearMax).optional(),
+  "topic": zod.coerce.string().optional(),
+  "visibility": zod.enum(['all', 'personal', 'team']).optional(),
+  "sort": zod.enum(['recent', 'title', 'air_date']).optional(),
+  "offset": zod.coerce.number().min(listDeskItemsQueryOffsetMin).optional(),
+  "limit": zod.coerce.number().min(1).max(listDeskItemsQueryLimitMax).optional()
+})
+
+export const ListDeskItemsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "thumbnail_url": zod.string().nullish(),
+  "duration_seconds": zod.number().nullish(),
+  "air_date": zod.string().nullish(),
+  "workspace_id": zod.string().nullish(),
+  "visibility": zod.string().nullish(),
+  "kind": zod.string().nullish(),
+  "created_by": zod.string().nullish()
+})),
+  "total": zod.number(),
+  "offset": zod.number(),
+  "limit": zod.number()
+})
+
+
+export const updateDeskFavoritesBodyIdsMax = 2000;
+
+
+
+export const UpdateDeskFavoritesBody = zod.object({
+  "ids": zod.array(zod.string()).max(updateDeskFavoritesBodyIdsMax),
+  "operation": zod.enum(['add', 'remove'])
+})
+
+export const UpdateDeskFavoritesResponse = zod.object({
+  "workspace_id": zod.string().nullable(),
+  "workspace_ids": zod.array(zod.string()),
+  "favorite_media_ids": zod.array(zod.string()),
+  "saved_project_ids": zod.array(zod.string()),
+  "recent_media_ids": zod.array(zod.string())
+})
+
+
+export const AppendCollectionAssetsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const appendCollectionAssetsBodyMediaIdsMax = 2000;
+
+
+
+export const AppendCollectionAssetsBody = zod.object({
+  "media_ids": zod.array(zod.string()).max(appendCollectionAssetsBodyMediaIdsMax)
+})
+
+export const AppendCollectionAssetsResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "workspace_id": zod.string().nullable(),
+  "kind": zod.enum(['manual', 'smart']),
+  "visibility": zod.enum(['personal', 'team']),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start": zod.number().nullable(),
+  "end": zod.number().nullable(),
+  "note": zod.string()
+})),
+  "created_by": zod.string().nullable()
 })
 
 
@@ -6103,6 +6203,35 @@ export const CreateCollectionBody = zod.object({
 })
 
 export const CreateCollectionResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "workspace_id": zod.string().nullable(),
+  "kind": zod.enum(['manual', 'smart']),
+  "visibility": zod.enum(['personal', 'team']),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start": zod.number().nullable(),
+  "end": zod.number().nullable(),
+  "note": zod.string()
+})),
+  "created_by": zod.string().nullable()
+})
+
+
+export const GetEditorialCollectionParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetEditorialCollectionResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "description": zod.string(),

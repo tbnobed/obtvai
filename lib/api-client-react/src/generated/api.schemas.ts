@@ -123,6 +123,51 @@ export interface EditorialRecentInput {
   media_id: string;
 }
 
+export type FavoriteChangeOperation = typeof FavoriteChangeOperation[keyof typeof FavoriteChangeOperation];
+
+
+export const FavoriteChangeOperation = {
+  add: 'add',
+  remove: 'remove',
+} as const;
+
+export interface FavoriteChange {
+  /** @maxItems 2000 */
+  ids: string[];
+  operation: FavoriteChangeOperation;
+}
+
+export interface CollectionAssetInput {
+  /** @maxItems 2000 */
+  media_ids: string[];
+}
+
+export interface DeskItem {
+  id: string;
+  title: string;
+  /** @nullable */
+  thumbnail_url?: string | null;
+  /** @nullable */
+  duration_seconds?: number | null;
+  /** @nullable */
+  air_date?: string | null;
+  /** @nullable */
+  workspace_id?: string | null;
+  /** @nullable */
+  visibility?: string | null;
+  /** @nullable */
+  kind?: string | null;
+  /** @nullable */
+  created_by?: string | null;
+}
+
+export interface DeskPage {
+  items: DeskItem[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
 export interface EditorialState {
   workspaces: Workspace[];
   collections: Collection[];
@@ -3839,6 +3884,61 @@ export const ListAuditLogMethod = {
   PUT: 'PUT',
   PATCH: 'PATCH',
   DELETE: 'DELETE',
+} as const;
+
+export type GetEditorialStateParams = {
+include_collections?: boolean;
+};
+
+export type ListDeskItemsParams = {
+section: ListDeskItemsSection;
+q?: string;
+workspace_id?: string;
+/**
+ * @minimum 1900
+ * @maximum 2200
+ */
+air_year?: number;
+topic?: string;
+visibility?: ListDeskItemsVisibility;
+sort?: ListDeskItemsSort;
+/**
+ * @minimum 0
+ */
+offset?: number;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
+};
+
+export type ListDeskItemsSection = typeof ListDeskItemsSection[keyof typeof ListDeskItemsSection];
+
+
+export const ListDeskItemsSection = {
+  favorites: 'favorites',
+  projects: 'projects',
+  collections: 'collections',
+  recent: 'recent',
+} as const;
+
+export type ListDeskItemsVisibility = typeof ListDeskItemsVisibility[keyof typeof ListDeskItemsVisibility];
+
+
+export const ListDeskItemsVisibility = {
+  all: 'all',
+  personal: 'personal',
+  team: 'team',
+} as const;
+
+export type ListDeskItemsSort = typeof ListDeskItemsSort[keyof typeof ListDeskItemsSort];
+
+
+export const ListDeskItemsSort = {
+  recent: 'recent',
+  title: 'title',
+  air_date: 'air_date',
 } as const;
 
 export type GetEditorialScopeParams = {

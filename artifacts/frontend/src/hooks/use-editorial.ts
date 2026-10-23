@@ -1,12 +1,13 @@
 import { useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import {
   useGetEditorialState, getGetEditorialStateQueryKey,
   useGetEditorialScope, getGetEditorialScopeQueryKey,
   useUpdateEditorialMe, useRecordRecentMedia,
   useCreateWorkspace, useUpdateWorkspace, useDeleteWorkspace,
   useCreateCollection, useUpdateCollection, useDeleteCollection,
-  getListMediaQueryKey,
+  getListMediaQueryKey, getGetEditorialCollectionQueryKey,
 } from "@workspace/api-client-react";
 import type {
   EditorialState, EditorialMeUpdate, WorkspaceInput, CollectionInput, Collection, Workspace,
@@ -14,6 +15,10 @@ import type {
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { toggleId } from "@/lib/editorial";
+
+function invalidateDeskLists(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/desk") });
+}
 
 export function errorMessage(e: unknown, fallback: string): string {
   const err = e as { data?: { detail?: unknown; error?: unknown }; message?: string } | null;
@@ -24,17 +29,29 @@ export function errorMessage(e: unknown, fallback: string): string {
 }
 
 /** Cache keys carry the user id so one person's desk never renders for another. */
-function stateKey(userId: string | undefined) {
-  return [...getGetEditorialStateQueryKey(), userId ?? "anon"] as const;
+function stateKey(userId: string | undefined, lite: boolean) {
+  return [...getGetEditorialStateQueryKey(), userId ?? "anon", lite ? "lite" : "full"] as const;
+}
+
+/** On /desk and its subroutes the state is fetched without full collections (they can be huge). */
+export function isDeskPath(path: string): boolean {
+  return path === "/desk" || path.startsWith("/desk/");
+}
+
+function useStateMode() {
+  const [location] = useLocation();
+  return isDeskPath(location);
 }
 
 export function useEditorialState() {
   const { user } = useAuth();
-  const key = stateKey(user?.id);
-  const q = useGetEditorialState({
+  const lite = useStateMode();
+  const key = stateKey(user?.id, lite);
+  const params = lite ? { include_collections: false } : undefined;
+  const q = useGetEditorialState(params, {
     query: { queryKey: key, enabled: !!user, staleTime: 30_000, retry: 1 },
   });
-  return { ...q, key };
+  return { ...q, key, collectionsLoaded: !lite };
 }
 
 /** Resolved scope (media ids + timed items). null media_ids = All Library. */
@@ -56,7 +73,8 @@ export function useEditorialActions() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
-  const key = stateKey(user?.id);
+  const lite = useStateMode();
+  const key = stateKey(user?.id, lite);
 
   const updateMe = useUpdateEditorialMe();
   const recordRecent = useRecordRecentMedia();
@@ -81,6 +99,7 @@ export function useEditorialActions() {
     queryClient.invalidateQueries({ queryKey: getGetEditorialStateQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetEditorialScopeQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+    invalidateDeskLists(queryClient);
   };
 
   const fail = (title: string) => (e: unknown) =>
@@ -90,7 +109,12 @@ export function useEditorialActions() {
     const prev = getState();
     patchState((s) => ({ ...s, me: { ...s.me, ...data } as EditorialState["me"] }));
     refs.current.updateMe.mutate({ data }, {
-      onSuccess: (me) => { patchState((s) => ({ ...s, me })); onDone?.(); },
+      onSuccess: (me) => {
+        patchState((s) => ({ ...s, me }));
+        queryClient.invalidateQueries({ queryKey: getGetEditorialStateQueryKey() });
+        invalidateDeskLists(queryClient);
+        onDone?.();
+      },
       onError: (e) => { if (prev) queryClient.setQueryData(key, prev); fail(failTitle)(e); },
     });
   };
@@ -116,7 +140,7 @@ export function useEditorialActions() {
 
   const recordRecentView = useCallback((mediaId: string) => {
     refs.current.recordRecent.mutate({ data: { media_id: mediaId } }, {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetEditorialStateQueryKey() }),
+      onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetEditorialStateQueryKey() }); invalidateDeskLists(queryClient); },
       // Non-blocking: playback continues, but the user learns My Desk won't list it.
       onError: (e) => toastRef.current({
         title: "Not added to Recently viewed",
@@ -152,7 +176,9 @@ export function useEditorialActions() {
   const saveCollection = (id: string | null, data: CollectionInput, onDone?: (c: Collection) => void, failTitle?: string) => {
     const opts = {
       onSuccess: (c: Collection) => {
-        patchState((s) => ({ ...s, collections: id ? s.collections.map((x) => (x.id === c.id ? c : x)) : [...s.collections, c] }));
+        // Lite (desk) state has no collections; never inject a partial list there.
+        if (!lite) patchState((s) => ({ ...s, collections: id ? s.collections.map((x) => (x.id === c.id ? c : x)) : [...s.collections, c] }));
+        queryClient.setQueryData(getGetEditorialCollectionQueryKey(c.id), c);
         invalidateScope();
         onDone?.(c);
       },
@@ -165,7 +191,8 @@ export function useEditorialActions() {
   const removeCollection = (id: string, onDone?: () => void) => {
     refs.current.deleteCol.mutate({ id }, {
       onSuccess: () => {
-        patchState((s) => ({ ...s, collections: s.collections.filter((c) => c.id !== id) }));
+        if (!lite) patchState((s) => ({ ...s, collections: s.collections.filter((c) => c.id !== id) }));
+        queryClient.removeQueries({ queryKey: getGetEditorialCollectionQueryKey(id) });
         invalidateScope();
         onDone?.();
       },

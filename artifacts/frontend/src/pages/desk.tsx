@@ -1,29 +1,11 @@
 import { Link } from "wouter";
-import { listMedia, getListMediaQueryKey, useListProjects } from "@workspace/api-client-react";
-import { useQueries } from "@tanstack/react-query";
-import type { MediaAsset, Collection } from "@workspace/api-client-react";
+import type { DeskItem } from "@workspace/api-client-react";
+import { useDeskList } from "@/hooks/use-desk";
 import { Button } from "@/components/ui/button";
 import { Star, History, Bookmark, Layers, Sparkles as SmartIcon, Film, AlertTriangle, User, Users, ArrowRight, X } from "lucide-react";
-import { useAuth } from "@/lib/auth";
 import { useEditorialActions, useEditorialState } from "@/hooks/use-editorial";
 import { formatTime, withScope } from "@/lib/editorial";
 import { SaveProjectButton } from "@/components/editorial/desk-buttons";
-
-/** Resolves an ordered id list into assets. Never queries with blank ids (that would list everything). */
-function useAssetsById(ids: string[]) {
-  // Batch below the API's 200-row maximum and proxy URL length limits.
-  const batches = Array.from({ length: Math.ceil(ids.length / 75) }, (_, i) => ({
-    ids: ids.slice(i * 75, (i + 1) * 75).join(","), limit: 75,
-  }));
-  const queries = useQueries({ queries: batches.map(params => ({
-    queryKey: getListMediaQueryKey(params), queryFn: () => listMedia(params), staleTime: 30_000,
-  })) });
-  const byId = new Map(queries.flatMap(q => q.data?.items ?? []).map((m) => [m.id, m]));
-  const assets = ids.map((id) => byId.get(id)).filter(Boolean) as MediaAsset[];
-  return { assets, isLoading: queries.some(q => q.isLoading), isError: queries.some(q => q.isError),
-    refetch: () => Promise.all(queries.map(q => q.refetch())),
-    missing: queries.every(q => q.isSuccess) ? ids.length - assets.length : 0 };
-}
 
 function Section({ icon: Icon, title, count, children, action }: {
   icon: React.ComponentType<{ className?: string }>; title: string; count?: number; children: React.ReactNode; action?: React.ReactNode;
@@ -55,7 +37,9 @@ function Failed({ what, onRetry }: { what: string; onRetry: () => void }) {
   );
 }
 
-function AssetTile({ asset, onUnfavorite }: { asset: MediaAsset; onUnfavorite?: () => void }) {
+type TileAsset = Pick<DeskItem, "id" | "title" | "thumbnail_url" | "duration_seconds">;
+
+function AssetTile({ asset, onUnfavorite }: { asset: TileAsset; onUnfavorite?: () => void }) {
   return (
     <div className="group relative">
       <Link href={`/library/${asset.id}`} className="block rounded-md overflow-hidden border border-border bg-card hover:border-primary/50 transition-colors" data-testid={`link-desk-asset-${asset.id}`}>
@@ -67,7 +51,7 @@ function AssetTile({ asset, onUnfavorite }: { asset: MediaAsset; onUnfavorite?: 
             <span className="absolute bottom-1 right-1 text-[10px] font-mono px-1 rounded bg-black/70 text-white">{formatTime(asset.duration_seconds)}</span>
           )}
         </div>
-        <p className="px-2 py-1.5 text-xs truncate" title={asset.filename}>{asset.filename}</p>
+        <p className="px-2 py-1.5 text-xs truncate" title={asset.title}>{asset.title}</p>
       </Link>
       {onUnfavorite && (
         <button onClick={onUnfavorite} aria-label="Remove from favorites" title="Remove from favorites"
@@ -88,23 +72,20 @@ function SkeletonGrid() {
   );
 }
 
-const collectionHref = (c: Collection) => `/library?${withScope("", c.workspace_id ?? null, c.id)}`;
+const collectionHref = (c: DeskItem) => `/library?${withScope("", c.workspace_id ?? null, c.id)}`;
 
 export default function Desk() {
-  const { user } = useAuth();
   const { data: state, isLoading, isError, refetch } = useEditorialState();
   const actions = useEditorialActions();
-  const favIds = state?.me.favorite_media_ids ?? [];
-  const recentIds = (state?.me.recent_media_ids ?? []).slice(0, 24);
-  const favorites = useAssetsById(favIds);
-  const recent = useAssetsById(recentIds);
-  const projects = useListProjects();
-  const savedIds = state?.me.saved_project_ids ?? [];
-  const savedProjects = (projects.data ?? []).filter((p) => savedIds.includes(p.id));
+  // Recent views stay bounded; the server caps the list too.
+  const recent = useDeskList("recent", { offset: 0, limit: 12 });
+  const favorites = useDeskList("favorites", { sort: "recent", offset: 0, limit: 12 });
+  const projects = useDeskList("projects", { sort: "recent", offset: 0, limit: 8 });
+  const mine = useDeskList("collections", { visibility: "personal", sort: "recent", offset: 0, limit: 8 });
+  const team = useDeskList("collections", { visibility: "team", sort: "recent", offset: 0, limit: 8,
+    workspace_id: state?.me.workspace_id ?? undefined });
   const workspace = state?.workspaces.find((w) => w.id === state.me.workspace_id) ?? null;
-  const myCollections = (state?.collections ?? []).filter((c) => c.visibility === "personal" || c.created_by === user?.id);
-  const teamCollections = (state?.collections ?? []).filter((c) => c.visibility === "team" && c.created_by !== user?.id &&
-    (!workspace || c.workspace_id === workspace.id || c.workspace_id == null));
+  const favCount = favorites.data?.total;
 
   if (isError) {
     return (
@@ -112,13 +93,18 @@ export default function Desk() {
     );
   }
 
-  const collectionRow = (c: Collection) => (
+  const seeAll = (href: string, n: number | undefined, id: string) => (
+    <Link href={href} className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1" data-testid={`link-desk-all-${id}`}>
+      View all{n != null ? ` ${n}` : ""} <ArrowRight className="h-3 w-3" />
+    </Link>
+  );
+
+  const collectionRow = (c: DeskItem) => (
     <li key={c.id}>
       <Link href={collectionHref(c)} className="flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/40 rounded-md" data-testid={`link-desk-collection-${c.id}`}>
         {c.kind === "smart" ? <SmartIcon className="h-3.5 w-3.5 text-primary" /> : <Layers className="h-3.5 w-3.5 text-muted-foreground" />}
-        <span className="truncate flex-1">{c.name}</span>
+        <span className="truncate flex-1">{c.title}</span>
         {c.visibility === "personal" ? <User className="h-3 w-3 text-muted-foreground" /> : <Users className="h-3 w-3 text-muted-foreground" />}
-        <span className="text-[11px] text-muted-foreground tabular-nums w-14 text-right">{c.kind === "manual" ? `${c.items.length} items` : "smart"}</span>
       </Link>
     </li>
   );
@@ -148,37 +134,34 @@ export default function Desk() {
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-8 min-w-0">
-          <Section icon={Star} title="Favorites" count={favIds.length}>
-            {isLoading || favorites.isLoading ? <SkeletonGrid /> : favorites.isError ? <Failed what="favorites" onRetry={() => favorites.refetch()} /> :
-              favIds.length === 0 ? <Empty>Star an asset from its page to keep it here.</Empty> : (
-                <>
-                  <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
-                    {favorites.assets.map((a) => <AssetTile key={a.id} asset={a} onUnfavorite={() => actions.toggleFavorite(a.id)} />)}
-                  </div>
-                  {favorites.missing > 0 && <p className="text-[11px] text-muted-foreground">{favorites.missing} favorited asset{favorites.missing === 1 ? " is" : "s are"} no longer in the library.</p>}
-                </>
+          <Section icon={Star} title="Favorites" count={favCount} action={seeAll("/desk/favorites", favCount, "favorites")}>
+            {favorites.isLoading ? <SkeletonGrid /> : favorites.isError ? <Failed what="favorites" onRetry={() => favorites.refetch()} /> :
+              (favorites.data?.items.length ?? 0) === 0 ? <Empty>Star an asset from its page to keep it here.</Empty> : (
+                <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
+                  {favorites.data!.items.map((a) => <AssetTile key={a.id} asset={a} onUnfavorite={() => actions.toggleFavorite(a.id)} />)}
+                </div>
               )}
           </Section>
 
-          <Section icon={History} title="Recently viewed" count={recentIds.length}>
-            {isLoading || recent.isLoading ? <SkeletonGrid /> : recent.isError ? <Failed what="recent media" onRetry={() => recent.refetch()} /> :
-              recentIds.length === 0 ? <Empty>Assets you open will show up here.</Empty> : (
+          <Section icon={History} title="Recently viewed" count={recent.data?.items.length}>
+            {recent.isLoading ? <SkeletonGrid /> : recent.isError ? <Failed what="recent media" onRetry={() => recent.refetch()} /> :
+              (recent.data?.items.length ?? 0) === 0 ? <Empty>Assets you open will show up here.</Empty> : (
                 <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
-                  {recent.assets.map((a) => <AssetTile key={a.id} asset={a} />)}
+                  {recent.data!.items.map((a) => <AssetTile key={a.id} asset={a} />)}
                 </div>
               )}
           </Section>
         </div>
 
         <aside className="space-y-8">
-          <Section icon={Bookmark} title="Saved projects" count={savedIds.length}>
-            {projects.isLoading || isLoading ? <div className="h-24 rounded-md bg-muted/40 animate-pulse" /> :
+          <Section icon={Bookmark} title="Saved projects" count={projects.data?.total} action={seeAll("/desk/projects", projects.data?.total, "projects")}>
+            {projects.isLoading ? <div className="h-24 rounded-md bg-muted/40 animate-pulse" /> :
               projects.isError ? <Failed what="projects" onRetry={() => projects.refetch()} /> :
-              savedProjects.length === 0 ? <Empty>Bookmark a Studio project to pin it here. Saving doesn't change who owns it.</Empty> : (
+              (projects.data?.items.length ?? 0) === 0 ? <Empty>Bookmark a Studio project to pin it here. Saving doesn't change who owns it.</Empty> : (
                 <ul className="space-y-0.5">
-                  {savedProjects.map((p) => (
+                  {projects.data!.items.map((p) => (
                     <li key={p.id} className="flex items-center gap-1">
-                      <Link href={`/studio/${p.id}`} className="flex-1 min-w-0 px-3 py-2 text-sm rounded-md hover:bg-muted/40 truncate" data-testid={`link-desk-project-${p.id}`}>{p.name}</Link>
+                      <Link href={`/studio/${p.id}`} className="flex-1 min-w-0 px-3 py-2 text-sm rounded-md hover:bg-muted/40 truncate" data-testid={`link-desk-project-${p.id}`}>{p.title}</Link>
                       <SaveProjectButton projectId={p.id} compact />
                     </li>
                   ))}
@@ -186,15 +169,17 @@ export default function Desk() {
               )}
           </Section>
 
-          <Section icon={Layers} title="My collections" count={myCollections.length}>
-            {isLoading ? <div className="h-24 rounded-md bg-muted/40 animate-pulse" /> :
-              myCollections.length === 0 ? <Empty>Create one from the library's Collections menu.</Empty> :
-              <ul className="space-y-0.5">{myCollections.map(collectionRow)}</ul>}
+          <Section icon={Layers} title="My collections" count={mine.data?.total} action={seeAll("/desk/collections?visibility=personal", mine.data?.total, "collections")}>
+            {mine.isLoading ? <div className="h-24 rounded-md bg-muted/40 animate-pulse" /> :
+              mine.isError ? <Failed what="collections" onRetry={() => mine.refetch()} /> :
+              (mine.data?.items.length ?? 0) === 0 ? <Empty>Create one from the library's Collections menu.</Empty> :
+              <ul className="space-y-0.5">{mine.data!.items.map(collectionRow)}</ul>}
           </Section>
 
-          {teamCollections.length > 0 && (
-            <Section icon={Users} title={workspace ? `${workspace.name} collections` : "Team collections"} count={teamCollections.length}>
-              <ul className="space-y-0.5">{teamCollections.map(collectionRow)}</ul>
+          {team.isError ? <Failed what="team collections" onRetry={() => team.refetch()} /> : (team.data?.items.length ?? 0) > 0 && (
+            <Section icon={Users} title={workspace ? `${workspace.name} collections` : "Team collections"} count={team.data?.total}
+              action={seeAll(`/desk/collections?visibility=team${workspace ? `&workspace_id=${workspace.id}` : ""}`, team.data?.total, "team-collections")}>
+              <ul className="space-y-0.5">{team.data!.items.map(collectionRow)}</ul>
             </Section>
           )}
         </aside>
