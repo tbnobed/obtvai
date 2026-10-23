@@ -59,3 +59,4 @@
 - [Benchmark library target](benchmark-library-target.md) — stop at 10,000 total ready assets; preserve the cap across model recovery and let in-flight jobs finish.
 - [Editorial brief integrity](editorial-brief-integrity.md) — complaints retain user constraints; long story windows need transcript review before selection, not runtime padding afterward.
 - [Fish evaluation runtime](fish-evaluation-runtime.md) — PyPI Fish extras miss upstream uv dependency overrides; preserve the CUDA-compatible protobuf constraint in an isolated environment.
+- [Editorial library organization](editorial-library-organization.md) — Praise and Stakelbeck teams need focused organization while retaining access to the entire shared library.
