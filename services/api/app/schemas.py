@@ -252,6 +252,8 @@ class FaceClusterOut(BaseModel):
 
 class SearchQuery(BaseModel):
     query: str
+    workspace_id: Optional[str] = None
+    collection_id: Optional[str] = None
     media_id: Optional[str] = None
     media_ids: Optional[List[str]] = None
     search_type: Literal["combined", "transcript", "visual", "filename", "person"] = "combined"

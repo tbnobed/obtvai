@@ -30,6 +30,9 @@ const upload = multer({
 });
 
 const now = new Date().toISOString();
+import { createEditorialRouter, resolveEditorialScope } from "./editorial";
+router.use(createEditorialRouter(() => assets, () => projects));
+
 const assets = [
   {
     id: "asset-001",
@@ -592,6 +595,8 @@ router.post("/media/move", (req, res) => {
 
 router.get("/media", (req, res) => {
   let items = [...assets];
+  const scope = resolveEditorialScope(req, assets, req.query);
+  if (scope.media_ids !== null) items = items.filter(a => scope.media_ids!.includes(a.id));
   const mediaType = String(req.query.media_type ?? "all");
   if (!["all", "hide_images", "images"].includes(mediaType)) {
     res.status(422).json({ detail: "Invalid media_type" });
@@ -1139,6 +1144,7 @@ router.get("/media/:id/people", (req, res) => {
 
 // ── Search ────────────────────────────────────────────────────────────────────
 router.post("/search", (req, res) => {
+  const editorialScope = resolveEditorialScope(req, assets, req.body);
   const query = String(req.body.query || "").trim().replace(/^["“']|["”']$/g, "").toLowerCase();
   const searchType: string = req.body.search_type || "combined";
   const mediaIds: string[] | null = Array.isArray(req.body.media_ids) ? req.body.media_ids : null;
@@ -1150,6 +1156,7 @@ router.post("/search", (req, res) => {
   }
   const imageExtension = /\.(jpg|jpeg|png|gif|webp|bmp|tif|tiff|heic|heif|avif|svg|exr|dpx)$/i;
   const allowed = new Set(assets.filter(a => {
+    if (editorialScope.media_ids !== null && !editorialScope.media_ids.includes(a.id)) return false;
     if (mediaIds && !mediaIds.includes(a.id)) return false;
     if (req.body.media_id && req.body.media_id !== a.id) return false;
     if (req.body.status && req.body.status !== a.status) return false;

@@ -30,5 +30,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (error instanceof Error && "status" in error && "detail" in error) {
+    res.status(Number(error.status)).json({ detail: String(error.detail) });
+    return;
+  }
+  next(error);
+});
 
 export default app;

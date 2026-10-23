@@ -1,3 +1,4 @@
+import { SaveProjectButton } from "@/components/editorial/desk-buttons";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -140,6 +141,8 @@ export default function Projects() {
             <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{p.description}</p>
           )}
         </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+        <SaveProjectButton projectId={p.id} compact />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -168,6 +171,7 @@ export default function Projects() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </CardHeader>
       <CardContent>
         {previewAssets(p).length > 0 && (

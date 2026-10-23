@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, delete, text
 from ..database import get_db
+from ..auth import current_user
 from ..models import (
     MediaAsset, Scene, TranscriptSegment, FaceCluster, ProcessingJob, Person,
     PersonAppearance, CuratorInboxImport,
@@ -614,9 +615,12 @@ async def list_media(
     topic: Optional[str] = Query(None),
     folder: Optional[str] = Query(None),
     ids: Optional[str] = Query(None),
+    workspace_id: Optional[str] = Query(None),
+    collection_id: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
+    request: Request = None,
 ):
     sort_map = {
         "created_desc": desc(MediaAsset.created_at),
@@ -633,6 +637,11 @@ async def list_media(
         "status_desc": desc(MediaAsset.status),
     }
     q = select(MediaAsset).order_by(sort_map.get(sort or "", desc(MediaAsset.created_at)))
+    if workspace_id or collection_id:
+        from .editorial import resolve_scope
+        scoped_ids, _ = await resolve_scope(db, current_user(request), workspace_id, collection_id)
+        if scoped_ids is not None:
+            q = q.where(MediaAsset.id.in_(scoped_ids))
     if media_type in ("hide_images", "images"):
         from ..media_filter import image_asset_condition
         from ..catalog_models import CatalogAsset

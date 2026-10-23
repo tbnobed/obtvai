@@ -41,6 +41,8 @@ tags:
     description: User management (admin only)
   - name: campaigns
     description: Production campaign briefs and deliverable generation
+  - name: editorial
+    description: Team workspaces, collections and personal desk
 paths:
   /training:
     $ref: "./training.yaml#/paths/~1training"
@@ -240,6 +242,16 @@ paths:
         - name: folder
           in: query
           description: Only assets in this folder (folder id, or "root" for unfiled assets)
+          schema:
+            type: string
+        - name: workspace_id
+          in: query
+          description: Restrict to a workspace scope before pagination
+          schema:
+            type: string
+        - name: collection_id
+          in: query
+          description: Restrict to a collection scope before pagination
           schema:
             type: string
         - name: ids
@@ -4428,6 +4440,183 @@ paths:
         "403":
           description: Admin only
 
+  # ── Editorial (workspaces, collections, my desk) ─────────────────────────
+  /editorial/state:
+    get:
+      operationId: getEditorialState
+      tags: [editorial]
+      summary: Workspaces, collections visible to the user, and personal desk state
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditorialState"
+  /editorial/me:
+    patch:
+      operationId: updateEditorialMe
+      tags: [editorial]
+      summary: Partially update personal desk state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditorialMeUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditorialMe"
+  /editorial/recent:
+    post:
+      operationId: recordRecentMedia
+      tags: [editorial]
+      summary: Record that the user viewed a media asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditorialRecentInput"
+      responses:
+        "204":
+          description: Recorded
+  /editorial/scope:
+    get:
+      operationId: getEditorialScope
+      tags: [editorial]
+      summary: Resolve a workspace/collection scope into media ids (null = All Library)
+      parameters:
+        - name: workspace_id
+          in: query
+          schema:
+            type: string
+        - name: collection_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditorialScope"
+  /editorial/workspaces:
+    post:
+      operationId: createWorkspace
+      tags: [editorial]
+      summary: Create a workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceInput"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+  /editorial/workspaces/{id}:
+    patch:
+      operationId: updateWorkspace
+      tags: [editorial]
+      summary: Update a workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+    delete:
+      operationId: deleteWorkspace
+      tags: [editorial]
+      summary: Delete a workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /editorial/collections:
+    post:
+      operationId: createCollection
+      tags: [editorial]
+      summary: Create a collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectionInput"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Collection"
+  /editorial/collections/{id}:
+    patch:
+      operationId: updateCollection
+      tags: [editorial]
+      summary: Update a collection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectionInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Collection"
+    delete:
+      operationId: deleteCollection
+      tags: [editorial]
+      summary: Delete a collection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
 components:
   parameters:
     CampaignId:
@@ -4450,6 +4639,107 @@ components:
           schema:
             $ref: "#/components/schemas/CampaignErrorResponse"
   schemas:
+    EditorialRules:
+      type: object
+      properties:
+        text:
+          type: ["string", "null"]
+        air_year:
+          type: ["integer", "null"]
+        status:
+          type: ["string", "null"]
+        media_type:
+          type: ["string", "null"]
+        topic:
+          type: ["string", "null"]
+    Workspace:
+      type: object
+      required: [id, name, description, rules, media_ids, created_by]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        description: {type: string}
+        rules: {$ref: "#/components/schemas/EditorialRules"}
+        media_ids: {type: array, items: {type: string}}
+        created_by: {type: ["string", "null"]}
+    WorkspaceInput:
+      type: object
+      required: [name, description, rules, media_ids]
+      properties:
+        name: {type: string}
+        description: {type: string}
+        rules: {$ref: "#/components/schemas/EditorialRules"}
+        media_ids: {type: array, items: {type: string}}
+    CollectionItem:
+      type: object
+      required: [id, media_id, start, end, note]
+      properties:
+        id: {type: string}
+        media_id: {type: string}
+        start: {type: ["number", "null"]}
+        end: {type: ["number", "null"]}
+        note: {type: string}
+    Collection:
+      type: object
+      required: [id, name, description, workspace_id, kind, visibility, rules, items, created_by]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        description: {type: string}
+        workspace_id: {type: ["string", "null"]}
+        kind: {type: string, enum: [manual, smart]}
+        visibility: {type: string, enum: [personal, team]}
+        rules: {$ref: "#/components/schemas/EditorialRules"}
+        items: {type: array, items: {$ref: "#/components/schemas/CollectionItem"}}
+        created_by: {type: ["string", "null"]}
+    CollectionInput:
+      type: object
+      required: [name, description, workspace_id, kind, visibility, rules, items]
+      properties:
+        name: {type: string}
+        description: {type: string}
+        workspace_id: {type: ["string", "null"]}
+        kind: {type: string, enum: [manual, smart]}
+        visibility: {type: string, enum: [personal, team]}
+        rules: {$ref: "#/components/schemas/EditorialRules"}
+        items: {type: array, items: {$ref: "#/components/schemas/CollectionItem"}}
+    EditorialMe:
+      type: object
+      required: [workspace_id, workspace_ids, favorite_media_ids, saved_project_ids, recent_media_ids]
+      properties:
+        workspace_id: {type: ["string", "null"]}
+        workspace_ids: {type: array, items: {type: string}}
+        favorite_media_ids: {type: array, items: {type: string}}
+        saved_project_ids: {type: array, items: {type: string}}
+        recent_media_ids: {type: array, items: {type: string}}
+    EditorialMeUpdate:
+      type: object
+      properties:
+        workspace_id: {type: ["string", "null"]}
+        workspace_ids: {type: array, items: {type: string}}
+        favorite_media_ids: {type: array, items: {type: string}}
+        saved_project_ids: {type: array, items: {type: string}}
+    EditorialRecentInput:
+      type: object
+      required: [media_id]
+      properties:
+        media_id: {type: string}
+    EditorialState:
+      type: object
+      required: [workspaces, collections, me]
+      properties:
+        workspaces: {type: array, items: {$ref: "#/components/schemas/Workspace"}}
+        collections: {type: array, items: {$ref: "#/components/schemas/Collection"}}
+        me: {$ref: "#/components/schemas/EditorialMe"}
+    EditorialScope:
+      type: object
+      required: [media_ids, items]
+      properties:
+        media_ids:
+          type: ["array", "null"]
+          items: {type: string}
+          description: null means All Library
+        items: {type: array, items: {$ref: "#/components/schemas/CollectionItem"}}
     HealthStatus:
       type: object
       properties:
@@ -6683,6 +6973,12 @@ components:
         topic:
           type: ["string", "null"]
           description: Topic normalized using the same rules as GET /media
+        workspace_id:
+          type: ["string", "null"]
+          description: Workspace scope resolved server-side before search
+        collection_id:
+          type: ["string", "null"]
+          description: Collection scope resolved server-side before search
 
     SearchResult:
       type: object

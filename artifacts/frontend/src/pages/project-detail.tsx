@@ -1,3 +1,4 @@
+import { SaveProjectButton } from "@/components/editorial/desk-buttons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -639,6 +640,7 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight truncate">{project.name}</h1>
             {project.status === "archived" && <Badge variant="secondary">Archived</Badge>}
+            <SaveProjectButton projectId={project.id} />
           </div>
           {project.description && (
             <p className="text-sm text-muted-foreground mt-1">{project.description}</p>

@@ -302,6 +302,8 @@ export const ListMediaQueryParams = zod.object({
   "person": zod.coerce.string().optional().describe('Only assets a given person (by id) appears in'),
   "topic": zod.coerce.string().optional().describe('Only assets tagged with this topic (normalized key match)'),
   "folder": zod.coerce.string().optional().describe('Only assets in this folder (folder id, or \"root\" for unfiled assets)'),
+  "workspace_id": zod.coerce.string().optional().describe('Restrict to a workspace scope before pagination'),
+  "collection_id": zod.coerce.string().optional().describe('Restrict to a collection scope before pagination'),
   "ids": zod.coerce.string().optional().describe('Comma-separated asset ids — return exactly these assets (e.g. resolving a project\'s media pool regardless of pagination)'),
   "sort": zod.enum(['created_desc', 'created_asc', 'name_asc', 'name_desc', 'duration_desc', 'duration_asc', 'size_desc', 'size_asc']).optional(),
   "limit": zod.coerce.number().optional(),
@@ -3556,7 +3558,9 @@ export const SemanticSearchBody = zod.object({
   "status": zod.string().nullish(),
   "folder": zod.string().nullish().describe('Folder ID, or root for unfiled assets (folder_id IS NULL)'),
   "person": zod.string().nullish().describe('Person ID whose appearances are associated with the asset'),
-  "topic": zod.string().nullish().describe('Topic normalized using the same rules as GET \/media')
+  "topic": zod.string().nullish().describe('Topic normalized using the same rules as GET \/media'),
+  "workspace_id": zod.string().nullish().describe('Workspace scope resolved server-side before search'),
+  "collection_id": zod.string().nullish().describe('Collection scope resolved server-side before search')
 })
 
 export const SemanticSearchResponse = zod.object({
@@ -5893,5 +5897,297 @@ export const ListAuditLogResponse = zod.object({
   "ip": zod.string().nullish()
 }))
 })
+
+
+/**
+ * @summary Workspaces, collections visible to the user, and personal desk state
+ */
+export const GetEditorialStateResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "media_ids": zod.array(zod.string()),
+  "created_by": zod.string().nullable()
+})),
+  "collections": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "workspace_id": zod.string().nullable(),
+  "kind": zod.enum(['manual', 'smart']),
+  "visibility": zod.enum(['personal', 'team']),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start": zod.number().nullable(),
+  "end": zod.number().nullable(),
+  "note": zod.string()
+})),
+  "created_by": zod.string().nullable()
+})),
+  "me": zod.object({
+  "workspace_id": zod.string().nullable(),
+  "workspace_ids": zod.array(zod.string()),
+  "favorite_media_ids": zod.array(zod.string()),
+  "saved_project_ids": zod.array(zod.string()),
+  "recent_media_ids": zod.array(zod.string())
+})
+})
+
+
+/**
+ * @summary Partially update personal desk state
+ */
+export const UpdateEditorialMeBody = zod.object({
+  "workspace_id": zod.string().nullish(),
+  "workspace_ids": zod.array(zod.string()).optional(),
+  "favorite_media_ids": zod.array(zod.string()).optional(),
+  "saved_project_ids": zod.array(zod.string()).optional()
+})
+
+export const UpdateEditorialMeResponse = zod.object({
+  "workspace_id": zod.string().nullable(),
+  "workspace_ids": zod.array(zod.string()),
+  "favorite_media_ids": zod.array(zod.string()),
+  "saved_project_ids": zod.array(zod.string()),
+  "recent_media_ids": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Record that the user viewed a media asset
+ */
+export const RecordRecentMediaBody = zod.object({
+  "media_id": zod.string()
+})
+
+export const RecordRecentMediaResponse = zod.void()
+
+
+/**
+ * @summary Resolve a workspace/collection scope into media ids (null = All Library)
+ */
+export const GetEditorialScopeQueryParams = zod.object({
+  "workspace_id": zod.coerce.string().optional(),
+  "collection_id": zod.coerce.string().optional()
+})
+
+export const GetEditorialScopeResponse = zod.object({
+  "media_ids": zod.array(zod.string()).nullable().describe('null means All Library'),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start": zod.number().nullable(),
+  "end": zod.number().nullable(),
+  "note": zod.string()
+}))
+})
+
+
+/**
+ * @summary Create a workspace
+ */
+export const CreateWorkspaceBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string(),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "media_ids": zod.array(zod.string())
+})
+
+export const CreateWorkspaceResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "media_ids": zod.array(zod.string()),
+  "created_by": zod.string().nullable()
+})
+
+
+/**
+ * @summary Update a workspace
+ */
+export const UpdateWorkspaceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateWorkspaceBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string(),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "media_ids": zod.array(zod.string())
+})
+
+export const UpdateWorkspaceResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "media_ids": zod.array(zod.string()),
+  "created_by": zod.string().nullable()
+})
+
+
+/**
+ * @summary Delete a workspace
+ */
+export const DeleteWorkspaceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteWorkspaceResponse = zod.void()
+
+
+/**
+ * @summary Create a collection
+ */
+export const CreateCollectionBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string(),
+  "workspace_id": zod.string().nullable(),
+  "kind": zod.enum(['manual', 'smart']),
+  "visibility": zod.enum(['personal', 'team']),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start": zod.number().nullable(),
+  "end": zod.number().nullable(),
+  "note": zod.string()
+}))
+})
+
+export const CreateCollectionResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "workspace_id": zod.string().nullable(),
+  "kind": zod.enum(['manual', 'smart']),
+  "visibility": zod.enum(['personal', 'team']),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start": zod.number().nullable(),
+  "end": zod.number().nullable(),
+  "note": zod.string()
+})),
+  "created_by": zod.string().nullable()
+})
+
+
+/**
+ * @summary Update a collection
+ */
+export const UpdateCollectionParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateCollectionBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string(),
+  "workspace_id": zod.string().nullable(),
+  "kind": zod.enum(['manual', 'smart']),
+  "visibility": zod.enum(['personal', 'team']),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start": zod.number().nullable(),
+  "end": zod.number().nullable(),
+  "note": zod.string()
+}))
+})
+
+export const UpdateCollectionResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "workspace_id": zod.string().nullable(),
+  "kind": zod.enum(['manual', 'smart']),
+  "visibility": zod.enum(['personal', 'team']),
+  "rules": zod.object({
+  "text": zod.string().nullish(),
+  "air_year": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "media_type": zod.string().nullish(),
+  "topic": zod.string().nullish()
+}),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "media_id": zod.string(),
+  "start": zod.number().nullable(),
+  "end": zod.number().nullable(),
+  "note": zod.string()
+})),
+  "created_by": zod.string().nullable()
+})
+
+
+/**
+ * @summary Delete a collection
+ */
+export const DeleteCollectionParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteCollectionResponse = zod.void()
 
 

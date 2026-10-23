@@ -3,10 +3,11 @@ import re
 import time
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func as sa_func, text, literal, or_
 from ..database import get_db
+from ..auth import current_user
 from ..models import MediaAsset, TranscriptSegment, Scene, SearchHistory, Person, PersonAppearance, SavedSearch
 from ..schemas import (
     SearchQuery, SearchResponse, SearchResultOut, SearchHistoryItemOut,
@@ -113,8 +114,16 @@ def _literal_needle(value: str) -> str:
 
 
 @router.post("", response_model=SearchResponse)
-async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db)):
+async def semantic_search(body: SearchQuery, db: AsyncSession = Depends(get_db), request: Request = None):
     t0 = time.time()
+    if body.workspace_id or body.collection_id:
+        from .editorial import resolve_scope
+        scoped_ids, _ = await resolve_scope(db, current_user(request), body.workspace_id, body.collection_id)
+        if scoped_ids is not None:
+            allowed = set(scoped_ids)
+            body = body.model_copy(update={
+                "media_ids": [id for id in body.media_ids if id in allowed] if body.media_ids is not None else scoped_ids,
+            })
     results: list[SearchResultOut] = []
     scope = _search_asset_scope(body)
     limit = max(1, min(body.limit, 500))

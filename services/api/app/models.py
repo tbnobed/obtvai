@@ -702,6 +702,15 @@ class AuditLog(Base):
     ip: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
+class EditorialRecord(Base):
+    """Organization only: never grants or restricts access to source media."""
+    __tablename__ = "editorial_records"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    kind: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    owner_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
 class User(Base):
     __tablename__ = "users"
 

@@ -20,6 +20,10 @@ import { LibrarySearchResults } from "@/components/library-search/search-results
 import { SearchSelectionBar } from "@/components/library-search/search-selection-bar";
 import { SearchShelf, SaveSearchButton } from "@/components/library-search/search-shelf";
 import { ClipPlayerDialog, type PlayerClip } from "@/components/project/clip-player-dialog";
+import { ScopeBar, CollectionSelects } from "@/components/editorial/scope-bar";
+import { AddToCollectionMenu } from "@/components/editorial/add-to-collection";
+import { useEditorialState, useEditorialActions } from "@/hooks/use-editorial";
+import { readScope, withScope } from "@/lib/editorial";
 
 type LibSpriteMeta = {
   interval: number;
@@ -203,7 +207,36 @@ export default function Library() {
     navigate(`/library${qs ? `?${qs}` : ""}`);
   };
 
-  useEffect(() => { setPage(0); }, [personFilter, topicFilter, folderFilter]);
+  // ── Editorial scope (workspace / collection) ───────────────────────────
+  // URL wins (?ws=all | ?ws=<id>&col=<id>); otherwise the remembered workspace.
+  const editorial = useEditorialState();
+  const editorialActions = useEditorialActions();
+  const rawScope = readScope(searchString, editorial.data?.me.workspace_id);
+  // A deleted/hidden workspace or collection must never strand the view:
+  // once state has loaded, unknown ids fall back (collection → workspace → All Library).
+  const known = editorial.data;
+  const scope = known ? {
+    ...rawScope,
+    workspaceId: rawScope.workspaceId && known.workspaces.some(w => w.id === rawScope.workspaceId) ? rawScope.workspaceId : null,
+    collectionId: rawScope.collectionId && known.collections.some(c => c.id === rawScope.collectionId) ? rawScope.collectionId : null,
+  } : rawScope;
+  const scopeDropped = !!known && (rawScope.workspaceId !== scope.workspaceId || rawScope.collectionId !== scope.collectionId);
+  // Fail closed: if workspaces can't load we don't know the user's scope, so
+  // nothing is listed/searched unless they explicitly chose All Library.
+  const explicitAll = rawScope.explicit && !rawScope.workspaceId && !rawScope.collectionId;
+  const scopeBlocked = editorial.isError && !explicitAll && !known;
+  const scopeReady = !scopeBlocked && (explicitAll || !!known);
+  const scopeWorkspace = editorial.data?.workspaces.find(w => w.id === scope.workspaceId) ?? null;
+  const scopeCollection = editorial.data?.collections.find(c => c.id === scope.collectionId) ?? null;
+  const scoped = !!(scope.workspaceId || scope.collectionId);
+  const scopeLabel = scopeCollection?.name ?? scopeWorkspace?.name ?? "this scope";
+  const setScope = (workspaceId: string | null, collectionId: string | null) => {
+    const qs = withScope(window.location.search, workspaceId, collectionId);
+    navigate(`/library${qs ? `?${qs}` : ""}`);
+    editorialActions.rememberWorkspace(workspaceId);
+  };
+
+  useEffect(() => { setPage(0); }, [personFilter, topicFilter, folderFilter, scope.workspaceId, scope.collectionId]);
 
   // ── Unified search ─────────────────────────────────────────────────────
   // The committed query lives in the URL (search_q/scope; `q` belongs to the
@@ -236,10 +269,14 @@ export default function Library() {
   };
   const librarySearch = useLibrarySearch(searchQuery, searchScope, {
     media_type: mediaType, status: statusFilter, folder: folderFilter, person: personFilter, topic: topicFilter,
-  });
+    workspace_id: scope.workspaceId, collection_id: scope.collectionId,
+  }, scopeReady);
   const searching = librarySearch.active;
   const currentAnswer = archiveAnswer?.conversationId === askConversation ? archiveAnswer : null;
-  const showSources = askOpen && !searching && !!currentAnswer &&
+  // The assistant can't be reliably constrained to a scope yet, so it is
+  // disabled whenever the library is scoped or the scope is unresolved.
+  const assistantLocked = scoped || !scopeReady;
+  const showSources = askOpen && !assistantLocked && !searching && !!currentAnswer &&
     !!(currentAnswer.key || currentAnswer.loading || currentAnswer.error) &&
     !(dismissedAnswer?.conversationId === askConversation && dismissedAnswer.key === currentAnswer.key);
   const sourceResults = currentAnswer?.message ? answerSourceResults(currentAnswer.message.citations) : [];
@@ -261,11 +298,13 @@ export default function Library() {
     person: personFilter || undefined,
     topic: topicFilter || undefined,
     folder: folderFilter || undefined,
+    workspace_id: scope.workspaceId || undefined,
+    collection_id: scope.collectionId || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   };
   const { data, isLoading, isFetching, isError, refetch } = useListMedia(listParams, {
-    query: { queryKey: getListMediaQueryKey(listParams), retry: false, enabled: !searching && !showSources },
+    query: { queryKey: getListMediaQueryKey(listParams), retry: false, enabled: !searching && !showSources && scopeReady },
   });
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -1077,6 +1116,14 @@ export default function Library() {
 
       <div ref={gridRef} onMouseDown={onGridMouseDown} data-testid="library-scroll" className="library-scroll @container flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7 overflow-y-auto overflow-x-hidden flex flex-col min-w-0">
       <div className="mb-6 flex flex-col gap-3" data-testid="library-toolbar">
+        <ScopeBar workspace={scopeWorkspace} collection={scopeCollection}
+          workspaceId={scope.workspaceId} collectionId={scope.collectionId} onChange={setScope} explicitAllHint={explicitAll}
+          scopedCount={scoped && !searching && !showSources && data ? total : null} />
+        {scopeDropped && (
+          <p className="text-[11px] text-amber-300 -mt-1" data-testid="text-scope-dropped">
+            The selected {rawScope.collectionId && !scope.collectionId ? "collection" : "workspace"} no longer exists or isn't shared with you — showing {scope.workspaceId ? scopeWorkspace?.name : "All Library"}.
+          </p>
+        )}
         <div className="flex items-center justify-between gap-3 min-w-0">
           <div className="min-w-0 flex items-center gap-2">
             {!foldersVisible && <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0"
@@ -1088,14 +1135,20 @@ export default function Library() {
             <h1 className="text-2xl @3xl:text-3xl font-bold tracking-tight truncate">Media Library</h1>
             <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
               {searching
-                ? <>Searching for <span className="text-foreground" data-testid="text-applied-search">&ldquo;{searchQuery}&rdquo;</span> in {SEARCH_SCOPES.find(s => s.value === searchScope)?.label.toLowerCase()}{folderFilter || personFilter || topicFilter || statusFilter || mediaType !== "all" ? " · filtered" : ""}</>
+                ? <>Searching for <span className="text-foreground" data-testid="text-applied-search">&ldquo;{searchQuery}&rdquo;</span> in {SEARCH_SCOPES.find(s => s.value === searchScope)?.label.toLowerCase()}{scoped ? <> within {scopeCollection?.kind === "manual" ? "assets in " : ""}<span className="text-foreground">{scopeLabel}</span></> : null}{folderFilter || personFilter || topicFilter || statusFilter || mediaType !== "all" ? " · filtered" : ""}</>
                 : showSources ? "Latest assistant answer · sources from the entire archive"
-                : isLoading ? "Loading..." : `${total.toLocaleString()} item${total === 1 ? "" : "s"}`}
+                : isLoading || !scopeReady ? "Loading..." : `${total.toLocaleString()} item${total === 1 ? "" : "s"}${scoped ? ` in ${scopeLabel}` : ""}`}
               {selected.size > 0 && <span className="text-primary"> · {selected.size} selected</span>}
             </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {(selected.size > 0 || Object.keys(selectedMoments).length > 0) && (
+              <AddToCollectionMenu label="Collect" className="h-9" getEntries={() => [
+                ...Array.from(selected).map(id => ({ media_id: id, start: null, end: null })),
+                ...Object.values(selectedMoments).map(r => ({ media_id: r.media_id, start: r.start_time, end: r.end_time, note: r.snippet ?? "" })),
+              ]} />
+            )}
             <Button
               variant={askOpen ? "secondary" : "outline"}
               size="sm"
@@ -1627,10 +1680,23 @@ export default function Library() {
           </div>
         )}
       </div>
+      {scopeCollection && !searching && !showSources && (
+        <CollectionSelects collection={scopeCollection}
+          onPlay={(it, filename) => setPlayerClip({ media_id: it.media_id, start_time: it.start ?? 0, end_time: it.end ?? 0, label: it.note || undefined, filename })} />
+      )}
       <div className="mb-4">
         <SearchShelf onRun={(q, sc) => { setSearchInput(q); commitSearch(q, sc); }} onPlay={setPlayerClip} />
       </div>
-      {searching ? (
+      {scopeBlocked ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-5 py-8 text-center space-y-3" data-testid="library-scope-blocked">
+          <p className="text-sm font-medium">Your workspace scope couldn't be loaded.</p>
+          <p className="text-xs text-muted-foreground">Nothing is shown until it resolves, so you don't mistake the full archive for your workspace.</p>
+          <div className="flex justify-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => editorial.refetch()} data-testid="button-scope-retry"><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry</Button>
+            <Button size="sm" onClick={() => setScope(null, null)} data-testid="button-scope-all-library"><LibraryIcon className="h-3.5 w-3.5 mr-1.5" /> Browse All Library</Button>
+          </div>
+        </div>
+      ) : searching ? (
         <>
           {draftDiffers && searchInput.trim() && (
             <p className="text-xs text-muted-foreground mb-2" data-testid="text-draft-pending">
@@ -1893,14 +1959,29 @@ export default function Library() {
       </Dialog>
     {askOpen && (
         <ArchiveChatDock onClose={() => setAskOpen(false)}>
-          <ArchiveChatPanel
+          {assistantLocked ? (
+            <div className="flex flex-col items-start gap-3 p-5 text-sm" data-testid="notice-assistant-scope">
+              <div className="flex items-center justify-between w-full">
+                <span className="font-semibold flex items-center gap-2"><Sparkles className="h-4 w-4 text-muted-foreground" /> Assistant unavailable</span>
+                <button aria-label="Close assistant" className="text-muted-foreground hover:text-foreground" onClick={() => setAskOpen(false)} data-testid="button-close-locked-assistant"><X className="h-4 w-4" /></button>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {scopeBlocked || !scopeReady
+                  ? "Your library scope hasn't resolved, so the assistant is paused."
+                  : <>The assistant can't be limited to <span className="text-foreground">{scopeLabel}</span> yet. It only answers across the full archive.</>}
+              </p>
+              <Button size="sm" className="h-8 gap-1.5" onClick={() => setScope(null, null)} data-testid="button-assistant-all-library">
+                <LibraryIcon className="h-3.5 w-3.5" /> Switch to All Library
+              </Button>
+            </div>
+          ) : <ArchiveChatPanel
             conversationId={askConversation}
             onConversationChange={setAskConversation}
             onClose={() => setAskOpen(false)}
             onAnswerChange={setArchiveAnswer}
             initialQuestion={askHandoff}
             onInitialQuestionConsumed={() => updateAskParams(p => { p.delete("q"); p.delete("conv"); })}
-          />
+          />}
         </ArchiveChatDock>
       )}
     </div>

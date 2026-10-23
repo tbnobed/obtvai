@@ -42,4 +42,14 @@ export interface SearchQuery {
      * @nullable
      */
   topic?: string | null;
+  /**
+     * Workspace scope resolved server-side before search
+     * @nullable
+     */
+  workspace_id?: string | null;
+  /**
+     * Collection scope resolved server-side before search
+     * @nullable
+     */
+  collection_id?: string | null;
 }

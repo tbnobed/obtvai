@@ -9,7 +9,7 @@ import { buildSearchBody, MIN_QUERY, type LibrarySearchFilters, type SearchScope
  * the committed query, scope or filters change; stale responses from older
  * requests are dropped so the latest request always wins.
  */
-export function useLibrarySearch(query: string, scope: SearchScope, filters: LibrarySearchFilters) {
+export function useLibrarySearch(query: string, scope: SearchScope, filters: LibrarySearchFilters, enabled = true) {
   const queryClient = useQueryClient();
   const search = useSemanticSearch();
   const mutateRef = useRef(search.mutateAsync);
@@ -19,8 +19,9 @@ export function useLibrarySearch(query: string, scope: SearchScope, filters: Lib
     { data: null, loading: false, error: false, key: "" },
   );
   const active = query.trim().length >= MIN_QUERY;
+  const ready = active && enabled;
   const body = buildSearchBody(query, scope, filters);
-  const key = active ? JSON.stringify(body) : "";
+  const key = ready ? JSON.stringify(body) : "";
 
   const run = useCallback((k: string) => {
     if (!k) return;
@@ -50,7 +51,7 @@ export function useLibrarySearch(query: string, scope: SearchScope, filters: Lib
   return {
     active,
     data: state.key === key ? state.data : null,
-    loading: active && (state.loading || state.key !== key),
+    loading: active && (!ready || state.loading || state.key !== key),
     error: active && state.key === key && state.error,
     retry: () => run(key),
   };

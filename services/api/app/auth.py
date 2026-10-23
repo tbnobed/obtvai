@@ -119,6 +119,8 @@ async def _resolve_user(token: str):
 
 
 def _viewer_may(method: str, path: str) -> bool:
+    if (method, path) in {("PATCH", "/api/editorial/me"), ("POST", "/api/editorial/recent")}:
+        return True
     if method in ("GET", "HEAD", "OPTIONS"):
         return True
     if method == "POST":

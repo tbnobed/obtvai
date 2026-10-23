@@ -48,12 +48,15 @@ export type LibrarySearchFilters = {
   folder?: string;
   person?: string;
   topic?: string;
+  /** Editorial scope; both omitted = All Library */
+  workspace_id?: string | null;
+  collection_id?: string | null;
 };
 
 export function buildSearchBody(query: string, scope: SearchScope, f: LibrarySearchFilters) {
   const body: Record<string, unknown> = { query: query.trim(), search_type: scope, limit: SEARCH_LIMIT };
   if (f.media_type && f.media_type !== "all") body.media_type = f.media_type;
-  for (const k of ["status", "folder", "person", "topic"] as const) if (f[k]) body[k] = f[k];
+  for (const k of ["status", "folder", "person", "topic", "workspace_id", "collection_id"] as const) if (f[k]) body[k] = f[k];
   return body;
 }
 

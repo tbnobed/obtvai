@@ -137,7 +137,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       res.status(403).json({ detail: "Admin only" });
       return;
     }
-  } else if (user.role === "viewer" && !isRead && !(method === "POST" && viewerMayPost(path))) {
+  } else if (user.role === "viewer" && !isRead &&
+    !(method === "PATCH" && path === "/editorial/me") &&
+    !(method === "POST" && path === "/editorial/recent") &&
+    !(method === "POST" && viewerMayPost(path))) {
     res.status(403).json({ detail: "View-only account — ask an admin for edit access" });
     return;
   }

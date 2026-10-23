@@ -5,6 +5,139 @@
  * obtv-ai media intelligence platform API
  * OpenAPI spec version: 0.1.0
  */
+export interface EditorialRules {
+  /** @nullable */
+  text?: string | null;
+  /** @nullable */
+  air_year?: number | null;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  media_type?: string | null;
+  /** @nullable */
+  topic?: string | null;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  description: string;
+  rules: EditorialRules;
+  media_ids: string[];
+  /** @nullable */
+  created_by: string | null;
+}
+
+export interface WorkspaceInput {
+  name: string;
+  description: string;
+  rules: EditorialRules;
+  media_ids: string[];
+}
+
+export interface CollectionItem {
+  id: string;
+  media_id: string;
+  /** @nullable */
+  start: number | null;
+  /** @nullable */
+  end: number | null;
+  note: string;
+}
+
+export type CollectionKind = typeof CollectionKind[keyof typeof CollectionKind];
+
+
+export const CollectionKind = {
+  manual: 'manual',
+  smart: 'smart',
+} as const;
+
+export type CollectionVisibility = typeof CollectionVisibility[keyof typeof CollectionVisibility];
+
+
+export const CollectionVisibility = {
+  personal: 'personal',
+  team: 'team',
+} as const;
+
+export interface Collection {
+  id: string;
+  name: string;
+  description: string;
+  /** @nullable */
+  workspace_id: string | null;
+  kind: CollectionKind;
+  visibility: CollectionVisibility;
+  rules: EditorialRules;
+  items: CollectionItem[];
+  /** @nullable */
+  created_by: string | null;
+}
+
+export type CollectionInputKind = typeof CollectionInputKind[keyof typeof CollectionInputKind];
+
+
+export const CollectionInputKind = {
+  manual: 'manual',
+  smart: 'smart',
+} as const;
+
+export type CollectionInputVisibility = typeof CollectionInputVisibility[keyof typeof CollectionInputVisibility];
+
+
+export const CollectionInputVisibility = {
+  personal: 'personal',
+  team: 'team',
+} as const;
+
+export interface CollectionInput {
+  name: string;
+  description: string;
+  /** @nullable */
+  workspace_id: string | null;
+  kind: CollectionInputKind;
+  visibility: CollectionInputVisibility;
+  rules: EditorialRules;
+  items: CollectionItem[];
+}
+
+export interface EditorialMe {
+  /** @nullable */
+  workspace_id: string | null;
+  workspace_ids: string[];
+  favorite_media_ids: string[];
+  saved_project_ids: string[];
+  recent_media_ids: string[];
+}
+
+export interface EditorialMeUpdate {
+  /** @nullable */
+  workspace_id?: string | null;
+  workspace_ids?: string[];
+  favorite_media_ids?: string[];
+  saved_project_ids?: string[];
+}
+
+export interface EditorialRecentInput {
+  media_id: string;
+}
+
+export interface EditorialState {
+  workspaces: Workspace[];
+  collections: Collection[];
+  me: EditorialMe;
+}
+
+export interface EditorialScope {
+  /**
+     * null means All Library
+     * @nullable
+     */
+  media_ids: string[] | null;
+  items: CollectionItem[];
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -1806,6 +1939,16 @@ export interface SearchQuery {
      * @nullable
      */
   topic?: string | null;
+  /**
+     * Workspace scope resolved server-side before search
+     * @nullable
+     */
+  workspace_id?: string | null;
+  /**
+     * Collection scope resolved server-side before search
+     * @nullable
+     */
+  collection_id?: string | null;
 }
 
 export interface SearchResult {
@@ -3376,6 +3519,14 @@ topic?: string;
  */
 folder?: string;
 /**
+ * Restrict to a workspace scope before pagination
+ */
+workspace_id?: string;
+/**
+ * Restrict to a collection scope before pagination
+ */
+collection_id?: string;
+/**
  * Comma-separated asset ids — return exactly these assets (e.g. resolving a project's media pool regardless of pagination)
  */
 ids?: string;
@@ -3689,4 +3840,9 @@ export const ListAuditLogMethod = {
   PATCH: 'PATCH',
   DELETE: 'DELETE',
 } as const;
+
+export type GetEditorialScopeParams = {
+workspace_id?: string;
+collection_id?: string;
+};
 

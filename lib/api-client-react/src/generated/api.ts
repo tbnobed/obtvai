@@ -43,6 +43,8 @@ import type {
   ClipListUpdate,
   CoAppearanceGraph,
   CoMoments,
+  Collection,
+  CollectionInput,
   Conversation,
   CuratorFolderListOut,
   CuratorFolderSelectInput,
@@ -51,6 +53,11 @@ import type {
   DeleteSavedSearch200,
   DownloadTrainingDataset200,
   DubRequest,
+  EditorialMe,
+  EditorialMeUpdate,
+  EditorialRecentInput,
+  EditorialScope,
+  EditorialState,
   EmotionFacet,
   EmotionMomentsPage,
   ExportProjectCutBody,
@@ -58,6 +65,7 @@ import type {
   GetCaptionsParams,
   GetCoAppearancesParams,
   GetCoMomentsParams,
+  GetEditorialScopeParams,
   GetHighlightPreviewParams,
   GetKeywordHeatmapParams,
   GetMediaFrameParams,
@@ -199,7 +207,9 @@ import type {
   VoiceSampleUploadInput,
   VoiceSettings,
   VoiceSpeakRequest,
-  VoiceTuneRequest
+  VoiceTuneRequest,
+  Workspace,
+  WorkspaceInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -15369,4 +15379,735 @@ export function useListAuditLog<TData = Awaited<ReturnType<typeof listAuditLog>>
 
 
 
+
+export const getGetEditorialStateUrl = () => {
+
+
+
+
+  return `/api/editorial/state`
+}
+
+/**
+ * @summary Workspaces, collections visible to the user, and personal desk state
+ */
+export const getEditorialState = async ( options?: RequestInit): Promise<EditorialState> => {
+
+  return customFetch<EditorialState>(getGetEditorialStateUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEditorialStateQueryKey = () => {
+    return [
+    `/api/editorial/state`
+    ] as const;
+    }
+
+
+export const getGetEditorialStateQueryOptions = <TData = Awaited<ReturnType<typeof getEditorialState>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEditorialStateQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEditorialState>>> = ({ signal }) => getEditorialState({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEditorialState>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEditorialStateQueryResult = NonNullable<Awaited<ReturnType<typeof getEditorialState>>>
+export type GetEditorialStateQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Workspaces, collections visible to the user, and personal desk state
+ */
+
+export function useGetEditorialState<TData = Awaited<ReturnType<typeof getEditorialState>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEditorialStateQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateEditorialMeUrl = () => {
+
+
+
+
+  return `/api/editorial/me`
+}
+
+/**
+ * @summary Partially update personal desk state
+ */
+export const updateEditorialMe = async (editorialMeUpdate: EditorialMeUpdate, options?: RequestInit): Promise<EditorialMe> => {
+
+  return customFetch<EditorialMe>(getUpdateEditorialMeUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(editorialMeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateEditorialMeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEditorialMe>>, TError,{data: BodyType<EditorialMeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEditorialMe>>, TError,{data: BodyType<EditorialMeUpdate>}, TContext> => {
+
+const mutationKey = ['updateEditorialMe'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEditorialMe>>, {data: BodyType<EditorialMeUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateEditorialMe(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEditorialMeMutationResult = NonNullable<Awaited<ReturnType<typeof updateEditorialMe>>>
+    export type UpdateEditorialMeMutationBody = BodyType<EditorialMeUpdate>
+    export type UpdateEditorialMeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Partially update personal desk state
+ */
+export const useUpdateEditorialMe = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEditorialMe>>, TError,{data: BodyType<EditorialMeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEditorialMe>>,
+        TError,
+        {data: BodyType<EditorialMeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateEditorialMeMutationOptions(options));
+    }
+
+export const getRecordRecentMediaUrl = () => {
+
+
+
+
+  return `/api/editorial/recent`
+}
+
+/**
+ * @summary Record that the user viewed a media asset
+ */
+export const recordRecentMedia = async (editorialRecentInput: EditorialRecentInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRecordRecentMediaUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(editorialRecentInput)
+  }
+);}
+
+
+
+
+
+export const getRecordRecentMediaMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordRecentMedia>>, TError,{data: BodyType<EditorialRecentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordRecentMedia>>, TError,{data: BodyType<EditorialRecentInput>}, TContext> => {
+
+const mutationKey = ['recordRecentMedia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordRecentMedia>>, {data: BodyType<EditorialRecentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordRecentMedia(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordRecentMediaMutationResult = NonNullable<Awaited<ReturnType<typeof recordRecentMedia>>>
+    export type RecordRecentMediaMutationBody = BodyType<EditorialRecentInput>
+    export type RecordRecentMediaMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Record that the user viewed a media asset
+ */
+export const useRecordRecentMedia = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordRecentMedia>>, TError,{data: BodyType<EditorialRecentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordRecentMedia>>,
+        TError,
+        {data: BodyType<EditorialRecentInput>},
+        TContext
+      > => {
+      return useMutation(getRecordRecentMediaMutationOptions(options));
+    }
+
+export const getGetEditorialScopeUrl = (params?: GetEditorialScopeParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/editorial/scope?${stringifiedParams}` : `/api/editorial/scope`
+}
+
+/**
+ * @summary Resolve a workspace/collection scope into media ids (null = All Library)
+ */
+export const getEditorialScope = async (params?: GetEditorialScopeParams, options?: RequestInit): Promise<EditorialScope> => {
+
+  return customFetch<EditorialScope>(getGetEditorialScopeUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEditorialScopeQueryKey = (params?: GetEditorialScopeParams,) => {
+    return [
+    `/api/editorial/scope`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetEditorialScopeQueryOptions = <TData = Awaited<ReturnType<typeof getEditorialScope>>, TError = ErrorType<unknown>>(params?: GetEditorialScopeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialScope>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEditorialScopeQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEditorialScope>>> = ({ signal }) => getEditorialScope(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEditorialScope>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEditorialScopeQueryResult = NonNullable<Awaited<ReturnType<typeof getEditorialScope>>>
+export type GetEditorialScopeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Resolve a workspace/collection scope into media ids (null = All Library)
+ */
+
+export function useGetEditorialScope<TData = Awaited<ReturnType<typeof getEditorialScope>>, TError = ErrorType<unknown>>(
+ params?: GetEditorialScopeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEditorialScope>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEditorialScopeQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateWorkspaceUrl = () => {
+
+
+
+
+  return `/api/editorial/workspaces`
+}
+
+/**
+ * @summary Create a workspace
+ */
+export const createWorkspace = async (workspaceInput: WorkspaceInput, options?: RequestInit): Promise<Workspace> => {
+
+  return customFetch<Workspace>(getCreateWorkspaceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceInput)
+  }
+);}
+
+
+
+
+
+export const getCreateWorkspaceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkspace>>, TError,{data: BodyType<WorkspaceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createWorkspace>>, TError,{data: BodyType<WorkspaceInput>}, TContext> => {
+
+const mutationKey = ['createWorkspace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWorkspace>>, {data: BodyType<WorkspaceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createWorkspace(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateWorkspaceMutationResult = NonNullable<Awaited<ReturnType<typeof createWorkspace>>>
+    export type CreateWorkspaceMutationBody = BodyType<WorkspaceInput>
+    export type CreateWorkspaceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a workspace
+ */
+export const useCreateWorkspace = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkspace>>, TError,{data: BodyType<WorkspaceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createWorkspace>>,
+        TError,
+        {data: BodyType<WorkspaceInput>},
+        TContext
+      > => {
+      return useMutation(getCreateWorkspaceMutationOptions(options));
+    }
+
+export const getUpdateWorkspaceUrl = (id: string,) => {
+
+
+
+
+  return `/api/editorial/workspaces/${id}`
+}
+
+/**
+ * @summary Update a workspace
+ */
+export const updateWorkspace = async (id: string,
+    workspaceInput: WorkspaceInput, options?: RequestInit): Promise<Workspace> => {
+
+  return customFetch<Workspace>(getUpdateWorkspaceUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateWorkspaceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkspace>>, TError,{id: string;data: BodyType<WorkspaceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWorkspace>>, TError,{id: string;data: BodyType<WorkspaceInput>}, TContext> => {
+
+const mutationKey = ['updateWorkspace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWorkspace>>, {id: string;data: BodyType<WorkspaceInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateWorkspace(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWorkspaceMutationResult = NonNullable<Awaited<ReturnType<typeof updateWorkspace>>>
+    export type UpdateWorkspaceMutationBody = BodyType<WorkspaceInput>
+    export type UpdateWorkspaceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a workspace
+ */
+export const useUpdateWorkspace = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkspace>>, TError,{id: string;data: BodyType<WorkspaceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWorkspace>>,
+        TError,
+        {id: string;data: BodyType<WorkspaceInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateWorkspaceMutationOptions(options));
+    }
+
+export const getDeleteWorkspaceUrl = (id: string,) => {
+
+
+
+
+  return `/api/editorial/workspaces/${id}`
+}
+
+/**
+ * @summary Delete a workspace
+ */
+export const deleteWorkspace = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteWorkspaceUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteWorkspaceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkspace>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWorkspace>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteWorkspace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWorkspace>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteWorkspace(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteWorkspaceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWorkspace>>>
+
+    export type DeleteWorkspaceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a workspace
+ */
+export const useDeleteWorkspace = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkspace>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteWorkspace>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteWorkspaceMutationOptions(options));
+    }
+
+export const getCreateCollectionUrl = () => {
+
+
+
+
+  return `/api/editorial/collections`
+}
+
+/**
+ * @summary Create a collection
+ */
+export const createCollection = async (collectionInput: CollectionInput, options?: RequestInit): Promise<Collection> => {
+
+  return customFetch<Collection>(getCreateCollectionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(collectionInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCollectionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCollection>>, TError,{data: BodyType<CollectionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCollection>>, TError,{data: BodyType<CollectionInput>}, TContext> => {
+
+const mutationKey = ['createCollection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCollection>>, {data: BodyType<CollectionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCollection(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCollectionMutationResult = NonNullable<Awaited<ReturnType<typeof createCollection>>>
+    export type CreateCollectionMutationBody = BodyType<CollectionInput>
+    export type CreateCollectionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a collection
+ */
+export const useCreateCollection = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCollection>>, TError,{data: BodyType<CollectionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCollection>>,
+        TError,
+        {data: BodyType<CollectionInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCollectionMutationOptions(options));
+    }
+
+export const getUpdateCollectionUrl = (id: string,) => {
+
+
+
+
+  return `/api/editorial/collections/${id}`
+}
+
+/**
+ * @summary Update a collection
+ */
+export const updateCollection = async (id: string,
+    collectionInput: CollectionInput, options?: RequestInit): Promise<Collection> => {
+
+  return customFetch<Collection>(getUpdateCollectionUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(collectionInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateCollectionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCollection>>, TError,{id: string;data: BodyType<CollectionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCollection>>, TError,{id: string;data: BodyType<CollectionInput>}, TContext> => {
+
+const mutationKey = ['updateCollection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCollection>>, {id: string;data: BodyType<CollectionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCollection(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCollectionMutationResult = NonNullable<Awaited<ReturnType<typeof updateCollection>>>
+    export type UpdateCollectionMutationBody = BodyType<CollectionInput>
+    export type UpdateCollectionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a collection
+ */
+export const useUpdateCollection = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCollection>>, TError,{id: string;data: BodyType<CollectionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCollection>>,
+        TError,
+        {id: string;data: BodyType<CollectionInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCollectionMutationOptions(options));
+    }
+
+export const getDeleteCollectionUrl = (id: string,) => {
+
+
+
+
+  return `/api/editorial/collections/${id}`
+}
+
+/**
+ * @summary Delete a collection
+ */
+export const deleteCollection = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCollectionUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteCollectionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCollection>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCollection>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteCollection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCollection>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteCollection(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCollectionMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCollection>>>
+
+    export type DeleteCollectionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a collection
+ */
+export const useDeleteCollection = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCollection>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCollection>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteCollectionMutationOptions(options));
+    }
 

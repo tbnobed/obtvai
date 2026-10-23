@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutGrid,
+  Star,
   Film,
   Activity,
   Users,
@@ -145,6 +146,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutGrid },
+    { href: "/desk", label: "My Desk", icon: Star },
     { href: "/library", label: "Media Library", icon: Film },
     { href: "/studio", label: "Studio", icon: FolderKanban },
     { href: "/insights", label: "Insights", icon: Sparkles },

@@ -33,6 +33,7 @@ from .auth import auth_middleware
 from .routers.campaigns import CampaignAPIError
 from .routers import catalog
 from .routers import training
+from .routers import editorial
 
 
 # Columns created as `json` by earlier versions must become `jsonb` so workers
@@ -634,6 +635,7 @@ app.include_router(auth_router.router, prefix="/api")
 app.include_router(users_router.router, prefix="/api")
 app.include_router(audit_router.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
+app.include_router(editorial.router, prefix="/api")
 app.include_router(folders.router, prefix="/api")
 app.include_router(curator.router, prefix="/api")
 app.include_router(catalog.router, prefix="/api")

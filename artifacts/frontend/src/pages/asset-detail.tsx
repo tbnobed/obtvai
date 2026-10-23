@@ -45,6 +45,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { StudioTab } from "@/components/project/studio-tab";
 import { ReelRatingButtons } from "@/components/reel-rating";
+import { FavoriteButton } from "@/components/editorial/desk-buttons";
+import { AddToCollectionMenu } from "@/components/editorial/add-to-collection";
+import { useEditorialActions } from "@/hooks/use-editorial";
 
 const PLATFORM_META: Record<string, { label: string; Icon: typeof Youtube; color: string }> = {
   youtube: { label: "YouTube", Icon: Youtube, color: "text-red-500" },
@@ -111,6 +114,9 @@ export default function AssetDetail() {
   const timeParam = searchParams.get('t');
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  // My Desk: record each asset view once per visit (best-effort, never blocks playback).
+  const { recordRecentView } = useEditorialActions();
+  const recordedRef = useRef<string | null>(null);
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const deleteMutation = useDeleteMedia();
@@ -133,6 +139,12 @@ export default function AssetDetail() {
       refetchInterval: (data) => data?.state?.data?.status === 'processing' ? 3000 : false
     } 
   });
+
+  useEffect(() => {
+    if (!asset?.id || recordedRef.current === asset.id) return;
+    recordedRef.current = asset.id;
+    recordRecentView(asset.id);
+  }, [asset?.id, recordRecentView]);
 
   const { data: scenes } = useGetMediaScenes(id!, { query: { enabled: !!id, queryKey: getGetMediaScenesQueryKey(id!) } });
   const [transcriptLang, setTranscriptLang] = useState<string>("original");
@@ -1029,6 +1041,18 @@ export default function AssetDetail() {
           <div className={`px-6 py-3 ${(activeTab ?? "studio") === "studio" ? "" : "hidden"}`}>
             <div className="flex items-start justify-between gap-4 mb-2">
               <h1 className="text-2xl font-bold">{asset.filename}</h1>
+              <div className="flex items-center gap-2 shrink-0 ml-auto">
+                <FavoriteButton mediaId={asset.id} />
+                <AddToCollectionMenu label="Collect asset" getEntries={() => [{ media_id: asset.id, start: null, end: null }]} />
+                <AddToCollectionMenu label="Collect 10s select" getEntries={() => {
+                  // Timecoded select: from the playhead for 10s (editable in the collection).
+                  const v = videoRef.current;
+                  const dur = asset.duration_seconds ?? (v && Number.isFinite(v.duration) ? v.duration : 0);
+                  const start = Math.max(0, Math.floor(v?.currentTime ?? 0));
+                  const end = dur > 0 ? Math.min(dur, start + 10) : start + 10;
+                  return end > start ? [{ media_id: asset.id, start, end, note: "" }] : [{ media_id: asset.id, start: null, end: null }];
+                }} />
+              </div>
               <Button 
                 variant="outline" 
                 size="sm" 

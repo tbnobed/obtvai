@@ -31,6 +31,14 @@ topic?: string;
  */
 folder?: string;
 /**
+ * Restrict to a workspace scope before pagination
+ */
+workspace_id?: string;
+/**
+ * Restrict to a collection scope before pagination
+ */
+collection_id?: string;
+/**
  * Comma-separated asset ids — return exactly these assets (e.g. resolving a project's media pool regardless of pagination)
  */
 ids?: string;
