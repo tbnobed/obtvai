@@ -29,6 +29,7 @@ import logoUrl from "@assets/obtv.ai_1783921425806.png";
 import { useAuth, useIsAdmin, useLogoutAndReset } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -137,10 +138,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
-
-  useEffect(() => {
     setMobileMenuOpen(false);
   }, [location]);
 
@@ -179,7 +176,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <aside id="app-navigation" className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-border bg-card flex flex-col transform transition-transform md:relative md:translate-x-0 ${navigationVisible ? 'md:visible' : 'md:hidden'} ${mobileMenuOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'}`}>
         <div className="h-14 flex items-center justify-between px-4 border-b border-border shrink-0">
-          <img src={logoUrl} alt="OBTV.AI" className="h-10 w-auto rounded" />
+          <span className="logo-plate" data-theme-exception="brand-logo"><img src={logoUrl} alt="OBTV.AI" className="h-10 w-auto rounded" /></span>
           <Button variant="ghost" size="sm" className="hidden md:inline-flex gap-1 px-2 text-xs text-muted-foreground" onClick={toggleNavigation}
             aria-label="Hide navigation" title="Hide navigation" aria-controls="app-navigation" aria-expanded={navigationVisible}
             data-testid="button-hide-navigation">
@@ -211,6 +208,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
         {user && (
           <div className="p-2 border-t border-border">
+            <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-1">
+              <span className="text-xs text-muted-foreground" id="theme-label">Theme</span>
+              <ThemeToggle />
+            </div>
             {user.role === "viewer" && (
               <div className="flex items-center gap-2 px-3 py-1.5 mb-1 text-xs text-muted-foreground">
                 <Eye className="h-3.5 w-3.5" />
@@ -262,7 +263,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             aria-label="Open navigation" aria-controls="app-navigation" aria-expanded={mobileMenuOpen} data-testid="button-mobile-navigation">
             <Menu className="h-5 w-5" />
           </Button>
-          <img src={logoUrl} alt="OBTV.AI" className="h-7 w-auto rounded" />
+          <span className="logo-plate" data-theme-exception="brand-logo"><img src={logoUrl} alt="OBTV.AI" className="h-7 w-auto rounded" /></span>
+          <ThemeToggle className="ml-auto" />
         </div>
         {children}
       </main>

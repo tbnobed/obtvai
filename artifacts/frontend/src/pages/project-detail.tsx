@@ -119,7 +119,7 @@ function ReelEdlTimeline({ clips, onSeek }: { clips: ReelClip[]; onSeek: (t: num
 
   return (
     <div className="space-y-2">
-      <div className="flex h-8 w-full rounded overflow-hidden border border-border bg-black/40">
+      <div className="flex h-8 w-full rounded overflow-hidden border border-border bg-muted">
         {events.map((ev) => (
           <button
             key={ev.n}

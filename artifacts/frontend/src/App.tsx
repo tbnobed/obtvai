@@ -4,6 +4,7 @@ import { getGetCurrentUserQueryKey } from "@workspace/api-client-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
+import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider, useAuth, useIsAdmin } from "@/lib/auth";
 import NotFound from "@/pages/not-found";
 
@@ -127,6 +128,7 @@ function AuthGate() {
 
 function App() {
   return (
+    <ThemeProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
@@ -137,6 +139,7 @@ function App() {
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

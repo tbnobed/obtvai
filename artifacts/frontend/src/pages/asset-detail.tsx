@@ -967,7 +967,7 @@ export default function AssetDetail() {
             </Button>
           </div>
           <div className="flex-1 flex flex-col overflow-y-auto">
-          <div className={`relative px-6 pt-3 pb-2 bg-black flex-1 min-h-0 flex-col z-20 shadow-lg shadow-black/50 ${(activeTab ?? "studio") === "studio" ? "flex" : "hidden"}`}>
+          <div data-theme-exception="media-player" className={`dark relative px-6 pt-3 pb-2 bg-black flex-1 min-h-0 flex-col z-20 shadow-lg shadow-black/50 ${(activeTab ?? "studio") === "studio" ? "flex" : "hidden"}`}>
             {asset.status === 'ready' ? (
               <ArchiveVideo
                 ref={videoRef}
@@ -1491,7 +1491,7 @@ export default function AssetDetail() {
       </div>
 
       {/* ── Full-width NLE timeline band — Studio tab only ── */}
-      <div className={`shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[44vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" && (viewMode === "preview" || (asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0)) ? "" : "hidden"}`}>
+      <div data-theme-exception="nle-timeline" className={`dark text-foreground shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 pt-1.5 pb-2 max-h-[44vh] overflow-y-auto ${(activeTab ?? "studio") === "studio" && (viewMode === "preview" || (asset.status === 'ready' && (asset.duration_seconds ?? 0) > 0)) ? "" : "hidden"}`}>
         {/* Draft cut panel is portalled here from the Studio session — only visible in preview mode, replacing the lanes.
             The host div mounts unconditionally so the cut pane NEVER falls back into the assistant panel. */}
         <div ref={setCutHost} className={viewMode === "preview" ? "mb-2 empty:hidden" : "hidden"} />

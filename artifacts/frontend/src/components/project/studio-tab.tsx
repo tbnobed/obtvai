@@ -630,7 +630,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
               {/* Proportional EDL strip only in the standalone pane — in the bottom bar the
                   numbered bar sits on each card so widths always match the cards. */}
               {!cutHost && (
-              <div className="flex h-8 w-full rounded overflow-hidden border border-border bg-black/40">
+              <div className="flex h-8 w-full rounded overflow-hidden border border-border bg-muted">
                 {events.map((ev) => (
                   <div
                     key={ev.n}
@@ -654,7 +654,7 @@ export function StudioTab({ project, onOpenPool, focusVersion, fill, onSeekSourc
               />
               <div className="flex gap-1.5 overflow-x-auto pb-1">
                   {events.map((ev, i) => (
-                    <div key={ev.n} className="w-44 shrink-0 rounded border border-border bg-black/30 overflow-hidden" data-testid={`cut-block-${i}`}>
+                    <div key={ev.n} className="w-44 shrink-0 rounded border border-border bg-muted/40 overflow-hidden" data-testid={`cut-block-${i}`}>
                       {cutHost && (
                         <div
                           className={`${ev.color} h-6 flex items-center justify-center text-[10px] font-semibold text-black/80 tabular-nums cursor-pointer`}

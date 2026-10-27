@@ -156,7 +156,7 @@ export function MediaPoolTab({ project }: { project: Project }) {
                     </div>
                     {/* Usable-region bar: highlighted span within the full duration. */}
                     {dur > 0 && (
-                      <div className="mt-1 h-1 w-full rounded bg-white/10 relative overflow-hidden">
+                      <div className="mt-1 h-1 w-full rounded bg-muted relative overflow-hidden">
                         <div
                           className="absolute top-0 h-full rounded bg-primary/80"
                           style={{

@@ -127,9 +127,9 @@ export function CutStrips({
   const clipWidth = (c: CutClip) => `${((c.end_time - c.start_time) / total) * 100}%`;
 
   const track = (render: (c: CutClip, i: number) => React.ReactNode, h = "h-5") => (
-    <div className={`flex ${h} flex-1 rounded-sm overflow-hidden bg-white/5`}>
+    <div className={`flex ${h} flex-1 rounded-sm overflow-hidden bg-muted`}>
       {clips.map((c, i) => (
-        <div key={i} className="relative h-full border-r border-black/60 last:border-r-0" style={{ width: clipWidth(c) }}>
+        <div key={i} className="relative h-full border-r border-background last:border-r-0" style={{ width: clipWidth(c) }}>
           {render(c, i)}
         </div>
       ))}
@@ -139,11 +139,11 @@ export function CutStrips({
   return (
     <div className="space-y-1" data-testid="cut-strips">
       <div className="flex items-center gap-2">
-        <div className={`${LABEL_W} shrink-0 text-right text-[9px] font-bold tracking-widest text-zinc-600 select-none`}>[DIALOGUE]</div>
+        <div className={`${LABEL_W} shrink-0 text-right text-[9px] font-bold tracking-widest text-muted-foreground select-none`}>[DIALOGUE]</div>
         {track((c, i) => <TranscriptCell clip={c} kind="speech" onSeek={(t) => onSeek?.(i, t)} />)}
       </div>
       <div className="flex items-center gap-2">
-        <div className={`${LABEL_W} shrink-0 text-right text-[9px] font-bold tracking-widest text-zinc-600 select-none`}>[EMOTION]</div>
+        <div className={`${LABEL_W} shrink-0 text-right text-[9px] font-bold tracking-widest text-muted-foreground select-none`}>[EMOTION]</div>
         {track((c, i) => <TranscriptCell clip={c} kind="emotion" onSeek={(t) => onSeek?.(i, t)} />)}
       </div>
       {/* Person rows: ~4 visible at a time, scroll for the rest */}
@@ -153,7 +153,7 @@ export function CutStrips({
         return (
           <div key={person.person_id} className="flex items-center gap-2" data-testid={`cut-person-${person.person_id}`}>
             <div className={`${LABEL_W} shrink-0 flex items-center justify-end gap-1.5`} title={person.display_name}>
-              <span className="text-[10px] font-medium text-zinc-400 truncate">{person.display_name}</span>
+              <span className="text-[10px] font-medium text-muted-foreground truncate">{person.display_name}</span>
               {person.thumbnail_url ? (
                 <img src={`/api/thumbnails/${person.thumbnail_url}`} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" />
               ) : null}

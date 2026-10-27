@@ -186,7 +186,7 @@ export function CutPreviewPlayer({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-black/30 p-3" data-testid="inline-cut-preview">
+    <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-3" data-testid="inline-cut-preview">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">
             Preview draft cut — clip {index + 1} of {clips.length}
